@@ -3,10 +3,16 @@ import {
   reportSchema,
   type Comment,
   type CreateReport,
+  type Membership,
   type Report,
 } from '@markfix/contracts';
 
-type Bootstrap = { id: string; name: string; projects: Array<{ id: string; name: string }> };
+type Bootstrap = {
+  id: string;
+  name: string;
+  projects: Array<{ id: string; name: string }>;
+  memberships: Membership[];
+};
 type DetailedReport = Report & { comments: Comment[]; activities: Array<Record<string, unknown>> };
 
 const dataUrlBytes = (dataUrl: string): Uint8Array => {
@@ -97,16 +103,51 @@ export class MarkFixApi {
     });
   }
 
-  async listReports(projectId: string): Promise<Report[]> {
-    const reports = await this.request<Array<Record<string, unknown>>>(
-      `/v1/projects/${projectId}/reports`,
+  async listReports(
+    projectId: string,
+    filters: { status?: string; priority?: string; assigneeId?: string; cursor?: string } = {},
+  ): Promise<Report[]> {
+    const query = new URLSearchParams(
+      Object.entries(filters).filter((entry): entry is [string, string] => Boolean(entry[1])),
     );
-    return reports.map((report) =>
+    const page = await this.request<{
+      items: Array<Record<string, unknown>>;
+      nextCursor?: string;
+    }>(`/v1/projects/${projectId}/reports?${query}`);
+    return page.items.map((report) =>
       reportSchema.parse({
         ...report,
         screenshotUrl: `${this.baseUrl}/v1/artifacts/${String(report.screenshotPath)}`,
       }),
     );
+  }
+
+  listMembers(workspaceId: string): Promise<Membership[]> {
+    return this.request(`/v1/workspaces/${workspaceId}/members`);
+  }
+
+  createInvitation(workspaceId: string, email: string, role: string) {
+    return this.request<{ id: string; email: string; role: string; token: string }>(
+      `/v1/workspaces/${workspaceId}/invitations`,
+      { method: 'POST', body: JSON.stringify({ email, role }) },
+    );
+  }
+
+  acceptInvitation(token: string, displayName: string): Promise<Membership> {
+    return this.request(`/v1/invitations/${encodeURIComponent(token)}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ displayName }),
+    });
+  }
+
+  updateReport(
+    reportId: string,
+    update: { assigneeId?: string | null; priority?: string; expectedVersion: number },
+  ): Promise<Report> {
+    return this.request(`/v1/reports/${reportId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(update),
+    });
   }
 
   async getReport(id: string): Promise<DetailedReport> {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, CheckCircle2, CircleDot, MessageSquare, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, CircleDot, MessageSquare, Search, Sparkles, Users } from 'lucide-react';
 import { MarkFixApi } from '@markfix/api-client';
 import type { Annotation, CaptureContext, Report, ReportStatus } from '@markfix/contracts';
 
@@ -104,12 +104,24 @@ function CaptureViewer({ report }: { report: Report }) {
   );
 }
 
-function ReportDetail({ reportId, onBack }: { reportId: string; onBack: () => void }) {
+function ReportDetail({
+  reportId,
+  workspaceId,
+  onBack,
+}: {
+  reportId: string;
+  workspaceId: string;
+  onBack: () => void;
+}) {
   const queryClient = useQueryClient();
   const [comment, setComment] = useState('');
   const reportQuery = useQuery({
     queryKey: ['report', reportId],
     queryFn: () => api.getReport(reportId),
+  });
+  const membersQuery = useQuery({
+    queryKey: ['members', workspaceId],
+    queryFn: () => api.listMembers(workspaceId),
   });
   const commentMutation = useMutation({
     mutationFn: () => api.addComment(reportId, comment),
@@ -128,6 +140,14 @@ function ReportDetail({ reportId, onBack }: { reportId: string; onBack: () => vo
             : undefined;
       return api.transition(report.id, action, report.version, detail);
     },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['report', reportId] });
+      await queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+  const updateMutation = useMutation({
+    mutationFn: (update: { assigneeId?: string | null; priority?: string }) =>
+      api.updateReport(reportId, { ...update, expectedVersion: reportQuery.data?.version ?? 0 }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['report', reportId] });
       await queryClient.invalidateQueries({ queryKey: ['reports'] });
@@ -172,6 +192,37 @@ function ReportDetail({ reportId, onBack }: { reportId: string; onBack: () => vo
             </span>
             <span className="priority">{report.priority}</span>
           </div>
+          <div className="assignment-row">
+            <label>
+              <span>Assignee</span>
+              <select
+                value={report.assignee?.id ?? ''}
+                disabled={updateMutation.isPending}
+                onChange={(event) =>
+                  updateMutation.mutate({ assigneeId: event.target.value || null })
+                }
+              >
+                <option value="">Unassigned</option>
+                {membersQuery.data?.map((membership) => (
+                  <option key={membership.userId} value={membership.userId}>
+                    {membership.user.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Priority</span>
+              <select
+                value={report.priority}
+                disabled={updateMutation.isPending}
+                onChange={(event) => updateMutation.mutate({ priority: event.target.value })}
+              >
+                {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => (
+                  <option key={priority}>{priority}</option>
+                ))}
+              </select>
+            </label>
+          </div>
           <h2>
             <MessageSquare size={18} /> Discussion
           </h2>
@@ -205,14 +256,91 @@ function ReportDetail({ reportId, onBack }: { reportId: string; onBack: () => vo
   );
 }
 
+function TeamPanel({ workspaceId }: { workspaceId: string }) {
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('MEMBER');
+  const [inviteToken, setInviteToken] = useState<string>();
+  const members = useQuery({
+    queryKey: ['members', workspaceId],
+    queryFn: () => api.listMembers(workspaceId),
+  });
+  const invitation = useMutation({
+    mutationFn: () => api.createInvitation(workspaceId, email, role),
+    onSuccess: async (result) => {
+      setEmail('');
+      setInviteToken(result.token);
+      await queryClient.invalidateQueries({ queryKey: ['members', workspaceId] });
+    },
+  });
+  return (
+    <main className="content team-page">
+      <header>
+        <div>
+          <span className="eyebrow">WORKSPACE</span>
+          <h1>Team</h1>
+          <p>Invite collaborators and manage who can work on reports.</p>
+        </div>
+      </header>
+      <form
+        className="invite-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (email.trim()) invitation.mutate();
+        }}
+      >
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="teammate@company.com"
+        />
+        <select value={role} onChange={(event) => setRole(event.target.value)}>
+          <option value="ADMIN">Admin</option>
+          <option value="MEMBER">Member</option>
+          <option value="REPORTER">Reporter</option>
+        </select>
+        <button className="primary" type="submit" disabled={invitation.isPending}>
+          Send invite
+        </button>
+      </form>
+      {inviteToken && (
+        <div className="invite-token">
+          Invitation created. Share token: <code>{inviteToken}</code>
+        </div>
+      )}
+      <section className="member-list">
+        {members.data?.map((membership) => (
+          <article key={membership.userId}>
+            <div className="avatar">{membership.user.displayName.slice(0, 2).toUpperCase()}</div>
+            <div>
+              <strong>{membership.user.displayName}</strong>
+              <span>{membership.user.email}</span>
+            </div>
+            <b>{membership.role}</b>
+          </article>
+        ))}
+      </section>
+    </main>
+  );
+}
+
 export function App() {
   const [selectedReportId, setSelectedReportId] = useState<string>();
+  const [view, setView] = useState<'reports' | 'team'>('reports');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
   const bootstrap = useQuery({ queryKey: ['bootstrap'], queryFn: () => api.bootstrap() });
   const projectId = bootstrap.data?.projects[0]?.id;
   const reports = useQuery({
-    queryKey: ['reports', projectId],
-    queryFn: () => api.listReports(projectId as string),
+    queryKey: ['reports', projectId, statusFilter, priorityFilter],
+    queryFn: () =>
+      api.listReports(projectId as string, {
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...(priorityFilter ? { priority: priorityFilter } : {}),
+      }),
     enabled: Boolean(projectId),
   });
   const visibleReports = useMemo(
@@ -223,9 +351,33 @@ export function App() {
     [reports.data, search],
   );
 
-  if (selectedReportId)
+  if (selectedReportId && bootstrap.data)
     return (
-      <ReportDetail reportId={selectedReportId} onBack={() => setSelectedReportId(undefined)} />
+      <ReportDetail
+        reportId={selectedReportId}
+        workspaceId={bootstrap.data.id}
+        onBack={() => setSelectedReportId(undefined)}
+      />
+    );
+
+  if (view === 'team' && bootstrap.data)
+    return (
+      <div className="app-shell">
+        <aside className="sidebar">
+          <div className="brand">
+            <span>m</span> MarkFix
+          </div>
+          <nav>
+            <button onClick={() => setView('reports')}>
+              <CircleDot size={17} /> Reports
+            </button>
+            <button className="active">
+              <Users size={17} /> Team
+            </button>
+          </nav>
+        </aside>
+        <TeamPanel workspaceId={bootstrap.data.id} />
+      </div>
     );
 
   return (
@@ -235,12 +387,12 @@ export function App() {
           <span>m</span> MarkFix
         </div>
         <nav>
-          <a className="active">
+          <button className="active">
             <CircleDot size={17} /> Reports
-          </a>
-          <a>
-            <CheckCircle2 size={17} /> Resolved
-          </a>
+          </button>
+          <button onClick={() => setView('team')}>
+            <Users size={17} /> Team
+          </button>
         </nav>
         <div className="workspace">
           <small>WORKSPACE</small>
@@ -266,7 +418,23 @@ export function App() {
               placeholder="Search reports"
             />
           </label>
-          <button>All statuses</button>
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="">All statuses</option>
+            {Object.entries(statusLabel).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={priorityFilter}
+            onChange={(event) => setPriorityFilter(event.target.value)}
+          >
+            <option value="">All priorities</option>
+            {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => (
+              <option key={priority}>{priority}</option>
+            ))}
+          </select>
         </div>
         <section className="report-list">
           {visibleReports.length === 0 && (

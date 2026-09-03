@@ -147,11 +147,27 @@ export const createReportSchema = z.object({
   screenshotDataUrl: z.string().startsWith('data:image/png;base64,'),
 });
 
+export const userSummarySchema = z.object({
+  id: z.uuid(),
+  email: z.email(),
+  displayName: z.string().min(1).max(120),
+});
+
+export const membershipSchema = z.object({
+  workspaceId: z.uuid(),
+  userId: z.uuid(),
+  role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'REPORTER']),
+  status: z.enum(['ACTIVE', 'SUSPENDED']),
+  user: userSummarySchema,
+});
+
 export const reportSchema = createReportSchema.omit({ screenshotDataUrl: true }).extend({
   id: z.uuid(),
   status: z.enum(reportStatuses),
   version: z.number().int().positive(),
   screenshotUrl: z.string(),
+  assignee: userSummarySchema.nullable().optional(),
+  reporter: userSummarySchema.nullable().optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -160,6 +176,7 @@ export const commentSchema = z.object({
   id: z.uuid(),
   reportId: z.uuid(),
   authorName: z.string().min(1).max(120),
+  author: userSummarySchema.nullable().optional(),
   body: z.string().min(1).max(5000),
   createdAt: z.iso.datetime(),
 });
@@ -217,6 +234,7 @@ export type CaptureRequest = z.infer<typeof captureRequestSchema>;
 export type Comment = z.infer<typeof commentSchema>;
 export type CreateReport = z.infer<typeof createReportSchema>;
 export type ElementAnchor = z.infer<typeof elementAnchorSchema>;
+export type Membership = z.infer<typeof membershipSchema>;
 export type RegionAnchor = z.infer<typeof regionAnchorSchema>;
 export type Report = z.infer<typeof reportSchema>;
 export type ReportStatus = (typeof reportStatuses)[number];

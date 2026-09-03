@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Header, Headers, Param, Post, Put, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Headers,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Res,
+} from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import { AppService } from './app.service.js';
 
@@ -14,6 +26,26 @@ export class AppController {
   @Get('bootstrap')
   bootstrap() {
     return this.app.bootstrap();
+  }
+
+  @Get('workspaces/:workspaceId/members')
+  members(@Param('workspaceId') workspaceId: string) {
+    return this.app.listMembers(workspaceId);
+  }
+
+  @Get('workspaces/:workspaceId/invitations')
+  invitations(@Param('workspaceId') workspaceId: string) {
+    return this.app.listInvitations(workspaceId);
+  }
+
+  @Post('workspaces/:workspaceId/invitations')
+  invite(@Param('workspaceId') workspaceId: string, @Body() body: unknown) {
+    return this.app.createInvitation(workspaceId, body);
+  }
+
+  @Post('invitations/:token/accept')
+  acceptInvitation(@Param('token') token: string, @Body() body: unknown) {
+    return this.app.acceptInvitation(token, body);
   }
 
   @Post('projects/:projectId/report-submissions')
@@ -41,8 +73,18 @@ export class AppController {
   }
 
   @Get('projects/:projectId/reports')
-  listReports(@Param('projectId') projectId: string) {
-    return this.app.listReports(projectId);
+  listReports(
+    @Param('projectId') projectId: string,
+    @Query()
+    query: {
+      status?: string;
+      priority?: string;
+      assigneeId?: string;
+      cursor?: string;
+      limit?: string;
+    },
+  ) {
+    return this.app.listReports(projectId, query);
   }
 
   @Get('reports/:reportId')
@@ -58,6 +100,11 @@ export class AppController {
   @Post('reports/:reportId/transitions')
   transition(@Param('reportId') reportId: string, @Body() body: unknown) {
     return this.app.transition(reportId, body);
+  }
+
+  @Patch('reports/:reportId')
+  updateReport(@Param('reportId') reportId: string, @Body() body: unknown) {
+    return this.app.updateReport(reportId, body);
   }
 
   @Get('artifacts/:artifactId')

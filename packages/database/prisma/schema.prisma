@@ -30,12 +30,68 @@ enum SubmissionStatus {
   EXPIRED
 }
 
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  REPORTER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model User {
+  id                String       @id @default(uuid()) @db.Uuid
+  email             String       @unique
+  displayName       String
+  memberships       Membership[]
+  createdWorkspaces Workspace[]  @relation("WorkspaceCreator")
+  assignedReports   Report[]     @relation("ReportAssignee")
+  reportedReports   Report[]     @relation("ReportReporter")
+  comments          Comment[]
+  activities        Activity[]
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
 model Workspace {
-  id        String    @id @default(uuid()) @db.Uuid
-  name      String
-  projects  Project[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String
+  createdById String?      @db.Uuid
+  createdBy   User?        @relation("WorkspaceCreator", fields: [createdById], references: [id])
+  projects    Project[]
+  memberships Membership[]
+  invitations Invitation[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Membership {
+  workspaceId String           @db.Uuid
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String           @db.Uuid
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        WorkspaceRole
+  status      MembershipStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@id([workspaceId, userId])
+}
+
+model Invitation {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email       String
+  role        WorkspaceRole
+  tokenHash   String        @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 model Project {
@@ -68,35 +124,39 @@ model ReportSubmission {
 }
 
 model Report {
-  id             String            @id @default(uuid()) @db.Uuid
-  projectId      String            @db.Uuid
-  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  submissionId   String            @unique @db.Uuid
-  submission     ReportSubmission  @relation(fields: [submissionId], references: [id])
+  id             String           @id @default(uuid()) @db.Uuid
+  projectId      String           @db.Uuid
+  project        Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  submissionId   String           @unique @db.Uuid
+  submission     ReportSubmission @relation(fields: [submissionId], references: [id])
   title          String
   description    String
-  status         ReportStatus      @default(OPEN)
-  priority       ReportPriority    @default(MEDIUM)
-  version        Int               @default(1)
+  status         ReportStatus     @default(OPEN)
+  priority       ReportPriority   @default(MEDIUM)
+  version        Int              @default(1)
   captureBundle  Json
   screenshotPath String
+  assigneeId     String?          @db.Uuid
+  assignee       User?            @relation("ReportAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  reporterId     String?          @db.Uuid
+  reporter       User?            @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
   comments       Comment[]
   activities     Activity[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 }
 
 model Artifact {
-  id           String            @id @default(uuid()) @db.Uuid
-  submissionId String            @unique @db.Uuid
-  submission   ReportSubmission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  id           String           @id @default(uuid()) @db.Uuid
+  submissionId String           @unique @db.Uuid
+  submission   ReportSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   mimeType     String
   size         Int
   sha256       String
-  objectKey    String            @unique
-  uploadStatus String            @default("PENDING")
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  objectKey    String           @unique
+  uploadStatus String           @default("PENDING")
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 }
 
 model Comment {
@@ -104,6 +164,8 @@ model Comment {
   reportId   String   @db.Uuid
   report     Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
   authorName String
+  authorId   String?  @db.Uuid
+  author     User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
   body       String
   version    Int      @default(1)
   createdAt  DateTime @default(now())
@@ -116,5 +178,7 @@ model Activity {
   report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
   type      String
   payload   Json
+  actorId   String?  @db.Uuid
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 }
