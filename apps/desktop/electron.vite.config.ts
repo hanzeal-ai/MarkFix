@@ -3,7 +3,9 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  main: { plugins: [externalizeDepsPlugin({ exclude: ['@markfix/api-client', '@markfix/contracts'] })] },
+  main: {
+    plugins: [externalizeDepsPlugin({ exclude: ['@markfix/api-client', '@markfix/contracts'] })],
+  },
   preload: {
     plugins: [externalizeDepsPlugin({ exclude: ['@markfix/contracts'] })],
     build: {

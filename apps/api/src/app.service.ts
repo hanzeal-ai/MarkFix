@@ -2,12 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { ConflictException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
-import {
-  captureBundleSchema,
-  createReportSchema,
-  type CreateReport,
-  type ReportStatus,
-} from '@markfix/contracts';
+import { createReportSchema, type CreateReport, type ReportStatus } from '@markfix/contracts';
 import { Prisma } from '@markfix/database';
 import { DatabaseService } from './database.service.js';
 import { transitionReport, type TransitionAction } from './report-state.js';
