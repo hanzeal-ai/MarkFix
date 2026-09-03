@@ -109,6 +109,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@markfix/anchor-core':
+        specifier: workspace:*
+        version: link:../../packages/anchor-core
       '@markfix/annotation-model':
         specifier: workspace:*
         version: link:../../packages/annotation-model

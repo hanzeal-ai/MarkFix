@@ -9,6 +9,7 @@ import {
   type IpcMainInvokeEvent,
 } from 'electron';
 import {
+  anchorSchema,
   annotationSchema,
   annotationToolSchema,
   browserModeSchema,
@@ -18,9 +19,9 @@ import {
   ipcChannels,
   navigateInputSchema,
   recorderEventSchema,
+  type Anchor,
   type Annotation,
   type CreateReport,
-  type RegionAnchor,
 } from '@markfix/contracts';
 import { MarkFixApi } from '@markfix/api-client';
 import { CdpInspector } from './cdp-inspector.js';
@@ -38,6 +39,7 @@ let captureService: CaptureService | undefined;
 let draftStore: DraftStore | undefined;
 let shellWebContentsId: number | undefined;
 let currentAnnotations: Annotation[] = [];
+let currentAnchor: Anchor | undefined;
 let isSyncing = false;
 let syncTimer: ReturnType<typeof setInterval> | undefined;
 let recording = false;
@@ -172,6 +174,15 @@ const createWindow = async (): Promise<void> => {
     sendShell(ipcChannels.browserState, { url, loading: false });
     updatePageRevision(url);
   });
+  websiteView.webContents.on('did-finish-load', () => {
+    websiteView?.webContents.send('markfix:render-annotations', currentAnnotations);
+    if (currentAnchor?.kind === 'element')
+      websiteView?.webContents.send('markfix:resolve-anchor', {
+        anchor: currentAnchor,
+        force: true,
+      });
+    websiteView?.webContents.send('markfix:set-recorder', { enabled: recording, pageRevision });
+  });
   websiteView.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
     if (isMainFrame)
       sendShell(ipcChannels.browserState, {
@@ -184,6 +195,7 @@ const createWindow = async (): Promise<void> => {
   inspector = new CdpInspector(
     websiteView.webContents,
     (anchor) => {
+      currentAnchor = anchor;
       sendShell(ipcChannels.selection, anchor);
       websiteView?.webContents.send('markfix:show-anchor', anchor);
     },
@@ -263,6 +275,20 @@ const registerIpc = (): void => {
     currentAnnotations = annotations;
     websiteView?.webContents.send('markfix:render-annotations', annotations);
   });
+  ipcMain.handle(ipcChannels.syncAnchor, (event, input: unknown) => {
+    assertShellSender(event);
+    if (input === null) {
+      currentAnchor = undefined;
+      websiteView?.webContents.send('markfix:clear-anchor');
+      return;
+    }
+    currentAnchor = anchorSchema.parse(input);
+    if (currentAnchor.kind === 'element')
+      websiteView?.webContents.send('markfix:resolve-anchor', {
+        anchor: currentAnchor,
+        force: false,
+      });
+  });
   ipcMain.handle(ipcChannels.capture, async (event, input: unknown) => {
     assertShellSender(event);
     if (!captureService) throw new Error('Capture service is unavailable');
@@ -309,8 +335,10 @@ const registerIpc = (): void => {
   });
   ipcMain.on('markfix:target-region', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;
-    const candidate = input as RegionAnchor;
-    sendShell(ipcChannels.region, candidate);
+    const parsed = anchorSchema.safeParse(input);
+    if (!parsed.success || parsed.data.kind !== 'region') return;
+    currentAnchor = parsed.data;
+    sendShell(ipcChannels.region, parsed.data);
   });
   ipcMain.on('markfix:recorder-event', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;
@@ -334,6 +362,36 @@ const registerIpc = (): void => {
     if (!resolve) return;
     overlayVisibilityWaiters.delete(requestId);
     resolve();
+  });
+  ipcMain.on('markfix:anchor-recovery', (event, input: unknown) => {
+    if (event.sender.id !== websiteView?.webContents.id) return;
+    const payload = input as {
+      status?: unknown;
+      anchor?: unknown;
+      confidence?: unknown;
+      score?: unknown;
+    };
+    if (payload.status === 'lost') {
+      sendShell(ipcChannels.anchorRecovery, { status: 'lost' });
+      return;
+    }
+    const parsed = anchorSchema.safeParse(payload.anchor);
+    if (
+      payload.status !== 'resolved' ||
+      !parsed.success ||
+      parsed.data.kind !== 'element' ||
+      !['high', 'medium', 'low'].includes(String(payload.confidence)) ||
+      typeof payload.score !== 'number'
+    )
+      return;
+    currentAnchor = parsed.data;
+    websiteView?.webContents.send('markfix:show-anchor', parsed.data);
+    sendShell(ipcChannels.anchorRecovery, {
+      status: 'resolved',
+      anchor: parsed.data,
+      confidence: payload.confidence,
+      score: payload.score,
+    });
   });
 };
 

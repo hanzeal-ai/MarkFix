@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@markfix/annotation-model": "workspace:*",
+    "@markfix/anchor-core": "workspace:*",
     "@markfix/api-client": "workspace:*",
     "@markfix/contracts": "workspace:*",
     "@markfix/reproduction-model": "workspace:*",

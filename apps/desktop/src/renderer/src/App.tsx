@@ -142,6 +142,24 @@ export function App() {
         setModeState('browse');
         setNotice(`${parsed.data.type} annotation added.`);
       }),
+      window.markfix.onAnchorRecovery((payload) => {
+        const recovery = payload as {
+          status?: unknown;
+          anchor?: unknown;
+          confidence?: unknown;
+          score?: unknown;
+        };
+        if (recovery.status === 'lost') {
+          setNotice('The selected element moved or disappeared. Select it again or use a region.');
+          return;
+        }
+        const parsed = anchorSchema.safeParse(recovery.anchor);
+        if (!parsed.success || parsed.data.kind !== 'element') return;
+        setAnchor(parsed.data);
+        setNotice(
+          `Element restored with ${String(recovery.confidence)} confidence (${Math.round(Number(recovery.score) * 100)}%).`,
+        );
+      }),
       window.markfix.onSyncStatus((payload) => {
         const status = payload as { status?: unknown; outboxId?: unknown; message?: unknown };
         if (status.status === 'pending' && status.outboxId === pendingOutboxIdRef.current) {
@@ -178,6 +196,10 @@ export function App() {
   useEffect(() => {
     void window.markfix.syncAnnotations(annotations);
   }, [annotations]);
+
+  useEffect(() => {
+    void window.markfix.syncAnchor(anchor ?? null);
+  }, [anchor]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

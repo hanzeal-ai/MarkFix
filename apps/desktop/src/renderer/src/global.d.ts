@@ -1,6 +1,7 @@
 import type {
   Annotation,
   AnnotationTool,
+  Anchor,
   BrowserMode,
   CaptureContext,
   CaptureRequest,
@@ -18,6 +19,7 @@ declare global {
       setAnnotationTool(tool: AnnotationTool): Promise<void>;
       setRecording(enabled: boolean): Promise<void>;
       syncAnnotations(annotations: Annotation[]): Promise<void>;
+      syncAnchor(anchor: Anchor | null): Promise<void>;
       capture(request: CaptureRequest): Promise<
         CaptureContext & {
           dataUrl: string;
@@ -38,6 +40,7 @@ declare global {
       onRegion(listener: (payload: unknown) => void): () => void;
       onRecorderEvent(listener: (payload: unknown) => void): () => void;
       onAnnotationCreated(listener: (payload: unknown) => void): () => void;
+      onAnchorRecovery(listener: (payload: unknown) => void): () => void;
       onSyncStatus(listener: (payload: unknown) => void): () => void;
     };
   }

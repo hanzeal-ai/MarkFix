@@ -3,6 +3,7 @@ import {
   ipcChannels,
   type Annotation,
   type AnnotationTool,
+  type Anchor,
   type BrowserMode,
   type CaptureRequest,
   type CreateReport,
@@ -25,6 +26,7 @@ contextBridge.exposeInMainWorld('markfix', {
   setRecording: (enabled: boolean) => ipcRenderer.invoke(ipcChannels.setRecording, enabled),
   syncAnnotations: (annotations: Annotation[]) =>
     ipcRenderer.invoke(ipcChannels.syncAnnotations, annotations),
+  syncAnchor: (anchor: Anchor | null) => ipcRenderer.invoke(ipcChannels.syncAnchor, anchor),
   capture: (request: CaptureRequest) => ipcRenderer.invoke(ipcChannels.capture, request),
   saveDraft: (draft: unknown) => ipcRenderer.invoke(ipcChannels.saveDraft, draft),
   loadDraft: () => ipcRenderer.invoke(ipcChannels.loadDraft),
@@ -39,6 +41,8 @@ contextBridge.exposeInMainWorld('markfix', {
     subscribe(ipcChannels.recorderEvent, listener),
   onAnnotationCreated: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.annotationCreated, listener),
+  onAnchorRecovery: (listener: (payload: unknown) => void) =>
+    subscribe(ipcChannels.anchorRecovery, listener),
   onSyncStatus: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.syncStatus, listener),
 });

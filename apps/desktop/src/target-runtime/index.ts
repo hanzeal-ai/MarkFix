@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron';
 import type { Annotation, AnnotationTool, ElementAnchor, RecorderEvent } from '@markfix/contracts';
+import { pickBestAnchorCandidate } from '@markfix/anchor-core';
 
 type Mode = 'browse' | 'inspect' | 'region' | 'draw';
 type Point = { x: number; y: number };
@@ -23,6 +24,8 @@ let pendingScrollTimer: number | undefined;
 let lastRecordedScroll = { x: window.scrollX, y: window.scrollY };
 let dragOrigin: { target: Element; x: number; y: number } | undefined;
 let suppressClickUntil = 0;
+let trackedAnchor: ElementAnchor | undefined;
+let recoveryTimer: number | undefined;
 
 const svgElement = <K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] =>
   document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -313,6 +316,106 @@ const elementAnchor = (element: Element): ElementAnchor | undefined => {
   };
 };
 
+const anchorCenter = (anchor: ElementAnchor): Point => {
+  const quad = anchor.quadsCssPx[0] ?? [];
+  const xValues = quad.filter((_value, index) => index % 2 === 0);
+  const yValues = quad.filter((_value, index) => index % 2 === 1);
+  return {
+    x: xValues.reduce((sum, value) => sum + value, 0) / Math.max(1, xValues.length),
+    y: yValues.reduce((sum, value) => sum + value, 0) / Math.max(1, yValues.length),
+  };
+};
+
+const anchorIdentity = (anchor: ElementAnchor): string =>
+  JSON.stringify({
+    cssSelector: anchor.cssSelector,
+    textQuote: anchor.textQuote,
+    tagName: anchor.tagName,
+    attributes: anchor.attributes,
+    documentUrl: anchor.documentUrl,
+    framePath: anchor.framePath,
+  });
+
+const recoverAnchor = (): void => {
+  const original = trackedAnchor;
+  if (!original || location.href !== original.documentUrl) {
+    if (original) ipcRenderer.send('markfix:anchor-recovery', { status: 'lost' });
+    return;
+  }
+  const elements = new Set<Element>();
+  let selectorMatch: Element | null = null;
+  try {
+    selectorMatch = document.querySelector(original.cssSelector);
+    if (selectorMatch) elements.add(selectorMatch);
+  } catch {
+    // Obsolete selectors fall through to semantic candidates.
+  }
+  const semanticSelector = [
+    original.attributes.id ? `[id="${CSS.escape(original.attributes.id)}"]` : '',
+    original.attributes['data-testid']
+      ? `[data-testid="${CSS.escape(original.attributes['data-testid'])}"]`
+      : '',
+    original.attributes.name ? `[name="${CSS.escape(original.attributes.name)}"]` : '',
+    original.tagName,
+  ]
+    .filter(Boolean)
+    .join(',');
+  try {
+    document.querySelectorAll(semanticSelector).forEach((element) => {
+      if (elements.size < 120) elements.add(element);
+    });
+  } catch {
+    // Target pages can contain custom tag names that are not valid selectors.
+  }
+  const originalCenter = anchorCenter(original);
+  const entries = [...elements]
+    .map((element) => ({ element, anchor: elementAnchor(element) }))
+    .filter((item): item is { element: Element; anchor: ElementAnchor } => Boolean(item.anchor))
+    .map(({ element, anchor }) => {
+      const center = anchorCenter(anchor);
+      return {
+        anchor,
+        candidate: {
+          cssSelectorMatched: element === selectorMatch,
+          textQuote: anchor.textQuote,
+          tagName: anchor.tagName,
+          attributes: anchor.attributes,
+          centerDistanceCssPx: Math.hypot(center.x - originalCenter.x, center.y - originalCenter.y),
+        },
+      };
+    });
+  const best = pickBestAnchorCandidate(
+    original,
+    entries.map(({ candidate }) => candidate),
+  );
+  if (!best || best.match.confidence === 'low') {
+    ipcRenderer.send('markfix:anchor-recovery', {
+      status: 'lost',
+      score: best?.match.score ?? 0,
+    });
+    return;
+  }
+  const recovered = entries.find(({ candidate }) => candidate === best.candidate)?.anchor;
+  if (!recovered) return;
+  trackedAnchor = recovered;
+  showAnchor(recovered);
+  ipcRenderer.send('markfix:anchor-recovery', {
+    status: 'resolved',
+    anchor: recovered,
+    confidence: best.match.confidence,
+    score: best.match.score,
+  });
+};
+
+const scheduleAnchorRecovery = (): void => {
+  if (!trackedAnchor) return;
+  if (recoveryTimer) window.clearTimeout(recoveryTimer);
+  recoveryTimer = window.setTimeout(() => {
+    recoveryTimer = undefined;
+    recoverAnchor();
+  }, 180);
+};
+
 type RecorderPayload = Omit<RecorderEvent, 'protocolVersion' | 'runtimeId' | 'pageRevision'>;
 
 const emitRecorderEvent = (payload: RecorderPayload, revision = pageRevision): void => {
@@ -437,9 +540,11 @@ window.addEventListener('change', recordChange, true);
 window.addEventListener('scroll', recordScroll, true);
 window.addEventListener('pointerdown', recordPointerDown, true);
 window.addEventListener('pointerup', recordPointerUp, true);
-window.addEventListener('resize', () =>
-  surface?.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`),
-);
+window.addEventListener('resize', () => {
+  surface?.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
+  scheduleAnchorRecovery();
+});
+window.addEventListener('scroll', scheduleAnchorRecovery, true);
 ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
   if (!['browse', 'inspect', 'region', 'draw'].includes(String(requestedMode))) return;
   mode = requestedMode as Mode;
@@ -476,18 +581,41 @@ ipcRenderer.on('markfix:set-overlay-hidden', (_event, payload: unknown) => {
     }),
   );
 });
+ipcRenderer.on('markfix:resolve-anchor', (_event, payload: unknown) => {
+  const candidate = payload as { anchor?: unknown; force?: unknown };
+  const anchor = candidate.anchor as ElementAnchor | undefined;
+  if (!anchor || anchor.kind !== 'element') return;
+  if (
+    !candidate.force &&
+    trackedAnchor &&
+    anchorIdentity(anchor) === anchorIdentity(trackedAnchor)
+  ) {
+    trackedAnchor = anchor;
+    showAnchor(anchor);
+    return;
+  }
+  trackedAnchor = anchor;
+  recoverAnchor();
+});
+ipcRenderer.on('markfix:clear-anchor', () => {
+  trackedAnchor = undefined;
+  selectionShape?.remove();
+  selectionShape = undefined;
+});
 ipcRenderer.on('markfix:show-anchor', (_event, payload: AnchorPayload) => showAnchor(payload));
 ipcRenderer.on('markfix:render-annotations', (_event, payload: unknown) => {
   if (Array.isArray(payload)) renderAnnotations(payload as Annotation[]);
 });
 
 const observer = new MutationObserver(() => {
-  if (document.documentElement.querySelector(`[${hostAttribute}]`) || restoreCount >= 3) return;
-  restoreCount += 1;
-  mount();
+  if (!document.documentElement.querySelector(`[${hostAttribute}]`) && restoreCount < 3) {
+    restoreCount += 1;
+    mount();
+  }
+  scheduleAnchorRecovery();
 });
 window.addEventListener(
   'DOMContentLoaded',
-  () => observer.observe(document.documentElement, { childList: true }),
+  () => observer.observe(document.documentElement, { childList: true, subtree: true }),
   { once: true },
 );
