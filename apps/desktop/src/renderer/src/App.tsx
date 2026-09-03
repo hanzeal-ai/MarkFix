@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -8,14 +8,22 @@ import {
   Globe2,
   LoaderCircle,
   MousePointer2,
+  MoveUpRight,
+  PenLine,
+  Redo2,
   RefreshCw,
   Send,
   Sparkles,
+  Square,
+  Type,
+  Undo2,
 } from 'lucide-react';
 import {
   anchorSchema,
+  annotationSchema,
   type Anchor,
   type Annotation,
+  type AnnotationTool,
   type BrowserMode,
   type ReproductionStep,
 } from '@markfix/contracts';
@@ -30,13 +38,6 @@ type Draft = {
 };
 type BrowserState = { url?: string; loading?: boolean; error?: string };
 
-const annotationPosition = (anchor: Anchor): { x: number; y: number } => {
-  if (anchor.kind === 'region')
-    return { x: anchor.xCssPx + anchor.widthCssPx / 2, y: anchor.yCssPx + anchor.heightCssPx / 2 };
-  const quad = anchor.quadsCssPx[0] ?? [0, 0, 0, 0, 0, 0, 0, 0];
-  return { x: ((quad[0] ?? 0) + (quad[4] ?? 0)) / 2, y: ((quad[1] ?? 0) + (quad[5] ?? 0)) / 2 };
-};
-
 export function App() {
   const [url, setUrl] = useState('https://example.com');
   const [browserState, setBrowserState] = useState<BrowserState>({ loading: true });
@@ -44,24 +45,13 @@ export function App() {
   const [anchor, setAnchor] = useState<Anchor>();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [redoStack, setRedoStack] = useState<Annotation[]>([]);
+  const [activeTool, setActiveTool] = useState<AnnotationTool>('pin');
   const [reproduction, setReproduction] = useState<ReproductionStep[]>([]);
   const [screenshot, setScreenshot] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<string>();
-
-  const annotations = useMemo<Annotation[]>(() => {
-    if (!anchor || !description.trim()) return [];
-    return [
-      {
-        id: crypto.randomUUID(),
-        type: 'text',
-        color: '#ff4d5a',
-        createdAt: new Date().toISOString(),
-        position: annotationPosition(anchor),
-        text: description.trim(),
-      },
-    ];
-  }, [anchor, description]);
 
   useEffect(() => {
     const cleanups = [
@@ -103,6 +93,16 @@ export function App() {
           ].slice(-50),
         );
       }),
+      window.markfix.onAnnotationCreated((payload) => {
+        const parsed = annotationSchema.safeParse(payload);
+        if (!parsed.success) return;
+        setAnnotations((current) =>
+          current.some(({ id }) => id === parsed.data.id) ? current : [...current, parsed.data],
+        );
+        setRedoStack([]);
+        setModeState('browse');
+        setNotice(`${parsed.data.type} annotation added.`);
+      }),
     ];
     void window.markfix.loadDraft().then((payload) => {
       const draft = payload as Draft | undefined;
@@ -111,12 +111,17 @@ export function App() {
       setDescription(draft.description);
       setUrl(draft.url);
       setAnchor(draft.anchor);
+      setAnnotations(draft.annotations ?? []);
       setReproduction(draft.reproduction ?? []);
       if (draft.url) void window.markfix.navigate(draft.url);
       setNotice('Restored your local draft.');
     });
     return () => cleanups.forEach((cleanup) => cleanup());
   }, []);
+
+  useEffect(() => {
+    void window.markfix.syncAnnotations(annotations);
+  }, [annotations]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -142,6 +147,31 @@ export function App() {
           : undefined,
     );
     await window.markfix.setMode(nextMode);
+  };
+
+  const beginAnnotation = async (nextTool: AnnotationTool): Promise<void> => {
+    setActiveTool(nextTool);
+    await window.markfix.setAnnotationTool(nextTool);
+    await setMode('draw');
+    setNotice(`Draw a ${nextTool} annotation on the page.`);
+  };
+
+  const undo = (): void => {
+    setAnnotations((current) => {
+      const removed = current.at(-1);
+      if (!removed) return current;
+      setRedoStack((redo) => [...redo, removed]);
+      return current.slice(0, -1);
+    });
+  };
+
+  const redo = (): void => {
+    setRedoStack((current) => {
+      const restored = current.at(-1);
+      if (!restored) return current;
+      setAnnotations((annotations) => [...annotations, restored]);
+      return current.slice(0, -1);
+    });
   };
 
   const capture = async () => {
@@ -182,6 +212,8 @@ export function App() {
       setTitle('');
       setDescription('');
       setAnchor(undefined);
+      setAnnotations([]);
+      setRedoStack([]);
       setScreenshot(undefined);
       setReproduction([]);
     } catch (error) {
@@ -279,6 +311,54 @@ export function App() {
               </div>
             </>
           )}
+        </section>
+        <section className="annotation-toolbar">
+          <div className="annotation-tools">
+            <button
+              className={activeTool === 'pin' && mode === 'draw' ? 'active' : ''}
+              title="Pin"
+              onClick={() => void beginAnnotation('pin')}
+            >
+              <Crosshair />
+            </button>
+            <button
+              className={activeTool === 'rectangle' && mode === 'draw' ? 'active' : ''}
+              title="Rectangle"
+              onClick={() => void beginAnnotation('rectangle')}
+            >
+              <Square />
+            </button>
+            <button
+              className={activeTool === 'arrow' && mode === 'draw' ? 'active' : ''}
+              title="Arrow"
+              onClick={() => void beginAnnotation('arrow')}
+            >
+              <MoveUpRight />
+            </button>
+            <button
+              className={activeTool === 'text' && mode === 'draw' ? 'active' : ''}
+              title="Text"
+              onClick={() => void beginAnnotation('text')}
+            >
+              <Type />
+            </button>
+            <button
+              className={activeTool === 'pen' && mode === 'draw' ? 'active' : ''}
+              title="Pen"
+              onClick={() => void beginAnnotation('pen')}
+            >
+              <PenLine />
+            </button>
+          </div>
+          <div className="history-tools">
+            <button title="Undo" disabled={annotations.length === 0} onClick={undo}>
+              <Undo2 />
+            </button>
+            <button title="Redo" disabled={redoStack.length === 0} onClick={redo}>
+              <Redo2 />
+            </button>
+          </div>
+          <span>{annotations.length}</span>
         </section>
         <label className="field">
           <span>Title</span>

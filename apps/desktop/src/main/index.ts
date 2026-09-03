@@ -8,10 +8,13 @@ import {
   type IpcMainInvokeEvent,
 } from 'electron';
 import {
+  annotationSchema,
+  annotationToolSchema,
   browserModeSchema,
   captureBundleSchema,
   ipcChannels,
   navigateInputSchema,
+  type Annotation,
   type CreateReport,
   type RegionAnchor,
 } from '@markfix/contracts';
@@ -27,6 +30,7 @@ let websiteView: WebContentsView | undefined;
 let inspector: CdpInspector | undefined;
 let draftStore: DraftStore | undefined;
 let shellWebContentsId: number | undefined;
+let currentAnnotations: Annotation[] = [];
 
 const assertShellSender = (event: IpcMainInvokeEvent): void => {
   if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted IPC sender');
@@ -145,6 +149,17 @@ const registerIpc = (): void => {
     if (mode === 'inspect') await inspector?.start();
     else websiteView?.webContents.send('markfix:set-mode', mode);
   });
+  ipcMain.handle(ipcChannels.setAnnotationTool, (event, input: unknown) => {
+    assertShellSender(event);
+    const tool = annotationToolSchema.parse(input);
+    websiteView?.webContents.send('markfix:set-tool', tool);
+  });
+  ipcMain.handle(ipcChannels.syncAnnotations, (event, input: unknown) => {
+    assertShellSender(event);
+    const annotations = annotationSchema.array().max(500).parse(input);
+    currentAnnotations = annotations;
+    websiteView?.webContents.send('markfix:render-annotations', annotations);
+  });
   ipcMain.handle(ipcChannels.capture, async (event) => {
     assertShellSender(event);
     const image = await websiteView?.webContents.capturePage();
@@ -186,6 +201,14 @@ const registerIpc = (): void => {
   ipcMain.on('markfix:recorder-event', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;
     sendShell(ipcChannels.recorderEvent, input);
+  });
+  ipcMain.on('markfix:target-annotation', (event, input: unknown) => {
+    if (event.sender.id !== websiteView?.webContents.id) return;
+    const parsed = annotationSchema.safeParse(input);
+    if (!parsed.success || currentAnnotations.some(({ id }) => id === parsed.data.id)) return;
+    currentAnnotations = [...currentAnnotations, parsed.data];
+    sendShell(ipcChannels.annotationCreated, parsed.data);
+    websiteView?.webContents.send('markfix:render-annotations', currentAnnotations);
   });
 };
 

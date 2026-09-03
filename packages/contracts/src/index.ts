@@ -142,13 +142,18 @@ export const ipcChannels = {
   selection: 'inspector:selection',
   region: 'annotation:region',
   recorderEvent: 'recorder:event',
+  annotationCreated: 'annotation:created',
+  syncAnnotations: 'annotation:sync',
+  setAnnotationTool: 'annotation:set-tool',
 } as const;
 
 export const browserModeSchema = z.enum(['browse', 'inspect', 'region', 'draw']);
+export const annotationToolSchema = z.enum(['pin', 'rectangle', 'arrow', 'text', 'pen']);
 export const navigateInputSchema = z.object({ url: z.string().min(1).max(4096) });
 
 export type Anchor = z.infer<typeof anchorSchema>;
 export type Annotation = z.infer<typeof annotationSchema>;
+export type AnnotationTool = z.infer<typeof annotationToolSchema>;
 export type BrowserMode = z.infer<typeof browserModeSchema>;
 export type CaptureBundle = z.infer<typeof captureBundleSchema>;
 export type Comment = z.infer<typeof commentSchema>;
