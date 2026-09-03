@@ -20,12 +20,15 @@ declare global {
       }>;
       saveDraft(draft: unknown): Promise<void>;
       loadDraft(): Promise<unknown>;
+      clearDraft(): Promise<void>;
+      loadSyncStatus(outboxId: string): Promise<{ status: string; reportId?: string } | undefined>;
       submitReport(report: CreateReport): Promise<unknown>;
       onBrowserState(listener: (payload: unknown) => void): () => void;
       onSelection(listener: (payload: unknown) => void): () => void;
       onRegion(listener: (payload: unknown) => void): () => void;
       onRecorderEvent(listener: (payload: unknown) => void): () => void;
       onAnnotationCreated(listener: (payload: unknown) => void): () => void;
+      onSyncStatus(listener: (payload: unknown) => void): () => void;
     };
   }
 }

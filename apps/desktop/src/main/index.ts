@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import {
   app,
@@ -12,6 +13,7 @@ import {
   annotationToolSchema,
   browserModeSchema,
   captureBundleSchema,
+  createReportSchema,
   ipcChannels,
   navigateInputSchema,
   type Annotation,
@@ -21,6 +23,7 @@ import {
 import { MarkFixApi } from '@markfix/api-client';
 import { CdpInspector } from './cdp-inspector.js';
 import { DraftStore } from './draft-store.js';
+import type { OutboxEntry } from './draft-store.js';
 import { normalizeWebsiteUrl } from './url.js';
 
 const toolbarHeight = 68;
@@ -31,6 +34,8 @@ let inspector: CdpInspector | undefined;
 let draftStore: DraftStore | undefined;
 let shellWebContentsId: number | undefined;
 let currentAnnotations: Annotation[] = [];
+let isSyncing = false;
+let syncTimer: ReturnType<typeof setInterval> | undefined;
 
 const assertShellSender = (event: IpcMainInvokeEvent): void => {
   if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted IPC sender');
@@ -38,6 +43,38 @@ const assertShellSender = (event: IpcMainInvokeEvent): void => {
 
 const sendShell = (channel: string, payload: unknown): void => {
   if (!mainWindow?.isDestroyed()) mainWindow?.webContents.send(channel, payload);
+};
+
+const syncEntry = async (entry: OutboxEntry): Promise<void> => {
+  if (!draftStore) return;
+  try {
+    const candidate = createReportSchema.parse(entry.payload);
+    const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? 'http://localhost:4310');
+    const bootstrap = await api.bootstrap();
+    const projectId = bootstrap.projects[0]?.id;
+    if (!projectId) throw new Error('No MarkFix project is available');
+    const report = await api.submitReport({ ...candidate, projectId }, entry.idempotencyKey);
+    draftStore.markCompleted(entry.id, report.id);
+    sendShell(ipcChannels.syncStatus, {
+      status: 'completed',
+      outboxId: entry.id,
+      reportId: report.id,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown synchronization failure';
+    draftStore.markFailed(entry.id, entry.attempts + 1, message);
+    sendShell(ipcChannels.syncStatus, { status: 'pending', outboxId: entry.id, message });
+  }
+};
+
+const flushOutbox = async (): Promise<void> => {
+  if (isSyncing || !draftStore) return;
+  isSyncing = true;
+  try {
+    for (const entry of draftStore.claimDue()) await syncEntry(entry);
+  } finally {
+    isSyncing = false;
+  }
 };
 
 const layoutWebsite = (): void => {
@@ -179,19 +216,38 @@ const registerIpc = (): void => {
   });
   ipcMain.handle(ipcChannels.loadDraft, (event) => {
     assertShellSender(event);
-    return draftStore?.load();
+    const draft = draftStore?.load() as { pendingOutboxId?: unknown } | undefined;
+    if (typeof draft?.pendingOutboxId === 'string') {
+      const status = draftStore?.outboxStatus(draft.pendingOutboxId);
+      if (status?.status === 'COMPLETED') {
+        draftStore?.clear();
+        return undefined;
+      }
+    }
+    return draft;
+  });
+  ipcMain.handle(ipcChannels.clearDraft, (event) => {
+    assertShellSender(event);
+    draftStore?.clear();
+  });
+  ipcMain.handle(ipcChannels.loadSyncStatus, (event, input: unknown) => {
+    assertShellSender(event);
+    if (typeof input !== 'string') throw new Error('Invalid outbox ID');
+    return draftStore?.outboxStatus(input);
   });
   ipcMain.handle(ipcChannels.submitReport, async (event, input: unknown) => {
     assertShellSender(event);
-    const candidate = input as CreateReport;
+    const candidate = createReportSchema.parse(input) as CreateReport;
     captureBundleSchema.parse(candidate.captureBundle);
-    const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? 'http://localhost:4310');
-    const bootstrap = await api.bootstrap();
-    const projectId = bootstrap.projects[0]?.id;
-    if (!projectId) throw new Error('No MarkFix project is available');
-    const report = await api.submitReport({ ...candidate, projectId });
-    draftStore?.clear();
-    return report;
+    if (!draftStore) throw new Error('Local outbox is unavailable');
+    const requestHash = createHash('sha256').update(JSON.stringify(candidate)).digest('hex');
+    const entry = draftStore.enqueue(candidate, requestHash);
+    await flushOutbox();
+    const status = draftStore.outboxStatus(entry.id);
+    if (status?.status === 'COMPLETED') draftStore.clear();
+    return status?.status === 'COMPLETED'
+      ? { disposition: 'submitted', reportId: status.reportId }
+      : { disposition: 'queued', outboxId: entry.id };
   });
   ipcMain.on('markfix:target-region', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;
@@ -218,11 +274,15 @@ app.whenReady().then(async () => {
     callback(['clipboard-sanitized-write'].includes(permission));
   });
   draftStore = new DraftStore(join(app.getPath('userData'), 'markfix.sqlite'));
+  draftStore.recoverInterrupted();
   registerIpc();
   await createWindow();
+  void flushOutbox();
+  syncTimer = setInterval(() => void flushOutbox(), 15_000);
 });
 
 app.on('before-quit', () => {
+  if (syncTimer) clearInterval(syncTimer);
   inspector?.detach();
   draftStore?.close();
 });

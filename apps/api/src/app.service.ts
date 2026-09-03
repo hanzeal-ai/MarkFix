@@ -70,6 +70,17 @@ export class AppService implements OnModuleInit {
     ) {
       throw new ConflictException('Invalid artifact metadata');
     }
+    const existing = await this.database.artifact.findUnique({ where: { submissionId } });
+    if (existing) {
+      if (
+        existing.mimeType !== metadata.mimeType ||
+        existing.size !== metadata.size ||
+        existing.sha256 !== metadata.sha256
+      ) {
+        throw new ConflictException('Submission already has a different artifact');
+      }
+      return { artifactId: existing.id, uploadUrl: `/v1/uploads/${existing.id}` };
+    }
     const objectKey = `${submissionId}/${crypto.randomUUID()}.png`;
     const artifact = await this.database.artifact.create({
       data: {

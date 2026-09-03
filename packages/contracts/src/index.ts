@@ -137,6 +137,8 @@ export const ipcChannels = {
   capture: 'capture:visible',
   saveDraft: 'draft:save',
   loadDraft: 'draft:load',
+  clearDraft: 'draft:clear',
+  loadSyncStatus: 'sync:load-status',
   submitReport: 'report:submit',
   browserState: 'browser:state',
   selection: 'inspector:selection',
@@ -145,6 +147,7 @@ export const ipcChannels = {
   annotationCreated: 'annotation:created',
   syncAnnotations: 'annotation:sync',
   setAnnotationTool: 'annotation:set-tool',
+  syncStatus: 'sync:status',
 } as const;
 
 export const browserModeSchema = z.enum(['browse', 'inspect', 'region', 'draw']);

@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('markfix', {
   capture: () => ipcRenderer.invoke(ipcChannels.capture),
   saveDraft: (draft: unknown) => ipcRenderer.invoke(ipcChannels.saveDraft, draft),
   loadDraft: () => ipcRenderer.invoke(ipcChannels.loadDraft),
+  clearDraft: () => ipcRenderer.invoke(ipcChannels.clearDraft),
+  loadSyncStatus: (outboxId: string) => ipcRenderer.invoke(ipcChannels.loadSyncStatus, outboxId),
   submitReport: (report: CreateReport) => ipcRenderer.invoke(ipcChannels.submitReport, report),
   onBrowserState: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.browserState, listener),
@@ -35,4 +37,6 @@ contextBridge.exposeInMainWorld('markfix', {
     subscribe(ipcChannels.recorderEvent, listener),
   onAnnotationCreated: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.annotationCreated, listener),
+  onSyncStatus: (listener: (payload: unknown) => void) =>
+    subscribe(ipcChannels.syncStatus, listener),
 });

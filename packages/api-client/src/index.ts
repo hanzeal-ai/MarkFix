@@ -47,17 +47,27 @@ export class MarkFixApi {
     return this.request('/v1/bootstrap');
   }
 
-  async submitReport(input: CreateReport, idempotencyKey = crypto.randomUUID()): Promise<Report> {
+  async submitReport(
+    input: CreateReport,
+    idempotencyKey: string = crypto.randomUUID(),
+  ): Promise<Report> {
     const parsed = createReportSchema.parse(input);
     const { screenshotDataUrl, ...payload } = parsed;
-    const submission = await this.request<{ id: string }>(
-      `/v1/projects/${parsed.projectId}/report-submissions`,
-      {
-        method: 'POST',
-        headers: { 'idempotency-key': idempotencyKey },
-        body: JSON.stringify(payload),
-      },
-    );
+    const submission = await this.request<{
+      id: string;
+      artifact?: { id: string; uploadStatus: string } | null;
+      report?: Record<string, unknown> | null;
+    }>(`/v1/projects/${parsed.projectId}/report-submissions`, {
+      method: 'POST',
+      headers: { 'idempotency-key': idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+    if (submission.report) {
+      return reportSchema.parse({
+        ...submission.report,
+        screenshotUrl: `${this.baseUrl}/v1/artifacts/${String(submission.report.screenshotPath)}`,
+      });
+    }
     const bytes = dataUrlBytes(screenshotDataUrl);
     const presigned = await this.request<{ artifactId: string; uploadUrl: string }>(
       `/v1/report-submissions/${submission.id}/artifacts/presign`,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -35,6 +35,7 @@ type Draft = {
   anchor: Anchor | undefined;
   annotations: Annotation[];
   reproduction: ReproductionStep[];
+  pendingOutboxId?: string;
 };
 type BrowserState = { url?: string; loading?: boolean; error?: string };
 
@@ -52,6 +53,23 @@ export function App() {
   const [screenshot, setScreenshot] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<string>();
+  const [pendingOutboxId, setPendingOutboxId] = useState<string>();
+  const pendingOutboxIdRef = useRef<string | undefined>(undefined);
+
+  const clearReport = useCallback((outboxId?: string): boolean => {
+    if (outboxId && pendingOutboxIdRef.current !== outboxId) return false;
+    pendingOutboxIdRef.current = undefined;
+    setPendingOutboxId(undefined);
+    setTitle('');
+    setDescription('');
+    setAnchor(undefined);
+    setAnnotations([]);
+    setRedoStack([]);
+    setScreenshot(undefined);
+    setReproduction([]);
+    void window.markfix.clearDraft();
+    return true;
+  }, []);
 
   useEffect(() => {
     const cleanups = [
@@ -103,6 +121,15 @@ export function App() {
         setModeState('browse');
         setNotice(`${parsed.data.type} annotation added.`);
       }),
+      window.markfix.onSyncStatus((payload) => {
+        const status = payload as { status?: unknown; outboxId?: unknown; message?: unknown };
+        if (status.status === 'pending' && status.outboxId === pendingOutboxIdRef.current) {
+          setNotice(`Queued locally — ${String(status.message ?? 'waiting for the API')}`);
+        }
+        if (status.status !== 'completed' || status.outboxId !== pendingOutboxIdRef.current) return;
+        if (clearReport(String(status.outboxId)))
+          setNotice('Queued report synchronized successfully.');
+      }),
     ];
     void window.markfix.loadDraft().then((payload) => {
       const draft = payload as Draft | undefined;
@@ -113,11 +140,19 @@ export function App() {
       setAnchor(draft.anchor);
       setAnnotations(draft.annotations ?? []);
       setReproduction(draft.reproduction ?? []);
+      setPendingOutboxId(draft.pendingOutboxId);
+      pendingOutboxIdRef.current = draft.pendingOutboxId;
+      if (draft.pendingOutboxId) {
+        void window.markfix.loadSyncStatus(draft.pendingOutboxId).then((status) => {
+          if (status?.status === 'COMPLETED' && clearReport(draft.pendingOutboxId))
+            setNotice('Queued report synchronized successfully.');
+        });
+      }
       if (draft.url) void window.markfix.navigate(draft.url);
       setNotice('Restored your local draft.');
     });
     return () => cleanups.forEach((cleanup) => cleanup());
-  }, []);
+  }, [clearReport]);
 
   useEffect(() => {
     void window.markfix.syncAnnotations(annotations);
@@ -125,17 +160,22 @@ export function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void window.markfix.saveDraft({
-        title,
-        description,
-        url,
-        anchor,
-        annotations,
-        reproduction,
-      } satisfies Draft);
+      if (!title && !description && !anchor && annotations.length === 0 && !pendingOutboxId) {
+        void window.markfix.clearDraft();
+      } else {
+        void window.markfix.saveDraft({
+          title,
+          description,
+          url,
+          anchor,
+          annotations,
+          reproduction,
+          ...(pendingOutboxId ? { pendingOutboxId } : {}),
+        } satisfies Draft);
+      }
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [title, description, url, anchor, annotations, reproduction]);
+  }, [title, description, url, anchor, annotations, reproduction, pendingOutboxId]);
 
   const setMode = async (nextMode: BrowserMode): Promise<void> => {
     setModeState(nextMode);
@@ -187,7 +227,7 @@ export function App() {
     setNotice(undefined);
     try {
       const captureResult = await capture();
-      await window.markfix.submitReport({
+      const result = (await window.markfix.submitReport({
         projectId: '00000000-0000-0000-0000-000000000000',
         title: title.trim(),
         description: description.trim(),
@@ -207,15 +247,18 @@ export function App() {
           annotations,
           reproduction,
         },
-      });
+      })) as { disposition: 'submitted' | 'queued'; outboxId?: string };
+      if (result.disposition === 'queued' && result.outboxId) {
+        pendingOutboxIdRef.current = result.outboxId;
+        setPendingOutboxId(result.outboxId);
+        setNotice('Saved to the local outbox. MarkFix will retry automatically.');
+        const status = await window.markfix.loadSyncStatus(result.outboxId);
+        if (status?.status === 'COMPLETED' && clearReport(result.outboxId))
+          setNotice('Queued report synchronized successfully.');
+        return;
+      }
       setNotice('Report submitted. It is now visible in the dashboard.');
-      setTitle('');
-      setDescription('');
-      setAnchor(undefined);
-      setAnnotations([]);
-      setRedoStack([]);
-      setScreenshot(undefined);
-      setReproduction([]);
+      clearReport();
     } catch (error) {
       setNotice(
         error instanceof Error
@@ -393,10 +436,17 @@ export function App() {
         {notice && <div className="notice">{notice}</div>}
         <button
           className="submit"
-          disabled={!anchor || !title.trim() || !description.trim() || isSubmitting}
+          disabled={
+            !anchor ||
+            !title.trim() ||
+            !description.trim() ||
+            isSubmitting ||
+            Boolean(pendingOutboxId)
+          }
           onClick={() => void submit()}
         >
-          {isSubmitting ? <LoaderCircle className="spin" /> : <Send />} Submit report
+          {isSubmitting ? <LoaderCircle className="spin" /> : <Send />}{' '}
+          {pendingOutboxId ? 'Queued for sync' : 'Submit report'}
         </button>
         <p className="draft-state">Draft saved locally</p>
       </aside>
