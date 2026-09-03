@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - packages/*
+
+onlyBuiltDependencies:
+  - '@electron/rebuild'
+  - better-sqlite3
+  - electron
+  - esbuild

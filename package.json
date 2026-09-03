@@ -1,0 +1,30 @@
+{
+  "name": "markfix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mark it. Fix it. Visual feedback for any website.",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present build",
+    "dev": "concurrently -k -n api,dashboard,desktop -c blue,magenta,cyan \"pnpm --filter @markfix/api dev\" \"pnpm --filter @markfix/dashboard dev\" \"pnpm --filter @markfix/desktop dev\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "concurrently": "9.2.1",
+    "eslint": "9.39.1",
+    "globals": "16.5.0",
+    "prettier": "3.7.4",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.54.0",
+    "vitest": "4.1.11"
+  }
+}
