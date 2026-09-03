@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: markfix
+      POSTGRES_PASSWORD: markfix
+      POSTGRES_DB: markfix
+    ports: ['5432:5432']
+    volumes: ['postgres-data:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U markfix']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: markfix
+      MINIO_ROOT_PASSWORD: markfix-local-secret
+    ports: ['9000:9000', '9001:9001']
+    volumes: ['minio-data:/data']
+  api:
+    build: { context: .., dockerfile: infra/Dockerfile.api }
+    command:
+      ['sh', '-c', 'pnpm --filter @markfix/database db:push && pnpm --filter @markfix/api start']
+    environment:
+      DATABASE_URL: postgresql://markfix:markfix@postgres:5432/markfix?schema=public
+      PORT: 4310
+      ARTIFACT_DIR: /data/artifacts
+    ports: ['4310:4310']
+    volumes: ['artifact-data:/data/artifacts']
+    depends_on: { postgres: { condition: service_healthy } }
+  worker:
+    build: { context: .., dockerfile: infra/Dockerfile.api }
+    command: ['pnpm', '--filter', '@markfix/api', 'worker']
+    environment:
+      DATABASE_URL: postgresql://markfix:markfix@postgres:5432/markfix?schema=public
+      ARTIFACT_DIR: /data/artifacts
+    volumes: ['artifact-data:/data/artifacts']
+    depends_on: { api: { condition: service_started } }
+  dashboard:
+    build: { context: .., dockerfile: infra/Dockerfile.dashboard }
+    ports: ['4311:80']
+    depends_on: [api]
+volumes:
+  postgres-data:
+  minio-data:
+  artifact-data:

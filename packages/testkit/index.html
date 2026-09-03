@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>MarkFix compatibility lab</title>
+    <style>
+      body {
+        font: 16px system-ui;
+        margin: 0;
+        background: #f5f5ef;
+        color: #24302a;
+      }
+      header,
+      section {
+        padding: 32px;
+        max-width: 900px;
+        margin: auto;
+      }
+      .sticky {
+        position: sticky;
+        top: 0;
+        background: #17221e;
+        color: white;
+        z-index: 5;
+      }
+      button,
+      input {
+        padding: 12px 16px;
+        margin: 8px;
+        border: 1px solid #8b988f;
+        border-radius: 8px;
+      }
+      .transform {
+        transform: rotate(-2deg);
+        background: #e8ff70;
+        padding: 24px;
+        width: 280px;
+      }
+      .scroll {
+        height: 130px;
+        overflow: auto;
+        border: 1px solid #bbb;
+        padding: 12px;
+      }
+      .scroll div {
+        height: 500px;
+      }
+      canvas {
+        background: #dce5df;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="sticky"><strong>MarkFix compatibility lab</strong></header>
+    <section>
+      <h1>DOM selection</h1>
+      <button id="stable-button" aria-label="Create report">Create report</button
+      ><input name="email" placeholder="Email" />
+      <div class="transform">Transformed target</div>
+      <h2>Nested scroll</h2>
+      <div class="scroll">
+        <div><button data-testid="deep-button">Deep button</button></div>
+      </div>
+      <h2>Canvas fallback</h2>
+      <canvas width="500" height="180"></canvas>
+      <h2>Shadow DOM</h2>
+      <div id="shadow"></div>
+    </section>
+    <script>
+      const root = document.querySelector('#shadow').attachShadow({ mode: 'open' });
+      root.innerHTML = '<button aria-label="Shadow action">Shadow action</button>';
+      const ctx = document.querySelector('canvas').getContext('2d');
+      ctx.fillStyle = '#243e34';
+      ctx.fillRect(40, 40, 200, 80);
+      ctx.fillStyle = 'white';
+      ctx.font = '20px sans-serif';
+      ctx.fillText('Use region selection', 55, 87);
+    </script>
+  </body>
+</html>
