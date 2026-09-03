@@ -4,6 +4,7 @@ import {
   type Annotation,
   type AnnotationTool,
   type BrowserMode,
+  type CaptureRequest,
   type CreateReport,
 } from '@markfix/contracts';
 
@@ -24,7 +25,7 @@ contextBridge.exposeInMainWorld('markfix', {
   setRecording: (enabled: boolean) => ipcRenderer.invoke(ipcChannels.setRecording, enabled),
   syncAnnotations: (annotations: Annotation[]) =>
     ipcRenderer.invoke(ipcChannels.syncAnnotations, annotations),
-  capture: () => ipcRenderer.invoke(ipcChannels.capture),
+  capture: (request: CaptureRequest) => ipcRenderer.invoke(ipcChannels.capture, request),
   saveDraft: (draft: unknown) => ipcRenderer.invoke(ipcChannels.saveDraft, draft),
   loadDraft: () => ipcRenderer.invoke(ipcChannels.loadDraft),
   clearDraft: () => ipcRenderer.invoke(ipcChannels.clearDraft),

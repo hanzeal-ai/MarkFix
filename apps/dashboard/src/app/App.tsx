@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, CheckCircle2, CircleDot, MessageSquare, Search, Sparkles } from 'lucide-react';
 import { MarkFixApi } from '@markfix/api-client';
-import type { Report, ReportStatus } from '@markfix/contracts';
+import type { Annotation, CaptureContext, Report, ReportStatus } from '@markfix/contracts';
 
 const api = new MarkFixApi(import.meta.env.VITE_API_URL ?? 'http://localhost:4310');
 
@@ -21,6 +21,88 @@ const nextAction: Partial<Record<ReportStatus, { action: string; label: string }
   RESOLVED: { action: 'close', label: 'Close report' },
   CLOSED: { action: 'reopen', label: 'Reopen' },
 };
+
+const annotationShape = (annotation: Annotation, capture: CaptureContext) => {
+  const x = (value: number) => value - capture.originCssPx.x;
+  const y = (value: number) => value - capture.originCssPx.y;
+  if (annotation.type === 'pin')
+    return (
+      <g key={annotation.id}>
+        <circle cx={x(annotation.position.x)} cy={y(annotation.position.y)} r="13" />
+        <text x={x(annotation.position.x)} y={y(annotation.position.y) + 4}>
+          {annotation.label}
+        </text>
+      </g>
+    );
+  if (annotation.type === 'rectangle')
+    return (
+      <rect
+        key={annotation.id}
+        x={x(Math.min(annotation.start.x, annotation.end.x))}
+        y={y(Math.min(annotation.start.y, annotation.end.y))}
+        width={Math.abs(annotation.end.x - annotation.start.x)}
+        height={Math.abs(annotation.end.y - annotation.start.y)}
+        fill={`${annotation.color}20`}
+        stroke={annotation.color}
+      />
+    );
+  if (annotation.type === 'arrow')
+    return (
+      <line
+        key={annotation.id}
+        x1={x(annotation.start.x)}
+        y1={y(annotation.start.y)}
+        x2={x(annotation.end.x)}
+        y2={y(annotation.end.y)}
+        stroke={annotation.color}
+      />
+    );
+  if (annotation.type === 'pen')
+    return (
+      <polyline
+        key={annotation.id}
+        points={annotation.points.map((point) => `${x(point.x)},${y(point.y)}`).join(' ')}
+        stroke={annotation.color}
+        fill="none"
+      />
+    );
+  return (
+    <text
+      key={annotation.id}
+      className="annotation-text"
+      x={x(annotation.position.x)}
+      y={y(annotation.position.y)}
+      fill={annotation.color}
+    >
+      {annotation.text}
+    </text>
+  );
+};
+
+function CaptureViewer({ report }: { report: Report }) {
+  const capture: CaptureContext = report.captureBundle.capture ?? {
+    mode: 'visible',
+    imageWidthPx: report.captureBundle.page.viewportWidthCssPx,
+    imageHeightPx: report.captureBundle.page.viewportHeightCssPx,
+    widthCssPx: report.captureBundle.page.viewportWidthCssPx,
+    heightCssPx: report.captureBundle.page.viewportHeightCssPx,
+    originCssPx: { x: 0, y: 0 },
+    captureScale: 1,
+    truncated: false,
+  };
+  return (
+    <div className="capture-visual">
+      <img src={report.screenshotUrl} alt="Captured website" />
+      <svg
+        viewBox={`0 0 ${capture.widthCssPx} ${capture.heightCssPx}`}
+        preserveAspectRatio="xMidYMid meet"
+        aria-label="Captured annotations"
+      >
+        {report.captureBundle.annotations.map((annotation) => annotationShape(annotation, capture))}
+      </svg>
+    </div>
+  );
+}
 
 function ReportDetail({ reportId, onBack }: { reportId: string; onBack: () => void }) {
   const queryClient = useQueryClient();
@@ -78,7 +160,7 @@ function ReportDetail({ reportId, onBack }: { reportId: string; onBack: () => vo
       </section>
       <div className="detail-grid">
         <section className="capture-card">
-          <img src={report.screenshotUrl} alt="Captured website with annotation" />
+          <CaptureViewer report={report} />
           <span className="capture-pill">
             <CircleDot size={14} /> {report.captureBundle.annotations.length} annotations
           </span>

@@ -112,12 +112,30 @@ export const recorderEventSchema = z.object({
   endAnchor: anchorSchema.optional(),
 });
 
+export const captureRequestSchema = z.object({
+  mode: z.enum(['visible', 'element', 'full-page']),
+  anchor: anchorSchema.optional(),
+});
+
+export const captureContextSchema = z.object({
+  mode: z.enum(['visible', 'element', 'full-page']),
+  imageWidthPx: z.number().int().positive(),
+  imageHeightPx: z.number().int().positive(),
+  widthCssPx: z.number().positive(),
+  heightCssPx: z.number().positive(),
+  originCssPx: pointSchema,
+  captureScale: z.number().positive(),
+  truncated: z.boolean().default(false),
+  warning: z.string().max(500).optional(),
+});
+
 export const captureBundleSchema = z.object({
   schemaVersion: z.literal(1),
   page: pageSnapshotSchema,
   anchor: anchorSchema,
   annotations: z.array(annotationSchema).max(500),
   reproduction: z.array(reproductionStepSchema).max(500),
+  capture: captureContextSchema.optional(),
 });
 
 export const createReportSchema = z.object({
@@ -192,6 +210,8 @@ export type Annotation = z.infer<typeof annotationSchema>;
 export type AnnotationTool = z.infer<typeof annotationToolSchema>;
 export type BrowserMode = z.infer<typeof browserModeSchema>;
 export type CaptureBundle = z.infer<typeof captureBundleSchema>;
+export type CaptureContext = z.infer<typeof captureContextSchema>;
+export type CaptureRequest = z.infer<typeof captureRequestSchema>;
 export type Comment = z.infer<typeof commentSchema>;
 export type CreateReport = z.infer<typeof createReportSchema>;
 export type ElementAnchor = z.infer<typeof elementAnchorSchema>;

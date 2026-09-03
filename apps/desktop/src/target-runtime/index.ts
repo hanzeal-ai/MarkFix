@@ -463,6 +463,19 @@ ipcRenderer.on('markfix:set-recorder', (_event, payload: unknown) => {
     dragOrigin = undefined;
   }
 });
+ipcRenderer.on('markfix:set-overlay-hidden', (_event, payload: unknown) => {
+  const candidate = payload as { requestId?: unknown; hidden?: unknown };
+  if (typeof candidate.requestId !== 'string' || typeof candidate.hidden !== 'boolean') return;
+  const host = document.documentElement.querySelector<HTMLElement>(`[${hostAttribute}]`);
+  if (!host) return;
+  host.style.visibility = candidate.hidden ? 'hidden' : 'visible';
+  window.requestAnimationFrame(() =>
+    ipcRenderer.send('markfix:overlay-visibility-changed', {
+      requestId: candidate.requestId,
+      hidden: candidate.hidden,
+    }),
+  );
+});
 ipcRenderer.on('markfix:show-anchor', (_event, payload: AnchorPayload) => showAnchor(payload));
 ipcRenderer.on('markfix:render-annotations', (_event, payload: unknown) => {
   if (Array.isArray(payload)) renderAnnotations(payload as Annotation[]);

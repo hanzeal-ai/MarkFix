@@ -1,4 +1,11 @@
-import type { Annotation, AnnotationTool, BrowserMode, CreateReport } from '@markfix/contracts';
+import type {
+  Annotation,
+  AnnotationTool,
+  BrowserMode,
+  CaptureContext,
+  CaptureRequest,
+  CreateReport,
+} from '@markfix/contracts';
 
 declare global {
   interface Window {
@@ -11,14 +18,16 @@ declare global {
       setAnnotationTool(tool: AnnotationTool): Promise<void>;
       setRecording(enabled: boolean): Promise<void>;
       syncAnnotations(annotations: Annotation[]): Promise<void>;
-      capture(): Promise<{
-        dataUrl: string;
-        width: number;
-        height: number;
-        deviceScaleFactor: number;
-        url: string;
-        title: string;
-      }>;
+      capture(request: CaptureRequest): Promise<
+        CaptureContext & {
+          dataUrl: string;
+          pageUrl: string;
+          pageTitle: string;
+          viewportWidthCssPx: number;
+          viewportHeightCssPx: number;
+          deviceScaleFactor: number;
+        }
+      >;
       saveDraft(draft: unknown): Promise<void>;
       loadDraft(): Promise<unknown>;
       clearDraft(): Promise<void>;

@@ -290,10 +290,50 @@ header p,
   display: grid;
   place-items: center;
 }
-.capture-card img {
+.capture-visual {
+  position: absolute;
+  inset: 0;
+}
+.capture-visual img,
+.capture-visual svg {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+}
+.capture-visual img {
   object-fit: contain;
+}
+.capture-visual svg {
+  pointer-events: none;
+}
+.capture-visual svg circle {
+  fill: #ff4d5a;
+  stroke: white;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.capture-visual svg line,
+.capture-visual svg rect,
+.capture-visual svg polyline {
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.capture-visual svg text {
+  fill: white;
+  font:
+    700 11px Manrope,
+    sans-serif;
+  text-anchor: middle;
+}
+.capture-visual svg .annotation-text {
+  font-size: 16px;
+  text-anchor: start;
+  paint-order: stroke;
+  stroke: white;
+  stroke-width: 3;
 }
 .capture-pill {
   position: absolute;

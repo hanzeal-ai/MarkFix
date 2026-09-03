@@ -12,6 +12,7 @@ import {
   annotationSchema,
   annotationToolSchema,
   browserModeSchema,
+  captureRequestSchema,
   captureBundleSchema,
   createReportSchema,
   ipcChannels,
@@ -23,6 +24,7 @@ import {
 } from '@markfix/contracts';
 import { MarkFixApi } from '@markfix/api-client';
 import { CdpInspector } from './cdp-inspector.js';
+import { CaptureService } from './capture-service.js';
 import { DraftStore } from './draft-store.js';
 import type { OutboxEntry } from './draft-store.js';
 import { normalizeWebsiteUrl } from './url.js';
@@ -32,6 +34,7 @@ const panelWidth = 392;
 let mainWindow: BrowserWindow | undefined;
 let websiteView: WebContentsView | undefined;
 let inspector: CdpInspector | undefined;
+let captureService: CaptureService | undefined;
 let draftStore: DraftStore | undefined;
 let shellWebContentsId: number | undefined;
 let currentAnnotations: Annotation[] = [];
@@ -40,6 +43,7 @@ let syncTimer: ReturnType<typeof setInterval> | undefined;
 let recording = false;
 let pageRevision = randomUUID();
 const mainRecorderRuntimeId = randomUUID();
+const overlayVisibilityWaiters = new Map<string, () => void>();
 
 const assertShellSender = (event: IpcMainInvokeEvent): void => {
   if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted IPC sender');
@@ -62,6 +66,22 @@ const updatePageRevision = (url: string): void => {
       url,
     });
   }
+};
+
+const setOverlayHidden = (hidden: boolean): Promise<void> => {
+  if (!websiteView) return Promise.reject(new Error('Website view is unavailable'));
+  const requestId = randomUUID();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      overlayVisibilityWaiters.delete(requestId);
+      reject(new Error('Overlay did not acknowledge the capture transaction'));
+    }, 1500);
+    overlayVisibilityWaiters.set(requestId, () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    websiteView?.webContents.send('markfix:set-overlay-hidden', { requestId, hidden });
+  });
 };
 
 const syncEntry = async (entry: OutboxEntry): Promise<void> => {
@@ -172,6 +192,12 @@ const createWindow = async (): Promise<void> => {
       websiteView?.webContents.send('markfix:set-mode', 'region');
     },
   );
+  captureService = new CaptureService(
+    websiteView.webContents,
+    () => websiteView?.getBounds() ?? { width: 1, height: 1, x: 0, y: 0 },
+    () => pageRevision,
+    setOverlayHidden,
+  );
 
   if (process.env.ELECTRON_RENDERER_URL)
     await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
@@ -237,18 +263,10 @@ const registerIpc = (): void => {
     currentAnnotations = annotations;
     websiteView?.webContents.send('markfix:render-annotations', annotations);
   });
-  ipcMain.handle(ipcChannels.capture, async (event) => {
+  ipcMain.handle(ipcChannels.capture, async (event, input: unknown) => {
     assertShellSender(event);
-    const image = await websiteView?.webContents.capturePage();
-    if (!image) throw new Error('Website view is unavailable');
-    return {
-      dataUrl: image.toDataURL(),
-      width: image.getSize().width,
-      height: image.getSize().height,
-      deviceScaleFactor: websiteView?.webContents.getZoomFactor() ?? 1,
-      url: websiteView?.webContents.getURL() ?? '',
-      title: websiteView?.webContents.getTitle() ?? '',
-    };
+    if (!captureService) throw new Error('Capture service is unavailable');
+    return captureService.capture(captureRequestSchema.parse(input));
   });
   ipcMain.handle(ipcChannels.saveDraft, (event, input: unknown) => {
     assertShellSender(event);
@@ -307,6 +325,15 @@ const registerIpc = (): void => {
     currentAnnotations = [...currentAnnotations, parsed.data];
     sendShell(ipcChannels.annotationCreated, parsed.data);
     websiteView?.webContents.send('markfix:render-annotations', currentAnnotations);
+  });
+  ipcMain.on('markfix:overlay-visibility-changed', (event, input: unknown) => {
+    if (event.sender.id !== websiteView?.webContents.id) return;
+    const requestId = (input as { requestId?: unknown }).requestId;
+    if (typeof requestId !== 'string') return;
+    const resolve = overlayVisibilityWaiters.get(requestId);
+    if (!resolve) return;
+    overlayVisibilityWaiters.delete(requestId);
+    resolve();
   });
 };
 

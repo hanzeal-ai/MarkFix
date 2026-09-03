@@ -30,6 +30,8 @@ import {
   type Annotation,
   type AnnotationTool,
   type BrowserMode,
+  type CaptureContext,
+  type CaptureRequest,
   type ReproductionStep,
 } from '@markfix/contracts';
 import { describeTrustedEvent, mergeAdjacentInputSteps } from '@markfix/reproduction-model';
@@ -44,6 +46,7 @@ type Draft = {
   pendingOutboxId?: string;
 };
 type BrowserState = { url?: string; loading?: boolean; error?: string };
+type CaptureMode = CaptureRequest['mode'];
 
 export function App() {
   const [url, setUrl] = useState('https://example.com');
@@ -57,6 +60,7 @@ export function App() {
   const [activeTool, setActiveTool] = useState<AnnotationTool>('pin');
   const [reproduction, setReproduction] = useState<ReproductionStep[]>([]);
   const [screenshot, setScreenshot] = useState<string>();
+  const [captureMode, setCaptureMode] = useState<CaptureMode>('visible');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [notice, setNotice] = useState<string>();
@@ -269,9 +273,12 @@ export function App() {
   };
 
   const capture = async () => {
-    const result = await window.markfix.capture();
+    const result = await window.markfix.capture({
+      mode: captureMode,
+      ...(anchor ? { anchor } : {}),
+    });
     setScreenshot(result.dataUrl);
-    setNotice('Visible page captured.');
+    setNotice(result.warning ?? `${result.mode} capture completed.`);
     return result;
   };
 
@@ -281,6 +288,17 @@ export function App() {
     setNotice(undefined);
     try {
       const captureResult = await capture();
+      const captureContext: CaptureContext = {
+        mode: captureResult.mode,
+        imageWidthPx: captureResult.imageWidthPx,
+        imageHeightPx: captureResult.imageHeightPx,
+        widthCssPx: captureResult.widthCssPx,
+        heightCssPx: captureResult.heightCssPx,
+        originCssPx: captureResult.originCssPx,
+        captureScale: captureResult.captureScale,
+        truncated: captureResult.truncated,
+        ...(captureResult.warning ? { warning: captureResult.warning } : {}),
+      };
       const result = (await window.markfix.submitReport({
         projectId: '00000000-0000-0000-0000-000000000000',
         title: title.trim(),
@@ -290,16 +308,17 @@ export function App() {
         captureBundle: {
           schemaVersion: 1,
           page: {
-            url: captureResult.url,
-            title: captureResult.title,
-            viewportWidthCssPx: captureResult.width / captureResult.deviceScaleFactor,
-            viewportHeightCssPx: captureResult.height / captureResult.deviceScaleFactor,
+            url: captureResult.pageUrl,
+            title: captureResult.pageTitle,
+            viewportWidthCssPx: captureResult.viewportWidthCssPx,
+            viewportHeightCssPx: captureResult.viewportHeightCssPx,
             deviceScaleFactor: captureResult.deviceScaleFactor,
             capturedAt: new Date().toISOString(),
           },
           anchor,
           annotations,
           reproduction,
+          capture: captureContext,
         },
       })) as { disposition: 'submitted' | 'queued'; outboxId?: string };
       if (result.disposition === 'queued' && result.outboxId) {
@@ -372,6 +391,18 @@ export function App() {
           <button onClick={() => void capture()}>
             <Camera />
           </button>
+          <select
+            className="capture-mode"
+            value={captureMode}
+            aria-label="Capture mode"
+            onChange={(event) => setCaptureMode(event.target.value as CaptureMode)}
+          >
+            <option value="visible">Visible</option>
+            <option value="element" disabled={anchor?.kind !== 'element'}>
+              Element
+            </option>
+            <option value="full-page">Full page</option>
+          </select>
           <button
             className={isRecording ? 'active recording' : ''}
             onClick={() => void toggleRecording()}

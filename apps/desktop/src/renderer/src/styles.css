@@ -19,6 +19,7 @@ body {
 }
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -117,6 +118,15 @@ textarea {
 }
 .tools {
   margin-left: auto;
+}
+.capture-mode {
+  height: 32px;
+  border: 1px solid #3b4a44;
+  border-radius: 7px;
+  background: #26342e;
+  color: #d9e0dc;
+  padding: 0 7px;
+  font-size: 11px;
 }
 .comment-panel {
   position: fixed;
