@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "types": ["vite/client", "node", "electron-vite/node"] },
+  "include": ["src", "electron.vite.config.ts", "tests"]
+}
