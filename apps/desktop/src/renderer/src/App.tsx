@@ -4,6 +4,9 @@ import {
   ArrowRight,
   Camera,
   Check,
+  ChevronDown,
+  ChevronUp,
+  CircleStop,
   Crosshair,
   Globe2,
   LoaderCircle,
@@ -15,18 +18,21 @@ import {
   Send,
   Sparkles,
   Square,
+  Trash2,
   Type,
   Undo2,
 } from 'lucide-react';
 import {
   anchorSchema,
   annotationSchema,
+  recorderEventSchema,
   type Anchor,
   type Annotation,
   type AnnotationTool,
   type BrowserMode,
   type ReproductionStep,
 } from '@markfix/contracts';
+import { describeTrustedEvent, mergeAdjacentInputSteps } from '@markfix/reproduction-model';
 
 type Draft = {
   title: string;
@@ -52,6 +58,7 @@ export function App() {
   const [reproduction, setReproduction] = useState<ReproductionStep[]>([]);
   const [screenshot, setScreenshot] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [notice, setNotice] = useState<string>();
   const [pendingOutboxId, setPendingOutboxId] = useState<string>();
   const pendingOutboxIdRef = useRef<string | undefined>(undefined);
@@ -96,20 +103,30 @@ export function App() {
         }
       }),
       window.markfix.onRecorderEvent((payload) => {
-        const event = payload as { type?: unknown; elementName?: unknown; timestampMs?: unknown };
-        if (event.type !== 'click' || typeof event.timestampMs !== 'number') return;
-        const timestampMs = event.timestampMs;
-        setReproduction((steps) =>
-          [
-            ...steps,
-            {
-              id: crypto.randomUUID(),
-              type: 'click' as const,
-              description: `Click ${String(event.elementName ?? 'element')}`,
-              timestampMs,
-            },
-          ].slice(-50),
-        );
+        const parsed = recorderEventSchema.safeParse(payload);
+        if (!parsed.success) return;
+        const event = parsed.data;
+        const metadata = {
+          ...(event.mouseButton !== undefined ? { mouseButton: event.mouseButton } : {}),
+          ...(event.valueLength !== undefined ? { valueLength: event.valueLength } : {}),
+          ...(event.inputKind ? { inputKind: event.inputKind } : {}),
+          ...(event.selectedCount !== undefined ? { selectedCount: event.selectedCount } : {}),
+          ...(event.scrollXCssPx !== undefined ? { scrollXCssPx: event.scrollXCssPx } : {}),
+          ...(event.scrollYCssPx !== undefined ? { scrollYCssPx: event.scrollYCssPx } : {}),
+          ...(event.url ? { url: event.url } : {}),
+        };
+        const step: ReproductionStep = {
+          id: crypto.randomUUID(),
+          type: event.type,
+          description: describeTrustedEvent(event),
+          timestampMs: event.timestampMs,
+          runtimeId: event.runtimeId,
+          pageRevision: event.pageRevision,
+          ...(event.anchor ? { anchor: event.anchor } : {}),
+          ...(event.endAnchor ? { endAnchor: event.endAnchor } : {}),
+          ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+        };
+        setReproduction((steps) => mergeAdjacentInputSteps([...steps, step]).slice(-100));
       }),
       window.markfix.onAnnotationCreated((payload) => {
         const parsed = annotationSchema.safeParse(payload);
@@ -194,6 +211,43 @@ export function App() {
     await window.markfix.setAnnotationTool(nextTool);
     await setMode('draw');
     setNotice(`Draw a ${nextTool} annotation on the page.`);
+  };
+
+  const toggleRecording = async (): Promise<void> => {
+    const enabled = !isRecording;
+    await window.markfix.setRecording(enabled);
+    setIsRecording(enabled);
+    setNotice(enabled ? 'Recording trusted page interactions.' : 'Recording stopped.');
+  };
+
+  const updateStep = (id: string, description: string): void => {
+    setReproduction((steps) =>
+      steps.map((step) => (step.id === id ? { ...step, description } : step)),
+    );
+  };
+
+  const moveStep = (index: number, offset: -1 | 1): void => {
+    setReproduction((steps) => {
+      const destination = index + offset;
+      if (destination < 0 || destination >= steps.length) return steps;
+      const reordered = [...steps];
+      const [step] = reordered.splice(index, 1);
+      if (!step) return steps;
+      reordered.splice(destination, 0, step);
+      return reordered;
+    });
+  };
+
+  const addManualStep = (): void => {
+    setReproduction((steps) => [
+      ...steps,
+      {
+        id: crypto.randomUUID(),
+        type: 'manual',
+        description: 'Describe this step',
+        timestampMs: Date.now(),
+      },
+    ]);
   };
 
   const undo = (): void => {
@@ -318,6 +372,12 @@ export function App() {
           <button onClick={() => void capture()}>
             <Camera />
           </button>
+          <button
+            className={isRecording ? 'active recording' : ''}
+            onClick={() => void toggleRecording()}
+          >
+            <CircleStop /> {isRecording ? 'Stop' : 'Record'}
+          </button>
         </div>
       </header>
       <aside className="comment-panel">
@@ -427,12 +487,58 @@ export function App() {
             <span>Latest capture</span>
           </div>
         )}
-        {reproduction.length > 0 && (
-          <div className="steps">
+        <section className="steps">
+          <div className="steps-heading">
             <strong>Reproduction trail</strong>
-            <span>{reproduction.length} trusted clicks recorded</span>
+            <button type="button" onClick={addManualStep}>
+              + Manual
+            </button>
           </div>
-        )}
+          {reproduction.length === 0 ? (
+            <span className="steps-empty">Record page actions or add a manual step.</span>
+          ) : (
+            <ol>
+              {reproduction.map((step, index) => (
+                <li key={step.id}>
+                  <span className="step-number">{index + 1}</span>
+                  <input
+                    value={step.description}
+                    maxLength={2000}
+                    aria-label={`Step ${index + 1}`}
+                    onChange={(event) => updateStep(step.id, event.target.value)}
+                  />
+                  <div className="step-actions">
+                    <button
+                      type="button"
+                      title="Move up"
+                      disabled={index === 0}
+                      onClick={() => moveStep(index, -1)}
+                    >
+                      <ChevronUp />
+                    </button>
+                    <button
+                      type="button"
+                      title="Move down"
+                      disabled={index === reproduction.length - 1}
+                      onClick={() => moveStep(index, 1)}
+                    >
+                      <ChevronDown />
+                    </button>
+                    <button
+                      type="button"
+                      title="Delete step"
+                      onClick={() =>
+                        setReproduction((steps) => steps.filter(({ id }) => id !== step.id))
+                      }
+                    >
+                      <Trash2 />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
         {notice && <div className="notice">{notice}</div>}
         <button
           className="submit"

@@ -305,14 +305,91 @@ textarea {
 }
 .steps {
   background: #f0f3ef;
-  padding: 10px 12px;
+  padding: 10px;
   border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  max-height: 174px;
+  overflow: auto;
+}
+.steps-heading {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+.steps-heading button {
+  border: 0;
+  background: transparent;
+  color: #52685e;
+  font-size: 11px;
+  font-weight: 700;
+}
+.steps ol {
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+.steps li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+.step-number {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #dfe7db;
+  color: #4d6157;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+}
+.steps li input {
+  min-width: 0;
+  height: 28px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 5px;
+  padding: 4px 6px;
+  color: #4f5b55;
+  font-size: 11px;
+}
+.steps li input:focus {
+  outline: none;
+  border-color: #b9c5b4;
+  background: white;
+}
+.step-actions {
+  display: flex;
+}
+.step-actions button {
+  width: 22px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  color: #7b8881;
+  padding: 3px;
+}
+.step-actions button:disabled {
+  opacity: 0.25;
+}
+.step-actions svg {
+  width: 13px;
+  height: 13px;
+}
+.steps-empty {
+  line-height: 1.4;
 }
 .steps span {
   font-size: 11px;
   color: #7b827e;
+}
+.tools button.recording {
+  color: #ff8a91;
 }
 .notice {
   font-size: 12px;

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import {
   app,
@@ -16,6 +16,7 @@ import {
   createReportSchema,
   ipcChannels,
   navigateInputSchema,
+  recorderEventSchema,
   type Annotation,
   type CreateReport,
   type RegionAnchor,
@@ -36,6 +37,9 @@ let shellWebContentsId: number | undefined;
 let currentAnnotations: Annotation[] = [];
 let isSyncing = false;
 let syncTimer: ReturnType<typeof setInterval> | undefined;
+let recording = false;
+let pageRevision = randomUUID();
+const mainRecorderRuntimeId = randomUUID();
 
 const assertShellSender = (event: IpcMainInvokeEvent): void => {
   if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted IPC sender');
@@ -43,6 +47,21 @@ const assertShellSender = (event: IpcMainInvokeEvent): void => {
 
 const sendShell = (channel: string, payload: unknown): void => {
   if (!mainWindow?.isDestroyed()) mainWindow?.webContents.send(channel, payload);
+};
+
+const updatePageRevision = (url: string): void => {
+  pageRevision = randomUUID();
+  websiteView?.webContents.send('markfix:set-recorder', { enabled: recording, pageRevision });
+  if (recording) {
+    sendShell(ipcChannels.recorderEvent, {
+      protocolVersion: 1,
+      runtimeId: mainRecorderRuntimeId,
+      pageRevision,
+      type: 'navigation',
+      timestampMs: Date.now(),
+      url,
+    });
+  }
 };
 
 const syncEntry = async (entry: OutboxEntry): Promise<void> => {
@@ -125,12 +144,14 @@ const createWindow = async (): Promise<void> => {
   websiteView.webContents.on('will-navigate', (_event, url) =>
     sendShell(ipcChannels.browserState, { url, loading: true }),
   );
-  websiteView.webContents.on('did-navigate', (_event, url) =>
-    sendShell(ipcChannels.browserState, { url, loading: false }),
-  );
-  websiteView.webContents.on('did-navigate-in-page', (_event, url) =>
-    sendShell(ipcChannels.browserState, { url, loading: false }),
-  );
+  websiteView.webContents.on('did-navigate', (_event, url) => {
+    sendShell(ipcChannels.browserState, { url, loading: false });
+    updatePageRevision(url);
+  });
+  websiteView.webContents.on('did-navigate-in-page', (_event, url) => {
+    sendShell(ipcChannels.browserState, { url, loading: false });
+    updatePageRevision(url);
+  });
   websiteView.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
     if (isMainFrame)
       sendShell(ipcChannels.browserState, {
@@ -190,6 +211,25 @@ const registerIpc = (): void => {
     assertShellSender(event);
     const tool = annotationToolSchema.parse(input);
     websiteView?.webContents.send('markfix:set-tool', tool);
+  });
+  ipcMain.handle(ipcChannels.setRecording, (event, input: unknown) => {
+    assertShellSender(event);
+    if (typeof input !== 'boolean') throw new Error('Invalid recorder state');
+    recording = input;
+    websiteView?.webContents.send('markfix:set-recorder', { enabled: recording, pageRevision });
+    if (recording) {
+      const url = websiteView?.webContents.getURL();
+      if (url) {
+        sendShell(ipcChannels.recorderEvent, {
+          protocolVersion: 1,
+          runtimeId: mainRecorderRuntimeId,
+          pageRevision,
+          type: 'navigation',
+          timestampMs: Date.now(),
+          url,
+        });
+      }
+    }
   });
   ipcMain.handle(ipcChannels.syncAnnotations, (event, input: unknown) => {
     assertShellSender(event);
@@ -256,7 +296,9 @@ const registerIpc = (): void => {
   });
   ipcMain.on('markfix:recorder-event', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;
-    sendShell(ipcChannels.recorderEvent, input);
+    const parsed = recorderEventSchema.safeParse(input);
+    if (!recording || !parsed.success || parsed.data.pageRevision !== pageRevision) return;
+    sendShell(ipcChannels.recorderEvent, parsed.data);
   });
   ipcMain.on('markfix:target-annotation', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;

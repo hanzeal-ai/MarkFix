@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('markfix', {
   setMode: (mode: BrowserMode) => ipcRenderer.invoke(ipcChannels.setMode, mode),
   setAnnotationTool: (tool: AnnotationTool) =>
     ipcRenderer.invoke(ipcChannels.setAnnotationTool, tool),
+  setRecording: (enabled: boolean) => ipcRenderer.invoke(ipcChannels.setRecording, enabled),
   syncAnnotations: (annotations: Annotation[]) =>
     ipcRenderer.invoke(ipcChannels.syncAnnotations, annotations),
   capture: () => ipcRenderer.invoke(ipcChannels.capture),

@@ -74,10 +74,42 @@ export const annotationSchema = z.discriminatedUnion('type', [
 
 export const reproductionStepSchema = z.object({
   id: z.uuid(),
-  type: z.enum(['click', 'input', 'scroll', 'navigation', 'manual']),
+  type: z.enum(['click', 'input', 'select', 'scroll', 'drag', 'navigation', 'wait', 'manual']),
   description: z.string().min(1).max(2000),
   timestampMs: z.number().int().nonnegative(),
+  runtimeId: z.uuid().optional(),
+  pageRevision: z.uuid().optional(),
   anchor: anchorSchema.optional(),
+  endAnchor: anchorSchema.optional(),
+  metadata: z
+    .object({
+      mouseButton: z.number().int().min(0).max(4).optional(),
+      valueLength: z.number().int().nonnegative().optional(),
+      inputKind: z.string().max(40).optional(),
+      selectedCount: z.number().int().nonnegative().optional(),
+      scrollXCssPx: z.number().finite().optional(),
+      scrollYCssPx: z.number().finite().optional(),
+      url: z.url().optional(),
+    })
+    .optional(),
+});
+
+export const recorderEventSchema = z.object({
+  protocolVersion: z.literal(1),
+  runtimeId: z.uuid(),
+  pageRevision: z.uuid(),
+  type: z.enum(['click', 'input', 'select', 'scroll', 'drag', 'navigation']),
+  timestampMs: z.number().int().nonnegative(),
+  elementName: z.string().max(120).optional(),
+  mouseButton: z.number().int().min(0).max(4).optional(),
+  valueLength: z.number().int().nonnegative().optional(),
+  inputKind: z.string().max(40).optional(),
+  selectedCount: z.number().int().nonnegative().optional(),
+  scrollXCssPx: z.number().finite().optional(),
+  scrollYCssPx: z.number().finite().optional(),
+  url: z.url().optional(),
+  anchor: anchorSchema.optional(),
+  endAnchor: anchorSchema.optional(),
 });
 
 export const captureBundleSchema = z.object({
@@ -147,6 +179,7 @@ export const ipcChannels = {
   annotationCreated: 'annotation:created',
   syncAnnotations: 'annotation:sync',
   setAnnotationTool: 'annotation:set-tool',
+  setRecording: 'recorder:set-recording',
   syncStatus: 'sync:status',
 } as const;
 
@@ -165,4 +198,5 @@ export type ElementAnchor = z.infer<typeof elementAnchorSchema>;
 export type RegionAnchor = z.infer<typeof regionAnchorSchema>;
 export type Report = z.infer<typeof reportSchema>;
 export type ReportStatus = (typeof reportStatuses)[number];
+export type RecorderEvent = z.infer<typeof recorderEventSchema>;
 export type ReproductionStep = z.infer<typeof reproductionStepSchema>;

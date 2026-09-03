@@ -1,5 +1,5 @@
 import { ipcRenderer } from 'electron';
-import type { Annotation, AnnotationTool } from '@markfix/contracts';
+import type { Annotation, AnnotationTool, ElementAnchor, RecorderEvent } from '@markfix/contracts';
 
 type Mode = 'browse' | 'inspect' | 'region' | 'draw';
 type Point = { x: number; y: number };
@@ -15,6 +15,14 @@ let selectionShape: SVGPolygonElement | SVGRectElement | undefined;
 let dragStart: Point | undefined;
 let penPoints: Point[] = [];
 let restoreCount = 0;
+let recorderEnabled = false;
+let pageRevision: string | undefined;
+const runtimeId = crypto.randomUUID();
+const pendingInputTimers = new Map<Element, number>();
+let pendingScrollTimer: number | undefined;
+let lastRecordedScroll = { x: window.scrollX, y: window.scrollY };
+let dragOrigin: { target: Element; x: number; y: number } | undefined;
+let suppressClickUntil = 0;
 
 const svgElement = <K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] =>
   document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -249,23 +257,186 @@ const showAnchor = (payload: AnchorPayload): void => {
   selectionShape = polygon;
 };
 
-const sendRecorderEvent = (event: Event): void => {
-  if (!event.isTrusted) return;
+const isOverlayElement = (target: Element): boolean =>
+  target.hasAttribute(hostAttribute) || Boolean(target.closest(`[${hostAttribute}]`));
+
+const elementName = (element: Element): string => {
+  const label =
+    element.getAttribute('aria-label') ||
+    element.getAttribute('placeholder') ||
+    element.textContent?.trim().replace(/\s+/g, ' ').slice(0, 120);
+  return (label || element.tagName.toLocaleLowerCase()).slice(0, 120);
+};
+
+const cssSelector = (element: Element): string => {
+  if (element.id) {
+    const candidate = `#${CSS.escape(element.id)}`;
+    if (document.querySelectorAll(candidate).length === 1) return candidate;
+  }
+  const segments: string[] = [];
+  let current: Element | null = element;
+  while (current && current !== document.documentElement && segments.length < 5) {
+    let segment = current.tagName.toLocaleLowerCase();
+    const parent: Element | null = current.parentElement;
+    if (parent) {
+      const siblings = [...parent.children].filter(
+        (sibling) => sibling.tagName === current?.tagName,
+      );
+      if (siblings.length > 1) segment += `:nth-of-type(${siblings.indexOf(current) + 1})`;
+    }
+    segments.unshift(segment);
+    current = parent;
+  }
+  return segments.join(' > ') || element.tagName.toLocaleLowerCase();
+};
+
+const elementAnchor = (element: Element): ElementAnchor | undefined => {
+  const quadsCssPx = [...element.getClientRects()]
+    .filter(({ width, height }) => width > 0 && height > 0)
+    .slice(0, 8)
+    .map(({ left, top, right, bottom }) => [left, top, right, top, right, bottom, left, bottom]);
+  if (quadsCssPx.length === 0) return undefined;
+  const attributes: Record<string, string> = {};
+  for (const name of ['id', 'name', 'role', 'type', 'aria-label', 'data-testid']) {
+    const value = element.getAttribute(name);
+    if (value) attributes[name] = value.slice(0, 200);
+  }
+  return {
+    kind: 'element',
+    cssSelector: cssSelector(element),
+    textQuote: element.textContent?.trim().replace(/\s+/g, ' ').slice(0, 500) ?? '',
+    tagName: element.tagName.toLocaleLowerCase(),
+    attributes,
+    documentUrl: location.href,
+    framePath: [],
+    quadsCssPx,
+  };
+};
+
+type RecorderPayload = Omit<RecorderEvent, 'protocolVersion' | 'runtimeId' | 'pageRevision'>;
+
+const emitRecorderEvent = (payload: RecorderPayload, revision = pageRevision): void => {
+  if (!recorderEnabled || !revision || revision !== pageRevision) return;
+  ipcRenderer.send('markfix:recorder-event', {
+    protocolVersion: 1,
+    runtimeId,
+    pageRevision: revision,
+    ...payload,
+  } satisfies RecorderEvent);
+};
+
+const recorderTarget = (event: Event): Element | undefined => {
   const target = event.target instanceof Element ? event.target : undefined;
-  const elementName =
-    target?.getAttribute('aria-label') ??
-    target?.textContent?.trim().slice(0, 80) ??
-    target?.tagName.toLocaleLowerCase();
-  if (event.type === 'click')
-    ipcRenderer.send('markfix:recorder-event', {
-      type: 'click',
-      elementName,
-      timestampMs: Date.now(),
-    });
+  return target && !isOverlayElement(target) ? target : undefined;
+};
+
+const recordClick = (event: MouseEvent): void => {
+  if (!event.isTrusted || event.detail > 1 || Date.now() <= suppressClickUntil) return;
+  const target = recorderTarget(event);
+  if (!target) return;
+  emitRecorderEvent({
+    type: 'click',
+    elementName: elementName(target),
+    mouseButton: event.button,
+    timestampMs: Date.now(),
+    anchor: elementAnchor(target),
+  });
+};
+
+const recordInput = (event: Event): void => {
+  if (!event.isTrusted) return;
+  const target = recorderTarget(event);
+  if (
+    !target ||
+    (!(target instanceof HTMLInputElement) &&
+      !(target instanceof HTMLTextAreaElement) &&
+      !target.hasAttribute('contenteditable'))
+  )
+    return;
+  const revision = pageRevision;
+  const previousTimer = pendingInputTimers.get(target);
+  if (previousTimer) window.clearTimeout(previousTimer);
+  const valueLength =
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
+      ? target.value.length
+      : target.textContent?.length;
+  const inputKind = target instanceof HTMLInputElement ? target.type : target.tagName.toLowerCase();
+  const timer = window.setTimeout(() => {
+    pendingInputTimers.delete(target);
+    emitRecorderEvent(
+      {
+        type: 'input',
+        elementName: elementName(target),
+        valueLength,
+        inputKind,
+        timestampMs: Date.now(),
+        anchor: elementAnchor(target),
+      },
+      revision,
+    );
+  }, 500);
+  pendingInputTimers.set(target, timer);
+};
+
+const recordChange = (event: Event): void => {
+  if (!event.isTrusted) return;
+  const target = recorderTarget(event);
+  if (!(target instanceof HTMLSelectElement)) return;
+  emitRecorderEvent({
+    type: 'select',
+    elementName: elementName(target),
+    selectedCount: target.selectedOptions.length,
+    timestampMs: Date.now(),
+    anchor: elementAnchor(target),
+  });
+};
+
+const recordScroll = (event: Event): void => {
+  if (!event.isTrusted || !recorderEnabled) return;
+  if (pendingScrollTimer) window.clearTimeout(pendingScrollTimer);
+  const revision = pageRevision;
+  pendingScrollTimer = window.setTimeout(() => {
+    pendingScrollTimer = undefined;
+    const x = window.scrollX;
+    const y = window.scrollY;
+    if (Math.hypot(x - lastRecordedScroll.x, y - lastRecordedScroll.y) < 80) return;
+    lastRecordedScroll = { x, y };
+    emitRecorderEvent(
+      { type: 'scroll', scrollXCssPx: x, scrollYCssPx: y, timestampMs: Date.now() },
+      revision,
+    );
+  }, 300);
+};
+
+const recordPointerDown = (event: PointerEvent): void => {
+  if (!event.isTrusted || event.button !== 0) return;
+  const target = recorderTarget(event);
+  if (target) dragOrigin = { target, x: event.clientX, y: event.clientY };
+};
+
+const recordPointerUp = (event: PointerEvent): void => {
+  if (!event.isTrusted || !dragOrigin) return;
+  const origin = dragOrigin;
+  dragOrigin = undefined;
+  if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) < 12) return;
+  const target = recorderTarget(event);
+  suppressClickUntil = Date.now() + 100;
+  emitRecorderEvent({
+    type: 'drag',
+    elementName: elementName(origin.target),
+    timestampMs: Date.now(),
+    anchor: elementAnchor(origin.target),
+    endAnchor: target ? elementAnchor(target) : undefined,
+  });
 };
 
 window.addEventListener('DOMContentLoaded', mount, { once: true });
-window.addEventListener('click', sendRecorderEvent, true);
+window.addEventListener('click', recordClick, true);
+window.addEventListener('input', recordInput, true);
+window.addEventListener('change', recordChange, true);
+window.addEventListener('scroll', recordScroll, true);
+window.addEventListener('pointerdown', recordPointerDown, true);
+window.addEventListener('pointerup', recordPointerUp, true);
 window.addEventListener('resize', () =>
   surface?.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`),
 );
@@ -277,6 +448,20 @@ ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
 ipcRenderer.on('markfix:set-tool', (_event, requestedTool: unknown) => {
   if (['pin', 'rectangle', 'arrow', 'text', 'pen'].includes(String(requestedTool)))
     tool = requestedTool as AnnotationTool;
+});
+ipcRenderer.on('markfix:set-recorder', (_event, payload: unknown) => {
+  const candidate = payload as { enabled?: unknown; pageRevision?: unknown };
+  if (typeof candidate.enabled !== 'boolean' || typeof candidate.pageRevision !== 'string') return;
+  recorderEnabled = candidate.enabled;
+  pageRevision = candidate.pageRevision;
+  lastRecordedScroll = { x: window.scrollX, y: window.scrollY };
+  if (!recorderEnabled) {
+    for (const timer of pendingInputTimers.values()) window.clearTimeout(timer);
+    pendingInputTimers.clear();
+    if (pendingScrollTimer) window.clearTimeout(pendingScrollTimer);
+    pendingScrollTimer = undefined;
+    dragOrigin = undefined;
+  }
 });
 ipcRenderer.on('markfix:show-anchor', (_event, payload: AnchorPayload) => showAnchor(payload));
 ipcRenderer.on('markfix:render-annotations', (_event, payload: unknown) => {

@@ -9,6 +9,7 @@ declare global {
       reload(): Promise<void>;
       setMode(mode: BrowserMode): Promise<void>;
       setAnnotationTool(tool: AnnotationTool): Promise<void>;
+      setRecording(enabled: boolean): Promise<void>;
       syncAnnotations(annotations: Annotation[]): Promise<void>;
       capture(): Promise<{
         dataUrl: string;
