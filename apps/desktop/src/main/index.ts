@@ -27,6 +27,7 @@ import {
   type CreateReport,
 } from '@markfix/contracts';
 import { MarkFixApi } from '@markfix/api-client';
+import { anchorsEqual } from './anchor-state.js';
 import { CdpInspector } from './cdp-inspector.js';
 import { CaptureService } from './capture-service.js';
 import { DraftStore } from './draft-store.js';
@@ -383,8 +384,10 @@ const registerIpc = (): void => {
       websiteView?.webContents.send('markfix:clear-anchor');
       return;
     }
-    currentAnchor = anchorSchema.parse(input);
-    if (currentAnchor.kind === 'element')
+    const nextAnchor = anchorSchema.parse(input);
+    const alreadyRendered = anchorsEqual(currentAnchor, nextAnchor);
+    currentAnchor = nextAnchor;
+    if (currentAnchor.kind === 'element' && !alreadyRendered)
       websiteView?.webContents.send('markfix:resolve-anchor', {
         anchor: currentAnchor,
         force: false,

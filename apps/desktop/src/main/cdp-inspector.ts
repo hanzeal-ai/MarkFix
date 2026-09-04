@@ -111,7 +111,11 @@ export class CdpInspector {
         framePath: [],
         quadsCssPx: quads.quads.filter((quad) => quad.length === 8),
       };
-      await this.webContents.debugger.sendCommand('Overlay.setInspectMode', { mode: 'none' });
+      await this.webContents.debugger.sendCommand('Overlay.setInspectMode', {
+        mode: 'none',
+        highlightConfig: {},
+      });
+      await this.webContents.debugger.sendCommand('Overlay.hideHighlight');
       this.state = 'READY';
       this.onSelection(anchor);
     } catch (error) {

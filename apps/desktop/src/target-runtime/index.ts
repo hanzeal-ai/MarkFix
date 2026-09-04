@@ -343,10 +343,13 @@ const recoverAnchor = (): void => {
     return;
   }
   const elements = new Set<Element>();
-  let selectorMatch: Element | null = null;
+  const selectorMatches = new Set<Element>();
   try {
-    selectorMatch = document.querySelector(original.cssSelector);
-    if (selectorMatch) elements.add(selectorMatch);
+    document.querySelectorAll(original.cssSelector).forEach((element) => {
+      if (elements.size >= 120) return;
+      selectorMatches.add(element);
+      elements.add(element);
+    });
   } catch {
     // Obsolete selectors fall through to semantic candidates.
   }
@@ -376,7 +379,7 @@ const recoverAnchor = (): void => {
       return {
         anchor,
         candidate: {
-          cssSelectorMatched: element === selectorMatch,
+          cssSelectorMatched: selectorMatches.has(element),
           textQuote: anchor.textQuote,
           tagName: anchor.tagName,
           attributes: anchor.attributes,
@@ -602,7 +605,10 @@ ipcRenderer.on('markfix:clear-anchor', () => {
   selectionShape?.remove();
   selectionShape = undefined;
 });
-ipcRenderer.on('markfix:show-anchor', (_event, payload: AnchorPayload) => showAnchor(payload));
+ipcRenderer.on('markfix:show-anchor', (_event, payload: AnchorPayload) => {
+  if (payload.kind === 'element') trackedAnchor = payload as ElementAnchor;
+  showAnchor(payload);
+});
 ipcRenderer.on('markfix:render-annotations', (_event, payload: unknown) => {
   if (Array.isArray(payload)) renderAnnotations(payload as Annotation[]);
 });
