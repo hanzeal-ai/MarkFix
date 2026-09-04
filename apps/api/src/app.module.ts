@@ -5,6 +5,8 @@ import { AppService } from './app.service.js';
 import { AuthGuard } from './auth.guard.js';
 import { AuthService } from './auth.service.js';
 import { ClientPolicyService } from './client-policy.service.js';
+import { CommercialController } from './commercial.controller.js';
+import { CommercialService } from './commercial.service.js';
 import { DatabaseService } from './database.service.js';
 import { DevelopmentEmailAdapter, EmailPort, WebhookEmailAdapter } from './email.port.js';
 
@@ -27,11 +29,12 @@ const emailProvider = {
 };
 
 @Module({
-  controllers: [AppController],
+  controllers: [AppController, CommercialController],
   providers: [
     AppService,
     AuthService,
     ClientPolicyService,
+    CommercialService,
     DatabaseService,
     emailProvider,
     { provide: APP_GUARD, useClass: AuthGuard },
