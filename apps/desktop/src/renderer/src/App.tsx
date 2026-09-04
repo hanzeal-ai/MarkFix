@@ -30,6 +30,7 @@ import {
   type Annotation,
   type AnnotationTool,
   type BrowserMode,
+  type ClientPolicy,
   type CaptureContext,
   type CaptureRequest,
   type ReproductionStep,
@@ -106,7 +107,15 @@ function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser
   );
 }
 
-function AnnotationWorkspace({ user, onLogout }: { user: DesktopUser; onLogout: () => void }) {
+function AnnotationWorkspace({
+  user,
+  policy,
+  onLogout,
+}: {
+  user: DesktopUser;
+  policy: ClientPolicy | undefined;
+  onLogout: () => void;
+}) {
   const [url, setUrl] = useState('https://example.com');
   const [browserState, setBrowserState] = useState<BrowserState>({ loading: true });
   const [mode, setModeState] = useState<BrowserMode>('browse');
@@ -121,7 +130,11 @@ function AnnotationWorkspace({ user, onLogout }: { user: DesktopUser; onLogout: 
   const [captureMode, setCaptureMode] = useState<CaptureMode>('visible');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [notice, setNotice] = useState<string>();
+  const [notice, setNotice] = useState<string | undefined>(
+    policy?.status === 'upgrade-recommended'
+      ? `MarkFix ${policy.recommendedVersion} is available. Update when convenient.`
+      : undefined,
+  );
   const [pendingOutboxId, setPendingOutboxId] = useState<string>();
   const pendingOutboxIdRef = useRef<string | undefined>(undefined);
 
@@ -678,12 +691,14 @@ function AnnotationWorkspace({ user, onLogout }: { user: DesktopUser; onLogout: 
 }
 
 export function App() {
+  const [policy, setPolicy] = useState<ClientPolicy>();
   const [state, setState] = useState<
     { status: 'loading' } | { status: 'anonymous' } | { status: 'authenticated'; user: DesktopUser }
   >({ status: 'loading' });
 
   useEffect(() => {
     void window.markfix.authStatus().then((result) => {
+      setPolicy(result.policy);
       setState(
         result.authenticated && result.user
           ? { status: 'authenticated', user: result.user }
@@ -692,11 +707,33 @@ export function App() {
     });
   }, []);
 
+  if (policy?.status === 'upgrade-required') {
+    return (
+      <main className="desktop-auth">
+        <section>
+          <div className="desktop-auth-brand">
+            <span>m</span> MarkFix
+          </div>
+          <p className="eyebrow">UPDATE REQUIRED</p>
+          <h1>This version is no longer supported</h1>
+          <p>
+            Install MarkFix {policy.minimumVersion} or newer before signing in or submitting
+            reports. Recommended version: {policy.recommendedVersion}.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   if (state.status === 'loading') return <main className="desktop-auth">Restoring session…</main>;
   if (state.status === 'anonymous') {
     return <DesktopLogin onAuthenticated={(user) => setState({ status: 'authenticated', user })} />;
   }
   return (
-    <AnnotationWorkspace user={state.user} onLogout={() => setState({ status: 'anonymous' })} />
+    <AnnotationWorkspace
+      user={state.user}
+      policy={policy}
+      onLogout={() => setState({ status: 'anonymous' })}
+    />
   );
 }

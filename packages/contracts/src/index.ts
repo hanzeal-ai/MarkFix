@@ -195,6 +195,15 @@ export const apiErrorSchema = z.object({
   fieldErrors: z.record(z.string(), z.array(z.string())).optional(),
 });
 
+export const clientPolicySchema = z.object({
+  minimumVersion: z.string(),
+  recommendedVersion: z.string(),
+  currentVersion: z.string(),
+  status: z.enum(['supported', 'upgrade-recommended', 'upgrade-required']),
+  downloadUrl: z.url().optional(),
+  features: z.record(z.string(), z.boolean()),
+});
+
 export const ipcChannels = {
   authStatus: 'auth:status',
   authLogin: 'auth:login',
@@ -235,6 +244,7 @@ export type CaptureBundle = z.infer<typeof captureBundleSchema>;
 export type CaptureContext = z.infer<typeof captureContextSchema>;
 export type CaptureRequest = z.infer<typeof captureRequestSchema>;
 export type Comment = z.infer<typeof commentSchema>;
+export type ClientPolicy = z.infer<typeof clientPolicySchema>;
 export type CreateReport = z.infer<typeof createReportSchema>;
 export type ElementAnchor = z.infer<typeof elementAnchorSchema>;
 export type Membership = z.infer<typeof membershipSchema>;

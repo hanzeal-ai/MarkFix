@@ -5,6 +5,7 @@ import type {
   BrowserMode,
   CaptureContext,
   CaptureRequest,
+  ClientPolicy,
   CreateReport,
 } from '@markfix/contracts';
 
@@ -14,6 +15,7 @@ declare global {
       authStatus(): Promise<{
         authenticated: boolean;
         user?: { id: string; email: string; displayName: string };
+        policy?: ClientPolicy;
       }>;
       login(
         email: string,

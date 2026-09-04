@@ -4,6 +4,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthGuard } from './auth.guard.js';
 import { AuthService } from './auth.service.js';
+import { ClientPolicyService } from './client-policy.service.js';
 import { DatabaseService } from './database.service.js';
 
 @Module({
@@ -11,6 +12,7 @@ import { DatabaseService } from './database.service.js';
   providers: [
     AppService,
     AuthService,
+    ClientPolicyService,
     DatabaseService,
     { provide: APP_GUARD, useClass: AuthGuard },
   ],

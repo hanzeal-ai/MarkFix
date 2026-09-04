@@ -16,6 +16,7 @@ import {
 import type { FastifyReply } from 'fastify';
 import { AppService } from './app.service.js';
 import { AuthService } from './auth.service.js';
+import { ClientPolicyService } from './client-policy.service.js';
 import { CurrentUser, type AuthenticatedUser } from './current-user.decorator.js';
 import { Public } from './public.decorator.js';
 
@@ -51,12 +52,19 @@ export class AppController {
   constructor(
     @Inject(AppService) private readonly app: AppService,
     @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(ClientPolicyService) private readonly clientPolicy: ClientPolicyService,
   ) {}
 
   @Get('health')
   @Public()
   health() {
     return { status: 'ok', version: '0.1.0' };
+  }
+
+  @Get('client-policy')
+  @Public()
+  policy(@Query('version') version: string | undefined) {
+    return this.clientPolicy.getPolicy(version);
   }
 
   @Get('bootstrap')

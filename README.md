@@ -12,6 +12,7 @@
 - Dashboard report list/detail, comments, and optimistic status transitions
 - Verified-email accounts, rotating sessions, revocation, and workspace role enforcement
 - HttpOnly dashboard cookies and operating-system-encrypted desktop refresh credentials
+- Server-driven desktop compatibility checks with mandatory-upgrade submission blocking
 - Background cleanup worker and compatibility test page
 
 ## Run locally

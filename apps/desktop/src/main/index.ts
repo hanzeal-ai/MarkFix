@@ -23,6 +23,7 @@ import {
   recorderEventSchema,
   type Anchor,
   type Annotation,
+  type ClientPolicy,
   type CreateReport,
 } from '@markfix/contracts';
 import { MarkFixApi } from '@markfix/api-client';
@@ -48,8 +49,26 @@ let syncTimer: ReturnType<typeof setInterval> | undefined;
 let recording = false;
 let pageRevision = randomUUID();
 let authenticatedUser: { id: string; email: string; displayName: string } | undefined;
+let policyCache: { value: ClientPolicy; checkedAtMs: number } | undefined;
 const mainRecorderRuntimeId = randomUUID();
 const overlayVisibilityWaiters = new Map<string, () => void>();
+
+const loadClientPolicy = async (force = false): Promise<ClientPolicy> => {
+  if (!force && policyCache && Date.now() - policyCache.checkedAtMs < 5 * 60 * 1000) {
+    return policyCache.value;
+  }
+  const value = await api.clientPolicy(app.getVersion(), process.platform, process.arch);
+  policyCache = { value, checkedAtMs: Date.now() };
+  return value;
+};
+
+const assertSupportedClient = (policy: ClientPolicy): void => {
+  if (policy.status === 'upgrade-required') {
+    throw new Error(
+      `MarkFix ${policy.minimumVersion} or newer is required. Install the latest desktop release.`,
+    );
+  }
+};
 
 const credentialPath = (): string => join(app.getPath('userData'), 'refresh-token.secure');
 
@@ -127,6 +146,7 @@ const setOverlayHidden = (hidden: boolean): Promise<void> => {
 const syncEntry = async (entry: OutboxEntry): Promise<void> => {
   if (!draftStore) return;
   try {
+    assertSupportedClient(await loadClientPolicy());
     const candidate = createReportSchema.parse(entry.payload);
     const bootstrap = await api.bootstrap();
     const projectId = bootstrap.projects[0]?.id;
@@ -261,8 +281,17 @@ const createWindow = async (): Promise<void> => {
 const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.authStatus, async (event) => {
     assertShellSender(event);
+    const policy = await loadClientPolicy(true).catch(() => undefined);
+    if (policy?.status === 'upgrade-required') {
+      websiteView?.setVisible(false);
+      return { authenticated: false, policy };
+    }
     const user = await restoreSession();
-    return { authenticated: Boolean(user), ...(user ? { user } : {}) };
+    return {
+      authenticated: Boolean(user),
+      ...(user ? { user } : {}),
+      ...(policy ? { policy } : {}),
+    };
   });
   ipcMain.handle(ipcChannels.authLogin, async (event, input: unknown) => {
     assertShellSender(event);
@@ -270,6 +299,7 @@ const registerIpc = (): void => {
     if (typeof payload.email !== 'string' || typeof payload.password !== 'string') {
       throw new Error('Email and password are required');
     }
+    assertSupportedClient(await loadClientPolicy(true));
     const tokens = await api.loginWithTokens(payload.email, payload.password, 'MarkFix desktop');
     api.setTokens(tokens);
     await saveRefreshToken(tokens.refreshToken);
@@ -392,6 +422,7 @@ const registerIpc = (): void => {
   });
   ipcMain.handle(ipcChannels.submitReport, async (event, input: unknown) => {
     assertShellSender(event);
+    assertSupportedClient(await loadClientPolicy(true));
     const candidate = createReportSchema.parse(input) as CreateReport;
     captureBundleSchema.parse(candidate.captureBundle);
     if (!draftStore) throw new Error('Local outbox is unavailable');

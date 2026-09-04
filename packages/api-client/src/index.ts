@@ -1,7 +1,9 @@
 import {
+  clientPolicySchema,
   createReportSchema,
   reportSchema,
   type Comment,
+  type ClientPolicy,
   type CreateReport,
   type Membership,
   type Report,
@@ -139,6 +141,11 @@ export class MarkFixApi {
 
   me(): Promise<AuthUser> {
     return this.request('/v1/me');
+  }
+
+  async clientPolicy(version: string, platform: string, arch: string): Promise<ClientPolicy> {
+    const query = new URLSearchParams({ version, platform, arch });
+    return clientPolicySchema.parse(await this.request(`/v1/client-policy?${query}`));
   }
 
   bootstrap(): Promise<Bootstrap> {
