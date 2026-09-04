@@ -161,6 +161,40 @@ export const membershipSchema = z.object({
   user: userSummarySchema,
 });
 
+export const createWorkspaceSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+
+export const projectSchema = z.object({
+  id: z.uuid(),
+  workspaceId: z.uuid(),
+  name: z.string().min(1).max(120),
+  baseUrl: z.url().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const createProjectSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  baseUrl: z.union([z.url(), z.literal('')]).optional(),
+});
+
+export const updateProjectSchema = createProjectSchema
+  .partial()
+  .refine(
+    (update) => update.name !== undefined || update.baseUrl !== undefined,
+    'At least one project field is required',
+  );
+
+export const workspaceSummarySchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1).max(120),
+  role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'REPORTER']),
+  projects: z.array(projectSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
 export const reportSchema = createReportSchema.omit({ screenshotDataUrl: true }).extend({
   id: z.uuid(),
   status: z.enum(reportStatuses),
@@ -245,11 +279,16 @@ export type CaptureContext = z.infer<typeof captureContextSchema>;
 export type CaptureRequest = z.infer<typeof captureRequestSchema>;
 export type Comment = z.infer<typeof commentSchema>;
 export type ClientPolicy = z.infer<typeof clientPolicySchema>;
+export type CreateProject = z.infer<typeof createProjectSchema>;
 export type CreateReport = z.infer<typeof createReportSchema>;
+export type CreateWorkspace = z.infer<typeof createWorkspaceSchema>;
 export type ElementAnchor = z.infer<typeof elementAnchorSchema>;
 export type Membership = z.infer<typeof membershipSchema>;
+export type Project = z.infer<typeof projectSchema>;
 export type RegionAnchor = z.infer<typeof regionAnchorSchema>;
 export type Report = z.infer<typeof reportSchema>;
 export type ReportStatus = (typeof reportStatuses)[number];
 export type RecorderEvent = z.infer<typeof recorderEventSchema>;
 export type ReproductionStep = z.infer<typeof reproductionStepSchema>;
+export type UpdateProject = z.infer<typeof updateProjectSchema>;
+export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;

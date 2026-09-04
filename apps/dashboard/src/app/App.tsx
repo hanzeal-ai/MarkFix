@@ -1,8 +1,23 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, CircleDot, MessageSquare, Search, Sparkles, Users } from 'lucide-react';
+import {
+  ArrowRight,
+  CircleDot,
+  MessageSquare,
+  Search,
+  Settings2,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 import { MarkFixApi } from '@markfix/api-client';
-import type { Annotation, CaptureContext, Report, ReportStatus } from '@markfix/contracts';
+import type {
+  Annotation,
+  CaptureContext,
+  Project,
+  Report,
+  ReportStatus,
+  WorkspaceSummary,
+} from '@markfix/contracts';
 
 const api = new MarkFixApi(import.meta.env.VITE_API_URL ?? 'http://localhost:4310');
 
@@ -516,10 +531,257 @@ function TeamPanel({ workspaceId, canManage }: { workspaceId: string; canManage:
   );
 }
 
+type DashboardView = 'reports' | 'team' | 'projects';
+
+function WorkspaceNavigation({
+  view,
+  workspaces,
+  workspaceId,
+  projectId,
+  onView,
+  onWorkspace,
+  onProject,
+}: {
+  view: DashboardView;
+  workspaces: WorkspaceSummary[];
+  workspaceId: string | undefined;
+  projectId: string | undefined;
+  onView: (view: DashboardView) => void;
+  onWorkspace: (workspaceId: string) => void;
+  onProject: (projectId: string) => void;
+}) {
+  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <span>m</span> MarkFix
+      </div>
+      <nav>
+        <button className={view === 'reports' ? 'active' : ''} onClick={() => onView('reports')}>
+          <CircleDot size={17} /> Reports
+        </button>
+        <button className={view === 'team' ? 'active' : ''} onClick={() => onView('team')}>
+          <Users size={17} /> Team
+        </button>
+        <button className={view === 'projects' ? 'active' : ''} onClick={() => onView('projects')}>
+          <Settings2 size={17} /> Projects
+        </button>
+      </nav>
+      <div className="workspace">
+        <label htmlFor="workspace-select">WORKSPACE</label>
+        <select
+          id="workspace-select"
+          value={workspaceId ?? ''}
+          onChange={(event) => onWorkspace(event.target.value)}
+        >
+          {workspaces.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {candidate.name}
+            </option>
+          ))}
+        </select>
+        <label htmlFor="project-select">PROJECT</label>
+        <select
+          id="project-select"
+          value={projectId ?? ''}
+          onChange={(event) => onProject(event.target.value)}
+          disabled={!workspace?.projects.length}
+        >
+          {!workspace?.projects.length && <option value="">No projects yet</option>}
+          {workspace?.projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    </aside>
+  );
+}
+
+function ProjectsPanel({
+  workspace,
+  project,
+  onWorkspaceCreated,
+  onProjectCreated,
+}: {
+  workspace: WorkspaceSummary | undefined;
+  project: Project | undefined;
+  onWorkspaceCreated: (workspaceId: string) => void;
+  onProjectCreated: (projectId: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [projectName, setProjectName] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [editName, setEditName] = useState(project?.name ?? '');
+  const [editBaseUrl, setEditBaseUrl] = useState(project?.baseUrl ?? '');
+  const [message, setMessage] = useState('');
+  const canManage = workspace?.role === 'OWNER' || workspace?.role === 'ADMIN';
+
+  useEffect(() => {
+    setEditName(project?.name ?? '');
+    setEditBaseUrl(project?.baseUrl ?? '');
+  }, [project]);
+
+  const createWorkspace = useMutation({
+    mutationFn: () => api.createWorkspace(workspaceName),
+    onSuccess: async (created) => {
+      setWorkspaceName('');
+      setMessage('Workspace created. Add its first project below.');
+      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      onWorkspaceCreated(created.id);
+    },
+  });
+  const createProject = useMutation({
+    mutationFn: () =>
+      api.createProject(workspace?.id as string, {
+        name: projectName,
+        ...(baseUrl ? { baseUrl } : {}),
+      }),
+    onSuccess: async (created) => {
+      setProjectName('');
+      setBaseUrl('');
+      setMessage('Project created.');
+      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      onProjectCreated(created.id);
+    },
+  });
+  const updateProject = useMutation({
+    mutationFn: () =>
+      api.updateProject(project?.id as string, { name: editName, baseUrl: editBaseUrl }),
+    onSuccess: async () => {
+      setMessage('Project settings saved.');
+      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+    },
+  });
+
+  const mutationError = createWorkspace.error ?? createProject.error ?? updateProject.error;
+  return (
+    <main className="content projects-page">
+      <header>
+        <div>
+          <span className="eyebrow">ORGANIZATION</span>
+          <h1>Workspaces & projects</h1>
+          <p>Create a separate boundary for each team and configure the websites they review.</p>
+        </div>
+      </header>
+      {(message || mutationError) && (
+        <div className="settings-message">
+          {mutationError instanceof Error ? mutationError.message : message}
+        </div>
+      )}
+      <section className="settings-grid">
+        <form
+          className="settings-card"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (workspaceName.trim()) createWorkspace.mutate();
+          }}
+        >
+          <span className="eyebrow">NEW WORKSPACE</span>
+          <h2>Create a workspace</h2>
+          <label>
+            Workspace name
+            <input
+              required
+              maxLength={120}
+              value={workspaceName}
+              onChange={(event) => setWorkspaceName(event.target.value)}
+            />
+          </label>
+          <button className="primary" type="submit" disabled={createWorkspace.isPending}>
+            Create workspace
+          </button>
+        </form>
+        <form
+          className="settings-card"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (workspace && projectName.trim()) createProject.mutate();
+          }}
+        >
+          <span className="eyebrow">CURRENT WORKSPACE</span>
+          <h2>Add a project</h2>
+          <label>
+            Project name
+            <input
+              required
+              maxLength={120}
+              value={projectName}
+              onChange={(event) => setProjectName(event.target.value)}
+              disabled={!canManage}
+            />
+          </label>
+          <label>
+            Base URL
+            <input
+              type="url"
+              placeholder="https://example.com"
+              value={baseUrl}
+              onChange={(event) => setBaseUrl(event.target.value)}
+              disabled={!canManage}
+            />
+          </label>
+          <button
+            className="primary"
+            type="submit"
+            disabled={!canManage || createProject.isPending}
+          >
+            Create project
+          </button>
+          {!canManage && <small>Only workspace owners and admins can create projects.</small>}
+        </form>
+        {project && (
+          <form
+            className="settings-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (editName.trim()) updateProject.mutate();
+            }}
+          >
+            <span className="eyebrow">SELECTED PROJECT</span>
+            <h2>Project settings</h2>
+            <label>
+              Project name
+              <input
+                required
+                maxLength={120}
+                value={editName}
+                onChange={(event) => setEditName(event.target.value)}
+                disabled={!canManage}
+              />
+            </label>
+            <label>
+              Base URL
+              <input
+                type="url"
+                placeholder="https://example.com"
+                value={editBaseUrl}
+                onChange={(event) => setEditBaseUrl(event.target.value)}
+                disabled={!canManage}
+              />
+            </label>
+            <button
+              className="primary"
+              type="submit"
+              disabled={!canManage || updateProject.isPending}
+            >
+              Save project
+            </button>
+          </form>
+        )}
+      </section>
+    </main>
+  );
+}
+
 export function App() {
   const queryClient = useQueryClient();
   const [selectedReportId, setSelectedReportId] = useState<string>();
-  const [view, setView] = useState<'reports' | 'team'>('reports');
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>();
+  const [selectedProjectId, setSelectedProjectId] = useState<string>();
+  const [view, setView] = useState<DashboardView>('reports');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
@@ -533,15 +795,42 @@ export function App() {
     queryFn: () => api.me(),
     enabled: bootstrap.isSuccess,
   });
-  const projectId = bootstrap.data?.projects[0]?.id;
+  const workspaces = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: () => api.listWorkspaces(),
+    enabled: bootstrap.isSuccess,
+  });
+  const currentWorkspace = workspaces.data?.find(
+    (workspace) => workspace.id === selectedWorkspaceId,
+  );
+  const currentProject = currentWorkspace?.projects.find(
+    (project) => project.id === selectedProjectId,
+  );
+
+  useEffect(() => {
+    if (!workspaces.data?.length) return;
+    if (workspaces.data.some((workspace) => workspace.id === selectedWorkspaceId)) return;
+    const initial =
+      workspaces.data.find((workspace) => workspace.id === bootstrap.data?.id) ??
+      workspaces.data[0];
+    if (!initial) return;
+    setSelectedWorkspaceId(initial.id);
+  }, [bootstrap.data?.id, selectedWorkspaceId, workspaces.data]);
+
+  useEffect(() => {
+    if (!currentWorkspace) return;
+    if (currentWorkspace.projects.some((project) => project.id === selectedProjectId)) return;
+    setSelectedProjectId(currentWorkspace.projects[0]?.id);
+  }, [currentWorkspace, selectedProjectId]);
+
   const reports = useQuery({
-    queryKey: ['reports', projectId, statusFilter, priorityFilter],
+    queryKey: ['reports', selectedProjectId, statusFilter, priorityFilter],
     queryFn: () =>
-      api.listReports(projectId as string, {
+      api.listReports(selectedProjectId as string, {
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(priorityFilter ? { priority: priorityFilter } : {}),
       }),
-    enabled: Boolean(projectId),
+    enabled: Boolean(selectedProjectId),
   });
   const visibleReports = useMemo(
     () =>
@@ -549,9 +838,6 @@ export function App() {
         report.title.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
       ) ?? [],
     [reports.data, search],
-  );
-  const currentMembership = bootstrap.data?.memberships.find(
-    (membership) => membership.userId === currentUser.data?.id,
   );
   const isAuthenticationAction =
     window.location.pathname.endsWith('/verify-email') ||
@@ -578,140 +864,149 @@ export function App() {
     );
   }
 
-  if (selectedReportId && bootstrap.data)
+  if (workspaces.isPending || (workspaces.data?.length && !currentWorkspace)) {
+    return <main className="loading">Loading workspaces…</main>;
+  }
+
+  if (selectedReportId && currentWorkspace)
     return (
       <ReportDetail
         reportId={selectedReportId}
-        workspaceId={bootstrap.data.id}
+        workspaceId={currentWorkspace.id}
         userId={currentUser.data?.id}
-        role={currentMembership?.role}
+        role={currentWorkspace.role}
         onBack={() => setSelectedReportId(undefined)}
       />
     );
 
-  if (view === 'team' && bootstrap.data)
-    return (
-      <div className="app-shell">
-        <aside className="sidebar">
-          <div className="brand">
-            <span>m</span> MarkFix
-          </div>
-          <nav>
-            <button onClick={() => setView('reports')}>
-              <CircleDot size={17} /> Reports
-            </button>
-            <button className="active">
-              <Users size={17} /> Team
-            </button>
-          </nav>
-        </aside>
-        <TeamPanel
-          workspaceId={bootstrap.data.id}
-          canManage={currentMembership?.role === 'OWNER' || currentMembership?.role === 'ADMIN'}
-        />
-      </div>
-    );
-
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span>m</span> MarkFix
-        </div>
-        <nav>
-          <button className="active">
-            <CircleDot size={17} /> Reports
-          </button>
-          <button onClick={() => setView('team')}>
-            <Users size={17} /> Team
-          </button>
-        </nav>
-        <div className="workspace">
-          <small>WORKSPACE</small>
-          <strong>{bootstrap.data?.name ?? 'Loading…'}</strong>
-          <span>Website feedback</span>
-        </div>
-      </aside>
-      <main className="content">
-        <header>
-          <div>
-            <span className="eyebrow">PRODUCT FEEDBACK</span>
-            <h1>Reports</h1>
-            <p>See exactly what happened, where it happened.</p>
-          </div>
-          <button
-            className="avatar"
-            title="Sign out"
-            onClick={() =>
-              void api.logout().finally(() => {
-                queryClient.clear();
-                window.location.reload();
-              })
-            }
-          >
-            {(currentUser.data?.displayName ?? 'User').slice(0, 2).toUpperCase()}
-          </button>
-        </header>
-        <div className="toolbar">
-          <label>
-            <Search size={17} />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search reports"
-            />
-          </label>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-            <option value="">All statuses</option>
-            {Object.entries(statusLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={priorityFilter}
-            onChange={(event) => setPriorityFilter(event.target.value)}
-          >
-            <option value="">All priorities</option>
-            {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => (
-              <option key={priority}>{priority}</option>
-            ))}
-          </select>
-        </div>
-        <section className="report-list">
-          {visibleReports.length === 0 && (
-            <div className="empty-state">
-              <Sparkles />
-              <h2>No reports yet</h2>
-              <p>Create your first visual report from the MarkFix desktop app.</p>
+      <WorkspaceNavigation
+        view={view}
+        workspaces={workspaces.data ?? []}
+        workspaceId={currentWorkspace?.id}
+        projectId={currentProject?.id}
+        onView={setView}
+        onWorkspace={(workspaceId) => {
+          setSelectedReportId(undefined);
+          setSelectedWorkspaceId(workspaceId);
+          setSelectedProjectId(undefined);
+        }}
+        onProject={(projectId) => {
+          setSelectedReportId(undefined);
+          setSelectedProjectId(projectId);
+        }}
+      />
+      {view === 'team' && currentWorkspace && (
+        <TeamPanel
+          workspaceId={currentWorkspace.id}
+          canManage={currentWorkspace.role === 'OWNER' || currentWorkspace.role === 'ADMIN'}
+        />
+      )}
+      {view === 'projects' && (
+        <ProjectsPanel
+          workspace={currentWorkspace}
+          project={currentProject}
+          onWorkspaceCreated={(workspaceId) => {
+            setSelectedWorkspaceId(workspaceId);
+            setSelectedProjectId(undefined);
+          }}
+          onProjectCreated={setSelectedProjectId}
+        />
+      )}
+      {view === 'reports' && (
+        <main className="content">
+          <header>
+            <div>
+              <span className="eyebrow">PRODUCT FEEDBACK</span>
+              <h1>Reports</h1>
+              <p>See exactly what happened, where it happened.</p>
             </div>
-          )}
-          {visibleReports.map((report) => (
             <button
-              className="report-row"
-              key={report.id}
-              onClick={() => setSelectedReportId(report.id)}
+              className="avatar"
+              title="Sign out"
+              onClick={() =>
+                void api.logout().finally(() => {
+                  queryClient.clear();
+                  window.location.reload();
+                })
+              }
             >
-              <span className={`dot ${report.priority.toLocaleLowerCase()}`} />
-              <span className="report-main">
-                <strong>{report.title}</strong>
-                <small>
-                  {new URL(report.captureBundle.page.url).hostname} ·{' '}
-                  {new Date(report.createdAt).toLocaleString()}
-                </small>
-              </span>
-              <span className={`status ${report.status.toLocaleLowerCase()}`}>
-                {statusLabel[report.status]}
-              </span>
-              <span className="annotation-count">
-                <MessageSquare size={15} /> {report.captureBundle.annotations.length}
-              </span>
-              <ArrowRight size={17} />
+              {(currentUser.data?.displayName ?? 'User').slice(0, 2).toUpperCase()}
             </button>
-          ))}
-        </section>
-      </main>
+          </header>
+          <div className="toolbar">
+            <label>
+              <Search size={17} />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search reports"
+              />
+            </label>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="">All statuses</option>
+              {Object.entries(statusLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={priorityFilter}
+              onChange={(event) => setPriorityFilter(event.target.value)}
+            >
+              <option value="">All priorities</option>
+              {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => (
+                <option key={priority}>{priority}</option>
+              ))}
+            </select>
+          </div>
+          <section className="report-list">
+            {!currentProject && (
+              <div className="empty-state">
+                <Settings2 />
+                <h2>No project selected</h2>
+                <p>Create a project before collecting website feedback.</p>
+                <button className="primary" onClick={() => setView('projects')}>
+                  Manage projects
+                </button>
+              </div>
+            )}
+            {currentProject && visibleReports.length === 0 && (
+              <div className="empty-state">
+                <Sparkles />
+                <h2>No reports yet</h2>
+                <p>Create your first visual report from the MarkFix desktop app.</p>
+              </div>
+            )}
+            {currentProject &&
+              visibleReports.map((report) => (
+                <button
+                  className="report-row"
+                  key={report.id}
+                  onClick={() => setSelectedReportId(report.id)}
+                >
+                  <span className={`dot ${report.priority.toLocaleLowerCase()}`} />
+                  <span className="report-main">
+                    <strong>{report.title}</strong>
+                    <small>
+                      {new URL(report.captureBundle.page.url).hostname} ·{' '}
+                      {new Date(report.createdAt).toLocaleString()}
+                    </small>
+                  </span>
+                  <span className={`status ${report.status.toLocaleLowerCase()}`}>
+                    {statusLabel[report.status]}
+                  </span>
+                  <span className="annotation-count">
+                    <MessageSquare size={15} /> {report.captureBundle.annotations.length}
+                  </span>
+                  <ArrowRight size={17} />
+                </button>
+              ))}
+          </section>
+        </main>
+      )}
     </div>
   );
 }

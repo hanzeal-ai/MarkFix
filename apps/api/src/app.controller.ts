@@ -155,6 +155,44 @@ export class AppController {
     return this.auth.revokeSession(user.id, sessionId);
   }
 
+  @Get('workspaces')
+  workspaces(@CurrentUser() user: AuthenticatedUser) {
+    return this.app.listWorkspaces(user.id);
+  }
+
+  @Post('workspaces')
+  createWorkspace(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
+    return this.app.createWorkspace(user.id, body);
+  }
+
+  @Get('workspaces/:workspaceId/projects')
+  projects(@CurrentUser() user: AuthenticatedUser, @Param('workspaceId') workspaceId: string) {
+    return this.app.listProjects(user.id, workspaceId);
+  }
+
+  @Post('workspaces/:workspaceId/projects')
+  createProject(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('workspaceId') workspaceId: string,
+    @Body() body: unknown,
+  ) {
+    return this.app.createProject(user.id, workspaceId, body);
+  }
+
+  @Get('projects/:projectId')
+  project(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
+    return this.app.getProject(user.id, projectId);
+  }
+
+  @Patch('projects/:projectId')
+  updateProject(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('projectId') projectId: string,
+    @Body() body: unknown,
+  ) {
+    return this.app.updateProject(user.id, projectId, body);
+  }
+
   @Get('workspaces/:workspaceId/members')
   members(@CurrentUser() user: AuthenticatedUser, @Param('workspaceId') workspaceId: string) {
     return this.app.listMembers(user.id, workspaceId);

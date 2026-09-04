@@ -1,12 +1,21 @@
 import {
   clientPolicySchema,
+  createProjectSchema,
   createReportSchema,
+  createWorkspaceSchema,
+  projectSchema,
   reportSchema,
+  updateProjectSchema,
+  workspaceSummarySchema,
   type Comment,
   type ClientPolicy,
+  type CreateProject,
   type CreateReport,
   type Membership,
+  type Project,
   type Report,
+  type UpdateProject,
+  type WorkspaceSummary,
 } from '@markfix/contracts';
 
 type Bootstrap = {
@@ -164,6 +173,50 @@ export class MarkFixApi {
 
   bootstrap(): Promise<Bootstrap> {
     return this.request('/v1/bootstrap');
+  }
+
+  async listWorkspaces(): Promise<WorkspaceSummary[]> {
+    return workspaceSummarySchema.array().parse(await this.request('/v1/workspaces'));
+  }
+
+  async createWorkspace(name: string): Promise<WorkspaceSummary> {
+    const input = createWorkspaceSchema.parse({ name });
+    return workspaceSummarySchema.parse(
+      await this.request('/v1/workspaces', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    );
+  }
+
+  async listProjects(workspaceId: string): Promise<Project[]> {
+    return projectSchema
+      .array()
+      .parse(await this.request(`/v1/workspaces/${workspaceId}/projects`));
+  }
+
+  async createProject(workspaceId: string, input: CreateProject): Promise<Project> {
+    const parsed = createProjectSchema.parse(input);
+    return projectSchema.parse(
+      await this.request(`/v1/workspaces/${workspaceId}/projects`, {
+        method: 'POST',
+        body: JSON.stringify(parsed),
+      }),
+    );
+  }
+
+  async getProject(projectId: string): Promise<Project> {
+    return projectSchema.parse(await this.request(`/v1/projects/${projectId}`));
+  }
+
+  async updateProject(projectId: string, update: UpdateProject): Promise<Project> {
+    const parsed = updateProjectSchema.parse(update);
+    return projectSchema.parse(
+      await this.request(`/v1/projects/${projectId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(parsed),
+      }),
+    );
   }
 
   async submitReport(

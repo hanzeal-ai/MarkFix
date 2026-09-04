@@ -9,7 +9,14 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
-import { createReportSchema, type CreateReport, type ReportStatus } from '@markfix/contracts';
+import {
+  createProjectSchema,
+  createReportSchema,
+  createWorkspaceSchema,
+  updateProjectSchema,
+  type CreateReport,
+  type ReportStatus,
+} from '@markfix/contracts';
 import { Prisma } from '@markfix/database';
 import { hashPassword } from './auth-crypto.js';
 import { canTransitionReport } from './authorization.js';
@@ -94,6 +101,84 @@ export class AppService implements OnModuleInit {
     });
     if (!workspace) throw new NotFoundException('No workspace is available for this account');
     return workspace;
+  }
+
+  async listWorkspaces(userId: string) {
+    const workspaces = await this.database.workspace.findMany({
+      where: { memberships: { some: { userId, status: 'ACTIVE' } } },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+        projects: { orderBy: { createdAt: 'asc' } },
+        memberships: {
+          where: { userId, status: 'ACTIVE' },
+          select: { role: true },
+          take: 1,
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return workspaces.map(({ memberships, ...workspace }) => ({
+      ...workspace,
+      role: memberships[0]?.role,
+    }));
+  }
+
+  async createWorkspace(userId: string, input: unknown) {
+    const parsed = createWorkspaceSchema.safeParse(input);
+    if (!parsed.success) throw new ConflictException('A workspace name is required');
+    return this.database.$transaction(async (transaction) => {
+      const workspace = await transaction.workspace.create({
+        data: {
+          name: parsed.data.name,
+          createdById: userId,
+          memberships: { create: { userId, role: 'OWNER' } },
+        },
+      });
+      return { ...workspace, role: 'OWNER' as const, projects: [] };
+    });
+  }
+
+  async listProjects(userId: string, workspaceId: string) {
+    await this.requireMembership(userId, workspaceId);
+    return this.database.project.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createProject(userId: string, workspaceId: string, input: unknown) {
+    await this.requireMembership(userId, workspaceId, ['OWNER', 'ADMIN']);
+    const parsed = createProjectSchema.safeParse(input);
+    if (!parsed.success)
+      throw new ConflictException('A valid project name and base URL are required');
+    return this.database.project.create({
+      data: {
+        workspaceId,
+        name: parsed.data.name,
+        baseUrl: parsed.data.baseUrl || null,
+      },
+    });
+  }
+
+  async getProject(userId: string, projectId: string) {
+    return this.requireProjectAccess(userId, projectId);
+  }
+
+  async updateProject(userId: string, projectId: string, input: unknown) {
+    const project = await this.requireProjectAccess(userId, projectId);
+    await this.requireMembership(userId, project.workspaceId, ['OWNER', 'ADMIN']);
+    const parsed = updateProjectSchema.safeParse(input);
+    if (!parsed.success) throw new ConflictException('A valid project update is required');
+    return this.database.project.update({
+      where: { id: projectId },
+      data: {
+        ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
+        ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl || null } : {}),
+      },
+    });
   }
 
   async listMembers(userId: string, workspaceId: string) {

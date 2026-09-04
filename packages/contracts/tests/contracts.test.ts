@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { recorderEventSchema, regionAnchorSchema } from '../src/index.js';
+import {
+  createProjectSchema,
+  recorderEventSchema,
+  regionAnchorSchema,
+  updateProjectSchema,
+} from '../src/index.js';
 
 describe('regionAnchorSchema', () => {
   it('rejects an empty capture region', () => {
@@ -32,5 +37,19 @@ describe('recorderEventSchema', () => {
 
     expect(event.valueLength).toBe(12);
     expect(event).not.toHaveProperty('value');
+  });
+});
+
+describe('project input schemas', () => {
+  it('normalizes names and accepts an explicitly empty optional base URL', () => {
+    expect(createProjectSchema.parse({ name: '  Storefront  ', baseUrl: '' })).toEqual({
+      name: 'Storefront',
+      baseUrl: '',
+    });
+  });
+
+  it('rejects empty project updates and invalid URLs', () => {
+    expect(() => updateProjectSchema.parse({})).toThrow();
+    expect(() => createProjectSchema.parse({ name: 'Storefront', baseUrl: 'not-a-url' })).toThrow();
   });
 });
