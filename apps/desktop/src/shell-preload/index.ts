@@ -7,6 +7,9 @@ import {
   type BrowserMode,
   type CaptureRequest,
   type CreateReport,
+  type ScreenshotMark,
+  type ScreenshotStyle,
+  type ScreenshotTool,
 } from '@markfix/contracts';
 
 const subscribe = (channel: string, listener: (payload: unknown) => void): (() => void) => {
@@ -30,6 +33,11 @@ contextBridge.exposeInMainWorld('markfix', {
   setMode: (mode: BrowserMode) => ipcRenderer.invoke(ipcChannels.setMode, mode),
   setAnnotationTool: (tool: AnnotationTool) =>
     ipcRenderer.invoke(ipcChannels.setAnnotationTool, tool),
+  setCaptureTool: (tool: ScreenshotTool) => ipcRenderer.invoke(ipcChannels.setCaptureTool, tool),
+  setCaptureStyle: (style: ScreenshotStyle) =>
+    ipcRenderer.invoke(ipcChannels.setCaptureStyle, style),
+  syncCaptureMarks: (marks: ScreenshotMark[]) =>
+    ipcRenderer.invoke(ipcChannels.syncCaptureMarks, marks),
   setRecording: (enabled: boolean) => ipcRenderer.invoke(ipcChannels.setRecording, enabled),
   syncAnnotations: (annotations: Annotation[]) =>
     ipcRenderer.invoke(ipcChannels.syncAnnotations, annotations),
@@ -48,6 +56,8 @@ contextBridge.exposeInMainWorld('markfix', {
   onRegion: (listener: (payload: unknown) => void) => subscribe(ipcChannels.region, listener),
   onCaptureSelection: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.captureSelection, listener),
+  onCaptureMarksChanged: (listener: (payload: unknown) => void) =>
+    subscribe(ipcChannels.captureMarksChanged, listener),
   onRecorderEvent: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.recorderEvent, listener),
   onAnnotationCreated: (listener: (payload: unknown) => void) =>

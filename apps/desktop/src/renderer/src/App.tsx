@@ -6,10 +6,13 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Circle,
   Crosshair,
   Eye,
   EyeOff,
   Globe2,
+  Grid2X2,
+  Hash,
   LoaderCircle,
   MessageSquareText,
   MousePointer2,
@@ -28,6 +31,7 @@ import {
   anchorSchema,
   annotationSchema,
   recorderEventSchema,
+  screenshotMarkSchema,
   type Anchor,
   type Annotation,
   type AnnotationTool,
@@ -36,9 +40,12 @@ import {
   type CaptureContext,
   type Environment,
   type ReproductionStep,
+  type ScreenshotMark,
+  type ScreenshotTool,
   type WorkspaceSummary,
 } from '@markfix/contracts';
 import { describeTrustedEvent, mergeAdjacentInputSteps } from '@markfix/reproduction-model';
+import { composeScreenshot } from './screenshot-compositor';
 
 type Draft = {
   title: string;
@@ -55,6 +62,7 @@ type Draft = {
 type BrowserState = { url?: string; loading?: boolean; error?: string };
 type DesktopUser = { id: string; email: string; displayName: string };
 type CaptureSelection = Extract<Anchor, { kind: 'region' }>;
+type CaptureSource = { dataUrl: string; captureScale: number };
 
 const annotationName = (annotation: Annotation): string => {
   if (annotation.type === 'pin') return `Pin ${annotation.label}`;
@@ -154,6 +162,12 @@ function AnnotationWorkspace({
   const [reproduction, setReproduction] = useState<ReproductionStep[]>([]);
   const [screenshot, setScreenshot] = useState<string>();
   const [captureSelection, setCaptureSelection] = useState<CaptureSelection>();
+  const [captureSource, setCaptureSource] = useState<CaptureSource>();
+  const [captureMarks, setCaptureMarks] = useState<ScreenshotMark[]>([]);
+  const [captureRedoStack, setCaptureRedoStack] = useState<ScreenshotMark[]>([]);
+  const [captureTool, setCaptureTool] = useState<ScreenshotTool>('select');
+  const [captureColor, setCaptureColor] = useState('#ef4444');
+  const [captureStrokeWidth, setCaptureStrokeWidth] = useState<2 | 4 | 6>(4);
   const [captureLoading, setCaptureLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(
@@ -217,6 +231,7 @@ function AnnotationWorkspace({
         if (payload === null) {
           captureRequestIdRef.current = undefined;
           setCaptureSelection(undefined);
+          setCaptureSource(undefined);
           setScreenshot(undefined);
           return;
         }
@@ -224,6 +239,7 @@ function AnnotationWorkspace({
         if (!parsed.success || parsed.data.kind !== 'region') return;
         setCaptureSelection(parsed.data);
         setCaptureLoading(true);
+        setCaptureSource(undefined);
         setScreenshot(undefined);
         const captureRequestId = crypto.randomUUID();
         captureRequestIdRef.current = captureRequestId;
@@ -231,6 +247,7 @@ function AnnotationWorkspace({
           .capture({ mode: 'region', anchor: parsed.data })
           .then((result) => {
             if (captureRequestIdRef.current !== captureRequestId) return;
+            setCaptureSource({ dataUrl: result.dataUrl, captureScale: result.captureScale });
             setScreenshot(result.dataUrl);
             setNotice(result.warning ?? 'Selection captured. Move or resize it to capture again.');
           })
@@ -241,6 +258,12 @@ function AnnotationWorkspace({
           .finally(() => {
             if (captureRequestIdRef.current === captureRequestId) setCaptureLoading(false);
           });
+      }),
+      window.markfix.onCaptureMarksChanged((payload) => {
+        const parsed = screenshotMarkSchema.array().max(500).safeParse(payload);
+        if (!parsed.success) return;
+        setCaptureMarks(parsed.data);
+        setCaptureRedoStack([]);
       }),
       window.markfix.onRecorderEvent((payload) => {
         const parsed = recorderEventSchema.safeParse(payload);
@@ -420,6 +443,31 @@ function AnnotationWorkspace({
   }, [anchor]);
 
   useEffect(() => {
+    void window.markfix.syncCaptureMarks(captureMarks);
+  }, [captureMarks]);
+
+  useEffect(() => {
+    if (!captureSelection || !captureSource) return;
+    let active = true;
+    void composeScreenshot(
+      captureSource.dataUrl,
+      captureMarks,
+      captureSelection,
+      captureSource.captureScale,
+    )
+      .then((dataUrl) => {
+        if (active) setScreenshot(dataUrl);
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setNotice(error instanceof Error ? error.message : 'Could not render screenshot marks.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [captureMarks, captureSelection, captureSource]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       if (!title && !description && !anchor && annotations.length === 0 && !pendingOutboxId) {
         void window.markfix.clearDraft();
@@ -471,7 +519,12 @@ function AnnotationWorkspace({
     if (destination === 'capture') {
       captureRequestIdRef.current = undefined;
       setCaptureSelection(undefined);
+      setCaptureSource(undefined);
+      setCaptureMarks([]);
+      setCaptureRedoStack([]);
+      setCaptureTool('select');
       setScreenshot(undefined);
+      void window.markfix.setCaptureTool('select');
     }
     return setMode(destination);
   };
@@ -481,6 +534,50 @@ function AnnotationWorkspace({
     await window.markfix.setAnnotationTool(nextTool);
     await setMode('draw');
     setNotice(`Draw a ${nextTool} annotation on the page.`);
+  };
+
+  const chooseCaptureTool = (nextTool: ScreenshotTool): void => {
+    setCaptureTool(nextTool);
+    void window.markfix.setCaptureTool(nextTool);
+  };
+
+  const chooseCaptureColor = (color: string): void => {
+    setCaptureColor(color);
+    void window.markfix.setCaptureStyle({ color, strokeWidth: captureStrokeWidth });
+  };
+
+  const chooseCaptureStroke = (strokeWidth: 2 | 4 | 6): void => {
+    setCaptureStrokeWidth(strokeWidth);
+    void window.markfix.setCaptureStyle({ color: captureColor, strokeWidth });
+  };
+
+  const undoCaptureMark = (): void => {
+    setCaptureMarks((current) => {
+      const removed = current.at(-1);
+      if (!removed) return current;
+      setCaptureRedoStack((redo) => [...redo, removed]);
+      return current.slice(0, -1);
+    });
+  };
+
+  const redoCaptureMark = (): void => {
+    setCaptureRedoStack((current) => {
+      const restored = current.at(-1);
+      if (!restored) return current;
+      setCaptureMarks((marks) => [...marks, restored]);
+      return current.slice(0, -1);
+    });
+  };
+
+  const clearCaptureMarks = (): void => {
+    setCaptureMarks([]);
+    setCaptureRedoStack([]);
+  };
+
+  const updateCaptureText = (id: string, text: string): void => {
+    setCaptureMarks((marks) =>
+      marks.map((mark) => (mark.id === id && mark.type === 'text' ? { ...mark, text } : mark)),
+    );
   };
 
   const updateStep = (id: string, description: string): void => {
@@ -680,6 +777,120 @@ function AnnotationWorkspace({
               <Crosshair />
               <strong>框选需要截图的区域</strong>
               <span>在左侧页面按住鼠标拖动创建选区。</span>
+            </section>
+          )}
+          {captureSelection && (
+            <section className="capture-editor">
+              <div className="capture-tool-grid" aria-label="截图标记工具">
+                <button
+                  className={captureTool === 'select' ? 'active' : ''}
+                  title="移动选区"
+                  onClick={() => chooseCaptureTool('select')}
+                >
+                  <MousePointer2 />
+                </button>
+                <button
+                  className={captureTool === 'rectangle' ? 'active' : ''}
+                  title="矩形"
+                  onClick={() => chooseCaptureTool('rectangle')}
+                >
+                  <Square />
+                </button>
+                <button
+                  className={captureTool === 'ellipse' ? 'active' : ''}
+                  title="椭圆"
+                  onClick={() => chooseCaptureTool('ellipse')}
+                >
+                  <Circle />
+                </button>
+                <button
+                  className={captureTool === 'arrow' ? 'active' : ''}
+                  title="箭头"
+                  onClick={() => chooseCaptureTool('arrow')}
+                >
+                  <MoveUpRight />
+                </button>
+                <button
+                  className={captureTool === 'pen' ? 'active' : ''}
+                  title="画笔"
+                  onClick={() => chooseCaptureTool('pen')}
+                >
+                  <PenLine />
+                </button>
+                <button
+                  className={captureTool === 'text' ? 'active' : ''}
+                  title="文字"
+                  onClick={() => chooseCaptureTool('text')}
+                >
+                  <Type />
+                </button>
+                <button
+                  className={captureTool === 'mosaic' ? 'active' : ''}
+                  title="马赛克"
+                  onClick={() => chooseCaptureTool('mosaic')}
+                >
+                  <Grid2X2 />
+                </button>
+                <button
+                  className={captureTool === 'number' ? 'active' : ''}
+                  title="序号"
+                  onClick={() => chooseCaptureTool('number')}
+                >
+                  <Hash />
+                </button>
+              </div>
+              <div className="capture-style-row">
+                <div className="capture-colors" aria-label="标记颜色">
+                  {['#ef4444', '#f97316', '#2563eb', '#111827'].map((color) => (
+                    <button
+                      key={color}
+                      className={captureColor === color ? 'active' : ''}
+                      style={{ background: color }}
+                      title={color}
+                      onClick={() => chooseCaptureColor(color)}
+                    />
+                  ))}
+                </div>
+                <div className="capture-widths" aria-label="线宽">
+                  {([2, 4, 6] as const).map((width) => (
+                    <button
+                      key={width}
+                      className={captureStrokeWidth === width ? 'active' : ''}
+                      onClick={() => chooseCaptureStroke(width)}
+                    >
+                      {width}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="capture-history-actions">
+                <button disabled={captureMarks.length === 0} onClick={undoCaptureMark}>
+                  <Undo2 /> 撤销
+                </button>
+                <button disabled={captureRedoStack.length === 0} onClick={redoCaptureMark}>
+                  <Redo2 /> 重做
+                </button>
+                <button disabled={captureMarks.length === 0} onClick={clearCaptureMarks}>
+                  <Trash2 /> 清除
+                </button>
+                <span>{captureMarks.length} 个标记</span>
+              </div>
+              {captureMarks.some(({ type }) => type === 'text') && (
+                <div className="capture-text-list">
+                  {captureMarks.map((mark, index) =>
+                    mark.type === 'text' ? (
+                      <label key={mark.id}>
+                        文字 {index + 1}
+                        <input
+                          value={mark.text}
+                          maxLength={200}
+                          onChange={(event) => updateCaptureText(mark.id, event.target.value)}
+                        />
+                      </label>
+                    ) : null,
+                  )}
+                </div>
+              )}
             </section>
           )}
           {notice && <div className="notice">{notice}</div>}

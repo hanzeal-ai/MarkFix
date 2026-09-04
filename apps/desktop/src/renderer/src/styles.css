@@ -323,6 +323,117 @@ textarea {
   color: #7c3aed;
   margin-bottom: 5px;
 }
+.capture-editor {
+  display: grid;
+  gap: 12px;
+}
+.capture-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+.capture-tool-grid button,
+.capture-history-actions button,
+.capture-widths button {
+  border: 1px solid #ded9eb;
+  border-radius: 7px;
+  background: white;
+  color: #6d687a;
+}
+.capture-tool-grid button {
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.capture-tool-grid button:hover,
+.capture-tool-grid button.active,
+.capture-widths button.active {
+  border-color: #8b5cf6;
+  background: #ede9fe;
+  color: #6d28d9;
+}
+.capture-tool-grid svg {
+  width: 16px;
+  height: 16px;
+}
+.capture-style-row,
+.capture-history-actions,
+.capture-colors,
+.capture-widths {
+  display: flex;
+  align-items: center;
+}
+.capture-style-row {
+  justify-content: space-between;
+}
+.capture-colors,
+.capture-widths {
+  gap: 7px;
+}
+.capture-colors button {
+  width: 19px;
+  height: 19px;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #d7d2e2;
+}
+.capture-colors button.active {
+  box-shadow: 0 0 0 2px #8b5cf6;
+}
+.capture-widths button {
+  width: 28px;
+  height: 25px;
+  padding: 0;
+  font-size: 11px;
+}
+.capture-history-actions {
+  gap: 6px;
+}
+.capture-history-actions button {
+  height: 30px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+.capture-history-actions button:disabled {
+  opacity: 0.4;
+}
+.capture-history-actions svg {
+  width: 13px;
+  height: 13px;
+}
+.capture-history-actions span {
+  margin-left: auto;
+  color: #777184;
+  font-size: 11px;
+}
+.capture-text-list {
+  display: grid;
+  gap: 7px;
+}
+.capture-text-list label {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  align-items: center;
+  gap: 8px;
+  color: #777184;
+  font-size: 11px;
+}
+.capture-text-list input {
+  min-width: 0;
+  height: 30px;
+  border: 1px solid #ded9eb;
+  border-radius: 7px;
+  padding: 0 8px;
+  outline: none;
+}
+.capture-text-list input:focus {
+  border-color: #8b5cf6;
+}
 .report-context {
   display: grid;
   gap: 9px;

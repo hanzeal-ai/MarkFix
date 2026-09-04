@@ -1,5 +1,12 @@
 import { ipcRenderer } from 'electron';
-import type { Annotation, AnnotationTool, ElementAnchor, RecorderEvent } from '@markfix/contracts';
+import type {
+  Annotation,
+  AnnotationTool,
+  ElementAnchor,
+  RecorderEvent,
+  ScreenshotMark,
+  ScreenshotTool,
+} from '@markfix/contracts';
 import { pickBestAnchorCandidate } from '@markfix/anchor-core';
 import {
   createCaptureBounds,
@@ -41,6 +48,18 @@ let captureGesture:
   | { kind: 'create'; start: Point }
   | { kind: 'move'; start: Point; original: CaptureBounds }
   | { kind: 'resize'; start: Point; original: CaptureBounds; handle: CaptureHandle }
+  | undefined;
+let screenshotTool: ScreenshotTool = 'select';
+let screenshotColor = '#ef4444';
+let screenshotStrokeWidth: 2 | 4 | 6 = 4;
+let screenshotMarks: ScreenshotMark[] = [];
+let screenshotGesture:
+  | {
+      tool: Exclude<ScreenshotTool, 'select'>;
+      start: Point;
+      current: Point;
+      points: Point[];
+    }
   | undefined;
 
 const svgElement = <K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] =>
@@ -86,6 +105,173 @@ const captureHandlePositions = (
   ];
 };
 
+const pointInsideCapture = (point: Point): boolean =>
+  Boolean(
+    captureBounds &&
+    point.x >= captureBounds.x &&
+    point.x <= captureBounds.x + captureBounds.width &&
+    point.y >= captureBounds.y &&
+    point.y <= captureBounds.y + captureBounds.height,
+  );
+
+const clipToCapture = (point: Point): Point => ({
+  x: Math.min(
+    (captureBounds?.x ?? 0) + (captureBounds?.width ?? 0),
+    Math.max(captureBounds?.x ?? 0, point.x),
+  ),
+  y: Math.min(
+    (captureBounds?.y ?? 0) + (captureBounds?.height ?? 0),
+    Math.max(captureBounds?.y ?? 0, point.y),
+  ),
+});
+
+const markFromGesture = (
+  gesture: NonNullable<typeof screenshotGesture>,
+  committed: boolean,
+): ScreenshotMark | undefined => {
+  const base = {
+    id: committed ? crypto.randomUUID() : '00000000-0000-4000-8000-000000000000',
+    color: screenshotColor,
+    strokeWidth: screenshotStrokeWidth,
+  } as const;
+  if (gesture.tool === 'pen') {
+    return gesture.points.length >= 2
+      ? { ...base, type: 'pen', points: gesture.points }
+      : undefined;
+  }
+  if (gesture.tool === 'text') {
+    return { ...base, type: 'text', position: gesture.start, text: '文字' };
+  }
+  if (gesture.tool === 'number') {
+    return {
+      ...base,
+      type: 'number',
+      position: gesture.start,
+      label: screenshotMarks.filter(({ type }) => type === 'number').length + 1,
+    };
+  }
+  if (gesture.tool === 'arrow') {
+    return { ...base, type: 'arrow', start: gesture.start, end: gesture.current };
+  }
+  const bounds = createCaptureBounds(gesture.start, gesture.current, captureViewport());
+  if (bounds.width === 0 || bounds.height === 0) return undefined;
+  return { ...base, type: gesture.tool, ...bounds };
+};
+
+const renderScreenshotMark = (mark: ScreenshotMark, group: SVGGElement): void => {
+  if (mark.type === 'rectangle' || mark.type === 'ellipse' || mark.type === 'mosaic') {
+    const shape = svgElement(mark.type === 'ellipse' ? 'ellipse' : 'rect');
+    if (shape instanceof SVGEllipseElement) {
+      setAttributes(shape, {
+        cx: String(mark.x + mark.width / 2),
+        cy: String(mark.y + mark.height / 2),
+        rx: String(mark.width / 2),
+        ry: String(mark.height / 2),
+      });
+    } else {
+      setAttributes(shape, {
+        x: String(mark.x),
+        y: String(mark.y),
+        width: String(mark.width),
+        height: String(mark.height),
+        rx: mark.type === 'mosaic' ? '0' : '3',
+      });
+    }
+    setAttributes(shape, {
+      fill: mark.type === 'mosaic' ? 'rgba(107, 114, 128, .72)' : 'transparent',
+      stroke: mark.type === 'mosaic' ? 'rgba(255,255,255,.75)' : mark.color,
+      'stroke-width': String(mark.strokeWidth),
+      ...(mark.type === 'mosaic' ? { 'stroke-dasharray': '4 3' } : {}),
+    });
+    group.append(shape);
+    return;
+  }
+  if (mark.type === 'arrow') {
+    const line = svgElement('line');
+    setAttributes(line, {
+      x1: String(mark.start.x),
+      y1: String(mark.start.y),
+      x2: String(mark.end.x),
+      y2: String(mark.end.y),
+      stroke: mark.color,
+      'stroke-width': String(mark.strokeWidth),
+      'stroke-linecap': 'round',
+    });
+    const angle = Math.atan2(mark.end.y - mark.start.y, mark.end.x - mark.start.x);
+    const size = 10 + mark.strokeWidth;
+    const arrowhead = svgElement('polygon');
+    setAttributes(arrowhead, {
+      points: [
+        mark.end,
+        {
+          x: mark.end.x - size * Math.cos(angle - Math.PI / 6),
+          y: mark.end.y - size * Math.sin(angle - Math.PI / 6),
+        },
+        {
+          x: mark.end.x - size * Math.cos(angle + Math.PI / 6),
+          y: mark.end.y - size * Math.sin(angle + Math.PI / 6),
+        },
+      ]
+        .map(({ x, y }) => `${x},${y}`)
+        .join(' '),
+      fill: mark.color,
+    });
+    group.append(line, arrowhead);
+    return;
+  }
+  if (mark.type === 'pen') {
+    const line = svgElement('polyline');
+    setAttributes(line, {
+      points: pointsAttribute(mark.points),
+      fill: 'none',
+      stroke: mark.color,
+      'stroke-width': String(mark.strokeWidth),
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    });
+    group.append(line);
+    return;
+  }
+  if (mark.type === 'text') {
+    const label = svgElement('text');
+    setAttributes(label, {
+      x: String(mark.position.x),
+      y: String(mark.position.y),
+      fill: mark.color,
+      'font-size': '18',
+      'font-family': 'system-ui',
+      'font-weight': '700',
+      stroke: 'white',
+      'stroke-width': '3',
+      'paint-order': 'stroke',
+    });
+    label.textContent = mark.text;
+    group.append(label);
+    return;
+  }
+  const circle = svgElement('circle');
+  setAttributes(circle, {
+    cx: String(mark.position.x),
+    cy: String(mark.position.y),
+    r: '13',
+    fill: mark.color,
+    stroke: 'white',
+    'stroke-width': '2',
+  });
+  const label = svgElement('text');
+  setAttributes(label, {
+    x: String(mark.position.x),
+    y: String(mark.position.y + 4),
+    fill: 'white',
+    'font-size': '12',
+    'font-family': 'system-ui',
+    'font-weight': '700',
+    'text-anchor': 'middle',
+  });
+  label.textContent = String(mark.label);
+  group.append(circle, label);
+};
+
 const renderCaptureSelection = (): void => {
   if (!surface) return;
   surface.querySelector(`#${captureGroupId}`)?.remove();
@@ -107,6 +293,25 @@ const renderCaptureSelection = (): void => {
   group.append(mask);
 
   if (captureBounds) {
+    const clipPath = svgElement('clipPath');
+    clipPath.id = 'markfix-capture-clip';
+    const clipRectangle = svgElement('rect');
+    setAttributes(clipRectangle, {
+      x: String(captureBounds.x),
+      y: String(captureBounds.y),
+      width: String(captureBounds.width),
+      height: String(captureBounds.height),
+    });
+    clipPath.append(clipRectangle);
+    group.append(clipPath);
+    const marksGroup = svgElement('g');
+    marksGroup.setAttribute('clip-path', 'url(#markfix-capture-clip)');
+    screenshotMarks.forEach((mark) => renderScreenshotMark(mark, marksGroup));
+    const draftMark = screenshotGesture ? markFromGesture(screenshotGesture, false) : undefined;
+    if (draftMark) renderScreenshotMark(draftMark, marksGroup);
+    marksGroup.style.pointerEvents = 'none';
+    group.append(marksGroup);
+
     const body = svgElement('rect');
     setAttributes(body, {
       x: String(captureBounds.x),
@@ -118,8 +323,8 @@ const renderCaptureSelection = (): void => {
       'stroke-width': '2',
       'data-capture-body': '',
     });
-    body.style.cursor = 'move';
-    body.style.pointerEvents = 'all';
+    body.style.cursor = screenshotTool === 'select' ? 'move' : 'crosshair';
+    body.style.pointerEvents = screenshotTool === 'select' ? 'all' : 'none';
     group.append(body);
 
     captureHandlePositions(captureBounds).forEach(({ handle, x, y, cursor }) => {
@@ -136,7 +341,7 @@ const renderCaptureSelection = (): void => {
         'data-capture-handle': handle,
       });
       item.style.cursor = cursor;
-      item.style.pointerEvents = 'all';
+      item.style.pointerEvents = screenshotTool === 'select' ? 'all' : 'none';
       group.append(item);
     });
 
@@ -323,6 +528,25 @@ const mount = (): void => {
   renderCaptureSelection();
 
   surface.addEventListener('pointerdown', (event) => {
+    if (
+      event.isTrusted &&
+      event.button === 0 &&
+      mode === 'capture' &&
+      screenshotTool !== 'select'
+    ) {
+      const start = { x: event.clientX, y: event.clientY };
+      if (!pointInsideCapture(start)) return;
+      const clipped = clipToCapture(start);
+      screenshotGesture = {
+        tool: screenshotTool,
+        start: clipped,
+        current: clipped,
+        points: [clipped],
+      };
+      surface?.setPointerCapture(event.pointerId);
+      renderCaptureSelection();
+      return;
+    }
     if (event.isTrusted && event.button === 0 && mode === 'capture') {
       const start = { x: event.clientX, y: event.clientY };
       const target = event.target instanceof Element ? event.target : undefined;
@@ -343,6 +567,8 @@ const mount = (): void => {
       } else {
         captureGesture = { kind: 'create', start };
         captureBounds = createCaptureBounds(start, start, captureViewport());
+        screenshotMarks = [];
+        ipcRenderer.send('markfix:capture-marks-changed', screenshotMarks);
       }
       renderCaptureSelection();
       surface?.setPointerCapture(event.pointerId);
@@ -371,6 +597,13 @@ const mount = (): void => {
     surface?.setPointerCapture(event.pointerId);
   });
   surface.addEventListener('pointermove', (event) => {
+    if (event.isTrusted && mode === 'capture' && screenshotGesture) {
+      const current = clipToCapture({ x: event.clientX, y: event.clientY });
+      screenshotGesture.current = current;
+      if (screenshotGesture.tool === 'pen') screenshotGesture.points.push(current);
+      renderCaptureSelection();
+      return;
+    }
     if (event.isTrusted && mode === 'capture' && captureGesture) {
       const point = { x: event.clientX, y: event.clientY };
       const delta = {
@@ -400,6 +633,24 @@ const mount = (): void => {
     selectionShape.setAttribute('height', String(Math.abs(event.clientY - dragStart.y)));
   });
   surface.addEventListener('pointerup', (event) => {
+    if (event.isTrusted && mode === 'capture' && screenshotGesture) {
+      const gesture = screenshotGesture;
+      screenshotGesture = undefined;
+      const distance = Math.hypot(
+        gesture.current.x - gesture.start.x,
+        gesture.current.y - gesture.start.y,
+      );
+      const isClickTool = gesture.tool === 'text' || gesture.tool === 'number';
+      const mark = isClickTool || distance >= 8 ? markFromGesture(gesture, true) : undefined;
+      if (mark) {
+        screenshotMarks = [...screenshotMarks, mark];
+        ipcRenderer.send('markfix:capture-marks-changed', screenshotMarks);
+      }
+      renderCaptureSelection();
+      if (surface?.hasPointerCapture(event.pointerId))
+        surface.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (event.isTrusted && mode === 'capture' && captureGesture) {
       captureGesture = undefined;
       if (captureBounds && (captureBounds.width < 40 || captureBounds.height < 40)) {
@@ -785,6 +1036,30 @@ ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
 ipcRenderer.on('markfix:set-tool', (_event, requestedTool: unknown) => {
   if (['pin', 'rectangle', 'arrow', 'text', 'pen'].includes(String(requestedTool)))
     tool = requestedTool as AnnotationTool;
+});
+ipcRenderer.on('markfix:set-capture-tool', (_event, requestedTool: unknown) => {
+  if (
+    ['select', 'rectangle', 'ellipse', 'arrow', 'pen', 'text', 'mosaic', 'number'].includes(
+      String(requestedTool),
+    )
+  ) {
+    screenshotTool = requestedTool as ScreenshotTool;
+    screenshotGesture = undefined;
+    renderCaptureSelection();
+  }
+});
+ipcRenderer.on('markfix:set-capture-style', (_event, payload: unknown) => {
+  const candidate = payload as { color?: unknown; strokeWidth?: unknown };
+  if (typeof candidate.color === 'string' && candidate.color.length <= 32)
+    screenshotColor = candidate.color;
+  if ([2, 4, 6].includes(Number(candidate.strokeWidth)))
+    screenshotStrokeWidth = candidate.strokeWidth as 2 | 4 | 6;
+});
+ipcRenderer.on('markfix:sync-capture-marks', (_event, payload: unknown) => {
+  if (!Array.isArray(payload)) return;
+  screenshotMarks = payload as ScreenshotMark[];
+  screenshotGesture = undefined;
+  renderCaptureSelection();
 });
 ipcRenderer.on('markfix:set-recorder', (_event, payload: unknown) => {
   const candidate = payload as { enabled?: unknown; pageRevision?: unknown };

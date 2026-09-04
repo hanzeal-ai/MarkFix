@@ -21,6 +21,9 @@ import {
   ipcChannels,
   navigateInputSchema,
   recorderEventSchema,
+  screenshotMarkSchema,
+  screenshotStyleSchema,
+  screenshotToolSchema,
   type Anchor,
   type Annotation,
   type ClientPolicy,
@@ -370,6 +373,21 @@ const registerIpc = (): void => {
     const tool = annotationToolSchema.parse(input);
     websiteView?.webContents.send('markfix:set-tool', tool);
   });
+  ipcMain.handle(ipcChannels.setCaptureTool, (event, input: unknown) => {
+    assertShellSender(event);
+    websiteView?.webContents.send('markfix:set-capture-tool', screenshotToolSchema.parse(input));
+  });
+  ipcMain.handle(ipcChannels.setCaptureStyle, (event, input: unknown) => {
+    assertShellSender(event);
+    websiteView?.webContents.send('markfix:set-capture-style', screenshotStyleSchema.parse(input));
+  });
+  ipcMain.handle(ipcChannels.syncCaptureMarks, (event, input: unknown) => {
+    assertShellSender(event);
+    websiteView?.webContents.send(
+      'markfix:sync-capture-marks',
+      screenshotMarkSchema.array().max(500).parse(input),
+    );
+  });
   ipcMain.handle(ipcChannels.setRecording, (event, input: unknown) => {
     assertShellSender(event);
     if (typeof input !== 'boolean') throw new Error('Invalid recorder state');
@@ -479,6 +497,12 @@ const registerIpc = (): void => {
     const parsed = anchorSchema.safeParse(input);
     if (!parsed.success || parsed.data.kind !== 'region') return;
     sendShell(ipcChannels.captureSelection, parsed.data);
+  });
+  ipcMain.on('markfix:capture-marks-changed', (event, input: unknown) => {
+    if (event.sender.id !== websiteView?.webContents.id) return;
+    const parsed = screenshotMarkSchema.array().max(500).safeParse(input);
+    if (!parsed.success) return;
+    sendShell(ipcChannels.captureMarksChanged, parsed.data);
   });
   ipcMain.on('markfix:recorder-event', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;

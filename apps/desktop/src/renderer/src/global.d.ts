@@ -8,6 +8,9 @@ import type {
   ClientPolicy,
   CreateReport,
   Environment,
+  ScreenshotMark,
+  ScreenshotStyle,
+  ScreenshotTool,
   WorkspaceSummary,
 } from '@markfix/contracts';
 
@@ -32,6 +35,9 @@ declare global {
       reload(): Promise<void>;
       setMode(mode: BrowserMode): Promise<void>;
       setAnnotationTool(tool: AnnotationTool): Promise<void>;
+      setCaptureTool(tool: ScreenshotTool): Promise<void>;
+      setCaptureStyle(style: ScreenshotStyle): Promise<void>;
+      syncCaptureMarks(marks: ScreenshotMark[]): Promise<void>;
       setRecording(enabled: boolean): Promise<void>;
       syncAnnotations(annotations: Annotation[]): Promise<void>;
       syncAnchor(anchor: Anchor | null): Promise<void>;
@@ -55,6 +61,7 @@ declare global {
       onSelection(listener: (payload: unknown) => void): () => void;
       onRegion(listener: (payload: unknown) => void): () => void;
       onCaptureSelection(listener: (payload: unknown) => void): () => void;
+      onCaptureMarksChanged(listener: (payload: unknown) => void): () => void;
       onRecorderEvent(listener: (payload: unknown) => void): () => void;
       onAnnotationCreated(listener: (payload: unknown) => void): () => void;
       onAnnotationSelected(listener: (payload: unknown) => void): () => void;

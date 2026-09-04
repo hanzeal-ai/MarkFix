@@ -72,6 +72,60 @@ export const annotationSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
+export const screenshotToolSchema = z.enum([
+  'select',
+  'rectangle',
+  'ellipse',
+  'arrow',
+  'pen',
+  'text',
+  'mosaic',
+  'number',
+]);
+export const screenshotStyleSchema = z.object({
+  color: z.string().min(1).max(32),
+  strokeWidth: z.union([z.literal(2), z.literal(4), z.literal(6)]),
+});
+
+const screenshotMarkBaseSchema = z.object({
+  id: z.uuid(),
+  color: z.string().min(1).max(32),
+  strokeWidth: z.union([z.literal(2), z.literal(4), z.literal(6)]),
+});
+
+const screenshotBoundsMarkSchema = screenshotMarkBaseSchema.extend({
+  type: z.enum(['rectangle', 'ellipse', 'mosaic']),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+});
+
+export const screenshotMarkSchema = z.discriminatedUnion('type', [
+  screenshotBoundsMarkSchema.extend({ type: z.literal('rectangle') }),
+  screenshotBoundsMarkSchema.extend({ type: z.literal('ellipse') }),
+  screenshotBoundsMarkSchema.extend({ type: z.literal('mosaic') }),
+  screenshotMarkBaseSchema.extend({
+    type: z.literal('arrow'),
+    start: pointSchema,
+    end: pointSchema,
+  }),
+  screenshotMarkBaseSchema.extend({
+    type: z.literal('pen'),
+    points: z.array(pointSchema).min(2).max(5000),
+  }),
+  screenshotMarkBaseSchema.extend({
+    type: z.literal('text'),
+    position: pointSchema,
+    text: z.string().max(200),
+  }),
+  screenshotMarkBaseSchema.extend({
+    type: z.literal('number'),
+    position: pointSchema,
+    label: z.number().int().positive().max(999),
+  }),
+]);
+
 export const reproductionStepSchema = z.object({
   id: z.uuid(),
   type: z.enum(['click', 'input', 'select', 'scroll', 'drag', 'navigation', 'wait', 'manual']),
@@ -297,6 +351,10 @@ export const ipcChannels = {
   focusAnnotation: 'annotation:focus',
   annotationSelected: 'annotation:selected',
   captureSelection: 'capture:selection',
+  captureMarksChanged: 'capture:marks-changed',
+  setCaptureTool: 'capture:set-tool',
+  setCaptureStyle: 'capture:set-style',
+  syncCaptureMarks: 'capture:sync-marks',
   syncStatus: 'sync:status',
 } as const;
 
@@ -314,6 +372,9 @@ export const navigateInputSchema = z.object({ url: z.string().min(1).max(4096) }
 export type Anchor = z.infer<typeof anchorSchema>;
 export type Annotation = z.infer<typeof annotationSchema>;
 export type AnnotationTool = z.infer<typeof annotationToolSchema>;
+export type ScreenshotTool = z.infer<typeof screenshotToolSchema>;
+export type ScreenshotMark = z.infer<typeof screenshotMarkSchema>;
+export type ScreenshotStyle = z.infer<typeof screenshotStyleSchema>;
 export type BrowserMode = z.infer<typeof browserModeSchema>;
 export type CaptureBundle = z.infer<typeof captureBundleSchema>;
 export type CaptureContext = z.infer<typeof captureContextSchema>;
