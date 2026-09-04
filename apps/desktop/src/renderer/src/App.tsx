@@ -190,6 +190,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string>();
   const [contextLoading, setContextLoading] = useState(true);
   const pendingOutboxIdRef = useRef<string | undefined>(undefined);
+  const modeRef = useRef<BrowserMode>('browse');
   const captureRequestIdRef = useRef<string | undefined>(undefined);
   const captureRestoreRef = useRef<
     | {
@@ -201,6 +202,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   >(undefined);
   const screenshotRef = useRef<string | undefined>(undefined);
   const elementCommentsRef = useRef<SavedElementComment[]>([]);
+  modeRef.current = mode;
   screenshotRef.current = screenshot;
   elementCommentsRef.current = elementComments;
   const selectedWorkspace = workspaces.find(({ id }) => id === selectedWorkspaceId);
@@ -235,11 +237,12 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
       }),
       window.markfix.onModeShortcut((payload) => {
         if (payload !== 'capture' && payload !== 'comment') return;
-        if (payload === 'comment') {
+        const destination = modeRef.current === payload ? 'browse' : payload;
+        if (destination === 'comment') {
           setAnchor(undefined);
           setElementCommentNote('');
           setEditingElementCommentId(undefined);
-        } else {
+        } else if (destination === 'capture') {
           captureRequestIdRef.current = undefined;
           captureRestoreRef.current = undefined;
           setCaptureSelection(undefined);
@@ -250,13 +253,16 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           setScreenshot(undefined);
           void window.markfix.setCaptureTool('select');
         }
-        setModeState(payload);
+        modeRef.current = destination;
+        setModeState(destination);
         setNotice(
-          payload === 'capture'
+          destination === 'capture'
             ? 'Drag over the area you want to capture.'
-            : 'Hover and click an element on the page.',
+            : destination === 'comment'
+              ? 'Hover and click an element on the page.'
+              : undefined,
         );
-        void window.markfix.setMode(payload);
+        void window.markfix.setMode(destination);
       }),
       window.markfix.onSelection((payload) => {
         const parsed = anchorSchema.safeParse(payload);
@@ -648,6 +654,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   ]);
 
   const setMode = async (nextMode: BrowserMode): Promise<void> => {
+    modeRef.current = nextMode;
     setModeState(nextMode);
     setNotice(
       nextMode === 'comment' || nextMode === 'inspect'
@@ -1029,7 +1036,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
             title="批注（⌥W）"
             onClick={() => void toggleMode('comment')}
           >
-            <MessageSquareText /> 批注
+            <MessageSquareText /> 批注 <kbd>⌥W</kbd>
           </button>
           <button
             className={mode === 'capture' ? 'active' : ''}
@@ -1038,7 +1045,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
             title="截图（⌥A）"
             onClick={() => void toggleMode('capture')}
           >
-            <Camera /> 截图
+            <Camera /> 截图 <kbd>⌥A</kbd>
           </button>
           <button className="save-annotations-button" onClick={() => void openAnnotationSave()}>
             <Save /> 保存标注

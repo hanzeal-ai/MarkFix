@@ -280,6 +280,24 @@ textarea {
   border-color: #c9c4ff;
   background: #eeecff;
 }
+.tools button kbd {
+  min-width: 24px;
+  padding: 1px 4px;
+  border: 1px solid #e2e4e9;
+  border-radius: 5px;
+  background: #f6f6f8;
+  color: #858994;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 14px;
+  text-align: center;
+}
+.tools button.active kbd {
+  border-color: #d3ceff;
+  background: #fff;
+  color: #5b52e8;
+}
 .tools button.save-annotations-button {
   border-color: #5b52e8;
   background: #5b52e8;
