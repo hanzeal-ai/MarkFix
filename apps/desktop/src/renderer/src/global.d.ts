@@ -59,6 +59,8 @@ declare global {
       saveAnnotationSubmission(submission: AnnotationSubmission): Promise<void>;
       openAnnotationReview(): Promise<void>;
       closeAnnotationReview(): Promise<void>;
+      openCapturePreview(captureId: string): Promise<void>;
+      loadCapturePreview(captureId: string): Promise<SavedCapture>;
       setRecording(enabled: boolean): Promise<void>;
       syncAnnotations(annotations: Annotation[]): Promise<void>;
       syncAnchor(anchor: Anchor | null): Promise<void>;

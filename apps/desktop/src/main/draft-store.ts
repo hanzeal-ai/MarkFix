@@ -89,6 +89,13 @@ export class DraftStore {
     return rows.map(({ payload }) => JSON.parse(payload) as SavedCapture);
   }
 
+  getCapture(id: string): SavedCapture | undefined {
+    const row = this.database
+      .prepare('SELECT payload FROM capture_annotations WHERE id = ?')
+      .get(id) as { payload: string } | undefined;
+    return row ? (JSON.parse(row.payload) as SavedCapture) : undefined;
+  }
+
   saveCapture(capture: SavedCapture): void {
     this.database
       .prepare(

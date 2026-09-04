@@ -33,6 +33,15 @@ export function AnnotationSaveWindow(): React.JSX.Element {
     void window.markfix.closeAnnotationReview();
   }, []);
 
+  const previewCapture = useCallback((capture: SavedCapture): void => {
+    setError(undefined);
+    void window.markfix
+      .openCapturePreview(capture.id)
+      .catch((cause: unknown) =>
+        setError(cause instanceof Error ? cause.message : '无法打开截图预览。'),
+      );
+  }, []);
+
   const submit = async (selection: {
     captures: SavedCapture[];
     elementComments: SavedElementComment[];
@@ -72,6 +81,7 @@ export function AnnotationSaveWindow(): React.JSX.Element {
           elementComments={elementComments}
           busy={busy}
           onCancel={cancel}
+          onPreviewCapture={previewCapture}
           onSubmit={(selection) => void submit(selection)}
         />
       )}

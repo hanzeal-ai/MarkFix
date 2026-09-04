@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Camera, Check, MessageSquareText, X, ZoomIn } from 'lucide-react';
+import { Camera, Check, MessageSquareText, ZoomIn } from 'lucide-react';
 import type { SavedCapture, SavedElementComment } from '@markfix/contracts';
 
 type AnnotationSaveDialogProps = {
@@ -7,6 +7,7 @@ type AnnotationSaveDialogProps = {
   elementComments: SavedElementComment[];
   busy: boolean;
   onCancel: () => void;
+  onPreviewCapture: (capture: SavedCapture) => void;
   onSubmit: (selection: {
     captures: SavedCapture[];
     elementComments: SavedElementComment[];
@@ -25,6 +26,7 @@ export function AnnotationSaveDialog({
   elementComments,
   busy,
   onCancel,
+  onPreviewCapture,
   onSubmit,
 }: AnnotationSaveDialogProps): React.JSX.Element {
   const items = useMemo<ReviewItem[]>(
@@ -52,7 +54,6 @@ export function AnnotationSaveDialog({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(
     () => new Set(items.map(({ key }) => key)),
   );
-  const [previewCapture, setPreviewCapture] = useState<SavedCapture>();
   const allSelected = items.length > 0 && selectedKeys.size === items.length;
 
   useEffect(() => {
@@ -63,15 +64,11 @@ export function AnnotationSaveDialog({
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape' || busy) return;
       event.preventDefault();
-      if (previewCapture) {
-        setPreviewCapture(undefined);
-        return;
-      }
       onCancel();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [busy, onCancel, previewCapture]);
+  }, [busy, onCancel]);
 
   const toggleItem = (key: string): void => {
     setSelectedKeys((current) => {
@@ -90,14 +87,7 @@ export function AnnotationSaveDialog({
   };
 
   return (
-    <section className="annotation-save-dialog" aria-labelledby="annotation-save-title">
-      <header>
-        <div>
-          <h2 id="annotation-save-title">保存标注</h2>
-          <p>确认需要提交入库的批注和截图。</p>
-        </div>
-      </header>
-
+    <section className="annotation-save-dialog" aria-label="保存标注">
       <div className="annotation-save-summary">
         <label>
           <input
@@ -142,7 +132,7 @@ export function AnnotationSaveDialog({
                     className="annotation-save-preview-button"
                     aria-label={`预览截图：${item.record.note}`}
                     title="点击预览"
-                    onClick={() => setPreviewCapture(item.record)}
+                    onClick={() => onPreviewCapture(item.record)}
                   >
                     <img src={item.record.dataUrl} alt={item.record.note} />
                     <span>
@@ -186,9 +176,6 @@ export function AnnotationSaveDialog({
       </div>
 
       <footer>
-        <button type="button" disabled={busy} onClick={onCancel}>
-          取消
-        </button>
         <button
           type="button"
           className="primary"
@@ -198,45 +185,6 @@ export function AnnotationSaveDialog({
           <Check /> {busy ? '提交中…' : '提交'}
         </button>
       </footer>
-      {previewCapture && (
-        <div
-          className="annotation-image-preview"
-          role="dialog"
-          aria-modal="true"
-          aria-label="截图预览"
-          onClick={() => setPreviewCapture(undefined)}
-        >
-          <div
-            className="annotation-image-preview-content"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header>
-              <div>
-                <strong>截图预览</strong>
-                <span>{previewCapture.note}</span>
-              </div>
-              <button
-                type="button"
-                aria-label="关闭预览"
-                title="关闭预览"
-                onClick={() => setPreviewCapture(undefined)}
-              >
-                <X />
-              </button>
-            </header>
-            <div className="annotation-image-preview-canvas">
-              <img src={previewCapture.dataUrl} alt={previewCapture.note} />
-            </div>
-            <footer>
-              <span>
-                {Math.round(previewCapture.widthCssPx)} × {Math.round(previewCapture.heightCssPx)}{' '}
-                px
-              </span>
-              <span>{previewCapture.pageUrl}</span>
-            </footer>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

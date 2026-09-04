@@ -53,6 +53,7 @@ const workspaceMargin = 14;
 const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? 'http://localhost:4310');
 let mainWindow: BrowserWindow | undefined;
 let annotationReviewWindow: BrowserWindow | undefined;
+let capturePreviewWindow: BrowserWindow | undefined;
 let websiteView: WebContentsView | undefined;
 let inspector: CdpInspector | undefined;
 let captureService: CaptureService | undefined;
@@ -124,7 +125,12 @@ const restoreSession = async () => {
 
 const assertShellSender = (event: IpcMainInvokeEvent): void => {
   const annotationReviewWebContentsId = annotationReviewWindow?.webContents.id;
-  if (event.sender.id !== shellWebContentsId && event.sender.id !== annotationReviewWebContentsId)
+  const capturePreviewWebContentsId = capturePreviewWindow?.webContents.id;
+  if (
+    event.sender.id !== shellWebContentsId &&
+    event.sender.id !== annotationReviewWebContentsId &&
+    event.sender.id !== capturePreviewWebContentsId
+  )
     throw new Error('Untrusted IPC sender');
 };
 
@@ -225,6 +231,23 @@ const layoutWebsite = (): void => {
   });
 };
 
+const loadRendererView = async (
+  browserWindow: BrowserWindow,
+  view: string,
+  query: Record<string, string> = {},
+): Promise<void> => {
+  if (process.env.ELECTRON_RENDERER_URL) {
+    const rendererUrl = new URL(process.env.ELECTRON_RENDERER_URL);
+    rendererUrl.searchParams.set('view', view);
+    for (const [name, value] of Object.entries(query)) rendererUrl.searchParams.set(name, value);
+    await browserWindow.loadURL(rendererUrl.toString());
+    return;
+  }
+  await browserWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+    query: { view, ...query },
+  });
+};
+
 const openAnnotationReviewWindow = async (): Promise<void> => {
   if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Main window is unavailable');
   if (annotationReviewWindow && !annotationReviewWindow.isDestroyed()) {
@@ -257,15 +280,44 @@ const openAnnotationReviewWindow = async (): Promise<void> => {
     if (annotationReviewWindow === reviewWindow) annotationReviewWindow = undefined;
   });
   reviewWindow.once('ready-to-show', () => reviewWindow.show());
-  if (process.env.ELECTRON_RENDERER_URL) {
-    const reviewUrl = new URL(process.env.ELECTRON_RENDERER_URL);
-    reviewUrl.searchParams.set('view', 'annotation-save');
-    await reviewWindow.loadURL(reviewUrl.toString());
-  } else {
-    await reviewWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-      query: { view: 'annotation-save' },
-    });
-  }
+  await loadRendererView(reviewWindow, 'annotation-save');
+};
+
+const openCapturePreviewWindow = async (captureId: string): Promise<void> => {
+  const capture = draftStore?.getCapture(captureId);
+  if (!capture) throw new Error('截图不存在或已被删除');
+  if (capturePreviewWindow && !capturePreviewWindow.isDestroyed()) capturePreviewWindow.close();
+  const parent =
+    annotationReviewWindow && !annotationReviewWindow.isDestroyed()
+      ? annotationReviewWindow
+      : mainWindow;
+  if (!parent || parent.isDestroyed()) throw new Error('Parent window is unavailable');
+  const parentBounds = parent.getBounds();
+  const previewWindow = new BrowserWindow({
+    parent,
+    show: false,
+    width: Math.max(720, Math.min(1180, parentBounds.width - 40)),
+    height: Math.max(560, Math.min(820, parentBounds.height - 40)),
+    minWidth: 640,
+    minHeight: 480,
+    title: '截图预览 - MarkFix',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 16 },
+    backgroundColor: '#202127',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/shell.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  capturePreviewWindow = previewWindow;
+  previewWindow.on('closed', () => {
+    if (capturePreviewWindow === previewWindow) capturePreviewWindow = undefined;
+  });
+  previewWindow.once('ready-to-show', () => previewWindow.show());
+  await loadRendererView(previewWindow, 'capture-preview', { captureId });
 };
 
 const createWindow = async (): Promise<void> => {
@@ -549,6 +601,18 @@ const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.closeAnnotationReview, (event) => {
     assertShellSender(event);
     annotationReviewWindow?.close();
+  });
+  ipcMain.handle(ipcChannels.openCapturePreview, async (event, input: unknown) => {
+    assertShellSender(event);
+    if (typeof input !== 'string') throw new Error('Invalid capture ID');
+    await openCapturePreviewWindow(input);
+  });
+  ipcMain.handle(ipcChannels.loadCapturePreview, (event, input: unknown) => {
+    assertShellSender(event);
+    if (typeof input !== 'string') throw new Error('Invalid capture ID');
+    const capture = draftStore?.getCapture(input);
+    if (!capture) throw new Error('截图不存在或已被删除');
+    return capture;
   });
   ipcMain.handle(ipcChannels.setRecording, (event, input: unknown) => {
     assertShellSender(event);

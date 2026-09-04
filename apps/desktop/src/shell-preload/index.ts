@@ -62,6 +62,10 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(ipcChannels.saveAnnotationSubmission, submission),
   openAnnotationReview: () => ipcRenderer.invoke(ipcChannels.openAnnotationReview),
   closeAnnotationReview: () => ipcRenderer.invoke(ipcChannels.closeAnnotationReview),
+  openCapturePreview: (captureId: string) =>
+    ipcRenderer.invoke(ipcChannels.openCapturePreview, captureId),
+  loadCapturePreview: (captureId: string) =>
+    ipcRenderer.invoke(ipcChannels.loadCapturePreview, captureId),
   setRecording: (enabled: boolean) => ipcRenderer.invoke(ipcChannels.setRecording, enabled),
   syncAnnotations: (annotations: Annotation[]) =>
     ipcRenderer.invoke(ipcChannels.syncAnnotations, annotations),

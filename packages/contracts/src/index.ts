@@ -406,6 +406,8 @@ export const ipcChannels = {
   saveAnnotationSubmission: 'annotation-submission:save',
   openAnnotationReview: 'annotation-review:open',
   closeAnnotationReview: 'annotation-review:close',
+  openCapturePreview: 'capture-preview:open',
+  loadCapturePreview: 'capture-preview:load',
   annotationSubmissionSaved: 'annotation-submission:saved',
   syncStatus: 'sync:status',
 } as const;

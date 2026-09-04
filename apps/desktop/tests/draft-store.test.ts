@@ -69,12 +69,14 @@ describe('DraftStore screenshot annotations', () => {
 
     store.saveCapture(capture);
     expect(store.listCaptures()).toEqual([capture]);
+    expect(store.getCapture(capture.id)).toEqual(capture);
 
     store.saveCapture({ ...capture, note: '按钮遮挡正文与链接' });
     expect(store.listCaptures()).toEqual([{ ...capture, note: '按钮遮挡正文与链接' }]);
 
     store.deleteCapture(capture.id);
     expect(store.listCaptures()).toEqual([]);
+    expect(store.getCapture(capture.id)).toBeUndefined();
     store.close();
   });
 });

@@ -359,25 +359,12 @@ textarea {
   background: #fff;
   box-shadow: 0 10px 34px rgba(25, 26, 29, 0.08);
 }
-.annotation-save-dialog > header,
 .annotation-save-dialog > footer {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 18px 22px;
-}
-.annotation-save-dialog > header {
-  border-bottom: 1px solid #e7e8ee;
-}
-.annotation-save-dialog h2 {
-  margin: 0;
-  font-size: 18px;
-}
-.annotation-save-dialog header p {
-  margin: 5px 0 0;
-  color: #7b7f89;
-  font-size: 12px;
 }
 .annotation-save-dialog button {
   border: 1px solid #e2e4e9;
@@ -582,97 +569,86 @@ textarea {
   cursor: default;
   opacity: 0.58;
 }
-.annotation-image-preview {
-  position: fixed;
-  z-index: 50;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 34px;
-  background: rgba(20, 21, 27, 0.76);
-  backdrop-filter: blur(4px);
-}
-.annotation-image-preview-content {
-  width: min(920px, 100%);
-  max-height: 100%;
+.capture-preview-window {
+  width: 100vw;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
+  background: #202127;
 }
-.annotation-image-preview-content > header {
+.capture-preview-titlebar {
+  flex: 0 0 auto;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 20px 0 78px;
+  border-bottom: 1px solid #383a43;
+  background: #292a31;
+  color: #f5f5f7;
+  -webkit-app-region: drag;
+}
+.capture-preview-titlebar > span {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #8179ff;
+  border-radius: 8px;
+  color: #9c96ff;
+}
+.capture-preview-titlebar svg {
+  width: 15px;
+  height: 15px;
+}
+.capture-preview-titlebar strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.capture-preview-titlebar i {
+  color: #9a9da7;
+  font-size: 12px;
+  font-style: normal;
+}
+.capture-preview-window figure {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+}
+.capture-preview-window figure > img {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+}
+.capture-preview-window figcaption {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 16px;
-  border-bottom: 1px solid #e7e8ee;
-}
-.annotation-image-preview-content > header div {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.annotation-image-preview-content > header span {
-  overflow: hidden;
-  color: #737781;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.annotation-image-preview-content > header button {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-}
-.annotation-image-preview-content > header svg {
-  width: 17px;
-  height: 17px;
-}
-.annotation-image-preview-canvas {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: grid;
-  place-items: center;
-  overflow: auto;
-  padding: 18px;
-  background:
-    linear-gradient(45deg, #eceef2 25%, transparent 25%) 0 0 / 18px 18px,
-    linear-gradient(-45deg, #eceef2 25%, transparent 25%) 0 9px / 18px 18px,
-    linear-gradient(45deg, transparent 75%, #eceef2 75%) 9px -9px / 18px 18px,
-    linear-gradient(-45deg, transparent 75%, #eceef2 75%) -9px 0 / 18px 18px,
-    #f8f9fb;
-}
-.annotation-image-preview-canvas img {
-  display: block;
-  max-width: 100%;
-  max-height: calc(100vh - 190px);
-  object-fit: contain;
-  box-shadow: 0 3px 16px rgba(25, 26, 29, 0.16);
-}
-.annotation-image-preview-content > footer {
-  flex: 0 0 auto;
-  display: flex;
-  justify-content: space-between;
   gap: 18px;
-  padding: 11px 16px;
-  border-top: 1px solid #e7e8ee;
-  color: #7b7f89;
-  font-size: 11px;
+  padding: 13px 4px 0;
+  color: #f2f2f4;
 }
-.annotation-image-preview-content > footer span:last-child {
+.capture-preview-window figcaption span {
   min-width: 0;
   overflow: hidden;
+  color: #a7a9b1;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.capture-preview-loading,
+.capture-preview-error {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: #b8bac1;
+  font-size: 13px;
 }
 .comment-panel {
   position: fixed;
