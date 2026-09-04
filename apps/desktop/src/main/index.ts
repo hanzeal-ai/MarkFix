@@ -198,7 +198,7 @@ const createWindow = async (): Promise<void> => {
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#f4f4ef',
     webPreferences: {
-      preload: join(__dirname, '../preload/shell.mjs'),
+      preload: join(__dirname, '../preload/shell.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -207,7 +207,7 @@ const createWindow = async (): Promise<void> => {
   shellWebContentsId = mainWindow.webContents.id;
   websiteView = new WebContentsView({
     webPreferences: {
-      preload: join(__dirname, '../preload/target.mjs'),
+      preload: join(__dirname, '../preload/target.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
