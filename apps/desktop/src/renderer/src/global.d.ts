@@ -57,7 +57,8 @@ declare global {
       deleteElementComment(id: string): Promise<void>;
       syncElementComments(comments: SavedElementComment[]): Promise<void>;
       saveAnnotationSubmission(submission: AnnotationSubmission): Promise<void>;
-      setAnnotationReviewOpen(open: boolean): Promise<void>;
+      openAnnotationReview(): Promise<void>;
+      closeAnnotationReview(): Promise<void>;
       setRecording(enabled: boolean): Promise<void>;
       syncAnnotations(annotations: Annotation[]): Promise<void>;
       syncAnchor(anchor: Anchor | null): Promise<void>;
@@ -88,6 +89,7 @@ declare global {
       onAnnotationSelected(listener: (payload: unknown) => void): () => void;
       onAnchorRecovery(listener: (payload: unknown) => void): () => void;
       onSyncStatus(listener: (payload: unknown) => void): () => void;
+      onAnnotationSubmissionSaved(listener: (payload: unknown) => void): () => void;
     };
   }
 }

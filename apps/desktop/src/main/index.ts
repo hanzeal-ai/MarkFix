@@ -52,6 +52,7 @@ const panelWidth = 360;
 const workspaceMargin = 14;
 const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? 'http://localhost:4310');
 let mainWindow: BrowserWindow | undefined;
+let annotationReviewWindow: BrowserWindow | undefined;
 let websiteView: WebContentsView | undefined;
 let inspector: CdpInspector | undefined;
 let captureService: CaptureService | undefined;
@@ -122,7 +123,9 @@ const restoreSession = async () => {
 };
 
 const assertShellSender = (event: IpcMainInvokeEvent): void => {
-  if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted IPC sender');
+  const annotationReviewWebContentsId = annotationReviewWindow?.webContents.id;
+  if (event.sender.id !== shellWebContentsId && event.sender.id !== annotationReviewWebContentsId)
+    throw new Error('Untrusted IPC sender');
 };
 
 const sendShell = (channel: string, payload: unknown): void => {
@@ -220,6 +223,49 @@ const layoutWebsite = (): void => {
     ),
     height: Math.max(200, height - toolbarHeight - workspaceMargin * 2),
   });
+};
+
+const openAnnotationReviewWindow = async (): Promise<void> => {
+  if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Main window is unavailable');
+  if (annotationReviewWindow && !annotationReviewWindow.isDestroyed()) {
+    annotationReviewWindow.show();
+    annotationReviewWindow.focus();
+    return;
+  }
+  const parentBounds = mainWindow.getBounds();
+  const reviewWindow = new BrowserWindow({
+    parent: mainWindow,
+    show: false,
+    width: Math.max(760, Math.min(1040, parentBounds.width - 80)),
+    height: Math.max(620, Math.min(780, parentBounds.height - 80)),
+    minWidth: 760,
+    minHeight: 620,
+    title: '保存标注 - MarkFix',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 16 },
+    backgroundColor: '#f4f5f7',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/shell.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  annotationReviewWindow = reviewWindow;
+  reviewWindow.on('closed', () => {
+    if (annotationReviewWindow === reviewWindow) annotationReviewWindow = undefined;
+  });
+  reviewWindow.once('ready-to-show', () => reviewWindow.show());
+  if (process.env.ELECTRON_RENDERER_URL) {
+    const reviewUrl = new URL(process.env.ELECTRON_RENDERER_URL);
+    reviewUrl.searchParams.set('view', 'annotation-save');
+    await reviewWindow.loadURL(reviewUrl.toString());
+  } else {
+    await reviewWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+      query: { view: 'annotation-save' },
+    });
+  }
 };
 
 const createWindow = async (): Promise<void> => {
@@ -491,11 +537,18 @@ const registerIpc = (): void => {
     const submission = annotationSubmissionSchema.parse(input);
     for (const capture of submission.captures) decodeScreenshotDataUrl(capture.dataUrl);
     draftStore?.saveAnnotationSubmission(submission);
+    sendShell(ipcChannels.annotationSubmissionSaved, {
+      elementCommentCount: submission.elementComments.length,
+      captureCount: submission.captures.length,
+    });
   });
-  ipcMain.handle(ipcChannels.setAnnotationReviewOpen, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.openAnnotationReview, async (event) => {
     assertShellSender(event);
-    if (typeof input !== 'boolean') throw new Error('Invalid annotation review state');
-    websiteView?.setVisible(!input);
+    await openAnnotationReviewWindow();
+  });
+  ipcMain.handle(ipcChannels.closeAnnotationReview, (event) => {
+    assertShellSender(event);
+    annotationReviewWindow?.close();
   });
   ipcMain.handle(ipcChannels.setRecording, (event, input: unknown) => {
     assertShellSender(event);

@@ -34,7 +34,6 @@ import {
   screenshotMarkSchema,
   type Anchor,
   type Annotation,
-  type AnnotationSubmission,
   type AnnotationTool,
   type BrowserMode,
   type ClientPolicy,
@@ -49,7 +48,6 @@ import {
 import { describeTrustedEvent, mergeAdjacentInputSteps } from '@markfix/reproduction-model';
 import { composeScreenshot } from './screenshot-compositor';
 import { selectPageRecords } from './page-records';
-import { AnnotationSaveDialog } from './AnnotationSaveDialog';
 
 type Draft = {
   title: string;
@@ -178,8 +176,6 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   const [elementComments, setElementComments] = useState<SavedElementComment[]>([]);
   const [elementCommentNote, setElementCommentNote] = useState('');
   const [editingElementCommentId, setEditingElementCommentId] = useState<string>();
-  const [annotationSaveOpen, setAnnotationSaveOpen] = useState(false);
-  const [annotationSaveBusy, setAnnotationSaveBusy] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(
     policy?.status === 'upgrade-recommended'
@@ -401,6 +397,15 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
         if (status.status !== 'completed' || status.outboxId !== pendingOutboxIdRef.current) return;
         if (clearReport(String(status.outboxId)))
           setNotice('Queued report synchronized successfully.');
+      }),
+      window.markfix.onAnnotationSubmissionSaved((payload) => {
+        const counts = payload as {
+          elementCommentCount?: unknown;
+          captureCount?: unknown;
+        };
+        setNotice(
+          `已保存 ${Number(counts.elementCommentCount ?? 0)} 条批注和 ${Number(counts.captureCount ?? 0)} 张截图。`,
+        );
       }),
     ];
     void window.markfix.loadDraft().then((payload) => {
@@ -627,46 +632,10 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   };
 
   const openAnnotationSave = async (): Promise<void> => {
-    setAnnotationSaveOpen(true);
     try {
-      await window.markfix.setAnnotationReviewOpen(true);
+      await window.markfix.openAnnotationReview();
     } catch (error) {
-      setAnnotationSaveOpen(false);
       setNotice(error instanceof Error ? error.message : '无法打开标注确认窗口。');
-    }
-  };
-
-  const closeAnnotationSave = async (): Promise<void> => {
-    setAnnotationSaveOpen(false);
-    try {
-      await window.markfix.setAnnotationReviewOpen(false);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '无法返回当前页面。');
-    }
-  };
-
-  const submitAnnotations = async (selection: {
-    captures: SavedCapture[];
-    elementComments: SavedElementComment[];
-  }): Promise<void> => {
-    setAnnotationSaveBusy(true);
-    try {
-      const submission = {
-        id: crypto.randomUUID(),
-        captures: selection.captures,
-        elementComments: selection.elementComments,
-        submittedAt: new Date().toISOString(),
-      } satisfies AnnotationSubmission;
-      await window.markfix.saveAnnotationSubmission(submission);
-      setAnnotationSaveOpen(false);
-      await window.markfix.setAnnotationReviewOpen(false);
-      setNotice(
-        `已保存 ${selection.elementComments.length} 条批注和 ${selection.captures.length} 张截图。`,
-      );
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '保存标注失败。');
-    } finally {
-      setAnnotationSaveBusy(false);
     }
   };
 
@@ -1022,15 +991,6 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           </button>
         </div>
       </header>
-      {annotationSaveOpen && (
-        <AnnotationSaveDialog
-          captures={savedCaptures}
-          elementComments={elementComments}
-          busy={annotationSaveBusy}
-          onCancel={() => void closeAnnotationSave()}
-          onSubmit={(selection) => void submitAnnotations(selection)}
-        />
-      )}
       {notice && (
         <div className="app-toast" role="status">
           <Check /> {notice}

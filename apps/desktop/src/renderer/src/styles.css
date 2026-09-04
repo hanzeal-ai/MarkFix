@@ -289,27 +289,75 @@ textarea {
   border-color: #4238d4;
   background: #4238d4;
 }
-.annotation-save-backdrop {
-  position: fixed;
-  z-index: 100;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 40px;
-  background: rgba(28, 29, 36, 0.42);
-  backdrop-filter: blur(2px);
-  -webkit-app-region: no-drag;
-}
-.annotation-save-dialog {
-  width: min(840px, calc(100vw - 80px));
-  max-height: min(760px, calc(100vh - 80px));
+.annotation-review-window {
+  width: 100vw;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #dddff0;
-  border-radius: 16px;
+  background: #f4f5f7;
+}
+.annotation-review-titlebar {
+  flex: 0 0 52px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 20px 0 78px;
+  border-bottom: 1px solid #e2e4e9;
   background: #fff;
-  box-shadow: 0 28px 80px rgba(25, 26, 29, 0.24);
+  -webkit-app-region: drag;
+}
+.annotation-review-titlebar > span {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #5b52e8;
+  border-radius: 8px;
+  color: #5b52e8;
+}
+.annotation-review-titlebar svg {
+  width: 16px;
+  height: 16px;
+}
+.annotation-review-titlebar strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.annotation-review-titlebar i {
+  color: #90949d;
+  font-size: 12px;
+  font-style: normal;
+}
+.annotation-review-error {
+  flex: 0 0 auto;
+  margin: 12px 14px 0;
+  padding: 9px 12px;
+  border: 1px solid #f0c7ba;
+  border-radius: 9px;
+  background: #fff2ed;
+  color: #97492e;
+  font-size: 12px;
+}
+.annotation-review-loading {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: #7b7f89;
+  font-size: 13px;
+}
+.annotation-save-dialog {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: calc(100% - 28px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 14px;
+  border: 1px solid #dddff0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 34px rgba(25, 26, 29, 0.08);
 }
 .annotation-save-dialog > header,
 .annotation-save-dialog > footer {
@@ -337,16 +385,6 @@ textarea {
   background: #fff;
   color: #191a1d;
   cursor: pointer;
-}
-.annotation-save-dialog header > button {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-}
-.annotation-save-dialog header > button svg {
-  width: 17px;
-  height: 17px;
 }
 .annotation-save-summary {
   flex: 0 0 auto;
@@ -394,14 +432,13 @@ textarea {
   border: 1px solid #e2e4e9;
   border-radius: 12px;
   background: #fff;
-  cursor: pointer;
 }
 .annotation-save-item.selected {
   border-color: #b8b3ff;
   background: #f8f7ff;
   box-shadow: 0 0 0 1px rgba(91, 82, 232, 0.08);
 }
-.annotation-save-item > img,
+.annotation-save-preview-button,
 .annotation-save-item-icon {
   width: 132px;
   height: 86px;
@@ -409,9 +446,37 @@ textarea {
   border-radius: 9px;
   background: #fff;
 }
-.annotation-save-item > img {
+.annotation-save-preview-button {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+}
+.annotation-save-preview-button img {
+  width: 100%;
+  height: 100%;
   display: block;
   object-fit: cover;
+}
+.annotation-save-preview-button span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: rgba(24, 25, 31, 0.58);
+  color: #fff;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.annotation-save-preview-button:hover span,
+.annotation-save-preview-button:focus-visible span {
+  opacity: 1;
+}
+.annotation-save-preview-button span svg {
+  width: 15px;
+  height: 15px;
 }
 .annotation-save-item-icon {
   display: grid;
@@ -516,6 +581,98 @@ textarea {
 .annotation-save-item:has(input:disabled) {
   cursor: default;
   opacity: 0.58;
+}
+.annotation-image-preview {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 34px;
+  background: rgba(20, 21, 27, 0.76);
+  backdrop-filter: blur(4px);
+}
+.annotation-image-preview-content {
+  width: min(920px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
+}
+.annotation-image-preview-content > header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e7e8ee;
+}
+.annotation-image-preview-content > header div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.annotation-image-preview-content > header span {
+  overflow: hidden;
+  color: #737781;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annotation-image-preview-content > header button {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.annotation-image-preview-content > header svg {
+  width: 17px;
+  height: 17px;
+}
+.annotation-image-preview-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 18px;
+  background:
+    linear-gradient(45deg, #eceef2 25%, transparent 25%) 0 0 / 18px 18px,
+    linear-gradient(-45deg, #eceef2 25%, transparent 25%) 0 9px / 18px 18px,
+    linear-gradient(45deg, transparent 75%, #eceef2 75%) 9px -9px / 18px 18px,
+    linear-gradient(-45deg, transparent 75%, #eceef2 75%) -9px 0 / 18px 18px,
+    #f8f9fb;
+}
+.annotation-image-preview-canvas img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 190px);
+  object-fit: contain;
+  box-shadow: 0 3px 16px rgba(25, 26, 29, 0.16);
+}
+.annotation-image-preview-content > footer {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 11px 16px;
+  border-top: 1px solid #e7e8ee;
+  color: #7b7f89;
+  font-size: 11px;
+}
+.annotation-image-preview-content > footer span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .comment-panel {
   position: fixed;

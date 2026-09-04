@@ -404,7 +404,9 @@ export const ipcChannels = {
   deleteElementComment: 'element-comment:delete',
   syncElementComments: 'element-comment:sync',
   saveAnnotationSubmission: 'annotation-submission:save',
-  setAnnotationReviewOpen: 'annotation-review:set-open',
+  openAnnotationReview: 'annotation-review:open',
+  closeAnnotationReview: 'annotation-review:close',
+  annotationSubmissionSaved: 'annotation-submission:saved',
   syncStatus: 'sync:status',
 } as const;
 

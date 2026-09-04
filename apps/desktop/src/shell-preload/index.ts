@@ -60,8 +60,8 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(ipcChannels.syncElementComments, comments),
   saveAnnotationSubmission: (submission: AnnotationSubmission) =>
     ipcRenderer.invoke(ipcChannels.saveAnnotationSubmission, submission),
-  setAnnotationReviewOpen: (open: boolean) =>
-    ipcRenderer.invoke(ipcChannels.setAnnotationReviewOpen, open),
+  openAnnotationReview: () => ipcRenderer.invoke(ipcChannels.openAnnotationReview),
+  closeAnnotationReview: () => ipcRenderer.invoke(ipcChannels.closeAnnotationReview),
   setRecording: (enabled: boolean) => ipcRenderer.invoke(ipcChannels.setRecording, enabled),
   syncAnnotations: (annotations: Annotation[]) =>
     ipcRenderer.invoke(ipcChannels.syncAnnotations, annotations),
@@ -94,4 +94,6 @@ contextBridge.exposeInMainWorld('markfix', {
     subscribe(ipcChannels.anchorRecovery, listener),
   onSyncStatus: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.syncStatus, listener),
+  onAnnotationSubmissionSaved: (listener: (payload: unknown) => void) =>
+    subscribe(ipcChannels.annotationSubmissionSaved, listener),
 });

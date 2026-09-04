@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Camera, Check, MessageSquareText, X } from 'lucide-react';
+import { Camera, Check, MessageSquareText, X, ZoomIn } from 'lucide-react';
 import type { SavedCapture, SavedElementComment } from '@markfix/contracts';
 
 type AnnotationSaveDialogProps = {
@@ -52,6 +52,7 @@ export function AnnotationSaveDialog({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(
     () => new Set(items.map(({ key }) => key)),
   );
+  const [previewCapture, setPreviewCapture] = useState<SavedCapture>();
   const allSelected = items.length > 0 && selectedKeys.size === items.length;
 
   useEffect(() => {
@@ -62,11 +63,15 @@ export function AnnotationSaveDialog({
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape' || busy) return;
       event.preventDefault();
+      if (previewCapture) {
+        setPreviewCapture(undefined);
+        return;
+      }
       onCancel();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [busy, onCancel]);
+  }, [busy, onCancel, previewCapture]);
 
   const toggleItem = (key: string): void => {
     setSelectedKeys((current) => {
@@ -85,114 +90,153 @@ export function AnnotationSaveDialog({
   };
 
   return (
-    <div className="annotation-save-backdrop">
-      <section
-        className="annotation-save-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="annotation-save-title"
-      >
-        <header>
-          <div>
-            <h2 id="annotation-save-title">保存标注</h2>
-            <p>确认需要提交入库的批注和截图。</p>
+    <section className="annotation-save-dialog" aria-labelledby="annotation-save-title">
+      <header>
+        <div>
+          <h2 id="annotation-save-title">保存标注</h2>
+          <p>确认需要提交入库的批注和截图。</p>
+        </div>
+      </header>
+
+      <div className="annotation-save-summary">
+        <label>
+          <input
+            type="checkbox"
+            checked={allSelected}
+            disabled={items.length === 0 || busy}
+            onChange={() =>
+              setSelectedKeys(allSelected ? new Set() : new Set(items.map(({ key }) => key)))
+            }
+          />
+          全选
+        </label>
+        <span>
+          已选择 {selectedKeys.size} / {items.length} 项
+        </span>
+      </div>
+
+      <div className="annotation-save-list">
+        {items.length === 0 ? (
+          <div className="annotation-save-empty">
+            <MessageSquareText />
+            <strong>暂无可保存的标注</strong>
+            <span>完成批注或截图后再提交。</span>
           </div>
-          <button type="button" aria-label="关闭" title="关闭" disabled={busy} onClick={onCancel}>
-            <X />
-          </button>
-        </header>
-
-        <div className="annotation-save-summary">
-          <label>
-            <input
-              type="checkbox"
-              checked={allSelected}
-              disabled={items.length === 0 || busy}
-              onChange={() =>
-                setSelectedKeys(allSelected ? new Set() : new Set(items.map(({ key }) => key)))
-              }
-            />
-            全选
-          </label>
-          <span>
-            已选择 {selectedKeys.size} / {items.length} 项
-          </span>
-        </div>
-
-        <div className="annotation-save-list">
-          {items.length === 0 ? (
-            <div className="annotation-save-empty">
-              <MessageSquareText />
-              <strong>暂无可保存的标注</strong>
-              <span>完成批注或截图后再提交。</span>
-            </div>
-          ) : (
-            items.map((item) => {
-              const selected = selectedKeys.has(item.key);
-              return (
-                <label
-                  className={`annotation-save-item ${selected ? 'selected' : ''}`}
-                  key={item.key}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected}
-                    disabled={busy}
-                    onChange={() => toggleItem(item.key)}
-                  />
-                  {item.kind === 'capture' ? (
+        ) : (
+          items.map((item) => {
+            const selected = selectedKeys.has(item.key);
+            return (
+              <article
+                className={`annotation-save-item ${selected ? 'selected' : ''}`}
+                key={item.key}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  disabled={busy}
+                  onChange={() => toggleItem(item.key)}
+                />
+                {item.kind === 'capture' ? (
+                  <button
+                    type="button"
+                    className="annotation-save-preview-button"
+                    aria-label={`预览截图：${item.record.note}`}
+                    title="点击预览"
+                    onClick={() => setPreviewCapture(item.record)}
+                  >
                     <img src={item.record.dataUrl} alt={item.record.note} />
-                  ) : (
-                    <span className="annotation-save-item-icon">
-                      <MessageSquareText />
+                    <span>
+                      <ZoomIn /> 预览
                     </span>
-                  )}
-                  <span className="annotation-save-item-content">
-                    <span className="annotation-save-item-heading">
-                      <strong>{item.kind === 'capture' ? '截图标注' : '元素批注'}</strong>
-                      <time>
-                        {new Date(item.createdAt).toLocaleString([], {
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </time>
-                    </span>
-                    <span className="annotation-save-item-note">{item.record.note}</span>
-                    <span className="annotation-save-item-meta">
-                      {item.kind === 'capture' ? (
-                        <>
-                          <Camera /> {Math.round(item.record.widthCssPx)} ×{' '}
-                          {Math.round(item.record.heightCssPx)} px · {item.record.marks.length}{' '}
-                          个标记
-                        </>
-                      ) : (
-                        item.record.anchor.cssSelector
-                      )}
-                    </span>
-                    <span className="annotation-save-item-url">{item.record.pageUrl}</span>
+                  </button>
+                ) : (
+                  <span className="annotation-save-item-icon">
+                    <MessageSquareText />
                   </span>
-                </label>
-              );
-            })
-          )}
-        </div>
+                )}
+                <span className="annotation-save-item-content">
+                  <span className="annotation-save-item-heading">
+                    <strong>{item.kind === 'capture' ? '截图标注' : '元素批注'}</strong>
+                    <time>
+                      {new Date(item.createdAt).toLocaleString([], {
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </time>
+                  </span>
+                  <span className="annotation-save-item-note">{item.record.note}</span>
+                  <span className="annotation-save-item-meta">
+                    {item.kind === 'capture' ? (
+                      <>
+                        <Camera /> {Math.round(item.record.widthCssPx)} ×{' '}
+                        {Math.round(item.record.heightCssPx)} px · {item.record.marks.length} 个标记
+                      </>
+                    ) : (
+                      item.record.anchor.cssSelector
+                    )}
+                  </span>
+                  <span className="annotation-save-item-url">{item.record.pageUrl}</span>
+                </span>
+              </article>
+            );
+          })
+        )}
+      </div>
 
-        <footer>
-          <button type="button" disabled={busy} onClick={onCancel}>
-            取消
-          </button>
-          <button
-            type="button"
-            className="primary"
-            disabled={busy || selectedKeys.size === 0}
-            onClick={submit}
+      <footer>
+        <button type="button" disabled={busy} onClick={onCancel}>
+          取消
+        </button>
+        <button
+          type="button"
+          className="primary"
+          disabled={busy || selectedKeys.size === 0}
+          onClick={submit}
+        >
+          <Check /> {busy ? '提交中…' : '提交'}
+        </button>
+      </footer>
+      {previewCapture && (
+        <div
+          className="annotation-image-preview"
+          role="dialog"
+          aria-modal="true"
+          aria-label="截图预览"
+          onClick={() => setPreviewCapture(undefined)}
+        >
+          <div
+            className="annotation-image-preview-content"
+            onClick={(event) => event.stopPropagation()}
           >
-            <Check /> {busy ? '提交中…' : '提交'}
-          </button>
-        </footer>
-      </section>
-    </div>
+            <header>
+              <div>
+                <strong>截图预览</strong>
+                <span>{previewCapture.note}</span>
+              </div>
+              <button
+                type="button"
+                aria-label="关闭预览"
+                title="关闭预览"
+                onClick={() => setPreviewCapture(undefined)}
+              >
+                <X />
+              </button>
+            </header>
+            <div className="annotation-image-preview-canvas">
+              <img src={previewCapture.dataUrl} alt={previewCapture.note} />
+            </div>
+            <footer>
+              <span>
+                {Math.round(previewCapture.widthCssPx)} × {Math.round(previewCapture.heightCssPx)}{' '}
+                px
+              </span>
+              <span>{previewCapture.pageUrl}</span>
+            </footer>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
