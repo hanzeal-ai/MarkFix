@@ -52,9 +52,21 @@ export class CaptureService {
         }
       } else {
         image = await this.webContents.capturePage();
-        if (request.mode === 'element') {
-          const quads = request.anchor?.kind === 'element' ? request.anchor.quadsCssPx : [];
-          const crop = cropForQuads(quads, viewport);
+        if (request.mode === 'element' || request.mode === 'region') {
+          const crop =
+            request.mode === 'element'
+              ? cropForQuads(
+                  request.anchor?.kind === 'element' ? request.anchor.quadsCssPx : [],
+                  viewport,
+                )
+              : request.anchor?.kind === 'region'
+                ? {
+                    x: request.anchor.xCssPx,
+                    y: request.anchor.yCssPx,
+                    width: request.anchor.widthCssPx,
+                    height: request.anchor.heightCssPx,
+                  }
+                : undefined;
           if (crop) {
             const scale = image.getSize().width / viewport.width;
             image = image.crop(this.pixelRectangle(crop, scale, image));
@@ -63,7 +75,7 @@ export class CaptureService {
           } else {
             mode = 'visible';
             capturedCssSize = viewport;
-            warning = 'Element geometry was unavailable; captured the visible area instead.';
+            warning = `${request.mode === 'element' ? 'Element' : 'Region'} geometry was unavailable; captured the visible area instead.`;
           }
         }
       }

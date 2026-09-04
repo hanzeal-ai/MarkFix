@@ -154,6 +154,7 @@ function AnnotationWorkspace({
   const [reproduction, setReproduction] = useState<ReproductionStep[]>([]);
   const [screenshot, setScreenshot] = useState<string>();
   const [captureSelection, setCaptureSelection] = useState<CaptureSelection>();
+  const [captureLoading, setCaptureLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(
     policy?.status === 'upgrade-recommended'
@@ -168,6 +169,7 @@ function AnnotationWorkspace({
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string>();
   const [contextLoading, setContextLoading] = useState(true);
   const pendingOutboxIdRef = useRef<string | undefined>(undefined);
+  const captureRequestIdRef = useRef<string | undefined>(undefined);
   const selectedWorkspace = workspaces.find(({ id }) => id === selectedWorkspaceId);
   const selectedProject = selectedWorkspace?.projects.find(({ id }) => id === selectedProjectId);
   const selectedEnvironment = environments.find(({ id }) => id === selectedEnvironmentId);
@@ -213,13 +215,32 @@ function AnnotationWorkspace({
       }),
       window.markfix.onCaptureSelection((payload) => {
         if (payload === null) {
+          captureRequestIdRef.current = undefined;
           setCaptureSelection(undefined);
+          setScreenshot(undefined);
           return;
         }
         const parsed = anchorSchema.safeParse(payload);
         if (!parsed.success || parsed.data.kind !== 'region') return;
         setCaptureSelection(parsed.data);
-        setNotice('Selection ready. You can move it or resize it from any handle.');
+        setCaptureLoading(true);
+        setScreenshot(undefined);
+        const captureRequestId = crypto.randomUUID();
+        captureRequestIdRef.current = captureRequestId;
+        void window.markfix
+          .capture({ mode: 'region', anchor: parsed.data })
+          .then((result) => {
+            if (captureRequestIdRef.current !== captureRequestId) return;
+            setScreenshot(result.dataUrl);
+            setNotice(result.warning ?? 'Selection captured. Move or resize it to capture again.');
+          })
+          .catch((error: unknown) => {
+            if (captureRequestIdRef.current !== captureRequestId) return;
+            setNotice(error instanceof Error ? error.message : 'Could not capture this selection.');
+          })
+          .finally(() => {
+            if (captureRequestIdRef.current === captureRequestId) setCaptureLoading(false);
+          });
       }),
       window.markfix.onRecorderEvent((payload) => {
         const parsed = recorderEventSchema.safeParse(payload);
@@ -445,8 +466,15 @@ function AnnotationWorkspace({
     await window.markfix.setMode(nextMode);
   };
 
-  const toggleMode = (nextMode: 'comment' | 'capture'): Promise<void> =>
-    setMode(mode === nextMode ? 'browse' : nextMode);
+  const toggleMode = (nextMode: 'comment' | 'capture'): Promise<void> => {
+    const destination = mode === nextMode ? 'browse' : nextMode;
+    if (destination === 'capture') {
+      captureRequestIdRef.current = undefined;
+      setCaptureSelection(undefined);
+      setScreenshot(undefined);
+    }
+    return setMode(destination);
+  };
 
   const beginAnnotation = async (nextTool: AnnotationTool): Promise<void> => {
     setActiveTool(nextTool);
@@ -639,7 +667,8 @@ function AnnotationWorkspace({
           </div>
           {captureSelection ? (
             <section className="capture-selection-summary">
-              <span>已选择区域</span>
+              <span>{captureLoading ? '正在生成截图…' : '实时截图预览'}</span>
+              {screenshot && <img src={screenshot} alt="截图选区预览" />}
               <strong>
                 {Math.round(captureSelection.widthCssPx)} ×{' '}
                 {Math.round(captureSelection.heightCssPx)} px

@@ -295,6 +295,14 @@ textarea {
   color: #5b21b6;
   font-size: 24px;
 }
+.capture-selection-summary img {
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  border: 1px solid #ded8f0;
+  border-radius: 8px;
+  background: white;
+}
 .capture-selection-summary small,
 .capture-empty span {
   color: #777184;

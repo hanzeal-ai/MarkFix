@@ -113,12 +113,12 @@ export const recorderEventSchema = z.object({
 });
 
 export const captureRequestSchema = z.object({
-  mode: z.enum(['visible', 'element', 'full-page']),
+  mode: z.enum(['visible', 'element', 'region', 'full-page']),
   anchor: anchorSchema.optional(),
 });
 
 export const captureContextSchema = z.object({
-  mode: z.enum(['visible', 'element', 'full-page']),
+  mode: z.enum(['visible', 'element', 'region', 'full-page']),
   imageWidthPx: z.number().int().positive(),
   imageHeightPx: z.number().int().positive(),
   widthCssPx: z.number().positive(),
