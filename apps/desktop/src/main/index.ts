@@ -280,7 +280,11 @@ const openAnnotationReviewWindow = async (): Promise<void> => {
     if (annotationReviewWindow === reviewWindow) annotationReviewWindow = undefined;
   });
   reviewWindow.once('ready-to-show', () => reviewWindow.show());
-  await loadRendererView(reviewWindow, 'annotation-save');
+  try {
+    await loadRendererView(reviewWindow, 'annotation-save');
+  } catch (error) {
+    if (!reviewWindow.isDestroyed()) throw error;
+  }
 };
 
 const openCapturePreviewWindow = async (captureId: string): Promise<void> => {
@@ -317,7 +321,11 @@ const openCapturePreviewWindow = async (captureId: string): Promise<void> => {
     if (capturePreviewWindow === previewWindow) capturePreviewWindow = undefined;
   });
   previewWindow.once('ready-to-show', () => previewWindow.show());
-  await loadRendererView(previewWindow, 'capture-preview', { captureId });
+  try {
+    await loadRendererView(previewWindow, 'capture-preview', { captureId });
+  } catch (error) {
+    if (!previewWindow.isDestroyed()) throw error;
+  }
 };
 
 const createWindow = async (): Promise<void> => {
@@ -589,9 +597,16 @@ const registerIpc = (): void => {
     const submission = annotationSubmissionSchema.parse(input);
     for (const capture of submission.captures) decodeScreenshotDataUrl(capture.dataUrl);
     draftStore?.saveAnnotationSubmission(submission);
+    const submittedElementCommentIds = submission.elementComments.map(({ id }) => id);
+    currentElementComments = currentElementComments.filter(
+      ({ id }) => !submittedElementCommentIds.includes(id),
+    );
+    websiteView?.webContents.send('markfix:render-element-comments', currentElementComments);
     sendShell(ipcChannels.annotationSubmissionSaved, {
       elementCommentCount: submission.elementComments.length,
       captureCount: submission.captures.length,
+      elementCommentIds: submittedElementCommentIds,
+      captureIds: submission.captures.map(({ id }) => id),
     });
   });
   ipcMain.handle(ipcChannels.openAnnotationReview, async (event) => {

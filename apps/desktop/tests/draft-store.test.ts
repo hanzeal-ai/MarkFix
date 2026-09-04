@@ -159,11 +159,13 @@ describe('DraftStore annotation submissions', () => {
       submittedAt,
     };
 
+    for (const comment of submission.elementComments) store.saveElementComment(comment);
+    for (const capture of submission.captures) store.saveCapture(capture);
     store.saveAnnotationSubmission(submission);
 
     expect(store.listAnnotationSubmissions()).toEqual([submission]);
-    expect(store.listElementComments()).toEqual(submission.elementComments);
-    expect(store.listCaptures()).toEqual(submission.captures);
+    expect(store.listElementComments()).toEqual([]);
+    expect(store.listCaptures()).toEqual([]);
     store.close();
   });
 });

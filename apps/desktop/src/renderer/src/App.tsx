@@ -402,7 +402,32 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
         const counts = payload as {
           elementCommentCount?: unknown;
           captureCount?: unknown;
+          elementCommentIds?: unknown;
+          captureIds?: unknown;
         };
+        const elementCommentIds = Array.isArray(counts.elementCommentIds)
+          ? counts.elementCommentIds.filter((id): id is string => typeof id === 'string')
+          : [];
+        const captureIds = Array.isArray(counts.captureIds)
+          ? counts.captureIds.filter((id): id is string => typeof id === 'string')
+          : [];
+        setElementComments((comments) =>
+          comments.filter(({ id }) => !elementCommentIds.includes(id)),
+        );
+        setSavedCaptures((captures) => captures.filter(({ id }) => !captureIds.includes(id)));
+        captureRequestIdRef.current = undefined;
+        captureRestoreRef.current = undefined;
+        setAnchor(undefined);
+        setElementCommentNote('');
+        setEditingElementCommentId(undefined);
+        setCaptureSelection(undefined);
+        setCaptureSource(undefined);
+        setCaptureMarks([]);
+        setCaptureNote('');
+        setEditingCaptureId(undefined);
+        setScreenshot(undefined);
+        void window.markfix.clearCaptureSelection();
+        void window.markfix.setCaptureTool('select');
         setNotice(
           `已保存 ${Number(counts.elementCommentCount ?? 0)} 条批注和 ${Number(counts.captureCount ?? 0)} 张截图。`,
         );

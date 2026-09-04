@@ -141,11 +141,15 @@ export class DraftStore {
 
   saveAnnotationSubmission(submission: AnnotationSubmission): void {
     const transaction = this.database.transaction(() => {
-      for (const comment of submission.elementComments) this.saveElementComment(comment);
-      for (const capture of submission.captures) this.saveCapture(capture);
       this.database
         .prepare(`INSERT INTO annotation_submissions (id, payload, submitted_at) VALUES (?, ?, ?)`)
         .run(submission.id, JSON.stringify(submission), submission.submittedAt);
+      const deleteElementComment = this.database.prepare(
+        'DELETE FROM element_comments WHERE id = ?',
+      );
+      const deleteCapture = this.database.prepare('DELETE FROM capture_annotations WHERE id = ?');
+      for (const comment of submission.elementComments) deleteElementComment.run(comment.id);
+      for (const capture of submission.captures) deleteCapture.run(capture.id);
     });
     transaction();
   }
