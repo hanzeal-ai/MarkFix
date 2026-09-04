@@ -28,6 +28,9 @@ services:
       DATABASE_URL: postgresql://markfix:markfix@postgres:5432/markfix?schema=public
       PORT: 4310
       ARTIFACT_DIR: /data/artifacts
+      MARKFIX_AUTH_SECRET: change-this-before-production
+      MARKFIX_DASHBOARD_ORIGIN: http://localhost:4311
+      MARKFIX_DEMO_PASSWORD: markfix-local-demo
     ports: ['4310:4310']
     volumes: ['artifact-data:/data/artifacts']
     depends_on: { postgres: { condition: service_healthy } }

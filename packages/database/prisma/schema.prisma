@@ -43,17 +43,49 @@ enum MembershipStatus {
 }
 
 model User {
-  id                String       @id @default(uuid()) @db.Uuid
-  email             String       @unique
-  displayName       String
-  memberships       Membership[]
-  createdWorkspaces Workspace[]  @relation("WorkspaceCreator")
-  assignedReports   Report[]     @relation("ReportAssignee")
-  reportedReports   Report[]     @relation("ReportReporter")
-  comments          Comment[]
-  activities        Activity[]
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id                 String                   @id @default(uuid()) @db.Uuid
+  email              String                   @unique
+  displayName        String
+  passwordHash       String?
+  emailVerifiedAt    DateTime?
+  memberships        Membership[]
+  createdWorkspaces  Workspace[]              @relation("WorkspaceCreator")
+  assignedReports    Report[]                 @relation("ReportAssignee")
+  reportedReports    Report[]                 @relation("ReportReporter")
+  comments           Comment[]
+  activities         Activity[]
+  reportSubmissions  ReportSubmission[]
+  authSessions       AuthSession[]
+  verificationTokens EmailVerificationToken[]
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique
+  deviceName       String
+  expiresAt        DateTime
+  lastUsedAt       DateTime  @default(now())
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId, revokedAt])
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, consumedAt])
 }
 
 model Workspace {
@@ -110,6 +142,8 @@ model ReportSubmission {
   id             String           @id @default(uuid()) @db.Uuid
   projectId      String           @db.Uuid
   project        Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById    String?          @db.Uuid
+  createdBy      User?            @relation(fields: [createdById], references: [id], onDelete: Restrict)
   idempotencyKey String
   requestHash    String
   payload        Json

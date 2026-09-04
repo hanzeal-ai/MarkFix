@@ -10,6 +10,8 @@
 - Local SQLite draft persistence
 - Idempotent submission, SHA-256 artifact verification, PostgreSQL/Prisma report storage
 - Dashboard report list/detail, comments, and optimistic status transitions
+- Verified-email accounts, rotating sessions, revocation, and workspace role enforcement
+- HttpOnly dashboard cookies and operating-system-encrypted desktop refresh credentials
 - Background cleanup worker and compatibility test page
 
 ## Run locally
@@ -34,6 +36,11 @@ pnpm --filter @markfix/testkit dev
 ```
 
 Dashboard: <http://localhost:4311>. Compatibility lab: <http://localhost:4312> (enable local HTTP with `MARKFIX_ALLOW_HTTP=true` when launching desktop).
+
+The local environment seeds `demo@markfix.local` with password `markfix-local-demo`. Remove
+`MARKFIX_DEMO_PASSWORD` outside local development. New local dashboard registrations are verified
+inline; production deployments must connect the generated verification token to their email
+delivery provider.
 
 ## Validation
 

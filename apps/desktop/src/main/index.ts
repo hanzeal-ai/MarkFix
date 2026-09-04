@@ -1,9 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { readFile, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   app,
   BrowserWindow,
   ipcMain,
+  safeStorage,
   session,
   WebContentsView,
   type IpcMainInvokeEvent,
@@ -32,6 +34,7 @@ import { normalizeWebsiteUrl } from './url.js';
 
 const toolbarHeight = 68;
 const panelWidth = 392;
+const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? 'http://localhost:4310');
 let mainWindow: BrowserWindow | undefined;
 let websiteView: WebContentsView | undefined;
 let inspector: CdpInspector | undefined;
@@ -44,8 +47,43 @@ let isSyncing = false;
 let syncTimer: ReturnType<typeof setInterval> | undefined;
 let recording = false;
 let pageRevision = randomUUID();
+let authenticatedUser: { id: string; email: string; displayName: string } | undefined;
 const mainRecorderRuntimeId = randomUUID();
 const overlayVisibilityWaiters = new Map<string, () => void>();
+
+const credentialPath = (): string => join(app.getPath('userData'), 'refresh-token.secure');
+
+const saveRefreshToken = async (refreshToken: string): Promise<void> => {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('The operating system credential vault is unavailable');
+  }
+  await writeFile(credentialPath(), safeStorage.encryptString(refreshToken), { mode: 0o600 });
+};
+
+const clearRefreshToken = async (): Promise<void> => {
+  await unlink(credentialPath()).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  });
+};
+
+const restoreSession = async () => {
+  if (authenticatedUser) return authenticatedUser;
+  if (!safeStorage.isEncryptionAvailable()) return undefined;
+  try {
+    const refreshToken = safeStorage.decryptString(await readFile(credentialPath()));
+    api.setTokens({ accessToken: '', refreshToken });
+    const tokens = await api.refreshWithToken();
+    api.setTokens(tokens);
+    await saveRefreshToken(tokens.refreshToken);
+    authenticatedUser = await api.me();
+    websiteView?.setVisible(true);
+    return authenticatedUser;
+  } catch {
+    api.setTokens();
+    await clearRefreshToken();
+    return undefined;
+  }
+};
 
 const assertShellSender = (event: IpcMainInvokeEvent): void => {
   if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted IPC sender');
@@ -90,7 +128,6 @@ const syncEntry = async (entry: OutboxEntry): Promise<void> => {
   if (!draftStore) return;
   try {
     const candidate = createReportSchema.parse(entry.payload);
-    const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? 'http://localhost:4310');
     const bootstrap = await api.bootstrap();
     const projectId = bootstrap.projects[0]?.id;
     if (!projectId) throw new Error('No MarkFix project is available');
@@ -105,11 +142,14 @@ const syncEntry = async (entry: OutboxEntry): Promise<void> => {
     const message = error instanceof Error ? error.message : 'Unknown synchronization failure';
     draftStore.markFailed(entry.id, entry.attempts + 1, message);
     sendShell(ipcChannels.syncStatus, { status: 'pending', outboxId: entry.id, message });
+  } finally {
+    const refreshToken = api.currentRefreshToken();
+    if (refreshToken) await saveRefreshToken(refreshToken);
   }
 };
 
 const flushOutbox = async (): Promise<void> => {
-  if (isSyncing || !draftStore) return;
+  if (isSyncing || !draftStore || !authenticatedUser) return;
   isSyncing = true;
   try {
     for (const entry of draftStore.claimDue()) await syncEntry(entry);
@@ -155,6 +195,7 @@ const createWindow = async (): Promise<void> => {
       partition: 'persist:markfix-profile-default',
     },
   });
+  websiteView.setVisible(false);
   mainWindow.contentView.addChildView(websiteView);
   layoutWebsite();
   mainWindow.on('resize', layoutWebsite);
@@ -218,6 +259,36 @@ const createWindow = async (): Promise<void> => {
 };
 
 const registerIpc = (): void => {
+  ipcMain.handle(ipcChannels.authStatus, async (event) => {
+    assertShellSender(event);
+    const user = await restoreSession();
+    return { authenticated: Boolean(user), ...(user ? { user } : {}) };
+  });
+  ipcMain.handle(ipcChannels.authLogin, async (event, input: unknown) => {
+    assertShellSender(event);
+    const payload = input as { email?: unknown; password?: unknown };
+    if (typeof payload.email !== 'string' || typeof payload.password !== 'string') {
+      throw new Error('Email and password are required');
+    }
+    const tokens = await api.loginWithTokens(payload.email, payload.password, 'MarkFix desktop');
+    api.setTokens(tokens);
+    await saveRefreshToken(tokens.refreshToken);
+    authenticatedUser = await api.me();
+    websiteView?.setVisible(true);
+    void flushOutbox();
+    return authenticatedUser;
+  });
+  ipcMain.handle(ipcChannels.authLogout, async (event) => {
+    assertShellSender(event);
+    try {
+      await api.logout();
+    } finally {
+      authenticatedUser = undefined;
+      api.setTokens();
+      websiteView?.setVisible(false);
+      await clearRefreshToken();
+    }
+  });
   ipcMain.handle(ipcChannels.navigate, async (event, input: unknown) => {
     assertShellSender(event);
     const { url } = navigateInputSchema.parse(input);

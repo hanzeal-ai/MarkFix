@@ -16,6 +16,10 @@ const subscribe = (channel: string, listener: (payload: unknown) => void): (() =
 };
 
 contextBridge.exposeInMainWorld('markfix', {
+  authStatus: () => ipcRenderer.invoke(ipcChannels.authStatus),
+  login: (email: string, password: string) =>
+    ipcRenderer.invoke(ipcChannels.authLogin, { email, password }),
+  logout: () => ipcRenderer.invoke(ipcChannels.authLogout),
   navigate: (url: string) => ipcRenderer.invoke(ipcChannels.navigate, { url }),
   back: () => ipcRenderer.invoke(ipcChannels.goBack),
   forward: () => ipcRenderer.invoke(ipcChannels.goForward),

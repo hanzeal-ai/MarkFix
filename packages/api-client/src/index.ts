@@ -14,6 +14,13 @@ type Bootstrap = {
   memberships: Membership[];
 };
 type DetailedReport = Report & { comments: Comment[]; activities: Array<Record<string, unknown>> };
+export type AuthTokens = { accessToken: string; refreshToken: string; expiresIn: number };
+export type AuthUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  emailVerified: boolean;
+};
 
 const dataUrlBytes = (dataUrl: string): Uint8Array => {
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
@@ -33,13 +40,34 @@ const digestHex = async (bytes: Uint8Array): Promise<string> => {
 };
 
 export class MarkFixApi {
+  private accessToken: string | undefined;
+  private refreshToken: string | undefined;
+
   constructor(private readonly baseUrl = 'http://localhost:4310') {}
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  setTokens(tokens?: { accessToken: string; refreshToken?: string }): void {
+    this.accessToken = tokens?.accessToken;
+    this.refreshToken = tokens?.refreshToken;
+  }
+
+  currentRefreshToken(): string | undefined {
+    return this.refreshToken;
+  }
+
+  private async request<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
-      headers: { 'content-type': 'application/json', ...init?.headers },
+      credentials: 'include',
+      headers: {
+        'content-type': 'application/json',
+        ...(this.accessToken ? { authorization: `Bearer ${this.accessToken}` } : {}),
+        ...init?.headers,
+      },
     });
+    if (response.status === 401 && retry && !path.startsWith('/v1/auth/')) {
+      await this.refreshSession();
+      return this.request(path, init, false);
+    }
     if (!response.ok) {
       const body = (await response.json().catch(() => undefined)) as
         | { message?: string }
@@ -47,6 +75,70 @@ export class MarkFixApi {
       throw new Error(body?.message ?? `Request failed with ${response.status}`);
     }
     return (await response.json()) as T;
+  }
+
+  async register(input: {
+    email: string;
+    password: string;
+    displayName: string;
+    workspaceName?: string;
+  }): Promise<{ user: AuthUser; verificationRequired: boolean; verificationToken?: string }> {
+    return this.request('/v1/auth/register', { method: 'POST', body: JSON.stringify(input) });
+  }
+
+  verifyEmail(token: string): Promise<{ verified: boolean }> {
+    return this.request('/v1/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async login(email: string, password: string, deviceName = 'Web dashboard'): Promise<void> {
+    await this.request<{ expiresIn: number }>('/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, deviceName }),
+    });
+  }
+
+  async loginWithTokens(email: string, password: string, deviceName: string): Promise<AuthTokens> {
+    const tokens = await this.request<AuthTokens>('/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, deviceName, clientType: 'desktop' }),
+    });
+    this.setTokens(tokens);
+    return tokens;
+  }
+
+  async refreshWithToken(): Promise<AuthTokens> {
+    if (!this.refreshToken) throw new Error('No desktop refresh token is available');
+    const tokens = await this.refreshSession();
+    if (!('accessToken' in tokens) || !tokens.accessToken || !tokens.refreshToken) {
+      throw new Error('The API did not return desktop session credentials');
+    }
+    return tokens as AuthTokens;
+  }
+
+  private async refreshSession(): Promise<AuthTokens | { expiresIn: number }> {
+    const tokens = await this.request<AuthTokens | { expiresIn: number }>(
+      '/v1/auth/refresh',
+      {
+        method: 'POST',
+        body: JSON.stringify({ ...(this.refreshToken ? { refreshToken: this.refreshToken } : {}) }),
+      },
+      false,
+    );
+    if ('accessToken' in tokens && tokens.accessToken && tokens.refreshToken)
+      this.setTokens(tokens);
+    return tokens;
+  }
+
+  async logout(): Promise<void> {
+    await this.request('/v1/auth/logout', { method: 'POST', body: '{}' });
+    this.setTokens();
+  }
+
+  me(): Promise<AuthUser> {
+    return this.request('/v1/me');
   }
 
   bootstrap(): Promise<Bootstrap> {
@@ -162,10 +254,10 @@ export class MarkFixApi {
     };
   }
 
-  addComment(reportId: string, body: string, authorName = 'Demo user'): Promise<Comment> {
+  addComment(reportId: string, body: string): Promise<Comment> {
     return this.request(`/v1/reports/${reportId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ body, authorName }),
+      body: JSON.stringify({ body }),
     });
   }
 

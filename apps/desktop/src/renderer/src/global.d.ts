@@ -11,6 +11,15 @@ import type {
 declare global {
   interface Window {
     markfix: {
+      authStatus(): Promise<{
+        authenticated: boolean;
+        user?: { id: string; email: string; displayName: string };
+      }>;
+      login(
+        email: string,
+        password: string,
+      ): Promise<{ id: string; email: string; displayName: string }>;
+      logout(): Promise<void>;
       navigate(url: string): Promise<string>;
       back(): Promise<void>;
       forward(): Promise<void>;

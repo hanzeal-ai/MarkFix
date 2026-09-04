@@ -196,6 +196,9 @@ export const apiErrorSchema = z.object({
 });
 
 export const ipcChannels = {
+  authStatus: 'auth:status',
+  authLogin: 'auth:login',
+  authLogout: 'auth:logout',
   navigate: 'browser:navigate',
   goBack: 'browser:back',
   goForward: 'browser:forward',

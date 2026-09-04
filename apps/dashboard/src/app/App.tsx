@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, CircleDot, MessageSquare, Search, Sparkles, Users } from 'lucide-react';
 import { MarkFixApi } from '@markfix/api-client';
@@ -21,6 +21,113 @@ const nextAction: Partial<Record<ReportStatus, { action: string; label: string }
   RESOLVED: { action: 'close', label: 'Close report' },
   CLOSED: { action: 'reopen', label: 'Reopen' },
 };
+
+function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> }) {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setMessage('');
+    try {
+      if (mode === 'register') {
+        const result = await api.register({
+          email,
+          password,
+          displayName,
+          ...(workspaceName ? { workspaceName } : {}),
+        });
+        if (!result.verificationToken) {
+          setMessage('Account created. Verify your email before signing in.');
+          return;
+        }
+        await api.verifyEmail(result.verificationToken);
+      }
+      await api.login(email, password);
+      await onAuthenticated();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Authentication failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <main className="auth-shell">
+      <section className="auth-card">
+        <div className="auth-brand">
+          <span>m</span>
+          <strong>MarkFix</strong>
+        </div>
+        <p className="eyebrow">VISUAL WEBSITE FEEDBACK</p>
+        <h1>{mode === 'login' ? 'Welcome back' : 'Create your workspace'}</h1>
+        <p>Turn website issues into precise, actionable reports.</p>
+        <form onSubmit={(event) => void submit(event)}>
+          {mode === 'register' && (
+            <>
+              <label>
+                Your name
+                <input
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Workspace name
+                <input
+                  value={workspaceName}
+                  onChange={(event) => setWorkspaceName(event.target.value)}
+                />
+              </label>
+            </>
+          )}
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              minLength={10}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </label>
+          {message && <div className="auth-message">{message}</div>}
+          <button className="primary" type="submit" disabled={busy}>
+            {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
+          </button>
+        </form>
+        <button
+          className="auth-switch"
+          type="button"
+          onClick={() => {
+            setMessage('');
+            setMode(mode === 'login' ? 'register' : 'login');
+          }}
+        >
+          {mode === 'login'
+            ? 'New to MarkFix? Create an account'
+            : 'Already have an account? Sign in'}
+        </button>
+      </section>
+    </main>
+  );
+}
 
 const annotationShape = (annotation: Annotation, capture: CaptureContext) => {
   const x = (value: number) => value - capture.originCssPx.x;
@@ -107,10 +214,14 @@ function CaptureViewer({ report }: { report: Report }) {
 function ReportDetail({
   reportId,
   workspaceId,
+  userId,
+  role,
   onBack,
 }: {
   reportId: string;
   workspaceId: string;
+  userId: string | undefined;
+  role: string | undefined;
   onBack: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -156,6 +267,13 @@ function ReportDetail({
   const report = reportQuery.data;
   if (!report) return <main className="loading">Loading report…</main>;
   const action = nextAction[report.status];
+  const canManage = role === 'OWNER' || role === 'ADMIN';
+  const canTransition =
+    canManage ||
+    ((action?.action === 'start' || action?.action === 'submit_for_verification') &&
+      report.assignee?.id === userId) ||
+    (['verify', 'close'].includes(action?.action ?? '') && report.reporter?.id === userId) ||
+    (action?.action === 'reopen' && (report.reporter?.id === userId || role === 'MEMBER'));
 
   return (
     <main className="detail-shell">
@@ -168,7 +286,7 @@ function ReportDetail({
           <h1>{report.title}</h1>
           <p>{report.description}</p>
         </div>
-        {action && (
+        {action && canTransition && (
           <button
             className="primary"
             disabled={transitionMutation.isPending}
@@ -197,7 +315,7 @@ function ReportDetail({
               <span>Assignee</span>
               <select
                 value={report.assignee?.id ?? ''}
-                disabled={updateMutation.isPending}
+                disabled={!canManage || updateMutation.isPending}
                 onChange={(event) =>
                   updateMutation.mutate({ assigneeId: event.target.value || null })
                 }
@@ -214,7 +332,7 @@ function ReportDetail({
               <span>Priority</span>
               <select
                 value={report.priority}
-                disabled={updateMutation.isPending}
+                disabled={!canManage || updateMutation.isPending}
                 onChange={(event) => updateMutation.mutate({ priority: event.target.value })}
               >
                 {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => (
@@ -256,7 +374,7 @@ function ReportDetail({
   );
 }
 
-function TeamPanel({ workspaceId }: { workspaceId: string }) {
+function TeamPanel({ workspaceId, canManage }: { workspaceId: string; canManage: boolean }) {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('MEMBER');
@@ -282,29 +400,31 @@ function TeamPanel({ workspaceId }: { workspaceId: string }) {
           <p>Invite collaborators and manage who can work on reports.</p>
         </div>
       </header>
-      <form
-        className="invite-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (email.trim()) invitation.mutate();
-        }}
-      >
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="teammate@company.com"
-        />
-        <select value={role} onChange={(event) => setRole(event.target.value)}>
-          <option value="ADMIN">Admin</option>
-          <option value="MEMBER">Member</option>
-          <option value="REPORTER">Reporter</option>
-        </select>
-        <button className="primary" type="submit" disabled={invitation.isPending}>
-          Send invite
-        </button>
-      </form>
+      {canManage && (
+        <form
+          className="invite-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (email.trim()) invitation.mutate();
+          }}
+        >
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="teammate@company.com"
+          />
+          <select value={role} onChange={(event) => setRole(event.target.value)}>
+            <option value="ADMIN">Admin</option>
+            <option value="MEMBER">Member</option>
+            <option value="REPORTER">Reporter</option>
+          </select>
+          <button className="primary" type="submit" disabled={invitation.isPending}>
+            Send invite
+          </button>
+        </form>
+      )}
       {inviteToken && (
         <div className="invite-token">
           Invitation created. Share token: <code>{inviteToken}</code>
@@ -327,12 +447,22 @@ function TeamPanel({ workspaceId }: { workspaceId: string }) {
 }
 
 export function App() {
+  const queryClient = useQueryClient();
   const [selectedReportId, setSelectedReportId] = useState<string>();
   const [view, setView] = useState<'reports' | 'team'>('reports');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
-  const bootstrap = useQuery({ queryKey: ['bootstrap'], queryFn: () => api.bootstrap() });
+  const bootstrap = useQuery({
+    queryKey: ['bootstrap'],
+    queryFn: () => api.bootstrap(),
+    retry: false,
+  });
+  const currentUser = useQuery({
+    queryKey: ['me'],
+    queryFn: () => api.me(),
+    enabled: bootstrap.isSuccess,
+  });
   const projectId = bootstrap.data?.projects[0]?.id;
   const reports = useQuery({
     queryKey: ['reports', projectId, statusFilter, priorityFilter],
@@ -350,12 +480,28 @@ export function App() {
       ) ?? [],
     [reports.data, search],
   );
+  const currentMembership = bootstrap.data?.memberships.find(
+    (membership) => membership.userId === currentUser.data?.id,
+  );
+
+  if (bootstrap.isPending) return <main className="loading">Loading MarkFix…</main>;
+  if (bootstrap.isError) {
+    return (
+      <AuthScreen
+        onAuthenticated={async () => {
+          await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
+        }}
+      />
+    );
+  }
 
   if (selectedReportId && bootstrap.data)
     return (
       <ReportDetail
         reportId={selectedReportId}
         workspaceId={bootstrap.data.id}
+        userId={currentUser.data?.id}
+        role={currentMembership?.role}
         onBack={() => setSelectedReportId(undefined)}
       />
     );
@@ -376,7 +522,10 @@ export function App() {
             </button>
           </nav>
         </aside>
-        <TeamPanel workspaceId={bootstrap.data.id} />
+        <TeamPanel
+          workspaceId={bootstrap.data.id}
+          canManage={currentMembership?.role === 'OWNER' || currentMembership?.role === 'ADMIN'}
+        />
       </div>
     );
 
@@ -407,7 +556,18 @@ export function App() {
             <h1>Reports</h1>
             <p>See exactly what happened, where it happened.</p>
           </div>
-          <div className="avatar">DU</div>
+          <button
+            className="avatar"
+            title="Sign out"
+            onClick={() =>
+              void api.logout().finally(() => {
+                queryClient.clear();
+                window.location.reload();
+              })
+            }
+          >
+            {(currentUser.data?.displayName ?? 'User').slice(0, 2).toUpperCase()}
+          </button>
         </header>
         <div className="toolbar">
           <label>

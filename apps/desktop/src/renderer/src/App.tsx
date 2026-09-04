@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -47,8 +47,66 @@ type Draft = {
 };
 type BrowserState = { url?: string; loading?: boolean; error?: string };
 type CaptureMode = CaptureRequest['mode'];
+type DesktopUser = { id: string; email: string; displayName: string };
 
-export function App() {
+function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser) => void }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      onAuthenticated(await window.markfix.login(email, password));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Sign in failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <main className="desktop-auth">
+      <section>
+        <div className="desktop-auth-brand">
+          <span>m</span> MarkFix
+        </div>
+        <p className="eyebrow">DESKTOP ANNOTATION</p>
+        <h1>Sign in to start marking</h1>
+        <p>Your refresh credential stays encrypted in the operating system vault.</p>
+        <form onSubmit={(event) => void submit(event)}>
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </label>
+          {error && <div className="auth-error">{error}</div>}
+          <button type="submit" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+function AnnotationWorkspace({ user, onLogout }: { user: DesktopUser; onLogout: () => void }) {
   const [url, setUrl] = useState('https://example.com');
   const [browserState, setBrowserState] = useState<BrowserState>({ loading: true });
   const [mode, setModeState] = useState<BrowserMode>('browse');
@@ -431,6 +489,12 @@ export function App() {
           >
             <CircleStop /> {isRecording ? 'Stop' : 'Record'}
           </button>
+          <button
+            title={`Sign out ${user.email}`}
+            onClick={() => void window.markfix.logout().finally(onLogout)}
+          >
+            {user.displayName.slice(0, 2).toUpperCase()}
+          </button>
         </div>
       </header>
       <aside className="comment-panel">
@@ -610,5 +674,29 @@ export function App() {
         <p className="draft-state">Draft saved locally</p>
       </aside>
     </div>
+  );
+}
+
+export function App() {
+  const [state, setState] = useState<
+    { status: 'loading' } | { status: 'anonymous' } | { status: 'authenticated'; user: DesktopUser }
+  >({ status: 'loading' });
+
+  useEffect(() => {
+    void window.markfix.authStatus().then((result) => {
+      setState(
+        result.authenticated && result.user
+          ? { status: 'authenticated', user: result.user }
+          : { status: 'anonymous' },
+      );
+    });
+  }, []);
+
+  if (state.status === 'loading') return <main className="desktop-auth">Restoring session…</main>;
+  if (state.status === 'anonymous') {
+    return <DesktopLogin onAuthenticated={(user) => setState({ status: 'authenticated', user })} />;
+  }
+  return (
+    <AnnotationWorkspace user={state.user} onLogout={() => setState({ status: 'anonymous' })} />
   );
 }
