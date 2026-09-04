@@ -40,10 +40,10 @@ pnpm --filter @markfix/testkit dev
 
 Dashboard: <http://localhost:4311>. Compatibility lab: <http://localhost:4312> (enable local HTTP with `MARKFIX_ALLOW_HTTP=true` when launching desktop).
 
-The local environment seeds `demo@markfix.local` with password `markfix-local-demo`. Remove
-`MARKFIX_DEMO_PASSWORD` outside local development. New local dashboard registrations are verified
-inline; production deployments must connect the generated verification token to their email
-delivery provider.
+The local environment seeds the username `admin` with password `admin` (stored internally as
+`admin@markfix.local`). Remove `MARKFIX_DEMO_PASSWORD` outside local development. New local
+dashboard registrations are verified inline; production deployments must connect the generated
+verification token to their email delivery provider.
 
 ## Validation
 

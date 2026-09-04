@@ -44,20 +44,33 @@ export class AppService implements OnModuleInit {
     await mkdir(this.artifactDirectory, { recursive: true });
     const demoPassword = process.env.MARKFIX_DEMO_PASSWORD;
     if (!demoPassword) return;
+    const demoEmail = process.env.MARKFIX_DEMO_EMAIL ?? 'admin@markfix.local';
     const demoPasswordHash = await hashPassword(demoPassword);
-    const demoUser = await this.database.user.upsert({
-      where: { email: 'demo@markfix.local' },
-      update: {
-        passwordHash: demoPasswordHash,
-        emailVerifiedAt: new Date(),
-      },
-      create: {
-        email: 'demo@markfix.local',
-        displayName: 'Demo user',
-        passwordHash: demoPasswordHash,
-        emailVerifiedAt: new Date(),
-      },
-    });
+    let demoUser = await this.database.user.findUnique({ where: { email: demoEmail } });
+    if (!demoUser && demoEmail !== 'demo@markfix.local') {
+      const legacyDemoUser = await this.database.user.findUnique({
+        where: { email: 'demo@markfix.local' },
+      });
+      if (legacyDemoUser) demoUser = legacyDemoUser;
+    }
+    demoUser = demoUser
+      ? await this.database.user.update({
+          where: { id: demoUser.id },
+          data: {
+            email: demoEmail,
+            displayName: 'Admin',
+            passwordHash: demoPasswordHash,
+            emailVerifiedAt: new Date(),
+          },
+        })
+      : await this.database.user.create({
+          data: {
+            email: demoEmail,
+            displayName: 'Admin',
+            passwordHash: demoPasswordHash,
+            emailVerifiedAt: new Date(),
+          },
+        });
     const existingWorkspace = await this.database.workspace.findFirst({
       where: { createdById: demoUser.id },
     });

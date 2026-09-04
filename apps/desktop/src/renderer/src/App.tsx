@@ -8,6 +8,8 @@ import {
   ChevronUp,
   CircleStop,
   Crosshair,
+  Eye,
+  EyeOff,
   Globe2,
   LoaderCircle,
   MousePointer2,
@@ -51,8 +53,9 @@ type CaptureMode = CaptureRequest['mode'];
 type DesktopUser = { id: string; email: string; displayName: string };
 
 function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser) => void }) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('admin');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -80,9 +83,9 @@ function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser
         <p>Your refresh credential stays encrypted in the operating system vault.</p>
         <form onSubmit={(event) => void submit(event)}>
           <label>
-            Email
+            Username
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
@@ -90,12 +93,23 @@ function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser
           </label>
           <label>
             Password
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
+            <span className="password-field">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+              <button
+                className="password-toggle"
+                type="button"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPassword((visible) => !visible)}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </span>
           </label>
           {error && <div className="auth-error">{error}</div>}
           <button type="submit" disabled={busy}>

@@ -74,6 +74,28 @@ body {
   border-color: #536b60;
   box-shadow: 0 0 0 3px rgba(83, 107, 96, 0.1);
 }
+.auth-card .password-field {
+  position: relative;
+  display: block;
+}
+.auth-card .password-field input {
+  padding-right: 43px;
+}
+.auth-card .password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: #68736c;
+}
 .auth-message {
   border-radius: 8px;
   background: #fff1e9;

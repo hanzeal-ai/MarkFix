@@ -181,7 +181,14 @@ export class AuthService {
 
   async login(input: unknown) {
     const payload = input as { email?: unknown; password?: unknown; deviceName?: unknown };
-    const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : '';
+    const identifier = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : '';
+    const demoUsername =
+      process.env.MARKFIX_DEMO_USERNAME ??
+      (process.env.MARKFIX_DEMO_PASSWORD ? 'admin' : undefined);
+    const email =
+      demoUsername && identifier === demoUsername.toLowerCase()
+        ? (process.env.MARKFIX_DEMO_EMAIL ?? 'admin@markfix.local')
+        : identifier;
     const password = typeof payload.password === 'string' ? payload.password : '';
     const user = await this.database.user.findUnique({ where: { email } });
     if (

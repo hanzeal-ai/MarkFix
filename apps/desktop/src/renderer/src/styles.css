@@ -77,10 +77,31 @@ body {
   font-weight: 700;
 }
 .desktop-auth input {
+  width: 100%;
   border: 1px solid #daddd7;
   border-radius: 9px;
   padding: 11px 12px;
   outline: none;
+}
+.desktop-auth .password-field {
+  position: relative;
+  display: block;
+}
+.desktop-auth .password-field input {
+  padding-right: 42px;
+}
+.desktop-auth form .password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+  background: transparent;
+  color: #68736c;
 }
 .desktop-auth form button {
   height: 43px;

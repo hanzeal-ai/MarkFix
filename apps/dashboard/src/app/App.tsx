@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   CircleDot,
+  Eye,
+  EyeOff,
   MessageSquare,
   Search,
   Settings2,
@@ -45,6 +47,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
   const [resetToken, setResetToken] = useState(initialToken);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
   const [message, setMessage] = useState('');
@@ -160,9 +163,9 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
           )}
           {mode !== 'reset' && (
             <label>
-              Email
+              {mode === 'login' ? 'Username or email' : 'Email'}
               <input
-                type="email"
+                type={mode === 'login' ? 'text' : 'email'}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
@@ -172,14 +175,25 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
           {mode !== 'forgot' && (
             <label>
               {mode === 'reset' ? 'New password' : 'Password'}
-              <input
-                type="password"
-                minLength={10}
-                maxLength={200}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
+              <span className="password-field">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  minLength={mode === 'login' ? undefined : 10}
+                  maxLength={200}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+                <button
+                  className="password-toggle"
+                  type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </span>
             </label>
           )}
           {message && <div className="auth-message">{message}</div>}
