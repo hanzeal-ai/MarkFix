@@ -269,6 +269,52 @@ textarea {
   margin: 5px 0 0;
   font-weight: 600;
 }
+.report-context {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #dfe2dc;
+  border-radius: 11px;
+  background: #f7f8f4;
+}
+.context-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+.report-context label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.report-context label > span {
+  color: #79837d;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.report-context select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d6dad3;
+  border-radius: 7px;
+  background: white;
+  color: #303a35;
+  padding: 8px 9px;
+  outline: none;
+}
+.report-context select:focus {
+  border-color: #81966e;
+  box-shadow: 0 0 0 3px rgba(129, 150, 110, 0.12);
+}
+.report-context small {
+  color: #879089;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .anchor-summary {
   display: flex;
   gap: 12px;

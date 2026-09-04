@@ -7,6 +7,8 @@ import type {
   CaptureRequest,
   ClientPolicy,
   CreateReport,
+  Environment,
+  WorkspaceSummary,
 } from '@markfix/contracts';
 
 declare global {
@@ -22,6 +24,8 @@ declare global {
         password: string,
       ): Promise<{ id: string; email: string; displayName: string }>;
       logout(): Promise<void>;
+      listWorkspaces(): Promise<WorkspaceSummary[]>;
+      listEnvironments(projectId: string): Promise<Environment[]>;
       navigate(url: string): Promise<string>;
       back(): Promise<void>;
       forward(): Promise<void>;

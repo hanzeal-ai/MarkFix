@@ -134,4 +134,108 @@ describe('workspace and project management', () => {
     ).rejects.toThrow('access to this workspace action');
     expect(update).not.toHaveBeenCalled();
   });
+
+  it('binds report submissions to an environment in the selected project', async () => {
+    const projectId = crypto.randomUUID();
+    const environmentId = crypto.randomUUID();
+    const create = vi.fn().mockResolvedValue({ id: 'submission-1' });
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId: 'workspace-1' }),
+      },
+      environment: {
+        findUnique: vi.fn().mockResolvedValue({ id: environmentId, projectId }),
+      },
+      reportSubmission: { findUnique: vi.fn().mockResolvedValue(null), create },
+    } as never);
+
+    await service.createSubmission('user-1', projectId, 'request-1', {
+      projectId,
+      environmentId,
+      title: 'Broken menu',
+      description: 'The menu overlaps the page.',
+      priority: 'MEDIUM',
+      captureBundle: {
+        schemaVersion: 1,
+        page: {
+          url: 'https://example.test',
+          title: 'Example',
+          viewportWidthCssPx: 1280,
+          viewportHeightCssPx: 720,
+          deviceScaleFactor: 1,
+          capturedAt: new Date().toISOString(),
+        },
+        anchor: {
+          kind: 'region',
+          xCssPx: 10,
+          yCssPx: 10,
+          widthCssPx: 100,
+          heightCssPx: 80,
+          documentUrl: 'https://example.test',
+        },
+        annotations: [],
+        reproduction: [],
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ projectId, environmentId, createdById: 'user-1' }),
+    });
+  });
+
+  it('rejects a report environment owned by another project', async () => {
+    const projectId = crypto.randomUUID();
+    const environmentId = crypto.randomUUID();
+    const create = vi.fn();
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId: 'workspace-1' }),
+      },
+      environment: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: environmentId,
+          projectId: crypto.randomUUID(),
+        }),
+      },
+      reportSubmission: { create },
+    } as never);
+
+    await expect(
+      service.createSubmission('user-1', projectId, 'request-1', {
+        projectId,
+        environmentId,
+        title: 'Broken menu',
+        description: 'The menu overlaps the page.',
+        priority: 'MEDIUM',
+        captureBundle: {
+          schemaVersion: 1,
+          page: {
+            url: 'https://example.test',
+            title: 'Example',
+            viewportWidthCssPx: 1280,
+            viewportHeightCssPx: 720,
+            deviceScaleFactor: 1,
+            capturedAt: new Date().toISOString(),
+          },
+          anchor: {
+            kind: 'region',
+            xCssPx: 10,
+            yCssPx: 10,
+            widthCssPx: 100,
+            heightCssPx: 80,
+            documentUrl: 'https://example.test',
+          },
+          annotations: [],
+          reproduction: [],
+        },
+      }),
+    ).rejects.toThrow('Environment does not belong to this project');
+    expect(create).not.toHaveBeenCalled();
+  });
 });

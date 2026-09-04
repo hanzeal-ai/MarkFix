@@ -140,6 +140,7 @@ export const captureBundleSchema = z.object({
 
 export const createReportSchema = z.object({
   projectId: z.uuid(),
+  environmentId: z.uuid().optional(),
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(20_000),
   priority: z.enum(reportPriorities).default('MEDIUM'),
@@ -223,6 +224,8 @@ export const workspaceSummarySchema = z.object({
 
 export const reportSchema = createReportSchema.omit({ screenshotDataUrl: true }).extend({
   id: z.uuid(),
+  environmentId: z.uuid().nullable(),
+  environment: environmentSchema.nullable().optional(),
   status: z.enum(reportStatuses),
   version: z.number().int().positive(),
   screenshotUrl: z.string(),
@@ -268,6 +271,8 @@ export const ipcChannels = {
   authStatus: 'auth:status',
   authLogin: 'auth:login',
   authLogout: 'auth:logout',
+  listWorkspaces: 'workspace:list',
+  listEnvironments: 'environment:list',
   navigate: 'browser:navigate',
   goBack: 'browser:back',
   goForward: 'browser:forward',

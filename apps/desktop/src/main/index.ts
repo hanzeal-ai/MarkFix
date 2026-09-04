@@ -149,10 +149,7 @@ const syncEntry = async (entry: OutboxEntry): Promise<void> => {
   try {
     assertSupportedClient(await loadClientPolicy());
     const candidate = createReportSchema.parse(entry.payload);
-    const bootstrap = await api.bootstrap();
-    const projectId = bootstrap.projects[0]?.id;
-    if (!projectId) throw new Error('No MarkFix project is available');
-    const report = await api.submitReport({ ...candidate, projectId }, entry.idempotencyKey);
+    const report = await api.submitReport(candidate, entry.idempotencyKey);
     draftStore.markCompleted(entry.id, report.id);
     sendShell(ipcChannels.syncStatus, {
       status: 'completed',
@@ -319,6 +316,17 @@ const registerIpc = (): void => {
       websiteView?.setVisible(false);
       await clearRefreshToken();
     }
+  });
+  ipcMain.handle(ipcChannels.listWorkspaces, async (event) => {
+    assertShellSender(event);
+    if (!authenticatedUser) throw new Error('Sign in to load workspaces');
+    return api.listWorkspaces();
+  });
+  ipcMain.handle(ipcChannels.listEnvironments, async (event, input: unknown) => {
+    assertShellSender(event);
+    if (!authenticatedUser) throw new Error('Sign in to load environments');
+    if (typeof input !== 'string') throw new Error('Invalid project ID');
+    return api.listEnvironments(input);
   });
   ipcMain.handle(ipcChannels.navigate, async (event, input: unknown) => {
     assertShellSender(event);

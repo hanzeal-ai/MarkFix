@@ -346,6 +346,14 @@ export class AppService implements OnModuleInit {
     await this.requireProjectAccess(userId, projectId);
     const parsed = createReportSchema.omit({ screenshotDataUrl: true }).parse(input);
     if (parsed.projectId !== projectId) throw new ConflictException('Project ID mismatch');
+    if (parsed.environmentId) {
+      const environment = await this.database.environment.findUnique({
+        where: { id: parsed.environmentId },
+      });
+      if (!environment || environment.projectId !== projectId) {
+        throw new ConflictException('Environment does not belong to this project');
+      }
+    }
     const requestHash = sha256(JSON.stringify(parsed));
     const existing = await this.database.reportSubmission.findUnique({
       where: { projectId_idempotencyKey: { projectId, idempotencyKey } },
@@ -360,6 +368,7 @@ export class AppService implements OnModuleInit {
     return this.database.reportSubmission.create({
       data: {
         projectId,
+        ...(parsed.environmentId ? { environmentId: parsed.environmentId } : {}),
         createdById: userId,
         idempotencyKey,
         requestHash,
@@ -455,6 +464,7 @@ export class AppService implements OnModuleInit {
       const report = await transaction.report.create({
         data: {
           projectId: submission.projectId,
+          environmentId: payload.environmentId ?? null,
           submissionId: submission.id,
           title: payload.title,
           description: payload.description,

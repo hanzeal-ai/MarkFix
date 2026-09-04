@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createEnvironmentSchema,
   createProjectSchema,
+  createReportSchema,
   recorderEventSchema,
   regionAnchorSchema,
   updateEnvironmentSchema,
@@ -71,5 +72,12 @@ describe('environment input schemas', () => {
       createEnvironmentSchema.parse({ name: 'Local files', baseUrl: 'file:///tmp/index.html' }),
     ).toThrow();
     expect(() => updateEnvironmentSchema.parse({})).toThrow();
+  });
+});
+
+describe('report destination schema', () => {
+  it('accepts an omitted environment while rejecting invalid environment IDs', () => {
+    expect(createReportSchema.shape.environmentId.safeParse(undefined).success).toBe(true);
+    expect(createReportSchema.shape.environmentId.safeParse('not-a-uuid').success).toBe(false);
   });
 });

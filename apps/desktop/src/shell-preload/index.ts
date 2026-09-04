@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('markfix', {
   login: (email: string, password: string) =>
     ipcRenderer.invoke(ipcChannels.authLogin, { email, password }),
   logout: () => ipcRenderer.invoke(ipcChannels.authLogout),
+  listWorkspaces: () => ipcRenderer.invoke(ipcChannels.listWorkspaces),
+  listEnvironments: (projectId: string) =>
+    ipcRenderer.invoke(ipcChannels.listEnvironments, projectId),
   navigate: (url: string) => ipcRenderer.invoke(ipcChannels.navigate, { url }),
   back: () => ipcRenderer.invoke(ipcChannels.goBack),
   forward: () => ipcRenderer.invoke(ipcChannels.goForward),

@@ -35,7 +35,9 @@ import {
   type ClientPolicy,
   type CaptureContext,
   type CaptureRequest,
+  type Environment,
   type ReproductionStep,
+  type WorkspaceSummary,
 } from '@markfix/contracts';
 import { describeTrustedEvent, mergeAdjacentInputSteps } from '@markfix/reproduction-model';
 
@@ -46,6 +48,9 @@ type Draft = {
   anchor: Anchor | undefined;
   annotations: Annotation[];
   reproduction: ReproductionStep[];
+  workspaceId?: string;
+  projectId?: string;
+  environmentId?: string;
   pendingOutboxId?: string;
 };
 type BrowserState = { url?: string; loading?: boolean; error?: string };
@@ -150,7 +155,16 @@ function AnnotationWorkspace({
       : undefined,
   );
   const [pendingOutboxId, setPendingOutboxId] = useState<string>();
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>();
+  const [selectedProjectId, setSelectedProjectId] = useState<string>();
+  const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string>();
+  const [contextLoading, setContextLoading] = useState(true);
   const pendingOutboxIdRef = useRef<string | undefined>(undefined);
+  const selectedWorkspace = workspaces.find(({ id }) => id === selectedWorkspaceId);
+  const selectedProject = selectedWorkspace?.projects.find(({ id }) => id === selectedProjectId);
+  const selectedEnvironment = environments.find(({ id }) => id === selectedEnvironmentId);
 
   const clearReport = useCallback((outboxId?: string): boolean => {
     if (outboxId && pendingOutboxIdRef.current !== outboxId) return false;
@@ -264,6 +278,9 @@ function AnnotationWorkspace({
       setAnchor(draft.anchor);
       setAnnotations(draft.annotations ?? []);
       setReproduction(draft.reproduction ?? []);
+      setSelectedWorkspaceId(draft.workspaceId);
+      setSelectedProjectId(draft.projectId);
+      setSelectedEnvironmentId(draft.environmentId);
       setPendingOutboxId(draft.pendingOutboxId);
       pendingOutboxIdRef.current = draft.pendingOutboxId;
       if (draft.pendingOutboxId) {
@@ -277,6 +294,72 @@ function AnnotationWorkspace({
     });
     return () => cleanups.forEach((cleanup) => cleanup());
   }, [clearReport]);
+
+  useEffect(() => {
+    let active = true;
+    setContextLoading(true);
+    void window.markfix
+      .listWorkspaces()
+      .then((items) => {
+        if (active) setWorkspaces(items);
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setNotice(error instanceof Error ? error.message : 'Could not load report destinations.');
+      })
+      .finally(() => {
+        if (active) setContextLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (workspaces.length === 0) return;
+    if (workspaces.some(({ id }) => id === selectedWorkspaceId)) return;
+    setSelectedWorkspaceId(workspaces[0]?.id);
+  }, [selectedWorkspaceId, workspaces]);
+
+  useEffect(() => {
+    if (!selectedWorkspace) return;
+    if (selectedWorkspace.projects.some(({ id }) => id === selectedProjectId)) return;
+    setSelectedProjectId(selectedWorkspace.projects[0]?.id);
+    setSelectedEnvironmentId(undefined);
+  }, [selectedProjectId, selectedWorkspace]);
+
+  useEffect(() => {
+    let active = true;
+    if (!selectedProjectId) {
+      setEnvironments([]);
+      setSelectedEnvironmentId(undefined);
+      return () => {
+        active = false;
+      };
+    }
+    setContextLoading(true);
+    void window.markfix
+      .listEnvironments(selectedProjectId)
+      .then((items) => {
+        if (!active) return;
+        setEnvironments(items);
+        setSelectedEnvironmentId((current) =>
+          items.some(({ id }) => id === current) ? current : items[0]?.id,
+        );
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setEnvironments([]);
+        setSelectedEnvironmentId(undefined);
+        setNotice(error instanceof Error ? error.message : 'Could not load environments.');
+      })
+      .finally(() => {
+        if (active) setContextLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedProjectId]);
 
   useEffect(() => {
     void window.markfix.syncAnnotations(annotations);
@@ -298,12 +381,26 @@ function AnnotationWorkspace({
           anchor,
           annotations,
           reproduction,
+          ...(selectedWorkspaceId ? { workspaceId: selectedWorkspaceId } : {}),
+          ...(selectedProjectId ? { projectId: selectedProjectId } : {}),
+          ...(selectedEnvironmentId ? { environmentId: selectedEnvironmentId } : {}),
           ...(pendingOutboxId ? { pendingOutboxId } : {}),
         } satisfies Draft);
       }
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [title, description, url, anchor, annotations, reproduction, pendingOutboxId]);
+  }, [
+    title,
+    description,
+    url,
+    anchor,
+    annotations,
+    reproduction,
+    selectedWorkspaceId,
+    selectedProjectId,
+    selectedEnvironmentId,
+    pendingOutboxId,
+  ]);
 
   const setMode = async (nextMode: BrowserMode): Promise<void> => {
     setModeState(nextMode);
@@ -390,7 +487,7 @@ function AnnotationWorkspace({
   };
 
   const submit = async (): Promise<void> => {
-    if (!anchor || !title.trim() || !description.trim()) return;
+    if (!selectedProjectId || !anchor || !title.trim() || !description.trim()) return;
     setIsSubmitting(true);
     setNotice(undefined);
     try {
@@ -407,7 +504,8 @@ function AnnotationWorkspace({
         ...(captureResult.warning ? { warning: captureResult.warning } : {}),
       };
       const result = (await window.markfix.submitReport({
-        projectId: '00000000-0000-0000-0000-000000000000',
+        projectId: selectedProjectId,
+        ...(selectedEnvironmentId ? { environmentId: selectedEnvironmentId } : {}),
         title: title.trim(),
         description: description.trim(),
         priority: 'MEDIUM',
@@ -532,6 +630,81 @@ function AnnotationWorkspace({
           </div>
           <Sparkles />
         </div>
+        <section className="report-context">
+          <div className="context-pair">
+            <label>
+              <span>Workspace</span>
+              <select
+                aria-label="Workspace"
+                value={selectedWorkspaceId ?? ''}
+                disabled={contextLoading || workspaces.length === 0 || Boolean(pendingOutboxId)}
+                onChange={(event) => {
+                  setSelectedWorkspaceId(event.target.value || undefined);
+                  setSelectedProjectId(undefined);
+                  setSelectedEnvironmentId(undefined);
+                }}
+              >
+                {workspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Project</span>
+              <select
+                aria-label="Project"
+                value={selectedProjectId ?? ''}
+                disabled={
+                  contextLoading ||
+                  !selectedWorkspace ||
+                  selectedWorkspace.projects.length === 0 ||
+                  Boolean(pendingOutboxId)
+                }
+                onChange={(event) => {
+                  setSelectedProjectId(event.target.value || undefined);
+                  setSelectedEnvironmentId(undefined);
+                }}
+              >
+                {selectedWorkspace?.projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label>
+            <span>Environment</span>
+            <select
+              aria-label="Environment"
+              value={selectedEnvironmentId ?? ''}
+              disabled={
+                contextLoading ||
+                !selectedProject ||
+                environments.length === 0 ||
+                Boolean(pendingOutboxId)
+              }
+              onChange={(event) => setSelectedEnvironmentId(event.target.value || undefined)}
+            >
+              {environments.map((environment) => (
+                <option key={environment.id} value={environment.id}>
+                  {environment.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <small>
+            {contextLoading
+              ? 'Loading report destination…'
+              : selectedEnvironment
+                ? selectedEnvironment.baseUrl
+                : selectedProject
+                  ? 'No environment configured; this report will still be saved.'
+                  : 'Create a project in the dashboard before submitting.'}
+          </small>
+        </section>
         <section className={`anchor-summary ${anchor ? 'selected' : ''}`}>
           {anchor ? (
             <>
@@ -688,6 +861,7 @@ function AnnotationWorkspace({
           className="submit"
           disabled={
             !anchor ||
+            !selectedProjectId ||
             !title.trim() ||
             !description.trim() ||
             isSubmitting ||
