@@ -12,6 +12,7 @@ import {
   session,
   WebContentsView,
   type IpcMainInvokeEvent,
+  type WebContents,
 } from 'electron';
 import {
   anchorSchema,
@@ -46,6 +47,7 @@ import { DraftStore } from './draft-store.js';
 import type { OutboxEntry } from './draft-store.js';
 import { normalizeWebsiteUrl } from './url.js';
 import { decodeScreenshotDataUrl, safeScreenshotFilename } from './image-export.js';
+import { modeForShortcut } from './mode-shortcuts.js';
 
 const toolbarHeight = 56;
 const panelWidth = 360;
@@ -136,6 +138,15 @@ const assertShellSender = (event: IpcMainInvokeEvent): void => {
 
 const sendShell = (channel: string, payload: unknown): void => {
   if (!mainWindow?.isDestroyed()) mainWindow?.webContents.send(channel, payload);
+};
+
+const registerModeShortcuts = (webContents: WebContents): void => {
+  webContents.on('before-input-event', (event, input) => {
+    const mode = modeForShortcut(input);
+    if (!mode) return;
+    event.preventDefault();
+    sendShell(ipcChannels.modeShortcut, mode);
+  });
 };
 
 const updatePageRevision = (url: string): void => {
@@ -344,6 +355,7 @@ const createWindow = async (): Promise<void> => {
     },
   });
   shellWebContentsId = mainWindow.webContents.id;
+  registerModeShortcuts(mainWindow.webContents);
   websiteView = new WebContentsView({
     webPreferences: {
       preload: join(__dirname, '../preload/target.cjs'),
@@ -354,6 +366,7 @@ const createWindow = async (): Promise<void> => {
       partition: 'persist:markfix-profile-default',
     },
   });
+  registerModeShortcuts(websiteView.webContents);
   websiteView.setVisible(false);
   mainWindow.contentView.addChildView(websiteView);
   layoutWebsite();

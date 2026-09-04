@@ -233,6 +233,31 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
         if (state.url) setUrl(state.url);
         if (state.error) setNotice(state.error);
       }),
+      window.markfix.onModeShortcut((payload) => {
+        if (payload !== 'capture' && payload !== 'comment') return;
+        if (payload === 'comment') {
+          setAnchor(undefined);
+          setElementCommentNote('');
+          setEditingElementCommentId(undefined);
+        } else {
+          captureRequestIdRef.current = undefined;
+          captureRestoreRef.current = undefined;
+          setCaptureSelection(undefined);
+          setCaptureSource(undefined);
+          setCaptureMarks([]);
+          setCaptureNote('');
+          setEditingCaptureId(undefined);
+          setScreenshot(undefined);
+          void window.markfix.setCaptureTool('select');
+        }
+        setModeState(payload);
+        setNotice(
+          payload === 'capture'
+            ? 'Drag over the area you want to capture.'
+            : 'Hover and click an element on the page.',
+        );
+        void window.markfix.setMode(payload);
+      }),
       window.markfix.onSelection((payload) => {
         const parsed = anchorSchema.safeParse(payload);
         if (!parsed.success || parsed.data.kind !== 'element') return;
@@ -1000,6 +1025,8 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           <button
             className={mode === 'comment' ? 'active' : ''}
             aria-pressed={mode === 'comment'}
+            aria-keyshortcuts="Alt+W"
+            title="批注（⌥W）"
             onClick={() => void toggleMode('comment')}
           >
             <MessageSquareText /> 批注
@@ -1007,6 +1034,8 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           <button
             className={mode === 'capture' ? 'active' : ''}
             aria-pressed={mode === 'capture'}
+            aria-keyshortcuts="Alt+A"
+            title="截图（⌥A）"
             onClick={() => void toggleMode('capture')}
           >
             <Camera /> 截图

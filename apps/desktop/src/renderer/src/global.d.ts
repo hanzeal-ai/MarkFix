@@ -81,6 +81,7 @@ declare global {
       loadSyncStatus(outboxId: string): Promise<{ status: string; reportId?: string } | undefined>;
       submitReport(report: CreateReport): Promise<unknown>;
       onBrowserState(listener: (payload: unknown) => void): () => void;
+      onModeShortcut(listener: (payload: unknown) => void): () => void;
       onSelection(listener: (payload: unknown) => void): () => void;
       onRegion(listener: (payload: unknown) => void): () => void;
       onCaptureSelection(listener: (payload: unknown) => void): () => void;

@@ -80,6 +80,8 @@ contextBridge.exposeInMainWorld('markfix', {
   submitReport: (report: CreateReport) => ipcRenderer.invoke(ipcChannels.submitReport, report),
   onBrowserState: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.browserState, listener),
+  onModeShortcut: (listener: (payload: unknown) => void) =>
+    subscribe(ipcChannels.modeShortcut, listener),
   onSelection: (listener: (payload: unknown) => void) => subscribe(ipcChannels.selection, listener),
   onRegion: (listener: (payload: unknown) => void) => subscribe(ipcChannels.region, listener),
   onCaptureSelection: (listener: (payload: unknown) => void) =>

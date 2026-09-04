@@ -409,6 +409,7 @@ export const ipcChannels = {
   openCapturePreview: 'capture-preview:open',
   loadCapturePreview: 'capture-preview:load',
   annotationSubmissionSaved: 'annotation-submission:saved',
+  modeShortcut: 'annotation:mode-shortcut',
   syncStatus: 'sync:status',
 } as const;
 
