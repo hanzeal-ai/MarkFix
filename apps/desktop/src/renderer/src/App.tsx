@@ -6,12 +6,12 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  CircleStop,
   Crosshair,
   Eye,
   EyeOff,
   Globe2,
   LoaderCircle,
+  MessageSquareText,
   MousePointer2,
   MoveUpRight,
   PenLine,
@@ -34,7 +34,6 @@ import {
   type BrowserMode,
   type ClientPolicy,
   type CaptureContext,
-  type CaptureRequest,
   type Environment,
   type ReproductionStep,
   type WorkspaceSummary,
@@ -54,8 +53,8 @@ type Draft = {
   pendingOutboxId?: string;
 };
 type BrowserState = { url?: string; loading?: boolean; error?: string };
-type CaptureMode = CaptureRequest['mode'];
 type DesktopUser = { id: string; email: string; displayName: string };
+type CaptureSelection = Extract<Anchor, { kind: 'region' }>;
 
 const annotationName = (annotation: Annotation): string => {
   if (annotation.type === 'pin') return `Pin ${annotation.label}`;
@@ -154,9 +153,8 @@ function AnnotationWorkspace({
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string>();
   const [reproduction, setReproduction] = useState<ReproductionStep[]>([]);
   const [screenshot, setScreenshot] = useState<string>();
-  const [captureMode, setCaptureMode] = useState<CaptureMode>('visible');
+  const [captureSelection, setCaptureSelection] = useState<CaptureSelection>();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(
     policy?.status === 'upgrade-recommended'
       ? `MarkFix ${policy.recommendedVersion} is available. Update when convenient.`
@@ -202,7 +200,6 @@ function AnnotationWorkspace({
         const parsed = anchorSchema.safeParse(payload);
         if (parsed.success) {
           setAnchor(parsed.data);
-          setModeState('browse');
           setNotice('Element selected. Add your comment.');
         }
       }),
@@ -213,6 +210,16 @@ function AnnotationWorkspace({
           setModeState('browse');
           setNotice('Region selected. Add your comment.');
         }
+      }),
+      window.markfix.onCaptureSelection((payload) => {
+        if (payload === null) {
+          setCaptureSelection(undefined);
+          return;
+        }
+        const parsed = anchorSchema.safeParse(payload);
+        if (!parsed.success || parsed.data.kind !== 'region') return;
+        setCaptureSelection(parsed.data);
+        setNotice('Selection ready. You can move it or resize it from any handle.');
       }),
       window.markfix.onRecorderEvent((payload) => {
         const parsed = recorderEventSchema.safeParse(payload);
@@ -427,27 +434,25 @@ function AnnotationWorkspace({
   const setMode = async (nextMode: BrowserMode): Promise<void> => {
     setModeState(nextMode);
     setNotice(
-      nextMode === 'inspect'
+      nextMode === 'comment' || nextMode === 'inspect'
         ? 'Hover and click an element on the page.'
-        : nextMode === 'region'
-          ? 'Drag a rectangle on the page.'
-          : undefined,
+        : nextMode === 'capture'
+          ? 'Drag over the area you want to capture.'
+          : nextMode === 'region'
+            ? 'Drag a rectangle on the page.'
+            : undefined,
     );
     await window.markfix.setMode(nextMode);
   };
+
+  const toggleMode = (nextMode: 'comment' | 'capture'): Promise<void> =>
+    setMode(mode === nextMode ? 'browse' : nextMode);
 
   const beginAnnotation = async (nextTool: AnnotationTool): Promise<void> => {
     setActiveTool(nextTool);
     await window.markfix.setAnnotationTool(nextTool);
     await setMode('draw');
     setNotice(`Draw a ${nextTool} annotation on the page.`);
-  };
-
-  const toggleRecording = async (): Promise<void> => {
-    const enabled = !isRecording;
-    await window.markfix.setRecording(enabled);
-    setIsRecording(enabled);
-    setNotice(enabled ? 'Recording trusted page interactions.' : 'Recording stopped.');
   };
 
   const updateStep = (id: string, description: string): void => {
@@ -500,7 +505,7 @@ function AnnotationWorkspace({
 
   const capture = async () => {
     const result = await window.markfix.capture({
-      mode: captureMode,
+      mode: 'visible',
       ...(anchor ? { anchor } : {}),
     });
     setScreenshot(result.dataUrl);
@@ -604,37 +609,16 @@ function AnnotationWorkspace({
         </form>
         <div className="tools">
           <button
-            className={mode === 'inspect' ? 'active' : ''}
-            onClick={() => void setMode('inspect')}
+            className={mode === 'comment' ? 'active' : ''}
+            onClick={() => void toggleMode('comment')}
           >
-            <MousePointer2 /> Select
+            <MessageSquareText /> 批注
           </button>
           <button
-            className={mode === 'region' ? 'active' : ''}
-            onClick={() => void setMode('region')}
+            className={mode === 'capture' ? 'active' : ''}
+            onClick={() => void toggleMode('capture')}
           >
-            <Crosshair /> Region
-          </button>
-          <button onClick={() => void capture()}>
-            <Camera />
-          </button>
-          <select
-            className="capture-mode"
-            value={captureMode}
-            aria-label="Capture mode"
-            onChange={(event) => setCaptureMode(event.target.value as CaptureMode)}
-          >
-            <option value="visible">Visible</option>
-            <option value="element" disabled={anchor?.kind !== 'element'}>
-              Element
-            </option>
-            <option value="full-page">Full page</option>
-          </select>
-          <button
-            className={isRecording ? 'active recording' : ''}
-            onClick={() => void toggleRecording()}
-          >
-            <CircleStop /> {isRecording ? 'Stop' : 'Record'}
+            <Camera /> 截图
           </button>
           <button
             title={`Sign out ${user.email}`}
@@ -644,276 +628,305 @@ function AnnotationWorkspace({
           </button>
         </div>
       </header>
-      <aside className="comment-panel">
-        <div className="panel-heading">
-          <div>
-            <span className="eyebrow">NEW REPORT</span>
-            <h1>Leave a mark</h1>
+      {mode === 'capture' ? (
+        <aside className="comment-panel capture-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">SCREENSHOT</span>
+              <h1>截图批注</h1>
+            </div>
+            <Camera />
           </div>
-          <Sparkles />
-        </div>
-        <section className="report-context">
-          <div className="context-pair">
+          {captureSelection ? (
+            <section className="capture-selection-summary">
+              <span>已选择区域</span>
+              <strong>
+                {Math.round(captureSelection.widthCssPx)} ×{' '}
+                {Math.round(captureSelection.heightCssPx)} px
+              </strong>
+              <small>拖动选区可以移动，拖动八个控制点可以调整大小。</small>
+            </section>
+          ) : (
+            <section className="capture-empty">
+              <Crosshair />
+              <strong>框选需要截图的区域</strong>
+              <span>在左侧页面按住鼠标拖动创建选区。</span>
+            </section>
+          )}
+          {notice && <div className="notice">{notice}</div>}
+        </aside>
+      ) : mode !== 'browse' ? (
+        <aside className="comment-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">NEW REPORT</span>
+              <h1>Leave a mark</h1>
+            </div>
+            <Sparkles />
+          </div>
+          <section className="report-context">
+            <div className="context-pair">
+              <label>
+                <span>Workspace</span>
+                <select
+                  aria-label="Workspace"
+                  value={selectedWorkspaceId ?? ''}
+                  disabled={contextLoading || workspaces.length === 0 || Boolean(pendingOutboxId)}
+                  onChange={(event) => {
+                    setSelectedWorkspaceId(event.target.value || undefined);
+                    setSelectedProjectId(undefined);
+                    setSelectedEnvironmentId(undefined);
+                  }}
+                >
+                  {workspaces.map((workspace) => (
+                    <option key={workspace.id} value={workspace.id}>
+                      {workspace.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Project</span>
+                <select
+                  aria-label="Project"
+                  value={selectedProjectId ?? ''}
+                  disabled={
+                    contextLoading ||
+                    !selectedWorkspace ||
+                    selectedWorkspace.projects.length === 0 ||
+                    Boolean(pendingOutboxId)
+                  }
+                  onChange={(event) => {
+                    setSelectedProjectId(event.target.value || undefined);
+                    setSelectedEnvironmentId(undefined);
+                  }}
+                >
+                  {selectedWorkspace?.projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <label>
-              <span>Workspace</span>
+              <span>Environment</span>
               <select
-                aria-label="Workspace"
-                value={selectedWorkspaceId ?? ''}
-                disabled={contextLoading || workspaces.length === 0 || Boolean(pendingOutboxId)}
-                onChange={(event) => {
-                  setSelectedWorkspaceId(event.target.value || undefined);
-                  setSelectedProjectId(undefined);
-                  setSelectedEnvironmentId(undefined);
-                }}
-              >
-                {workspaces.map((workspace) => (
-                  <option key={workspace.id} value={workspace.id}>
-                    {workspace.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Project</span>
-              <select
-                aria-label="Project"
-                value={selectedProjectId ?? ''}
+                aria-label="Environment"
+                value={selectedEnvironmentId ?? ''}
                 disabled={
                   contextLoading ||
-                  !selectedWorkspace ||
-                  selectedWorkspace.projects.length === 0 ||
+                  !selectedProject ||
+                  environments.length === 0 ||
                   Boolean(pendingOutboxId)
                 }
-                onChange={(event) => {
-                  setSelectedProjectId(event.target.value || undefined);
-                  setSelectedEnvironmentId(undefined);
-                }}
+                onChange={(event) => setSelectedEnvironmentId(event.target.value || undefined)}
               >
-                {selectedWorkspace?.projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
+                {environments.map((environment) => (
+                  <option key={environment.id} value={environment.id}>
+                    {environment.name}
                   </option>
                 ))}
               </select>
             </label>
-          </div>
-          <label>
-            <span>Environment</span>
-            <select
-              aria-label="Environment"
-              value={selectedEnvironmentId ?? ''}
-              disabled={
-                contextLoading ||
-                !selectedProject ||
-                environments.length === 0 ||
-                Boolean(pendingOutboxId)
-              }
-              onChange={(event) => setSelectedEnvironmentId(event.target.value || undefined)}
-            >
-              {environments.map((environment) => (
-                <option key={environment.id} value={environment.id}>
-                  {environment.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <small>
-            {contextLoading
-              ? 'Loading report destination…'
-              : selectedEnvironment
-                ? selectedEnvironment.baseUrl
-                : selectedProject
-                  ? 'No environment configured; this report will still be saved.'
-                  : 'Create a project in the dashboard before submitting.'}
-          </small>
-        </section>
-        <section className={`anchor-summary ${anchor ? 'selected' : ''}`}>
-          {anchor ? (
-            <>
-              <div className="anchor-icon">
-                <Check />
-              </div>
-              <div>
-                <strong>{anchor.kind === 'element' ? anchor.tagName : 'Selected region'}</strong>
-                <small>
-                  {anchor.kind === 'element'
-                    ? anchor.textQuote || anchor.cssSelector
-                    : `${Math.round(anchor.widthCssPx)} × ${Math.round(anchor.heightCssPx)} px`}
-                </small>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="anchor-icon">
-                <MousePointer2 />
-              </div>
-              <div>
-                <strong>Select something</strong>
-                <small>Pick an element or drag over a region.</small>
-              </div>
-            </>
-          )}
-        </section>
-        <section className="annotation-toolbar">
-          <div className="annotation-tools">
-            <button
-              className={activeTool === 'pin' && mode === 'draw' ? 'active' : ''}
-              title="Pin"
-              onClick={() => void beginAnnotation('pin')}
-            >
-              <Crosshair />
-            </button>
-            <button
-              className={activeTool === 'rectangle' && mode === 'draw' ? 'active' : ''}
-              title="Rectangle"
-              onClick={() => void beginAnnotation('rectangle')}
-            >
-              <Square />
-            </button>
-            <button
-              className={activeTool === 'arrow' && mode === 'draw' ? 'active' : ''}
-              title="Arrow"
-              onClick={() => void beginAnnotation('arrow')}
-            >
-              <MoveUpRight />
-            </button>
-            <button
-              className={activeTool === 'text' && mode === 'draw' ? 'active' : ''}
-              title="Text"
-              onClick={() => void beginAnnotation('text')}
-            >
-              <Type />
-            </button>
-            <button
-              className={activeTool === 'pen' && mode === 'draw' ? 'active' : ''}
-              title="Pen"
-              onClick={() => void beginAnnotation('pen')}
-            >
-              <PenLine />
-            </button>
-          </div>
-          <div className="history-tools">
-            <button title="Undo" disabled={annotations.length === 0} onClick={undo}>
-              <Undo2 />
-            </button>
-            <button title="Redo" disabled={redoStack.length === 0} onClick={redo}>
-              <Redo2 />
-            </button>
-          </div>
-          <span>{annotations.length}</span>
-        </section>
-        {annotations.length > 0 && (
-          <section className="annotation-list" aria-label="Annotations">
-            {annotations.map((annotation, index) => (
-              <button
-                type="button"
-                key={annotation.id}
-                className={annotation.id === selectedAnnotationId ? 'selected' : ''}
-                onClick={() => setSelectedAnnotationId(annotation.id)}
-              >
-                <span style={{ background: annotation.color }}>{index + 1}</span>
-                <span>
-                  <strong>{annotationName(annotation)}</strong>
-                  <small>{annotation.type}</small>
-                </span>
-              </button>
-            ))}
+            <small>
+              {contextLoading
+                ? 'Loading report destination…'
+                : selectedEnvironment
+                  ? selectedEnvironment.baseUrl
+                  : selectedProject
+                    ? 'No environment configured; this report will still be saved.'
+                    : 'Create a project in the dashboard before submitting.'}
+            </small>
           </section>
-        )}
-        <label className="field">
-          <span>Title</span>
-          <input
-            value={title}
-            maxLength={200}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="What needs fixing?"
-          />
-        </label>
-        <label className="field grow">
-          <span>Comment</span>
-          <textarea
-            value={description}
-            maxLength={20000}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Describe what you expected and what happened…"
-          />
-        </label>
-        {screenshot && (
-          <div className="thumbnail">
-            <img src={screenshot} alt="Latest capture" />
-            <span>Latest capture</span>
-          </div>
-        )}
-        <section className="steps">
-          <div className="steps-heading">
-            <strong>Reproduction trail</strong>
-            <button type="button" onClick={addManualStep}>
-              + Manual
-            </button>
-          </div>
-          {reproduction.length === 0 ? (
-            <span className="steps-empty">Record page actions or add a manual step.</span>
-          ) : (
-            <ol>
-              {reproduction.map((step, index) => (
-                <li key={step.id}>
-                  <span className="step-number">{index + 1}</span>
-                  <input
-                    value={step.description}
-                    maxLength={2000}
-                    aria-label={`Step ${index + 1}`}
-                    onChange={(event) => updateStep(step.id, event.target.value)}
-                  />
-                  <div className="step-actions">
-                    <button
-                      type="button"
-                      title="Move up"
-                      disabled={index === 0}
-                      onClick={() => moveStep(index, -1)}
-                    >
-                      <ChevronUp />
-                    </button>
-                    <button
-                      type="button"
-                      title="Move down"
-                      disabled={index === reproduction.length - 1}
-                      onClick={() => moveStep(index, 1)}
-                    >
-                      <ChevronDown />
-                    </button>
-                    <button
-                      type="button"
-                      title="Delete step"
-                      onClick={() =>
-                        setReproduction((steps) => steps.filter(({ id }) => id !== step.id))
-                      }
-                    >
-                      <Trash2 />
-                    </button>
-                  </div>
-                </li>
+          <section className={`anchor-summary ${anchor ? 'selected' : ''}`}>
+            {anchor ? (
+              <>
+                <div className="anchor-icon">
+                  <Check />
+                </div>
+                <div>
+                  <strong>{anchor.kind === 'element' ? anchor.tagName : 'Selected region'}</strong>
+                  <small>
+                    {anchor.kind === 'element'
+                      ? anchor.textQuote || anchor.cssSelector
+                      : `${Math.round(anchor.widthCssPx)} × ${Math.round(anchor.heightCssPx)} px`}
+                  </small>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="anchor-icon">
+                  <MousePointer2 />
+                </div>
+                <div>
+                  <strong>Select something</strong>
+                  <small>Pick an element or drag over a region.</small>
+                </div>
+              </>
+            )}
+          </section>
+          <section className="annotation-toolbar">
+            <div className="annotation-tools">
+              <button
+                className={activeTool === 'pin' && mode === 'draw' ? 'active' : ''}
+                title="Pin"
+                onClick={() => void beginAnnotation('pin')}
+              >
+                <Crosshair />
+              </button>
+              <button
+                className={activeTool === 'rectangle' && mode === 'draw' ? 'active' : ''}
+                title="Rectangle"
+                onClick={() => void beginAnnotation('rectangle')}
+              >
+                <Square />
+              </button>
+              <button
+                className={activeTool === 'arrow' && mode === 'draw' ? 'active' : ''}
+                title="Arrow"
+                onClick={() => void beginAnnotation('arrow')}
+              >
+                <MoveUpRight />
+              </button>
+              <button
+                className={activeTool === 'text' && mode === 'draw' ? 'active' : ''}
+                title="Text"
+                onClick={() => void beginAnnotation('text')}
+              >
+                <Type />
+              </button>
+              <button
+                className={activeTool === 'pen' && mode === 'draw' ? 'active' : ''}
+                title="Pen"
+                onClick={() => void beginAnnotation('pen')}
+              >
+                <PenLine />
+              </button>
+            </div>
+            <div className="history-tools">
+              <button title="Undo" disabled={annotations.length === 0} onClick={undo}>
+                <Undo2 />
+              </button>
+              <button title="Redo" disabled={redoStack.length === 0} onClick={redo}>
+                <Redo2 />
+              </button>
+            </div>
+            <span>{annotations.length}</span>
+          </section>
+          {annotations.length > 0 && (
+            <section className="annotation-list" aria-label="Annotations">
+              {annotations.map((annotation, index) => (
+                <button
+                  type="button"
+                  key={annotation.id}
+                  className={annotation.id === selectedAnnotationId ? 'selected' : ''}
+                  onClick={() => setSelectedAnnotationId(annotation.id)}
+                >
+                  <span style={{ background: annotation.color }}>{index + 1}</span>
+                  <span>
+                    <strong>{annotationName(annotation)}</strong>
+                    <small>{annotation.type}</small>
+                  </span>
+                </button>
               ))}
-            </ol>
+            </section>
           )}
-        </section>
-        {notice && <div className="notice">{notice}</div>}
-        <button
-          className="submit"
-          disabled={
-            !anchor ||
-            !selectedProjectId ||
-            !title.trim() ||
-            !description.trim() ||
-            isSubmitting ||
-            Boolean(pendingOutboxId)
-          }
-          onClick={() => void submit()}
-        >
-          {isSubmitting ? <LoaderCircle className="spin" /> : <Send />}{' '}
-          {pendingOutboxId ? 'Queued for sync' : 'Submit report'}
-        </button>
-        <p className="draft-state">Draft saved locally</p>
-      </aside>
+          <label className="field">
+            <span>Title</span>
+            <input
+              value={title}
+              maxLength={200}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="What needs fixing?"
+            />
+          </label>
+          <label className="field grow">
+            <span>Comment</span>
+            <textarea
+              value={description}
+              maxLength={20000}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Describe what you expected and what happened…"
+            />
+          </label>
+          {screenshot && (
+            <div className="thumbnail">
+              <img src={screenshot} alt="Latest capture" />
+              <span>Latest capture</span>
+            </div>
+          )}
+          <section className="steps">
+            <div className="steps-heading">
+              <strong>Reproduction trail</strong>
+              <button type="button" onClick={addManualStep}>
+                + Manual
+              </button>
+            </div>
+            {reproduction.length === 0 ? (
+              <span className="steps-empty">Record page actions or add a manual step.</span>
+            ) : (
+              <ol>
+                {reproduction.map((step, index) => (
+                  <li key={step.id}>
+                    <span className="step-number">{index + 1}</span>
+                    <input
+                      value={step.description}
+                      maxLength={2000}
+                      aria-label={`Step ${index + 1}`}
+                      onChange={(event) => updateStep(step.id, event.target.value)}
+                    />
+                    <div className="step-actions">
+                      <button
+                        type="button"
+                        title="Move up"
+                        disabled={index === 0}
+                        onClick={() => moveStep(index, -1)}
+                      >
+                        <ChevronUp />
+                      </button>
+                      <button
+                        type="button"
+                        title="Move down"
+                        disabled={index === reproduction.length - 1}
+                        onClick={() => moveStep(index, 1)}
+                      >
+                        <ChevronDown />
+                      </button>
+                      <button
+                        type="button"
+                        title="Delete step"
+                        onClick={() =>
+                          setReproduction((steps) => steps.filter(({ id }) => id !== step.id))
+                        }
+                      >
+                        <Trash2 />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+          {notice && <div className="notice">{notice}</div>}
+          <button
+            className="submit"
+            disabled={
+              !anchor ||
+              !selectedProjectId ||
+              !title.trim() ||
+              !description.trim() ||
+              isSubmitting ||
+              Boolean(pendingOutboxId)
+            }
+            onClick={() => void submit()}
+          >
+            {isSubmitting ? <LoaderCircle className="spin" /> : <Send />}{' '}
+            {pendingOutboxId ? 'Queued for sync' : 'Submit report'}
+          </button>
+          <p className="draft-state">Draft saved locally</p>
+        </aside>
+      ) : null}
     </div>
   );
 }

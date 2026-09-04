@@ -1,13 +1,21 @@
 import { ipcRenderer } from 'electron';
 import type { Annotation, AnnotationTool, ElementAnchor, RecorderEvent } from '@markfix/contracts';
 import { pickBestAnchorCandidate } from '@markfix/anchor-core';
+import {
+  createCaptureBounds,
+  moveCaptureBounds,
+  resizeCaptureBounds,
+  type CaptureBounds,
+  type CaptureHandle,
+} from './capture-selection.js';
 
-type Mode = 'browse' | 'inspect' | 'region' | 'draw';
+type Mode = 'browse' | 'comment' | 'capture' | 'inspect' | 'region' | 'draw';
 type Point = { x: number; y: number };
 type AnchorPayload = { kind?: unknown; quadsCssPx?: unknown };
 
 const hostAttribute = 'data-markfix-overlay-host';
 const annotationGroupId = 'markfix-annotations';
+const captureGroupId = 'markfix-capture-selection';
 let mode: Mode = 'browse';
 let tool: AnnotationTool = 'pin';
 let root: ShadowRoot | undefined;
@@ -28,6 +36,12 @@ let trackedAnchor: ElementAnchor | undefined;
 let recoveryTimer: number | undefined;
 let renderedAnnotations: Annotation[] = [];
 let selectedAnnotationId: string | undefined;
+let captureBounds: CaptureBounds | undefined;
+let captureGesture:
+  | { kind: 'create'; start: Point }
+  | { kind: 'move'; start: Point; original: CaptureBounds }
+  | { kind: 'resize'; start: Point; original: CaptureBounds; handle: CaptureHandle }
+  | undefined;
 
 const svgElement = <K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] =>
   document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -38,11 +52,128 @@ const setAttributes = (element: Element, values: Record<string, string>): void =
 
 const updatePointerMode = (): void => {
   if (!surface) return;
-  surface.style.pointerEvents = mode === 'region' || mode === 'draw' ? 'auto' : 'none';
-  surface.style.cursor = mode === 'region' || mode === 'draw' ? 'crosshair' : 'default';
+  const capturesPointer = mode === 'capture' || mode === 'region' || mode === 'draw';
+  surface.style.pointerEvents = capturesPointer ? 'auto' : 'none';
+  surface.style.cursor = capturesPointer ? 'crosshair' : 'default';
   surface.querySelectorAll<SVGGElement>('[data-markfix-annotation-id]').forEach((item) => {
     item.style.pointerEvents = mode === 'browse' ? 'visiblePainted' : 'none';
   });
+};
+
+const captureViewport = (): { width: number; height: number } => ({
+  width: window.innerWidth,
+  height: window.innerHeight,
+});
+
+const captureHandlePositions = (
+  bounds: CaptureBounds,
+): ReadonlyArray<{ handle: CaptureHandle; x: number; y: number; cursor: string }> => {
+  const left = bounds.x;
+  const centerX = bounds.x + bounds.width / 2;
+  const right = bounds.x + bounds.width;
+  const top = bounds.y;
+  const centerY = bounds.y + bounds.height / 2;
+  const bottom = bounds.y + bounds.height;
+  return [
+    { handle: 'nw', x: left, y: top, cursor: 'nwse-resize' },
+    { handle: 'n', x: centerX, y: top, cursor: 'ns-resize' },
+    { handle: 'ne', x: right, y: top, cursor: 'nesw-resize' },
+    { handle: 'e', x: right, y: centerY, cursor: 'ew-resize' },
+    { handle: 'se', x: right, y: bottom, cursor: 'nwse-resize' },
+    { handle: 's', x: centerX, y: bottom, cursor: 'ns-resize' },
+    { handle: 'sw', x: left, y: bottom, cursor: 'nesw-resize' },
+    { handle: 'w', x: left, y: centerY, cursor: 'ew-resize' },
+  ];
+};
+
+const renderCaptureSelection = (): void => {
+  if (!surface) return;
+  surface.querySelector(`#${captureGroupId}`)?.remove();
+  if (mode !== 'capture') return;
+
+  const group = svgElement('g');
+  group.id = captureGroupId;
+  const mask = svgElement('path');
+  const viewport = captureViewport();
+  const selectionPath = captureBounds
+    ? ` M ${captureBounds.x} ${captureBounds.y} h ${captureBounds.width} v ${captureBounds.height} h ${-captureBounds.width} Z`
+    : '';
+  setAttributes(mask, {
+    d: `M 0 0 H ${viewport.width} V ${viewport.height} H 0 Z${selectionPath}`,
+    fill: 'rgba(17, 24, 39, .52)',
+    'fill-rule': 'evenodd',
+    'pointer-events': 'none',
+  });
+  group.append(mask);
+
+  if (captureBounds) {
+    const body = svgElement('rect');
+    setAttributes(body, {
+      x: String(captureBounds.x),
+      y: String(captureBounds.y),
+      width: String(captureBounds.width),
+      height: String(captureBounds.height),
+      fill: 'transparent',
+      stroke: '#7c3aed',
+      'stroke-width': '2',
+      'data-capture-body': '',
+    });
+    body.style.cursor = 'move';
+    body.style.pointerEvents = 'all';
+    group.append(body);
+
+    captureHandlePositions(captureBounds).forEach(({ handle, x, y, cursor }) => {
+      const item = svgElement('rect');
+      setAttributes(item, {
+        x: String(x - 5),
+        y: String(y - 5),
+        width: '10',
+        height: '10',
+        rx: '2',
+        fill: 'white',
+        stroke: '#7c3aed',
+        'stroke-width': '2',
+        'data-capture-handle': handle,
+      });
+      item.style.cursor = cursor;
+      item.style.pointerEvents = 'all';
+      group.append(item);
+    });
+
+    const label = svgElement('text');
+    setAttributes(label, {
+      x: String(captureBounds.x),
+      y: String(Math.max(18, captureBounds.y - 9)),
+      fill: 'white',
+      'font-size': '12',
+      'font-family': 'system-ui',
+      'font-weight': '600',
+      'paint-order': 'stroke',
+      stroke: '#111827',
+      'stroke-width': '4',
+      'pointer-events': 'none',
+    });
+    label.textContent = `${Math.round(captureBounds.width)} × ${Math.round(captureBounds.height)}`;
+    group.append(label);
+  }
+
+  surface.append(group);
+};
+
+const emitCaptureSelection = (): void => {
+  ipcRenderer.send(
+    'markfix:capture-selection',
+    captureBounds
+      ? {
+          kind: 'region',
+          xCssPx: captureBounds.x,
+          yCssPx: captureBounds.y,
+          widthCssPx: captureBounds.width,
+          heightCssPx: captureBounds.height,
+          documentUrl: location.href,
+        }
+      : null,
+  );
 };
 
 const pointsAttribute = (points: readonly Point[]): string =>
@@ -189,8 +320,34 @@ const mount = (): void => {
   root.append(surface);
   document.documentElement.append(host);
   updatePointerMode();
+  renderCaptureSelection();
 
   surface.addEventListener('pointerdown', (event) => {
+    if (event.isTrusted && event.button === 0 && mode === 'capture') {
+      const start = { x: event.clientX, y: event.clientY };
+      const target = event.target instanceof Element ? event.target : undefined;
+      const requestedHandle = target?.getAttribute('data-capture-handle');
+      if (
+        captureBounds &&
+        requestedHandle &&
+        ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].includes(requestedHandle)
+      ) {
+        captureGesture = {
+          kind: 'resize',
+          start,
+          original: captureBounds,
+          handle: requestedHandle as CaptureHandle,
+        };
+      } else if (captureBounds && target?.hasAttribute('data-capture-body')) {
+        captureGesture = { kind: 'move', start, original: captureBounds };
+      } else {
+        captureGesture = { kind: 'create', start };
+        captureBounds = createCaptureBounds(start, start, captureViewport());
+      }
+      renderCaptureSelection();
+      surface?.setPointerCapture(event.pointerId);
+      return;
+    }
     if (!event.isTrusted || (mode !== 'region' && mode !== 'draw')) return;
     dragStart = { x: event.clientX, y: event.clientY };
     penPoints = [dragStart];
@@ -214,6 +371,26 @@ const mount = (): void => {
     surface?.setPointerCapture(event.pointerId);
   });
   surface.addEventListener('pointermove', (event) => {
+    if (event.isTrusted && mode === 'capture' && captureGesture) {
+      const point = { x: event.clientX, y: event.clientY };
+      const delta = {
+        x: point.x - captureGesture.start.x,
+        y: point.y - captureGesture.start.y,
+      };
+      captureBounds =
+        captureGesture.kind === 'create'
+          ? createCaptureBounds(captureGesture.start, point, captureViewport())
+          : captureGesture.kind === 'move'
+            ? moveCaptureBounds(captureGesture.original, delta, captureViewport())
+            : resizeCaptureBounds(
+                captureGesture.original,
+                captureGesture.handle,
+                delta,
+                captureViewport(),
+              );
+      renderCaptureSelection();
+      return;
+    }
     if (!event.isTrusted || !dragStart) return;
     if (tool === 'pen') penPoints.push({ x: event.clientX, y: event.clientY });
     if (!(selectionShape instanceof SVGRectElement)) return;
@@ -223,6 +400,17 @@ const mount = (): void => {
     selectionShape.setAttribute('height', String(Math.abs(event.clientY - dragStart.y)));
   });
   surface.addEventListener('pointerup', (event) => {
+    if (event.isTrusted && mode === 'capture' && captureGesture) {
+      captureGesture = undefined;
+      if (captureBounds && (captureBounds.width < 40 || captureBounds.height < 40)) {
+        captureBounds = undefined;
+      }
+      renderCaptureSelection();
+      emitCaptureSelection();
+      if (surface?.hasPointerCapture(event.pointerId))
+        surface.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (!event.isTrusted || !dragStart) return;
     const start = dragStart;
     const end = { x: event.clientX, y: event.clientY };
@@ -569,13 +757,30 @@ window.addEventListener('pointerdown', recordPointerDown, true);
 window.addEventListener('pointerup', recordPointerUp, true);
 window.addEventListener('resize', () => {
   surface?.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
+  if (captureBounds)
+    captureBounds = createCaptureBounds(
+      { x: captureBounds.x, y: captureBounds.y },
+      { x: captureBounds.x + captureBounds.width, y: captureBounds.y + captureBounds.height },
+      captureViewport(),
+    );
+  renderCaptureSelection();
   scheduleAnchorRecovery();
 });
 window.addEventListener('scroll', scheduleAnchorRecovery, true);
 ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
-  if (!['browse', 'inspect', 'region', 'draw'].includes(String(requestedMode))) return;
+  if (
+    !['browse', 'comment', 'capture', 'inspect', 'region', 'draw'].includes(String(requestedMode))
+  )
+    return;
+  const leavingCapture = mode === 'capture' && requestedMode !== 'capture';
   mode = requestedMode as Mode;
+  if (leavingCapture) {
+    captureBounds = undefined;
+    captureGesture = undefined;
+    emitCaptureSelection();
+  }
   updatePointerMode();
+  renderCaptureSelection();
 });
 ipcRenderer.on('markfix:set-tool', (_event, requestedTool: unknown) => {
   if (['pin', 'rectangle', 'arrow', 'text', 'pen'].includes(String(requestedTool)))

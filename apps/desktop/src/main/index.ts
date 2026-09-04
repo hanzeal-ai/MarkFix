@@ -25,6 +25,7 @@ import {
   type Annotation,
   type ClientPolicy,
   type CreateReport,
+  type BrowserMode,
 } from '@markfix/contracts';
 import { MarkFixApi } from '@markfix/api-client';
 import { anchorsEqual } from './anchor-state.js';
@@ -34,8 +35,9 @@ import { DraftStore } from './draft-store.js';
 import type { OutboxEntry } from './draft-store.js';
 import { normalizeWebsiteUrl } from './url.js';
 
-const toolbarHeight = 68;
-const panelWidth = 392;
+const toolbarHeight = 56;
+const panelWidth = 360;
+const workspaceMargin = 14;
 const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? 'http://localhost:4310');
 let mainWindow: BrowserWindow | undefined;
 let websiteView: WebContentsView | undefined;
@@ -51,6 +53,7 @@ let recording = false;
 let pageRevision = randomUUID();
 let authenticatedUser: { id: string; email: string; displayName: string } | undefined;
 let policyCache: { value: ClientPolicy; checkedAtMs: number } | undefined;
+let currentBrowserMode: BrowserMode = 'browse';
 const mainRecorderRuntimeId = randomUUID();
 const overlayVisibilityWaiters = new Map<string, () => void>();
 
@@ -179,11 +182,12 @@ const flushOutbox = async (): Promise<void> => {
 const layoutWebsite = (): void => {
   if (!mainWindow || !websiteView) return;
   const [width = 1060, height = 680] = mainWindow.getContentSize();
+  const sidebarWidth = currentBrowserMode === 'browse' ? 0 : panelWidth;
   websiteView.setBounds({
-    x: 0,
-    y: toolbarHeight,
-    width: Math.max(320, width - panelWidth),
-    height: Math.max(200, height - toolbarHeight),
+    x: workspaceMargin,
+    y: toolbarHeight + workspaceMargin,
+    width: Math.max(320, width - sidebarWidth - workspaceMargin * 2),
+    height: Math.max(200, height - toolbarHeight - workspaceMargin * 2),
   });
 };
 
@@ -234,6 +238,7 @@ const createWindow = async (): Promise<void> => {
     updatePageRevision(url);
   });
   websiteView.webContents.on('did-finish-load', () => {
+    websiteView?.webContents.send('markfix:set-mode', currentBrowserMode);
     websiteView?.webContents.send('markfix:render-annotations', currentAnnotations);
     if (currentAnchor?.kind === 'element')
       websiteView?.webContents.send('markfix:resolve-anchor', {
@@ -352,8 +357,13 @@ const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.setMode, async (event, input: unknown) => {
     assertShellSender(event);
     const mode = browserModeSchema.parse(input);
-    if (mode === 'inspect') await inspector?.start();
-    else websiteView?.webContents.send('markfix:set-mode', mode);
+    if (currentBrowserMode === 'comment' || currentBrowserMode === 'inspect') {
+      await inspector?.stop();
+    }
+    currentBrowserMode = mode;
+    layoutWebsite();
+    websiteView?.webContents.send('markfix:set-mode', mode);
+    if (mode === 'comment' || mode === 'inspect') await inspector?.start();
   });
   ipcMain.handle(ipcChannels.setAnnotationTool, (event, input: unknown) => {
     assertShellSender(event);
@@ -459,6 +469,16 @@ const registerIpc = (): void => {
     if (!parsed.success || parsed.data.kind !== 'region') return;
     currentAnchor = parsed.data;
     sendShell(ipcChannels.region, parsed.data);
+  });
+  ipcMain.on('markfix:capture-selection', (event, input: unknown) => {
+    if (event.sender.id !== websiteView?.webContents.id) return;
+    if (input === null) {
+      sendShell(ipcChannels.captureSelection, null);
+      return;
+    }
+    const parsed = anchorSchema.safeParse(input);
+    if (!parsed.success || parsed.data.kind !== 'region') return;
+    sendShell(ipcChannels.captureSelection, parsed.data);
   });
   ipcMain.on('markfix:recorder-event', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;

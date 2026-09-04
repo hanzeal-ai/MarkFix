@@ -54,6 +54,7 @@ declare global {
       onBrowserState(listener: (payload: unknown) => void): () => void;
       onSelection(listener: (payload: unknown) => void): () => void;
       onRegion(listener: (payload: unknown) => void): () => void;
+      onCaptureSelection(listener: (payload: unknown) => void): () => void;
       onRecorderEvent(listener: (payload: unknown) => void): () => void;
       onAnnotationCreated(listener: (payload: unknown) => void): () => void;
       onAnnotationSelected(listener: (payload: unknown) => void): () => void;

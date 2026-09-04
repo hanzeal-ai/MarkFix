@@ -296,10 +296,18 @@ export const ipcChannels = {
   setRecording: 'recorder:set-recording',
   focusAnnotation: 'annotation:focus',
   annotationSelected: 'annotation:selected',
+  captureSelection: 'capture:selection',
   syncStatus: 'sync:status',
 } as const;
 
-export const browserModeSchema = z.enum(['browse', 'inspect', 'region', 'draw']);
+export const browserModeSchema = z.enum([
+  'browse',
+  'comment',
+  'capture',
+  'inspect',
+  'region',
+  'draw',
+]);
 export const annotationToolSchema = z.enum(['pin', 'rectangle', 'arrow', 'text', 'pen']);
 export const navigateInputSchema = z.object({ url: z.string().min(1).max(4096) });
 

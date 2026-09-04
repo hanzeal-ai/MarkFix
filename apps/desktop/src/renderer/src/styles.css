@@ -6,8 +6,8 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  color: #27302c;
-  background: #f4f4ef;
+  color: #252334;
+  background: #eeeef4;
   font-synthesis: none;
 }
 * {
@@ -129,20 +129,21 @@ textarea {
 }
 .shell {
   min-height: 100vh;
+  background: #eeeef4;
 }
 .browser-bar {
-  height: 68px;
+  height: 56px;
   position: fixed;
   z-index: 10;
   inset: 0 0 auto 0;
-  background: #17221e;
+  background: #1f1d2b;
   color: white;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 0 16px 0 76px;
   -webkit-app-region: drag;
-  border-bottom: 1px solid #2d3b35;
+  border-bottom: 1px solid #322f44;
 }
 .traffic-space {
   display: none;
@@ -154,8 +155,8 @@ textarea {
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: #e8ff70;
-  color: #17221e;
+  background: #8b5cf6;
+  color: white;
   display: grid;
   place-items: center;
   font-weight: 800;
@@ -188,17 +189,17 @@ textarea {
 .nav-buttons button:hover,
 .tools button:hover,
 .tools button.active {
-  background: #2b3a34;
+  background: #343047;
   color: white;
 }
 .tools button.active {
-  color: #e8ff70;
+  color: #c4b5fd;
 }
 .address {
   flex: 1;
   max-width: 680px;
   margin: auto;
-  background: #26342e;
+  background: #2b283a;
   height: 36px;
   border-radius: 9px;
   display: flex;
@@ -206,7 +207,7 @@ textarea {
   gap: 8px;
   padding: 0 12px;
   -webkit-app-region: no-drag;
-  border: 1px solid #33443c;
+  border: 1px solid #3d3852;
 }
 .address svg {
   width: 14px;
@@ -235,17 +236,18 @@ textarea {
 .comment-panel {
   position: fixed;
   z-index: 9;
-  right: 0;
-  top: 68px;
-  bottom: 0;
-  width: 392px;
-  background: #fbfbf8;
-  border-left: 1px solid #dfe2dc;
-  padding: 28px 26px 18px;
+  right: 14px;
+  top: 70px;
+  bottom: 14px;
+  width: 346px;
+  background: #fbfaff;
+  border: 1px solid #ddd9eb;
+  border-radius: 12px;
+  padding: 24px 22px 18px;
   display: flex;
   flex-direction: column;
   gap: 19px;
-  box-shadow: -12px 0 34px rgba(28, 40, 34, 0.06);
+  box-shadow: 0 14px 34px rgba(38, 30, 72, 0.1);
   overflow-y: auto;
 }
 .panel-heading {
@@ -255,7 +257,7 @@ textarea {
 }
 .panel-heading svg {
   width: 22px;
-  color: #67805f;
+  color: #7c3aed;
 }
 .eyebrow {
   font-size: 10px;
@@ -269,6 +271,49 @@ textarea {
   letter-spacing: -0.03em;
   margin: 5px 0 0;
   font-weight: 600;
+}
+.capture-panel {
+  justify-content: flex-start;
+}
+.capture-selection-summary,
+.capture-empty {
+  border: 1px solid #ddd6fe;
+  border-radius: 12px;
+  background: #f5f3ff;
+  padding: 18px;
+}
+.capture-selection-summary {
+  display: grid;
+  gap: 8px;
+}
+.capture-selection-summary > span {
+  color: #6d687a;
+  font-size: 12px;
+  font-weight: 700;
+}
+.capture-selection-summary strong {
+  color: #5b21b6;
+  font-size: 24px;
+}
+.capture-selection-summary small,
+.capture-empty span {
+  color: #777184;
+  line-height: 1.5;
+}
+.capture-empty {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+.capture-empty svg {
+  width: 28px;
+  height: 28px;
+  color: #7c3aed;
+  margin-bottom: 5px;
 }
 .report-context {
   display: grid;

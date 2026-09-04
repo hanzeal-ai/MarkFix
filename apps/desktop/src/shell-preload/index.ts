@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('markfix', {
     subscribe(ipcChannels.browserState, listener),
   onSelection: (listener: (payload: unknown) => void) => subscribe(ipcChannels.selection, listener),
   onRegion: (listener: (payload: unknown) => void) => subscribe(ipcChannels.region, listener),
+  onCaptureSelection: (listener: (payload: unknown) => void) =>
+    subscribe(ipcChannels.captureSelection, listener),
   onRecorderEvent: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.recorderEvent, listener),
   onAnnotationCreated: (listener: (payload: unknown) => void) =>

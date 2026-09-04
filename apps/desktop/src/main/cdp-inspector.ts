@@ -80,6 +80,15 @@ export class CdpInspector {
     }
   }
 
+  async stop(): Promise<void> {
+    if (!this.webContents.debugger.isAttached()) return;
+    await this.webContents.debugger
+      .sendCommand('Overlay.setInspectMode', { mode: 'none', highlightConfig: {} })
+      .catch(() => undefined);
+    await this.webContents.debugger.sendCommand('Overlay.hideHighlight').catch(() => undefined);
+    this.state = 'READY';
+  }
+
   private async captureSelection(parameters: DebuggerMessage): Promise<void> {
     if (typeof parameters.backendNodeId !== 'number') return;
     try {
