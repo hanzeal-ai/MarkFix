@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SavedCapture } from '@markfix/contracts';
+import type { SavedCapture, SavedElementComment } from '@markfix/contracts';
 import { DraftStore } from '../src/main/draft-store.js';
 
 const temporaryDirectories: string[] = [];
@@ -75,6 +75,44 @@ describe('DraftStore screenshot annotations', () => {
 
     store.deleteCapture(capture.id);
     expect(store.listCaptures()).toEqual([]);
+    store.close();
+  });
+});
+
+describe('DraftStore element comments', () => {
+  it('persists, updates, lists, and deletes comments independently', () => {
+    const store = createStore();
+    const comment: SavedElementComment = {
+      id: '86c28bc3-a8a0-40df-a4b6-c7f71823d41a',
+      pageUrl: 'https://example.com/page',
+      anchor: {
+        kind: 'element',
+        cssSelector: '[id="headline"]',
+        textQuote: 'A headline',
+        tagName: 'h1',
+        attributes: { id: 'headline' },
+        documentUrl: 'https://example.com/page',
+        framePath: [],
+        quadsCssPx: [[10, 20, 210, 20, 210, 80, 10, 80]],
+      },
+      note: '标题需要修改',
+      createdAt: '2026-09-04T08:00:00.000Z',
+      updatedAt: '2026-09-04T08:00:00.000Z',
+    };
+
+    store.saveElementComment(comment);
+    expect(store.listElementComments()).toEqual([comment]);
+
+    const updated = {
+      ...comment,
+      note: '标题字号需要缩小',
+      updatedAt: '2026-09-04T08:05:00.000Z',
+    };
+    store.saveElementComment(updated);
+    expect(store.listElementComments()).toEqual([updated]);
+
+    store.deleteElementComment(comment.id);
+    expect(store.listElementComments()).toEqual([]);
     store.close();
   });
 });

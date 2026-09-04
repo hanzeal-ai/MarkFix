@@ -134,7 +134,20 @@ export const savedCaptureSchema = z.object({
   widthCssPx: z.number().positive(),
   heightCssPx: z.number().positive(),
   marks: z.array(screenshotMarkSchema).max(500),
+  selection: regionAnchorSchema.optional(),
+  sourceDataUrl: z.string().startsWith('data:image/png;base64,').optional(),
+  captureScale: z.number().positive().optional(),
   createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime().optional(),
+});
+
+export const savedElementCommentSchema = z.object({
+  id: z.uuid(),
+  pageUrl: z.url(),
+  anchor: elementAnchorSchema,
+  note: z.string().min(1).max(2000),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 
 export const reproductionStepSchema = z.object({
@@ -367,12 +380,17 @@ export const ipcChannels = {
   setCaptureStyle: 'capture:set-style',
   syncCaptureMarks: 'capture:sync-marks',
   clearCaptureSelection: 'capture:clear-selection',
+  restoreCaptureSelection: 'capture:restore-selection',
   copyCaptureImage: 'capture:copy-image',
   saveCaptureImage: 'capture:save-image',
   captureAction: 'capture:action',
   listCaptureRecords: 'capture-record:list',
   saveCaptureRecord: 'capture-record:save',
   deleteCaptureRecord: 'capture-record:delete',
+  listElementComments: 'element-comment:list',
+  saveElementComment: 'element-comment:save',
+  deleteElementComment: 'element-comment:delete',
+  syncElementComments: 'element-comment:sync',
   syncStatus: 'sync:status',
 } as const;
 
@@ -394,6 +412,7 @@ export type ScreenshotTool = z.infer<typeof screenshotToolSchema>;
 export type ScreenshotMark = z.infer<typeof screenshotMarkSchema>;
 export type ScreenshotStyle = z.infer<typeof screenshotStyleSchema>;
 export type SavedCapture = z.infer<typeof savedCaptureSchema>;
+export type SavedElementComment = z.infer<typeof savedElementCommentSchema>;
 export type BrowserMode = z.infer<typeof browserModeSchema>;
 export type CaptureBundle = z.infer<typeof captureBundleSchema>;
 export type CaptureContext = z.infer<typeof captureContextSchema>;

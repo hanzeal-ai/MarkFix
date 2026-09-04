@@ -555,6 +555,24 @@ textarea {
   font-size: 13px;
   line-height: 1.55;
 }
+.capture-history-select {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.capture-history-select .capture-thumbnail {
+  margin-top: 0;
+}
+.capture-history-select > p {
+  margin: 0;
+  color: #61656f;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
 .capture-note-actions {
   display: flex;
   gap: 6px;
@@ -575,6 +593,91 @@ textarea {
 .capture-note-actions svg {
   width: 13px;
   height: 13px;
+}
+.element-selection-card {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #d6d2ff;
+  border-radius: 12px;
+  background: #eeecff;
+}
+.element-selection-kicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: #5b52e8;
+  font-size: 12px;
+}
+.element-selection-kicker svg {
+  width: 14px;
+  height: 14px;
+}
+.element-selection-card code,
+.element-note-select code {
+  display: block;
+  overflow: hidden;
+  color: #777b85;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.element-preview {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  margin: 9px 0;
+  padding: 12px;
+  border: 1px solid #e2e4e9;
+  border-radius: 9px;
+  background: #fff;
+  color: #191a1d;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+.element-selection-card textarea {
+  width: 100%;
+  min-height: 82px;
+  resize: vertical;
+  padding: 11px;
+  border: 1px solid #cfd2d9;
+  border-radius: 9px;
+  outline: none;
+  background: #fff;
+  color: #191a1d;
+  line-height: 1.55;
+}
+.element-selection-card textarea:focus {
+  border-color: #5b52e8;
+  box-shadow: 0 0 0 2px rgb(91 82 232 / 10%);
+}
+.element-comment-empty {
+  min-height: 300px;
+}
+.element-notes-list {
+  padding-top: 2px;
+}
+.element-note-card.selected {
+  border-color: #c9c4ff;
+  box-shadow: 0 0 0 2px rgb(91 82 232 / 8%);
+}
+.element-note-select {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.element-note-select p {
+  margin: 6px 0 0;
+  color: #61656f;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
 }
 .report-context {
   display: grid;
@@ -918,6 +1021,29 @@ textarea {
   border-radius: 8px;
   padding: 9px 11px;
   line-height: 1.4;
+}
+.app-toast {
+  position: fixed;
+  z-index: 30;
+  top: 70px;
+  left: 50%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(520px, calc(100vw - 40px));
+  padding: 0 14px;
+  transform: translateX(-50%);
+  border: 1px solid #e2e4e9;
+  border-radius: 9px;
+  background: #fff;
+  color: #61656f;
+  font-size: 12px;
+}
+.app-toast svg {
+  width: 16px;
+  height: 16px;
+  color: #5b52e8;
 }
 .submit {
   height: 44px;

@@ -6,6 +6,7 @@ import type {
   RecorderEvent,
   ScreenshotMark,
   ScreenshotTool,
+  SavedElementComment,
 } from '@markfix/contracts';
 import { pickBestAnchorCandidate } from '@markfix/anchor-core';
 import {
@@ -18,17 +19,19 @@ import {
 
 type Mode = 'browse' | 'comment' | 'capture' | 'inspect' | 'region' | 'draw';
 type Point = { x: number; y: number };
-type AnchorPayload = { kind?: unknown; quadsCssPx?: unknown };
+type AnchorPayload = { kind?: unknown; quadsCssPx?: unknown; cssSelector?: unknown };
 
 const hostAttribute = 'data-markfix-overlay-host';
 const annotationGroupId = 'markfix-annotations';
 const captureGroupId = 'markfix-capture-selection';
+const elementCommentGroupId = 'markfix-element-comments';
 let mode: Mode = 'browse';
 let tool: AnnotationTool = 'pin';
 let root: ShadowRoot | undefined;
 let surface: SVGSVGElement | undefined;
 let captureToolbar: HTMLDivElement | undefined;
 let selectionShape: SVGPolygonElement | SVGRectElement | undefined;
+let selectionLabel: SVGGElement | undefined;
 let dragStart: Point | undefined;
 let penPoints: Point[] = [];
 let restoreCount = 0;
@@ -55,6 +58,10 @@ let screenshotColor = '#ef4444';
 let screenshotStrokeWidth: 2 | 4 | 6 = 4;
 let screenshotMarks: ScreenshotMark[] = [];
 let screenshotRedoMarks: ScreenshotMark[] = [];
+let elementComments: SavedElementComment[] = [];
+let elementCommentRenderFrame: number | undefined;
+let elementCommentLayout = '';
+const elementCommentScrollTargets = new WeakSet<EventTarget>();
 let screenshotGesture:
   | {
       tool: Exclude<ScreenshotTool, 'select'>;
@@ -728,6 +735,106 @@ const renderAnnotations = (annotations: Annotation[]): void => {
   surface.prepend(group);
 };
 
+const findElementForComment = (comment: SavedElementComment): Element | undefined => {
+  try {
+    const candidates = [...document.querySelectorAll(comment.anchor.cssSelector)];
+    if (candidates.length === 1) return candidates[0];
+    return candidates.find(
+      (element) =>
+        element.tagName.toLocaleLowerCase() === comment.anchor.tagName &&
+        (element.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 500) ===
+          comment.anchor.textQuote,
+    );
+  } catch {
+    return undefined;
+  }
+};
+
+const scheduleElementCommentRender = (): void => {
+  if (elementCommentRenderFrame) return;
+  elementCommentRenderFrame = window.requestAnimationFrame(() => {
+    elementCommentRenderFrame = undefined;
+    renderElementComments();
+  });
+};
+
+const bindElementCommentScrollTargets = (parent: ParentNode): void => {
+  const elements = [
+    ...(parent instanceof Element ? [parent] : []),
+    ...parent.querySelectorAll('*'),
+  ];
+  elements.forEach((element) => {
+    if (elementCommentScrollTargets.has(element)) return;
+    elementCommentScrollTargets.add(element);
+    element.addEventListener('scroll', scheduleElementCommentRender, { passive: true });
+  });
+};
+
+const renderElementComments = (): void => {
+  if (!surface) return;
+  if (mode !== 'comment') {
+    elementCommentLayout = '';
+    surface.querySelector(`#${elementCommentGroupId}`)?.remove();
+    return;
+  }
+  const pins = elementComments
+    .filter(({ pageUrl }) => pageUrl === location.href)
+    .map((comment, index) => {
+      const element = findElementForComment(comment);
+      const rect = element?.getBoundingClientRect();
+      if (
+        !rect ||
+        rect.width <= 0 ||
+        rect.height <= 0 ||
+        rect.right < 0 ||
+        rect.bottom < 0 ||
+        rect.left > window.innerWidth ||
+        rect.top > window.innerHeight
+      )
+        return undefined;
+      return {
+        id: comment.id,
+        index,
+        x: rect.left + Math.min(Math.max(rect.width - 4, 0), 20),
+        y: rect.top + Math.min(Math.max(rect.height - 4, 0), 18),
+      };
+    })
+    .filter((pin): pin is NonNullable<typeof pin> => Boolean(pin));
+  const nextLayout = JSON.stringify(pins);
+  if (nextLayout === elementCommentLayout) return;
+  elementCommentLayout = nextLayout;
+  surface.querySelector(`#${elementCommentGroupId}`)?.remove();
+  const group = svgElement('g');
+  group.id = elementCommentGroupId;
+  pins.forEach(({ index, x: pinX, y: pinY }) => {
+    const pin = svgElement('g');
+    pin.style.pointerEvents = 'none';
+    const circle = svgElement('circle');
+    setAttributes(circle, {
+      cx: String(pinX),
+      cy: String(pinY),
+      r: '11',
+      fill: '#5b52e8',
+      stroke: '#fff',
+      'stroke-width': '2',
+    });
+    const label = svgElement('text');
+    setAttributes(label, {
+      x: String(pinX),
+      y: String(pinY + 4),
+      fill: '#fff',
+      'font-size': '11',
+      'font-family': 'system-ui',
+      'font-weight': '600',
+      'text-anchor': 'middle',
+    });
+    label.textContent = String(index + 1);
+    pin.append(circle, label);
+    group.append(pin);
+  });
+  surface.prepend(group);
+};
+
 const mount = (): void => {
   if (document.documentElement.querySelector(`[${hostAttribute}]`)) return;
   const host = document.createElement('div');
@@ -779,6 +886,24 @@ const mount = (): void => {
   });
   root.append(captureToolbar);
   document.documentElement.append(host);
+  if (document.body) {
+    bindElementCommentScrollTargets(document.body);
+    new MutationObserver((records) => {
+      records.forEach(({ addedNodes }) =>
+        addedNodes.forEach((node) => {
+          if (node instanceof Element) bindElementCommentScrollTargets(node);
+        }),
+      );
+      scheduleElementCommentRender();
+    }).observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  }
+  window.setInterval(() => {
+    if (mode === 'comment') renderElementComments();
+  }, 50);
   updatePointerMode();
   renderCaptureSelection();
 
@@ -968,6 +1093,7 @@ const showAnchor = (payload: AnchorPayload): void => {
   )
     return;
   selectionShape?.remove();
+  selectionLabel?.remove();
   const polygon = svgElement('polygon');
   setAttributes(polygon, {
     points: `${firstQuad[0]},${firstQuad[1]} ${firstQuad[2]},${firstQuad[3]} ${firstQuad[4]},${firstQuad[5]} ${firstQuad[6]},${firstQuad[7]}`,
@@ -978,6 +1104,36 @@ const showAnchor = (payload: AnchorPayload): void => {
   });
   surface?.append(polygon);
   selectionShape = polygon;
+  if (typeof payload.cssSelector === 'string' && payload.cssSelector) {
+    const selector = payload.cssSelector.slice(0, 80);
+    const x = Math.max(4, Math.min(...firstQuad.filter((_value, index) => index % 2 === 0)));
+    const targetY = Math.min(...firstQuad.filter((_value, index) => index % 2 === 1));
+    const y = targetY >= 24 ? targetY - 23 : targetY + 3;
+    const width = Math.min(260, Math.max(54, selector.length * 6.5 + 12));
+    const group = svgElement('g');
+    group.style.pointerEvents = 'none';
+    const background = svgElement('rect');
+    setAttributes(background, {
+      x: String(Math.min(x, Math.max(4, window.innerWidth - width - 4))),
+      y: String(y),
+      width: String(width),
+      height: '20',
+      rx: '4',
+      fill: '#5b52e8',
+    });
+    const text = svgElement('text');
+    setAttributes(text, {
+      x: String(Math.min(x, Math.max(4, window.innerWidth - width - 4)) + 6),
+      y: String(y + 14),
+      fill: '#fff',
+      'font-size': '11',
+      'font-family': 'ui-monospace, SFMono-Regular, Menlo, monospace',
+    });
+    text.textContent = selector;
+    group.append(background, text);
+    surface?.append(group);
+    selectionLabel = group;
+  }
 };
 
 const isOverlayElement = (target: Element): boolean =>
@@ -1056,10 +1212,20 @@ const anchorIdentity = (anchor: ElementAnchor): string =>
     framePath: anchor.framePath,
   });
 
+const clearAnchorVisual = (): void => {
+  selectionShape?.remove();
+  selectionShape = undefined;
+  selectionLabel?.remove();
+  selectionLabel = undefined;
+};
+
 const recoverAnchor = (): void => {
   const original = trackedAnchor;
   if (!original || location.href !== original.documentUrl) {
-    if (original) ipcRenderer.send('markfix:anchor-recovery', { status: 'lost' });
+    if (original) {
+      clearAnchorVisual();
+      ipcRenderer.send('markfix:anchor-recovery', { status: 'lost' });
+    }
     return;
   }
   const elements = new Set<Element>();
@@ -1112,6 +1278,7 @@ const recoverAnchor = (): void => {
     entries.map(({ candidate }) => candidate),
   );
   if (!best || best.match.confidence === 'low') {
+    clearAnchorVisual();
     ipcRenderer.send('markfix:anchor-recovery', {
       status: 'lost',
       score: best?.match.score ?? 0,
@@ -1272,9 +1439,22 @@ window.addEventListener('resize', () => {
       captureViewport(),
     );
   renderCaptureSelection();
+  renderElementComments();
   scheduleAnchorRecovery();
 });
-window.addEventListener('scroll', scheduleAnchorRecovery, true);
+document.addEventListener(
+  'scroll',
+  () => {
+    scheduleAnchorRecovery();
+    scheduleElementCommentRender();
+  },
+  true,
+);
+window.addEventListener('wheel', scheduleElementCommentRender, { capture: true, passive: true });
+window.addEventListener('touchmove', scheduleElementCommentRender, {
+  capture: true,
+  passive: true,
+});
 ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
   if (
     !['browse', 'comment', 'capture', 'inspect', 'region', 'draw'].includes(String(requestedMode))
@@ -1289,6 +1469,7 @@ ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
   }
   updatePointerMode();
   renderCaptureSelection();
+  renderElementComments();
 });
 ipcRenderer.on('markfix:set-tool', (_event, requestedTool: unknown) => {
   if (['pin', 'rectangle', 'arrow', 'text', 'pen'].includes(String(requestedTool)))
@@ -1318,12 +1499,52 @@ ipcRenderer.on('markfix:sync-capture-marks', (_event, payload: unknown) => {
   screenshotGesture = undefined;
   renderCaptureSelection();
 });
+ipcRenderer.on('markfix:render-element-comments', (_event, payload: unknown) => {
+  if (!Array.isArray(payload)) return;
+  elementComments = payload as SavedElementComment[];
+  renderElementComments();
+});
 ipcRenderer.on('markfix:clear-capture-selection', () => {
   captureBounds = undefined;
   captureGesture = undefined;
   screenshotGesture = undefined;
   screenshotMarks = [];
   screenshotRedoMarks = [];
+  screenshotTool = 'select';
+  renderCaptureSelection();
+  emitCaptureSelection();
+  emitScreenshotMarks();
+});
+ipcRenderer.on('markfix:restore-capture-selection', (_event, payload: unknown) => {
+  const candidate = payload as { selection?: Record<string, unknown>; marks?: unknown };
+  const selection = candidate.selection as
+    | {
+        kind?: unknown;
+        xCssPx?: unknown;
+        yCssPx?: unknown;
+        widthCssPx?: unknown;
+        heightCssPx?: unknown;
+      }
+    | undefined;
+  if (
+    selection?.kind !== 'region' ||
+    ![selection.xCssPx, selection.yCssPx, selection.widthCssPx, selection.heightCssPx].every(
+      (value) => typeof value === 'number' && Number.isFinite(value),
+    ) ||
+    !Array.isArray(candidate.marks)
+  )
+    return;
+  const x = Number(selection.xCssPx);
+  const y = Number(selection.yCssPx);
+  captureBounds = createCaptureBounds(
+    { x, y },
+    { x: x + Number(selection.widthCssPx), y: y + Number(selection.heightCssPx) },
+    captureViewport(),
+  );
+  screenshotMarks = candidate.marks as ScreenshotMark[];
+  screenshotRedoMarks = [];
+  screenshotTool = 'select';
+  screenshotGesture = undefined;
   renderCaptureSelection();
   emitCaptureSelection();
   emitScreenshotMarks();
@@ -1375,8 +1596,7 @@ ipcRenderer.on('markfix:resolve-anchor', (_event, payload: unknown) => {
 });
 ipcRenderer.on('markfix:clear-anchor', () => {
   trackedAnchor = undefined;
-  selectionShape?.remove();
-  selectionShape = undefined;
+  clearAnchorVisual();
 });
 ipcRenderer.on('markfix:show-anchor', (_event, payload: AnchorPayload) => {
   if (payload.kind === 'element') trackedAnchor = payload as ElementAnchor;

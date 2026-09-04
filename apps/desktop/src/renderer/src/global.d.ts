@@ -8,10 +8,12 @@ import type {
   ClientPolicy,
   CreateReport,
   Environment,
+  RegionAnchor,
   ScreenshotMark,
   ScreenshotStyle,
   ScreenshotTool,
   SavedCapture,
+  SavedElementComment,
   WorkspaceSummary,
 } from '@markfix/contracts';
 
@@ -40,6 +42,7 @@ declare global {
       setCaptureStyle(style: ScreenshotStyle): Promise<void>;
       syncCaptureMarks(marks: ScreenshotMark[]): Promise<void>;
       clearCaptureSelection(): Promise<void>;
+      restoreCaptureSelection(selection: RegionAnchor, marks: ScreenshotMark[]): Promise<void>;
       copyCaptureImage(dataUrl: string): Promise<void>;
       saveCaptureImage(
         dataUrl: string,
@@ -48,6 +51,10 @@ declare global {
       listCaptureRecords(): Promise<SavedCapture[]>;
       saveCaptureRecord(capture: SavedCapture): Promise<void>;
       deleteCaptureRecord(id: string): Promise<void>;
+      listElementComments(): Promise<SavedElementComment[]>;
+      saveElementComment(comment: SavedElementComment): Promise<void>;
+      deleteElementComment(id: string): Promise<void>;
+      syncElementComments(comments: SavedElementComment[]): Promise<void>;
       setRecording(enabled: boolean): Promise<void>;
       syncAnnotations(annotations: Annotation[]): Promise<void>;
       syncAnchor(anchor: Anchor | null): Promise<void>;

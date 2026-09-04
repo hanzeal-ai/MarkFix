@@ -39,6 +39,7 @@ import {
   type Environment,
   type ReproductionStep,
   type SavedCapture,
+  type SavedElementComment,
   type ScreenshotMark,
   type WorkspaceSummary,
 } from '@markfix/contracts';
@@ -66,6 +67,17 @@ const annotationName = (annotation: Annotation): string => {
   if (annotation.type === 'text') return annotation.text;
   if (annotation.type === 'pen') return 'Freehand mark';
   return annotation.type === 'arrow' ? 'Arrow' : 'Rectangle';
+};
+
+const elementAnchorsEqual = (
+  left: Extract<Anchor, { kind: 'element' }>,
+  right: Extract<Anchor, { kind: 'element' }>,
+): boolean => {
+  if (left.documentUrl !== right.documentUrl) return false;
+  if (JSON.stringify(left.framePath) !== JSON.stringify(right.framePath)) return false;
+  if (left.cssSelector !== right.cssSelector) return false;
+  const selectorIsOnlyTag = /^[a-z][a-z0-9-]*$/i.test(left.cssSelector);
+  return !selectorIsOnlyTag || left.textQuote === right.textQuote;
 };
 
 function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser) => void }) {
@@ -157,6 +169,10 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   const [captureRendering, setCaptureRendering] = useState(false);
   const [captureNote, setCaptureNote] = useState('');
   const [savedCaptures, setSavedCaptures] = useState<SavedCapture[]>([]);
+  const [editingCaptureId, setEditingCaptureId] = useState<string>();
+  const [elementComments, setElementComments] = useState<SavedElementComment[]>([]);
+  const [elementCommentNote, setElementCommentNote] = useState('');
+  const [editingElementCommentId, setEditingElementCommentId] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(
     policy?.status === 'upgrade-recommended'
@@ -172,12 +188,23 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   const [contextLoading, setContextLoading] = useState(true);
   const pendingOutboxIdRef = useRef<string | undefined>(undefined);
   const captureRequestIdRef = useRef<string | undefined>(undefined);
+  const captureRestoreRef = useRef<
+    | {
+        capture: SavedCapture;
+        selection: CaptureSelection;
+        marks: ScreenshotMark[];
+      }
+    | undefined
+  >(undefined);
   const screenshotRef = useRef<string | undefined>(undefined);
+  const elementCommentsRef = useRef<SavedElementComment[]>([]);
   screenshotRef.current = screenshot;
+  elementCommentsRef.current = elementComments;
   const selectedWorkspace = workspaces.find(({ id }) => id === selectedWorkspaceId);
   const selectedProject = selectedWorkspace?.projects.find(({ id }) => id === selectedProjectId);
   const selectedEnvironment = environments.find(({ id }) => id === selectedEnvironmentId);
   const pageCaptures = savedCaptures.filter(({ pageUrl }) => pageUrl === url);
+  const pageElementComments = elementComments.filter(({ pageUrl }) => pageUrl === url);
 
   const clearReport = useCallback((outboxId?: string): boolean => {
     if (outboxId && pendingOutboxIdRef.current !== outboxId) return false;
@@ -205,10 +232,18 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
       }),
       window.markfix.onSelection((payload) => {
         const parsed = anchorSchema.safeParse(payload);
-        if (parsed.success) {
-          setAnchor(parsed.data);
-          setNotice('Element selected. Add your comment.');
-        }
+        if (!parsed.success || parsed.data.kind !== 'element') return;
+        const nextAnchor = parsed.data;
+        const existing = elementCommentsRef.current.find(({ anchor: savedAnchor }) =>
+          elementAnchorsEqual(savedAnchor, nextAnchor),
+        );
+        setAnchor(nextAnchor);
+        setEditingElementCommentId(existing?.id);
+        setElementCommentNote(existing?.note ?? '');
+        setNotice(existing ? '已加载这个元素的批注。' : '已选择元素，请填写批注。');
+        window.requestAnimationFrame(() => {
+          document.querySelector<HTMLTextAreaElement>('[data-element-comment-note]')?.focus();
+        });
       }),
       window.markfix.onRegion((payload) => {
         const parsed = anchorSchema.safeParse(payload);
@@ -221,6 +256,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
       window.markfix.onCaptureSelection((payload) => {
         if (payload === null) {
           captureRequestIdRef.current = undefined;
+          captureRestoreRef.current = undefined;
           setCaptureSelection(undefined);
           setCaptureSource(undefined);
           setScreenshot(undefined);
@@ -228,6 +264,20 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
         }
         const parsed = anchorSchema.safeParse(payload);
         if (!parsed.success || parsed.data.kind !== 'region') return;
+        const restore = captureRestoreRef.current;
+        if (restore) {
+          captureRestoreRef.current = undefined;
+          setCaptureSelection(parsed.data);
+          setCaptureMarks(restore.marks);
+          setCaptureNote(restore.capture.note);
+          setCaptureSource({
+            dataUrl: restore.capture.sourceDataUrl ?? restore.capture.dataUrl,
+            captureScale: restore.capture.captureScale ?? 1,
+          });
+          setScreenshot(restore.capture.dataUrl);
+          setCaptureLoading(false);
+          return;
+        }
         setCaptureSelection(parsed.data);
         setCaptureLoading(true);
         setCaptureSource(undefined);
@@ -374,13 +424,14 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
 
   useEffect(() => {
     let active = true;
-    void window.markfix
-      .listCaptureRecords()
-      .then((captures) => {
-        if (active) setSavedCaptures(captures);
+    void Promise.all([window.markfix.listCaptureRecords(), window.markfix.listElementComments()])
+      .then(([captures, comments]) => {
+        if (!active) return;
+        setSavedCaptures(captures);
+        setElementComments(comments);
       })
       .catch((error: unknown) => {
-        if (active) setNotice(error instanceof Error ? error.message : '无法读取本机截图批注。');
+        if (active) setNotice(error instanceof Error ? error.message : '无法读取本机批注。');
       });
     return () => {
       active = false;
@@ -469,6 +520,10 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   }, [anchor, mode]);
 
   useEffect(() => {
+    void window.markfix.syncElementComments(elementComments);
+  }, [elementComments]);
+
+  useEffect(() => {
     void window.markfix.syncCaptureMarks(captureMarks);
   }, [captureMarks]);
 
@@ -546,12 +601,18 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
 
   const toggleMode = (nextMode: 'comment' | 'capture'): Promise<void> => {
     const destination = mode === nextMode ? 'browse' : nextMode;
+    if (destination === 'comment') {
+      setAnchor(undefined);
+      setElementCommentNote('');
+      setEditingElementCommentId(undefined);
+    }
     if (destination === 'capture') {
       captureRequestIdRef.current = undefined;
       setCaptureSelection(undefined);
       setCaptureSource(undefined);
       setCaptureMarks([]);
       setCaptureNote('');
+      setEditingCaptureId(undefined);
       setScreenshot(undefined);
       void window.markfix.setCaptureTool('select');
     }
@@ -588,34 +649,116 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
 
   const completeCapture = async (): Promise<void> => {
     if (!captureSelection || !screenshot || !captureNote.trim() || captureRendering) return;
+    const existing = savedCaptures.find(({ id }) => id === editingCaptureId);
+    const now = new Date().toISOString();
     const capture: SavedCapture = {
-      id: crypto.randomUUID(),
+      id: existing?.id ?? crypto.randomUUID(),
       pageUrl: captureSelection.documentUrl,
       note: captureNote.trim(),
       dataUrl: screenshot,
       widthCssPx: captureSelection.widthCssPx,
       heightCssPx: captureSelection.heightCssPx,
       marks: captureMarks,
-      createdAt: new Date().toISOString(),
+      selection: captureSelection,
+      ...(captureSource ? { sourceDataUrl: captureSource.dataUrl } : {}),
+      ...(captureSource ? { captureScale: captureSource.captureScale } : {}),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
     };
     await window.markfix.saveCaptureRecord(capture);
-    setSavedCaptures((captures) => [...captures, capture]);
+    setSavedCaptures((captures) =>
+      captures.some(({ id }) => id === capture.id)
+        ? captures.map((item) => (item.id === capture.id ? capture : item))
+        : [...captures, capture],
+    );
     setCaptureNote('');
     setCaptureMarks([]);
+    setEditingCaptureId(undefined);
     await window.markfix.clearCaptureSelection();
+    await window.markfix.setCaptureTool('select');
     setNotice('截图批注已保存到本机。');
   };
 
   const cancelCapture = async (): Promise<void> => {
     setCaptureNote('');
     setCaptureMarks([]);
+    setEditingCaptureId(undefined);
     await window.markfix.clearCaptureSelection();
+    await window.markfix.setCaptureTool('select');
   };
 
   const deleteSavedCapture = async (id: string): Promise<void> => {
     await window.markfix.deleteCaptureRecord(id);
     setSavedCaptures((captures) => captures.filter((capture) => capture.id !== id));
+    if (editingCaptureId === id) await cancelCapture();
     setNotice('截图批注已删除。');
+  };
+
+  const selectSavedCapture = async (capture: SavedCapture): Promise<void> => {
+    const selection: CaptureSelection = capture.selection ?? {
+      kind: 'region',
+      xCssPx: 24,
+      yCssPx: 24,
+      widthCssPx: capture.widthCssPx,
+      heightCssPx: capture.heightCssPx,
+      documentUrl: capture.pageUrl,
+    };
+    const marks = capture.sourceDataUrl ? capture.marks : [];
+    captureRestoreRef.current = { capture, selection, marks };
+    setEditingCaptureId(capture.id);
+    setCaptureNote(capture.note);
+    setScreenshot(capture.dataUrl);
+    await window.markfix.restoreCaptureSelection(selection, marks);
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLTextAreaElement>('[data-capture-note]')?.focus();
+    });
+  };
+
+  const clearElementSelection = (): void => {
+    setAnchor(undefined);
+    setElementCommentNote('');
+    setEditingElementCommentId(undefined);
+  };
+
+  const completeElementComment = async (): Promise<void> => {
+    if (anchor?.kind !== 'element' || !elementCommentNote.trim()) return;
+    const now = new Date().toISOString();
+    const existing = elementComments.find(
+      (comment) =>
+        comment.id === editingElementCommentId || elementAnchorsEqual(comment.anchor, anchor),
+    );
+    const comment: SavedElementComment = {
+      id: existing?.id ?? crypto.randomUUID(),
+      pageUrl: anchor.documentUrl,
+      anchor,
+      note: elementCommentNote.trim(),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    await window.markfix.saveElementComment(comment);
+    setElementComments((comments) =>
+      comments.some(({ id }) => id === comment.id)
+        ? comments.map((item) => (item.id === comment.id ? comment : item))
+        : [...comments, comment],
+    );
+    clearElementSelection();
+    setNotice(existing ? '元素批注已更新。' : '元素批注已保存到本机。');
+  };
+
+  const selectElementComment = (comment: SavedElementComment): void => {
+    setAnchor(comment.anchor);
+    setEditingElementCommentId(comment.id);
+    setElementCommentNote(comment.note);
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLTextAreaElement>('[data-element-comment-note]')?.focus();
+    });
+  };
+
+  const deleteElementComment = async (id: string): Promise<void> => {
+    await window.markfix.deleteElementComment(id);
+    setElementComments((comments) => comments.filter((comment) => comment.id !== id));
+    if (editingElementCommentId === id) clearElementSelection();
+    setNotice('元素批注已删除。');
   };
 
   const updateStep = (id: string, description: string): void => {
@@ -738,6 +881,36 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
     }
   };
 
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(undefined), 2400);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent): void => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        if (mode === 'comment' && anchor?.kind === 'element' && elementCommentNote.trim()) {
+          event.preventDefault();
+          void completeElementComment();
+        } else if (mode === 'capture' && captureSelection && captureNote.trim()) {
+          event.preventDefault();
+          void completeCapture();
+        }
+      }
+      if (event.key !== 'Escape') return;
+      if (mode === 'comment' && anchor) {
+        clearElementSelection();
+      } else if (mode === 'capture' && captureSelection) {
+        void cancelCapture();
+      } else if (mode !== 'browse') {
+        void setMode('browse');
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  });
+
   return (
     <div className="shell">
       <header className="browser-bar">
@@ -750,13 +923,13 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
         </div>
         <div className="prototype-browser-bar">
           <div className="nav-buttons">
-            <button onClick={() => void window.markfix.back()}>
+            <button aria-label="后退" title="后退" onClick={() => void window.markfix.back()}>
               <ArrowLeft />
             </button>
-            <button onClick={() => void window.markfix.forward()}>
+            <button aria-label="前进" title="前进" onClick={() => void window.markfix.forward()}>
               <ArrowRight />
             </button>
-            <button onClick={() => void window.markfix.reload()}>
+            <button aria-label="刷新" title="刷新" onClick={() => void window.markfix.reload()}>
               <RefreshCw className={browserState.loading ? 'spin' : ''} />
             </button>
           </div>
@@ -781,18 +954,25 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           </span>
           <button
             className={mode === 'comment' ? 'active' : ''}
+            aria-pressed={mode === 'comment'}
             onClick={() => void toggleMode('comment')}
           >
             <MessageSquareText /> 批注
           </button>
           <button
             className={mode === 'capture' ? 'active' : ''}
+            aria-pressed={mode === 'capture'}
             onClick={() => void toggleMode('capture')}
           >
             <Camera /> 截图
           </button>
         </div>
       </header>
+      {notice && (
+        <div className="app-toast" role="status">
+          <Check /> {notice}
+        </div>
+      )}
       {mode === 'capture' ? (
         <aside className="comment-panel capture-panel">
           <div className="capture-panel-header">
@@ -853,7 +1033,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                     }
                     onClick={() => void completeCapture()}
                   >
-                    完成
+                    {editingCaptureId ? '保存修改' : '完成批注'}
                   </button>
                 </div>
               </section>
@@ -891,16 +1071,22 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                         </button>
                       </span>
                     </div>
-                    <div className="capture-thumbnail">
-                      <img src={item.dataUrl} alt={item.note} />
-                    </div>
-                    <div className="capture-meta">
-                      <span>
-                        {Math.round(item.widthCssPx)} × {Math.round(item.heightCssPx)} px
-                      </span>
-                      <span>{item.marks.length} 个标记</span>
-                    </div>
-                    <p>{item.note}</p>
+                    <button
+                      type="button"
+                      className="capture-history-select"
+                      onClick={() => void selectSavedCapture(item)}
+                    >
+                      <div className="capture-thumbnail">
+                        <img src={item.dataUrl} alt={item.note} />
+                      </div>
+                      <div className="capture-meta">
+                        <span>
+                          {Math.round(item.widthCssPx)} × {Math.round(item.heightCssPx)} px
+                        </span>
+                        <span>{item.marks.length} 个标记</span>
+                      </div>
+                      <p>{item.note}</p>
+                    </button>
                     <div className="capture-note-actions">
                       <button type="button" onClick={() => void copyCapture(item.dataUrl)}>
                         <Copy /> 复制
@@ -909,6 +1095,91 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                         <Download /> 保存
                       </button>
                     </div>
+                  </article>
+                ))}
+              </section>
+            )}
+          </div>
+        </aside>
+      ) : mode === 'comment' ? (
+        <aside className="comment-panel capture-panel element-comment-panel">
+          <div className="capture-panel-header">
+            <span>元素批注</span>
+            <small>{pageElementComments.length} 条</small>
+          </div>
+          <div className="capture-panel-body">
+            {anchor?.kind === 'element' && (
+              <section className="element-selection-card">
+                <div className="element-selection-kicker">
+                  <MousePointer2 />
+                  <strong>{editingElementCommentId ? '编辑已有批注' : '已选择元素'}</strong>
+                </div>
+                <code>{anchor.cssSelector}</code>
+                <div className="element-preview">{anchor.textQuote || `<${anchor.tagName}>`}</div>
+                <textarea
+                  data-element-comment-note
+                  value={elementCommentNote}
+                  maxLength={2000}
+                  placeholder="描述这里需要修改什么…"
+                  onChange={(event) => setElementCommentNote(event.target.value)}
+                />
+                <div className="capture-draft-actions">
+                  <button type="button" onClick={clearElementSelection}>
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={!elementCommentNote.trim()}
+                    onClick={() => void completeElementComment()}
+                  >
+                    {editingElementCommentId ? '保存修改' : '完成批注'}
+                  </button>
+                </div>
+              </section>
+            )}
+            {!anchor && pageElementComments.length === 0 && (
+              <section className="capture-empty element-comment-empty">
+                <span className="capture-empty-icon">
+                  <MousePointer2 />
+                </span>
+                <strong>选择页面中的元素</strong>
+                <p>点击页面中的任意元素添加批注，批注会保留元素位置和页面上下文。</p>
+              </section>
+            )}
+            {pageElementComments.length > 0 && (
+              <section className="capture-notes-list element-notes-list">
+                {[...pageElementComments].reverse().map((item, index) => (
+                  <article
+                    className={`capture-note-card element-note-card ${editingElementCommentId === item.id ? 'selected' : ''}`}
+                    key={item.id}
+                  >
+                    <div className="capture-note-head">
+                      <span>
+                        <i>{pageElementComments.length - index}</i> 元素批注
+                      </span>
+                      <span>
+                        {new Date(item.updatedAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        <button
+                          type="button"
+                          title="删除"
+                          onClick={() => void deleteElementComment(item.id)}
+                        >
+                          <Trash2 />
+                        </button>
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="element-note-select"
+                      onClick={() => selectElementComment(item)}
+                    >
+                      <code>{item.anchor.cssSelector}</code>
+                      <p>{item.note}</p>
+                    </button>
                   </article>
                 ))}
               </section>

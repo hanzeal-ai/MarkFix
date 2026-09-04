@@ -10,6 +10,16 @@ type NodeDescription = {
     attributes?: string[];
   };
 };
+type ResolvedNode = { object?: { objectId?: string } };
+type RuntimeDetails = {
+  result?: {
+    value?: {
+      cssSelector?: unknown;
+      textQuote?: unknown;
+      attributes?: unknown;
+    };
+  };
+};
 
 const attributesToRecord = (attributes: string[] | undefined): Record<string, string> => {
   const result: Record<string, string> = {};
@@ -40,6 +50,7 @@ const selectorFor = (tagName: string, attributes: Record<string, string>): strin
 
 export class CdpInspector {
   private state: 'DETACHED' | 'ATTACHING' | 'READY' | 'SELECTING' = 'DETACHED';
+  private active = false;
 
   constructor(
     private readonly webContents: WebContents,
@@ -50,12 +61,14 @@ export class CdpInspector {
       if (method === 'Overlay.inspectNodeRequested') void this.captureSelection(parameters);
     });
     webContents.debugger.on('detach', (_event, reason) => {
+      this.active = false;
       this.state = 'DETACHED';
       this.onFailure(`Element inspection stopped: ${reason}`);
     });
   }
 
   async start(): Promise<void> {
+    this.active = true;
     try {
       if (!this.webContents.debugger.isAttached()) {
         this.state = 'ATTACHING';
@@ -63,24 +76,17 @@ export class CdpInspector {
       }
       await this.webContents.debugger.sendCommand('DOM.enable');
       await this.webContents.debugger.sendCommand('Overlay.enable');
-      await this.webContents.debugger.sendCommand('Overlay.setInspectMode', {
-        mode: 'searchForNode',
-        highlightConfig: {
-          showInfo: false,
-          showStyles: false,
-          contentColor: { r: 91, g: 82, b: 232, a: 0.08 },
-          borderColor: { r: 91, g: 82, b: 232, a: 0.95 },
-          showExtensionLines: false,
-        },
-      });
+      await this.enableInspectMode();
       this.state = 'SELECTING';
     } catch (error) {
+      this.active = false;
       this.state = 'READY';
       this.onFailure(error instanceof Error ? error.message : 'Unable to inspect this page');
     }
   }
 
   async stop(): Promise<void> {
+    this.active = false;
     if (!this.webContents.debugger.isAttached()) return;
     await this.webContents.debugger
       .sendCommand('Overlay.setInspectMode', { mode: 'none', highlightConfig: {} })
@@ -104,15 +110,69 @@ export class CdpInspector {
         backendNodeId: parameters.backendNodeId,
       })) as { quads: number[][] };
       const tagName = (description.node.localName ?? description.node.nodeName).toLocaleLowerCase();
-      const attributes = attributesToRecord(description.node.attributes);
-      const textQuote = html.outerHTML
+      let attributes = attributesToRecord(description.node.attributes);
+      let textQuote = html.outerHTML
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
         .slice(0, 500);
+      let cssSelector = selectorFor(tagName, attributes);
+      const resolved = (await this.webContents.debugger.sendCommand('DOM.resolveNode', {
+        backendNodeId: parameters.backendNodeId,
+      })) as ResolvedNode;
+      if (resolved.object?.objectId) {
+        const runtimeDetails = (await this.webContents.debugger.sendCommand(
+          'Runtime.callFunctionOn',
+          {
+            objectId: resolved.object.objectId,
+            returnByValue: true,
+            functionDeclaration: `function () {
+              const recorded = {};
+              for (const name of ['id', 'name', 'role', 'type', 'aria-label', 'data-testid']) {
+                const value = this.getAttribute(name);
+                if (value) recorded[name] = value.slice(0, 200);
+              }
+              const selector = (() => {
+                if (this.id) {
+                  const candidate = '#' + CSS.escape(this.id);
+                  if (this.ownerDocument.querySelectorAll(candidate).length === 1) return candidate;
+                }
+                for (const name of ['data-testid', 'name', 'aria-label']) {
+                  const value = this.getAttribute(name);
+                  if (value) return this.tagName.toLowerCase() + '[' + name + '="' + CSS.escape(value) + '"]';
+                }
+                const segments = [];
+                let current = this;
+                while (current && current !== this.ownerDocument.documentElement && segments.length < 5) {
+                  let segment = current.tagName.toLowerCase();
+                  const parent = current.parentElement;
+                  if (parent) {
+                    const siblings = [...parent.children].filter((item) => item.tagName === current.tagName);
+                    if (siblings.length > 1) segment += ':nth-of-type(' + (siblings.indexOf(current) + 1) + ')';
+                  }
+                  segments.unshift(segment);
+                  current = parent;
+                }
+                return segments.join(' > ') || this.tagName.toLowerCase();
+              })();
+              return {
+                cssSelector: selector,
+                textQuote: (this.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 500),
+                attributes: recorded,
+              };
+            }`,
+          },
+        )) as RuntimeDetails;
+        const value = runtimeDetails.result?.value;
+        if (typeof value?.cssSelector === 'string' && value.cssSelector)
+          cssSelector = value.cssSelector;
+        if (typeof value?.textQuote === 'string') textQuote = value.textQuote;
+        if (value?.attributes && typeof value.attributes === 'object')
+          attributes = value.attributes as Record<string, string>;
+      }
       const anchor: ElementAnchor = {
         kind: 'element',
-        cssSelector: selectorFor(tagName, attributes),
+        cssSelector,
         textQuote,
         tagName,
         attributes,
@@ -127,13 +187,31 @@ export class CdpInspector {
       await this.webContents.debugger.sendCommand('Overlay.hideHighlight');
       this.state = 'READY';
       this.onSelection(anchor);
+      if (this.active) {
+        await this.enableInspectMode();
+        this.state = 'SELECTING';
+      }
     } catch (error) {
       this.onFailure(error instanceof Error ? error.message : 'Element details are unavailable');
     }
   }
 
   detach(): void {
+    this.active = false;
     if (this.webContents.debugger.isAttached()) this.webContents.debugger.detach();
     this.state = 'DETACHED';
+  }
+
+  private enableInspectMode(): Promise<unknown> {
+    return this.webContents.debugger.sendCommand('Overlay.setInspectMode', {
+      mode: 'searchForNode',
+      highlightConfig: {
+        showInfo: true,
+        showStyles: false,
+        contentColor: { r: 91, g: 82, b: 232, a: 0 },
+        borderColor: { r: 91, g: 82, b: 232, a: 0.95 },
+        showExtensionLines: false,
+      },
+    });
   }
 }

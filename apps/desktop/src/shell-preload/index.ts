@@ -7,10 +7,12 @@ import {
   type BrowserMode,
   type CaptureRequest,
   type CreateReport,
+  type RegionAnchor,
   type ScreenshotMark,
   type ScreenshotStyle,
   type ScreenshotTool,
   type SavedCapture,
+  type SavedElementComment,
 } from '@markfix/contracts';
 
 const subscribe = (channel: string, listener: (payload: unknown) => void): (() => void) => {
@@ -40,6 +42,8 @@ contextBridge.exposeInMainWorld('markfix', {
   syncCaptureMarks: (marks: ScreenshotMark[]) =>
     ipcRenderer.invoke(ipcChannels.syncCaptureMarks, marks),
   clearCaptureSelection: () => ipcRenderer.invoke(ipcChannels.clearCaptureSelection),
+  restoreCaptureSelection: (selection: RegionAnchor, marks: ScreenshotMark[]) =>
+    ipcRenderer.invoke(ipcChannels.restoreCaptureSelection, { selection, marks }),
   copyCaptureImage: (dataUrl: string) => ipcRenderer.invoke(ipcChannels.copyCaptureImage, dataUrl),
   saveCaptureImage: (dataUrl: string, suggestedName: string) =>
     ipcRenderer.invoke(ipcChannels.saveCaptureImage, { dataUrl, suggestedName }),
@@ -47,6 +51,12 @@ contextBridge.exposeInMainWorld('markfix', {
   saveCaptureRecord: (capture: SavedCapture) =>
     ipcRenderer.invoke(ipcChannels.saveCaptureRecord, capture),
   deleteCaptureRecord: (id: string) => ipcRenderer.invoke(ipcChannels.deleteCaptureRecord, id),
+  listElementComments: () => ipcRenderer.invoke(ipcChannels.listElementComments),
+  saveElementComment: (comment: SavedElementComment) =>
+    ipcRenderer.invoke(ipcChannels.saveElementComment, comment),
+  deleteElementComment: (id: string) => ipcRenderer.invoke(ipcChannels.deleteElementComment, id),
+  syncElementComments: (comments: SavedElementComment[]) =>
+    ipcRenderer.invoke(ipcChannels.syncElementComments, comments),
   setRecording: (enabled: boolean) => ipcRenderer.invoke(ipcChannels.setRecording, enabled),
   syncAnnotations: (annotations: Annotation[]) =>
     ipcRenderer.invoke(ipcChannels.syncAnnotations, annotations),

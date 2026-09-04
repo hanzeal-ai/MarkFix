@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import type { SavedCapture } from '@markfix/contracts';
+import type { SavedCapture, SavedElementComment } from '@markfix/contracts';
 import { retryDelayMs } from './sync-policy.js';
 
 export type OutboxEntry = {
@@ -43,6 +43,15 @@ export class DraftStore {
       );
       CREATE INDEX IF NOT EXISTS capture_annotations_page_idx
         ON capture_annotations(page_url, created_at);
+      CREATE TABLE IF NOT EXISTS element_comments (
+        id TEXT PRIMARY KEY,
+        page_url TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS element_comments_page_idx
+        ON element_comments(page_url, created_at);
     `);
   }
 
@@ -84,6 +93,36 @@ export class DraftStore {
 
   deleteCapture(id: string): void {
     this.database.prepare('DELETE FROM capture_annotations WHERE id = ?').run(id);
+  }
+
+  listElementComments(): SavedElementComment[] {
+    const rows = this.database
+      .prepare('SELECT payload FROM element_comments ORDER BY created_at ASC')
+      .all() as Array<{ payload: string }>;
+    return rows.map(({ payload }) => JSON.parse(payload) as SavedElementComment);
+  }
+
+  saveElementComment(comment: SavedElementComment): void {
+    this.database
+      .prepare(
+        `INSERT INTO element_comments (id, page_url, payload, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           page_url = excluded.page_url,
+           payload = excluded.payload,
+           updated_at = excluded.updated_at`,
+      )
+      .run(
+        comment.id,
+        comment.pageUrl,
+        JSON.stringify(comment),
+        comment.createdAt,
+        comment.updatedAt,
+      );
+  }
+
+  deleteElementComment(id: string): void {
+    this.database.prepare('DELETE FROM element_comments WHERE id = ?').run(id);
   }
 
   enqueue(payload: unknown, requestHash: string): OutboxEntry {

@@ -24,8 +24,10 @@ import {
   ipcChannels,
   navigateInputSchema,
   recorderEventSchema,
+  regionAnchorSchema,
   screenshotMarkSchema,
   savedCaptureSchema,
+  savedElementCommentSchema,
   screenshotStyleSchema,
   screenshotToolSchema,
   type Anchor,
@@ -33,6 +35,7 @@ import {
   type ClientPolicy,
   type CreateReport,
   type BrowserMode,
+  type SavedElementComment,
 } from '@markfix/contracts';
 import { MarkFixApi } from '@markfix/api-client';
 import { anchorsEqual } from './anchor-state.js';
@@ -54,6 +57,7 @@ let captureService: CaptureService | undefined;
 let draftStore: DraftStore | undefined;
 let shellWebContentsId: number | undefined;
 let currentAnnotations: Annotation[] = [];
+let currentElementComments: SavedElementComment[] = [];
 let currentAnchor: Anchor | undefined;
 let isSyncing = false;
 let syncTimer: ReturnType<typeof setInterval> | undefined;
@@ -266,6 +270,7 @@ const createWindow = async (): Promise<void> => {
   websiteView.webContents.on('did-finish-load', () => {
     websiteView?.webContents.send('markfix:set-mode', currentBrowserMode);
     websiteView?.webContents.send('markfix:render-annotations', currentAnnotations);
+    websiteView?.webContents.send('markfix:render-element-comments', currentElementComments);
     if (currentAnchor?.kind === 'element')
       websiteView?.webContents.send('markfix:resolve-anchor', {
         anchor: currentAnchor,
@@ -415,6 +420,14 @@ const registerIpc = (): void => {
     assertShellSender(event);
     websiteView?.webContents.send('markfix:clear-capture-selection');
   });
+  ipcMain.handle(ipcChannels.restoreCaptureSelection, (event, input: unknown) => {
+    assertShellSender(event);
+    const payload = input as { selection?: unknown; marks?: unknown };
+    websiteView?.webContents.send('markfix:restore-capture-selection', {
+      selection: regionAnchorSchema.parse(payload.selection),
+      marks: screenshotMarkSchema.array().max(500).parse(payload.marks),
+    });
+  });
   ipcMain.handle(ipcChannels.copyCaptureImage, async (event, input: unknown) => {
     assertShellSender(event);
     const image = decodeScreenshotDataUrl(input);
@@ -452,6 +465,25 @@ const registerIpc = (): void => {
     assertShellSender(event);
     if (typeof input !== 'string') throw new Error('Invalid capture ID');
     draftStore?.deleteCapture(input);
+  });
+  ipcMain.handle(ipcChannels.listElementComments, (event) => {
+    assertShellSender(event);
+    return draftStore?.listElementComments() ?? [];
+  });
+  ipcMain.handle(ipcChannels.saveElementComment, (event, input: unknown) => {
+    assertShellSender(event);
+    const comment = savedElementCommentSchema.parse(input);
+    draftStore?.saveElementComment(comment);
+  });
+  ipcMain.handle(ipcChannels.deleteElementComment, (event, input: unknown) => {
+    assertShellSender(event);
+    if (typeof input !== 'string') throw new Error('Invalid element comment ID');
+    draftStore?.deleteElementComment(input);
+  });
+  ipcMain.handle(ipcChannels.syncElementComments, (event, input: unknown) => {
+    assertShellSender(event);
+    currentElementComments = savedElementCommentSchema.array().max(500).parse(input);
+    websiteView?.webContents.send('markfix:render-element-comments', currentElementComments);
   });
   ipcMain.handle(ipcChannels.setRecording, (event, input: unknown) => {
     assertShellSender(event);
