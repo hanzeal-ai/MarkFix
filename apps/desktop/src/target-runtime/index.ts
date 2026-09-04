@@ -756,7 +756,7 @@ const mount = (): void => {
     orient: 'auto',
   });
   const arrow = svgElement('polygon');
-  setAttributes(arrow, { points: '0 0, 10 3.5, 0 7', fill: '#ff4d5a' });
+  setAttributes(arrow, { points: '0 0, 10 3.5, 0 7', fill: 'context-stroke' });
   marker.append(arrow);
   definitions.append(marker);
   surface.append(definitions);
@@ -842,8 +842,8 @@ const mount = (): void => {
         width: '1',
         height: '1',
         rx: '4',
-        fill: 'rgba(232,255,112,.18)',
-        stroke: '#243e34',
+        fill: 'rgba(91,82,232,.08)',
+        stroke: '#5b52e8',
         'stroke-width': '2',
         'stroke-dasharray': '7 5',
       });
@@ -939,7 +939,7 @@ const mount = (): void => {
       updatePointerMode();
       return;
     }
-    const base = { id: crypto.randomUUID(), color: '#ff4d5a', createdAt: new Date().toISOString() };
+    const base = { id: crypto.randomUUID(), color: '#5b52e8', createdAt: new Date().toISOString() };
     const annotation: Annotation | undefined =
       tool === 'pin'
         ? { ...base, type: 'pin', position: end, label: 1 }
@@ -971,8 +971,8 @@ const showAnchor = (payload: AnchorPayload): void => {
   const polygon = svgElement('polygon');
   setAttributes(polygon, {
     points: `${firstQuad[0]},${firstQuad[1]} ${firstQuad[2]},${firstQuad[3]} ${firstQuad[4]},${firstQuad[5]} ${firstQuad[6]},${firstQuad[7]}`,
-    fill: 'rgba(232,255,112,.22)',
-    stroke: '#243e34',
+    fill: 'rgba(91,82,232,.08)',
+    stroke: '#5b52e8',
     'stroke-width': '2',
     'vector-effect': 'non-scaling-stroke',
   });

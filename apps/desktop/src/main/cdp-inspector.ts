@@ -68,8 +68,8 @@ export class CdpInspector {
         highlightConfig: {
           showInfo: false,
           showStyles: false,
-          contentColor: { r: 117, g: 255, b: 117, a: 0.22 },
-          borderColor: { r: 36, g: 74, b: 58, a: 0.95 },
+          contentColor: { r: 91, g: 82, b: 232, a: 0.08 },
+          borderColor: { r: 91, g: 82, b: 232, a: 0.95 },
           showExtensionLines: false,
         },
       });
