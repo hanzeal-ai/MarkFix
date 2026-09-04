@@ -33,6 +33,7 @@ services:
       MARKFIX_DEMO_PASSWORD: markfix-local-demo
       MARKFIX_MINIMUM_DESKTOP_VERSION: 0.1.0
       MARKFIX_RECOMMENDED_DESKTOP_VERSION: 0.1.0
+      MARKFIX_EXPOSE_AUTH_TOKENS: 'true'
     ports: ['4310:4310']
     volumes: ['artifact-data:/data/artifacts']
     depends_on: { postgres: { condition: service_healthy } }

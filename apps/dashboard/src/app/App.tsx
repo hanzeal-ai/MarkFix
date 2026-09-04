@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, CircleDot, MessageSquare, Search, Sparkles, Users } from 'lucide-react';
 import { MarkFixApi } from '@markfix/api-client';
@@ -23,7 +23,11 @@ const nextAction: Partial<Record<ReportStatus, { action: string; label: string }
 };
 
 function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const initialToken = new URLSearchParams(window.location.search).get('token') ?? '';
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>(
+    window.location.pathname.endsWith('/reset-password') && initialToken ? 'reset' : 'login',
+  );
+  const [resetToken, setResetToken] = useState(initialToken);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -31,11 +35,45 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    if (!window.location.pathname.endsWith('/verify-email') || !initialToken) return;
+    setBusy(true);
+    void api
+      .verifyEmail(initialToken)
+      .then(() => {
+        window.history.replaceState({}, '', '/');
+        setMessage('Email verified. You can now sign in.');
+      })
+      .catch((error: unknown) =>
+        setMessage(error instanceof Error ? error.message : 'Email verification failed'),
+      )
+      .finally(() => setBusy(false));
+  }, [initialToken]);
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setMessage('');
     try {
+      if (mode === 'forgot') {
+        const result = await api.forgotPassword(email);
+        if (result.resetToken) {
+          setResetToken(result.resetToken);
+          setMode('reset');
+          setMessage('Choose a new password.');
+        } else {
+          setMessage('If that account exists, a password reset link has been sent.');
+        }
+        return;
+      }
+      if (mode === 'reset') {
+        await api.resetPassword(resetToken, password);
+        window.history.replaceState({}, '', '/');
+        setPassword('');
+        setMode('login');
+        setMessage('Password updated. Sign in with your new password.');
+        return;
+      }
       if (mode === 'register') {
         const result = await api.register({
           email,
@@ -58,6 +96,23 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
     }
   };
 
+  const title =
+    mode === 'login'
+      ? 'Welcome back'
+      : mode === 'register'
+        ? 'Create your workspace'
+        : mode === 'forgot'
+          ? 'Reset your password'
+          : 'Choose a new password';
+  const submitLabel =
+    mode === 'login'
+      ? 'Sign in'
+      : mode === 'register'
+        ? 'Create account'
+        : mode === 'forgot'
+          ? 'Send reset link'
+          : 'Update password';
+
   return (
     <main className="auth-shell">
       <section className="auth-card">
@@ -66,7 +121,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
           <strong>MarkFix</strong>
         </div>
         <p className="eyebrow">VISUAL WEBSITE FEEDBACK</p>
-        <h1>{mode === 'login' ? 'Welcome back' : 'Create your workspace'}</h1>
+        <h1>{title}</h1>
         <p>Turn website issues into precise, actionable reports.</p>
         <form onSubmit={(event) => void submit(event)}>
           {mode === 'register' && (
@@ -88,28 +143,33 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
               </label>
             </>
           )}
-          <label>
-            Email
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              minLength={10}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </label>
+          {mode !== 'reset' && (
+            <label>
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </label>
+          )}
+          {mode !== 'forgot' && (
+            <label>
+              {mode === 'reset' ? 'New password' : 'Password'}
+              <input
+                type="password"
+                minLength={10}
+                maxLength={200}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            </label>
+          )}
           {message && <div className="auth-message">{message}</div>}
           <button className="primary" type="submit" disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
+            {busy ? 'Please wait…' : submitLabel}
           </button>
         </form>
         <button
@@ -120,10 +180,20 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
             setMode(mode === 'login' ? 'register' : 'login');
           }}
         >
-          {mode === 'login'
-            ? 'New to MarkFix? Create an account'
-            : 'Already have an account? Sign in'}
+          {mode === 'login' ? 'New to MarkFix? Create an account' : 'Back to sign in'}
         </button>
+        {mode === 'login' && (
+          <button
+            className="auth-switch"
+            type="button"
+            onClick={() => {
+              setMessage('');
+              setMode('forgot');
+            }}
+          >
+            Forgot password?
+          </button>
+        )}
       </section>
     </main>
   );
@@ -483,6 +553,19 @@ export function App() {
   const currentMembership = bootstrap.data?.memberships.find(
     (membership) => membership.userId === currentUser.data?.id,
   );
+  const isAuthenticationAction =
+    window.location.pathname.endsWith('/verify-email') ||
+    window.location.pathname.endsWith('/reset-password');
+
+  if (isAuthenticationAction) {
+    return (
+      <AuthScreen
+        onAuthenticated={async () => {
+          await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
+        }}
+      />
+    );
+  }
 
   if (bootstrap.isPending) return <main className="loading">Loading MarkFix…</main>;
   if (bootstrap.isError) {

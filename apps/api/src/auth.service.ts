@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { DatabaseService } from './database.service.js';
+import { EmailPort } from './email.port.js';
 import {
   createOpaqueToken,
   hashOpaqueToken,
@@ -32,7 +33,10 @@ export class AuthService {
   private readonly secret =
     process.env.MARKFIX_AUTH_SECRET ?? 'markfix-local-development-secret-change-before-production';
 
-  constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {
+  constructor(
+    @Inject(DatabaseService) private readonly database: DatabaseService,
+    @Inject(EmailPort) private readonly email: EmailPort,
+  ) {
     if (process.env.NODE_ENV === 'production' && !process.env.MARKFIX_AUTH_SECRET) {
       throw new Error('MARKFIX_AUTH_SECRET is required in production');
     }
@@ -85,13 +89,70 @@ export class AuthService {
           projects: { create: { name: 'Website feedback' } },
         },
       });
+      await this.email.sendVerification(email, verificationToken);
       return created;
     });
     return {
       user: this.publicUser(user),
       verificationRequired: true,
-      ...(process.env.NODE_ENV !== 'production' ? { verificationToken } : {}),
+      ...(this.exposesAuthTokens() ? { verificationToken } : {}),
     };
+  }
+
+  async forgotPassword(input: unknown) {
+    const email =
+      typeof (input as { email?: unknown }).email === 'string'
+        ? (input as { email: string }).email.trim().toLowerCase()
+        : '';
+    const user = email ? await this.database.user.findUnique({ where: { email } }) : null;
+    if (!user?.passwordHash) return { accepted: true };
+    const resetToken = createOpaqueToken();
+    await this.database.$transaction(async (transaction) => {
+      await transaction.passwordResetToken.updateMany({
+        where: { userId: user.id, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+      await transaction.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashOpaqueToken(resetToken),
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        },
+      });
+      await this.email.sendPasswordReset(user.email, resetToken);
+    });
+    return { accepted: true, ...(this.exposesAuthTokens() ? { resetToken } : {}) };
+  }
+
+  async resetPassword(input: unknown) {
+    const payload = input as { token?: unknown; password?: unknown };
+    const token = typeof payload.token === 'string' ? payload.token : '';
+    const password = typeof payload.password === 'string' ? payload.password : '';
+    if (!token || password.length < 10 || password.length > 200) {
+      throw new ConflictException('A valid token and 10-character password are required');
+    }
+    const reset = await this.database.passwordResetToken.findUnique({
+      where: { tokenHash: hashOpaqueToken(token) },
+    });
+    if (!reset || reset.consumedAt || reset.expiresAt.getTime() <= Date.now()) {
+      throw new ConflictException('Password reset token is invalid or expired');
+    }
+    const passwordHash = await hashPassword(password);
+    await this.database.$transaction(async (transaction) => {
+      const consumed = await transaction.passwordResetToken.updateMany({
+        where: { id: reset.id, consumedAt: null, expiresAt: { gt: new Date() } },
+        data: { consumedAt: new Date() },
+      });
+      if (consumed.count !== 1) {
+        throw new ConflictException('Password reset token is invalid or expired');
+      }
+      await transaction.user.update({ where: { id: reset.userId }, data: { passwordHash } });
+      await transaction.authSession.updateMany({
+        where: { userId: reset.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    });
+    return { reset: true };
   }
 
   async verifyEmail(input: unknown) {
@@ -273,5 +334,12 @@ export class AuthService {
       displayName: user.displayName,
       emailVerified: Boolean(user.emailVerifiedAt),
     };
+  }
+
+  private exposesAuthTokens(): boolean {
+    return (
+      process.env.MARKFIX_EXPOSE_AUTH_TOKENS === 'true' ||
+      (process.env.NODE_ENV !== 'production' && process.env.MARKFIX_EXPOSE_AUTH_TOKENS !== 'false')
+    );
   }
 }

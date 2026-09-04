@@ -6,6 +6,25 @@ import { AuthGuard } from './auth.guard.js';
 import { AuthService } from './auth.service.js';
 import { ClientPolicyService } from './client-policy.service.js';
 import { DatabaseService } from './database.service.js';
+import { DevelopmentEmailAdapter, EmailPort, WebhookEmailAdapter } from './email.port.js';
+
+const emailProvider = {
+  provide: EmailPort,
+  useFactory: (): EmailPort => {
+    const endpoint = process.env.MARKFIX_EMAIL_WEBHOOK_URL;
+    if (endpoint) {
+      return new WebhookEmailAdapter(
+        endpoint,
+        process.env.MARKFIX_EMAIL_WEBHOOK_API_KEY,
+        process.env.MARKFIX_DASHBOARD_ORIGIN ?? 'http://localhost:4311',
+      );
+    }
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('MARKFIX_EMAIL_WEBHOOK_URL is required in production');
+    }
+    return new DevelopmentEmailAdapter();
+  },
+};
 
 @Module({
   controllers: [AppController],
@@ -14,6 +33,7 @@ import { DatabaseService } from './database.service.js';
     AuthService,
     ClientPolicyService,
     DatabaseService,
+    emailProvider,
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
 })

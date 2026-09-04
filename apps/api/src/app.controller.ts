@@ -84,6 +84,18 @@ export class AppController {
     return this.auth.verifyEmail(body);
   }
 
+  @Post('auth/forgot-password')
+  @Public()
+  forgotPassword(@Body() body: unknown) {
+    return this.auth.forgotPassword(body);
+  }
+
+  @Post('auth/reset-password')
+  @Public()
+  resetPassword(@Body() body: unknown) {
+    return this.auth.resetPassword(body);
+  }
+
   @Post('auth/login')
   @Public()
   async login(@Body() body: unknown, @Res({ passthrough: true }) reply: FastifyReply) {

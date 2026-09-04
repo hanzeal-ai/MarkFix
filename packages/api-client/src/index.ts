@@ -95,6 +95,20 @@ export class MarkFixApi {
     });
   }
 
+  forgotPassword(email: string): Promise<{ accepted: boolean; resetToken?: string }> {
+    return this.request('/v1/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  resetPassword(token: string, password: string): Promise<{ reset: boolean }> {
+    return this.request('/v1/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    });
+  }
+
   async login(email: string, password: string, deviceName = 'Web dashboard'): Promise<void> {
     await this.request<{ expiresIn: number }>('/v1/auth/login', {
       method: 'POST',
