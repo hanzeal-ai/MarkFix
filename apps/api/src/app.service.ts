@@ -10,10 +10,12 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import {
+  createEnvironmentSchema,
   createProjectSchema,
   createReportSchema,
   createWorkspaceSchema,
   updateProjectSchema,
+  updateEnvironmentSchema,
   type CreateReport,
   type ReportStatus,
 } from '@markfix/contracts';
@@ -192,6 +194,58 @@ export class AppService implements OnModuleInit {
         ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl || null } : {}),
       },
     });
+  }
+
+  async listEnvironments(userId: string, projectId: string) {
+    await this.requireProjectAccess(userId, projectId);
+    return this.database.environment.findMany({
+      where: { projectId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createEnvironment(userId: string, projectId: string, input: unknown) {
+    const project = await this.requireProjectAccess(userId, projectId);
+    await this.requireMembership(userId, project.workspaceId, ['OWNER', 'ADMIN']);
+    const parsed = createEnvironmentSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new ConflictException('A valid environment name and HTTP(S) base URL are required');
+    }
+    try {
+      return await this.database.environment.create({
+        data: { projectId, name: parsed.data.name, baseUrl: parsed.data.baseUrl },
+      });
+    } catch (error) {
+      if (this.isUniqueConstraint(error)) {
+        throw new ConflictException('An environment with this name already exists');
+      }
+      throw error;
+    }
+  }
+
+  async updateEnvironment(userId: string, environmentId: string, input: unknown) {
+    const environment = await this.database.environment.findUnique({
+      where: { id: environmentId },
+    });
+    if (!environment) throw new NotFoundException('Environment not found');
+    const project = await this.requireProjectAccess(userId, environment.projectId);
+    await this.requireMembership(userId, project.workspaceId, ['OWNER', 'ADMIN']);
+    const parsed = updateEnvironmentSchema.safeParse(input);
+    if (!parsed.success) throw new ConflictException('A valid environment update is required');
+    try {
+      return await this.database.environment.update({
+        where: { id: environmentId },
+        data: {
+          ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
+          ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl } : {}),
+        },
+      });
+    } catch (error) {
+      if (this.isUniqueConstraint(error)) {
+        throw new ConflictException('An environment with this name already exists');
+      }
+      throw error;
+    }
   }
 
   async listMembers(userId: string, workspaceId: string) {
@@ -671,5 +725,9 @@ export class AppService implements OnModuleInit {
     if (createdById !== userId && !['OWNER', 'ADMIN'].includes(membership.role)) {
       throw new ForbiddenException('Only the submission owner or an administrator may continue it');
     }
+  }
+
+  private isUniqueConstraint(error: unknown): boolean {
+    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
   }
 }

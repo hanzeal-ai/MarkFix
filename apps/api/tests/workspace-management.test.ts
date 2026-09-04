@@ -66,4 +66,72 @@ describe('workspace and project management', () => {
     ).rejects.toThrow('access to this workspace action');
     expect(create).not.toHaveBeenCalled();
   });
+
+  it('allows members to list project environments', async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: 'environment-1' }]);
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+      },
+      environment: { findMany },
+    } as never);
+
+    await expect(service.listEnvironments('user-1', 'project-1')).resolves.toEqual([
+      { id: 'environment-1' },
+    ]);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { projectId: 'project-1' },
+      orderBy: { createdAt: 'asc' },
+    });
+  });
+
+  it('allows owners to create normalized web environments', async () => {
+    const create = vi.fn().mockResolvedValue({ id: 'environment-1' });
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+      },
+      environment: { create },
+    } as never);
+
+    await service.createEnvironment('user-1', 'project-1', {
+      name: '  Staging  ',
+      baseUrl: 'https://staging.example.test/app',
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        projectId: 'project-1',
+        name: 'Staging',
+        baseUrl: 'https://staging.example.test/app',
+      },
+    });
+  });
+
+  it('rejects environment updates by regular members', async () => {
+    const update = vi.fn();
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+      },
+      environment: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'environment-1', projectId: 'project-1' }),
+        update,
+      },
+    } as never);
+
+    await expect(
+      service.updateEnvironment('user-1', 'environment-1', { name: 'Production' }),
+    ).rejects.toThrow('access to this workspace action');
+    expect(update).not.toHaveBeenCalled();
+  });
 });

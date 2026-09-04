@@ -301,6 +301,54 @@ nav button.active {
   color: #838985;
   line-height: 1.4;
 }
+.environment-section {
+  max-width: 980px;
+  margin-top: 24px;
+  border: 1px solid #e2e4df;
+  border-radius: 12px;
+  background: white;
+  padding: 22px;
+}
+.environment-section h2 {
+  margin: 5px 0 18px;
+  font:
+    600 18px Manrope,
+    sans-serif;
+}
+.environment-section > p {
+  color: #838985;
+}
+.environment-list {
+  display: grid;
+  gap: 10px;
+}
+.environment-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.7fr) minmax(260px, 1.5fr) auto;
+  align-items: end;
+  gap: 10px;
+  border-radius: 9px;
+  background: #f7f8f5;
+  padding: 14px;
+}
+.environment-row label {
+  display: grid;
+  gap: 6px;
+  color: #626964;
+  font-size: 12px;
+  font-weight: 600;
+}
+.environment-row input {
+  min-width: 0;
+  border: 1px solid #dfe2dd;
+  border-radius: 8px;
+  background: white;
+  padding: 9px 10px;
+}
+.environment-row small {
+  grid-column: 1 / -1;
+  color: #984f2f;
+}
 .content {
   padding: 48px 58px;
 }

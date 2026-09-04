@@ -174,6 +174,32 @@ export const projectSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
+export const webUrlSchema = z.url().refine((value) => {
+  const protocol = new URL(value).protocol;
+  return protocol === 'http:' || protocol === 'https:';
+}, 'Only HTTP and HTTPS URLs are supported');
+
+export const environmentSchema = z.object({
+  id: z.uuid(),
+  projectId: z.uuid(),
+  name: z.string().min(1).max(120),
+  baseUrl: webUrlSchema,
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const createEnvironmentSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  baseUrl: webUrlSchema,
+});
+
+export const updateEnvironmentSchema = createEnvironmentSchema
+  .partial()
+  .refine(
+    (update) => update.name !== undefined || update.baseUrl !== undefined,
+    'At least one environment field is required',
+  );
+
 export const createProjectSchema = z.object({
   name: z.string().trim().min(1).max(120),
   baseUrl: z.union([z.url(), z.literal('')]).optional(),
@@ -279,10 +305,12 @@ export type CaptureContext = z.infer<typeof captureContextSchema>;
 export type CaptureRequest = z.infer<typeof captureRequestSchema>;
 export type Comment = z.infer<typeof commentSchema>;
 export type ClientPolicy = z.infer<typeof clientPolicySchema>;
+export type CreateEnvironment = z.infer<typeof createEnvironmentSchema>;
 export type CreateProject = z.infer<typeof createProjectSchema>;
 export type CreateReport = z.infer<typeof createReportSchema>;
 export type CreateWorkspace = z.infer<typeof createWorkspaceSchema>;
 export type ElementAnchor = z.infer<typeof elementAnchorSchema>;
+export type Environment = z.infer<typeof environmentSchema>;
 export type Membership = z.infer<typeof membershipSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type RegionAnchor = z.infer<typeof regionAnchorSchema>;
@@ -291,4 +319,5 @@ export type ReportStatus = (typeof reportStatuses)[number];
 export type RecorderEvent = z.infer<typeof recorderEventSchema>;
 export type ReproductionStep = z.infer<typeof reproductionStepSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
+export type UpdateEnvironment = z.infer<typeof updateEnvironmentSchema>;
 export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;

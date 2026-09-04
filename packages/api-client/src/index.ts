@@ -1,19 +1,25 @@
 import {
   clientPolicySchema,
+  createEnvironmentSchema,
   createProjectSchema,
   createReportSchema,
   createWorkspaceSchema,
+  environmentSchema,
   projectSchema,
   reportSchema,
+  updateEnvironmentSchema,
   updateProjectSchema,
   workspaceSummarySchema,
   type Comment,
   type ClientPolicy,
+  type CreateEnvironment,
   type CreateProject,
   type CreateReport,
+  type Environment,
   type Membership,
   type Project,
   type Report,
+  type UpdateEnvironment,
   type UpdateProject,
   type WorkspaceSummary,
 } from '@markfix/contracts';
@@ -213,6 +219,32 @@ export class MarkFixApi {
     const parsed = updateProjectSchema.parse(update);
     return projectSchema.parse(
       await this.request(`/v1/projects/${projectId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(parsed),
+      }),
+    );
+  }
+
+  async listEnvironments(projectId: string): Promise<Environment[]> {
+    return environmentSchema
+      .array()
+      .parse(await this.request(`/v1/projects/${projectId}/environments`));
+  }
+
+  async createEnvironment(projectId: string, input: CreateEnvironment): Promise<Environment> {
+    const parsed = createEnvironmentSchema.parse(input);
+    return environmentSchema.parse(
+      await this.request(`/v1/projects/${projectId}/environments`, {
+        method: 'POST',
+        body: JSON.stringify(parsed),
+      }),
+    );
+  }
+
+  async updateEnvironment(environmentId: string, update: UpdateEnvironment): Promise<Environment> {
+    const parsed = updateEnvironmentSchema.parse(update);
+    return environmentSchema.parse(
+      await this.request(`/v1/environments/${environmentId}`, {
         method: 'PATCH',
         body: JSON.stringify(parsed),
       }),

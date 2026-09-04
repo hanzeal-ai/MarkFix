@@ -10,7 +10,7 @@
 - Local SQLite draft persistence
 - Idempotent submission, SHA-256 artifact verification, PostgreSQL/Prisma report storage
 - Dashboard report list/detail, comments, and optimistic status transitions
-- Multi-workspace and project selection with owner/admin-managed project settings
+- Multi-workspace and project selection with owner/admin-managed project and environment settings
 - Verified-email accounts, rotating sessions, revocation, and workspace role enforcement
 - Single-use password recovery with session revocation and a provider-neutral email webhook port
 - HttpOnly dashboard cookies and operating-system-encrypted desktop refresh credentials

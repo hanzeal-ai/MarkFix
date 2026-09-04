@@ -15,6 +15,7 @@ import { MarkFixApi } from '@markfix/api-client';
 import type {
   Annotation,
   CaptureContext,
+  Environment,
   Project,
   Report,
   ReportStatus,
@@ -613,6 +614,64 @@ function WorkspaceNavigation({
   );
 }
 
+function EnvironmentEditor({
+  environment,
+  canManage,
+}: {
+  environment: Environment;
+  canManage: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(environment.name);
+  const [baseUrl, setBaseUrl] = useState(environment.baseUrl);
+  const update = useMutation({
+    mutationFn: () => api.updateEnvironment(environment.id, { name, baseUrl }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['environments', environment.projectId] });
+    },
+  });
+
+  useEffect(() => {
+    setName(environment.name);
+    setBaseUrl(environment.baseUrl);
+  }, [environment]);
+
+  return (
+    <form
+      className="environment-row"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (canManage && name.trim() && baseUrl) update.mutate();
+      }}
+    >
+      <label>
+        Name
+        <input
+          required
+          maxLength={120}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          disabled={!canManage}
+        />
+      </label>
+      <label>
+        Base URL
+        <input
+          required
+          type="url"
+          value={baseUrl}
+          onChange={(event) => setBaseUrl(event.target.value)}
+          disabled={!canManage}
+        />
+      </label>
+      <button className="primary" type="submit" disabled={!canManage || update.isPending}>
+        Save
+      </button>
+      {update.error instanceof Error && <small>{update.error.message}</small>}
+    </form>
+  );
+}
+
 function ProjectsPanel({
   workspace,
   project,
@@ -627,15 +686,19 @@ function ProjectsPanel({
   const queryClient = useQueryClient();
   const [workspaceName, setWorkspaceName] = useState('');
   const [projectName, setProjectName] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
   const [editName, setEditName] = useState(project?.name ?? '');
-  const [editBaseUrl, setEditBaseUrl] = useState(project?.baseUrl ?? '');
+  const [environmentName, setEnvironmentName] = useState('');
+  const [environmentBaseUrl, setEnvironmentBaseUrl] = useState('');
   const [message, setMessage] = useState('');
   const canManage = workspace?.role === 'OWNER' || workspace?.role === 'ADMIN';
+  const environments = useQuery({
+    queryKey: ['environments', project?.id],
+    queryFn: () => api.listEnvironments(project?.id as string),
+    enabled: Boolean(project),
+  });
 
   useEffect(() => {
     setEditName(project?.name ?? '');
-    setEditBaseUrl(project?.baseUrl ?? '');
   }, [project]);
 
   const createWorkspace = useMutation({
@@ -648,29 +711,37 @@ function ProjectsPanel({
     },
   });
   const createProject = useMutation({
-    mutationFn: () =>
-      api.createProject(workspace?.id as string, {
-        name: projectName,
-        ...(baseUrl ? { baseUrl } : {}),
-      }),
+    mutationFn: () => api.createProject(workspace?.id as string, { name: projectName }),
     onSuccess: async (created) => {
       setProjectName('');
-      setBaseUrl('');
       setMessage('Project created.');
       await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
       onProjectCreated(created.id);
     },
   });
   const updateProject = useMutation({
-    mutationFn: () =>
-      api.updateProject(project?.id as string, { name: editName, baseUrl: editBaseUrl }),
+    mutationFn: () => api.updateProject(project?.id as string, { name: editName }),
     onSuccess: async () => {
       setMessage('Project settings saved.');
       await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
     },
   });
+  const createEnvironment = useMutation({
+    mutationFn: () =>
+      api.createEnvironment(project?.id as string, {
+        name: environmentName,
+        baseUrl: environmentBaseUrl,
+      }),
+    onSuccess: async () => {
+      setEnvironmentName('');
+      setEnvironmentBaseUrl('');
+      setMessage('Environment created.');
+      await queryClient.invalidateQueries({ queryKey: ['environments', project?.id] });
+    },
+  });
 
-  const mutationError = createWorkspace.error ?? createProject.error ?? updateProject.error;
+  const mutationError =
+    createWorkspace.error ?? createProject.error ?? updateProject.error ?? createEnvironment.error;
   return (
     <main className="content projects-page">
       <header>
@@ -727,16 +798,6 @@ function ProjectsPanel({
               disabled={!canManage}
             />
           </label>
-          <label>
-            Base URL
-            <input
-              type="url"
-              placeholder="https://example.com"
-              value={baseUrl}
-              onChange={(event) => setBaseUrl(event.target.value)}
-              disabled={!canManage}
-            />
-          </label>
           <button
             className="primary"
             type="submit"
@@ -766,16 +827,6 @@ function ProjectsPanel({
                 disabled={!canManage}
               />
             </label>
-            <label>
-              Base URL
-              <input
-                type="url"
-                placeholder="https://example.com"
-                value={editBaseUrl}
-                onChange={(event) => setEditBaseUrl(event.target.value)}
-                disabled={!canManage}
-              />
-            </label>
             <button
               className="primary"
               type="submit"
@@ -785,7 +836,69 @@ function ProjectsPanel({
             </button>
           </form>
         )}
+        {project && (
+          <form
+            className="settings-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (environmentName.trim() && environmentBaseUrl) createEnvironment.mutate();
+            }}
+          >
+            <span className="eyebrow">SELECTED PROJECT</span>
+            <h2>Add an environment</h2>
+            <label>
+              Environment name
+              <input
+                required
+                maxLength={120}
+                placeholder="Production"
+                value={environmentName}
+                onChange={(event) => setEnvironmentName(event.target.value)}
+                disabled={!canManage}
+              />
+            </label>
+            <label>
+              Base URL
+              <input
+                required
+                type="url"
+                placeholder="https://example.com"
+                value={environmentBaseUrl}
+                onChange={(event) => setEnvironmentBaseUrl(event.target.value)}
+                disabled={!canManage}
+              />
+            </label>
+            <button
+              className="primary"
+              type="submit"
+              disabled={!canManage || createEnvironment.isPending}
+            >
+              Add environment
+            </button>
+          </form>
+        )}
       </section>
+      {project && (
+        <section className="environment-section">
+          <div>
+            <span className="eyebrow">ENVIRONMENTS</span>
+            <h2>{project.name}</h2>
+          </div>
+          {environments.isPending && <p>Loading environments…</p>}
+          {environments.data?.length === 0 && (
+            <p>No environments yet. Add Production, Staging, or another website target above.</p>
+          )}
+          <div className="environment-list">
+            {environments.data?.map((environment) => (
+              <EnvironmentEditor
+                key={environment.id}
+                environment={environment}
+                canManage={canManage}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

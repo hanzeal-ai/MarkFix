@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createEnvironmentSchema,
   createProjectSchema,
   recorderEventSchema,
   regionAnchorSchema,
+  updateEnvironmentSchema,
   updateProjectSchema,
 } from '../src/index.js';
 
@@ -51,5 +53,23 @@ describe('project input schemas', () => {
   it('rejects empty project updates and invalid URLs', () => {
     expect(() => updateProjectSchema.parse({})).toThrow();
     expect(() => createProjectSchema.parse({ name: 'Storefront', baseUrl: 'not-a-url' })).toThrow();
+  });
+});
+
+describe('environment input schemas', () => {
+  it('normalizes names and accepts web origins with paths', () => {
+    expect(
+      createEnvironmentSchema.parse({
+        name: '  Staging  ',
+        baseUrl: 'https://staging.example.test/app',
+      }),
+    ).toEqual({ name: 'Staging', baseUrl: 'https://staging.example.test/app' });
+  });
+
+  it('rejects non-web protocols and empty updates', () => {
+    expect(() =>
+      createEnvironmentSchema.parse({ name: 'Local files', baseUrl: 'file:///tmp/index.html' }),
+    ).toThrow();
+    expect(() => updateEnvironmentSchema.parse({})).toThrow();
   });
 });

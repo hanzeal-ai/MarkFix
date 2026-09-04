@@ -193,6 +193,29 @@ export class AppController {
     return this.app.updateProject(user.id, projectId, body);
   }
 
+  @Get('projects/:projectId/environments')
+  environments(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
+    return this.app.listEnvironments(user.id, projectId);
+  }
+
+  @Post('projects/:projectId/environments')
+  createEnvironment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('projectId') projectId: string,
+    @Body() body: unknown,
+  ) {
+    return this.app.createEnvironment(user.id, projectId, body);
+  }
+
+  @Patch('environments/:environmentId')
+  updateEnvironment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('environmentId') environmentId: string,
+    @Body() body: unknown,
+  ) {
+    return this.app.updateEnvironment(user.id, environmentId, body);
+  }
+
   @Get('workspaces/:workspaceId/members')
   members(@CurrentUser() user: AuthenticatedUser, @Param('workspaceId') workspaceId: string) {
     return this.app.listMembers(user.id, workspaceId);
