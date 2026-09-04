@@ -24,6 +24,7 @@ import {
   Trash2,
   Type,
   Undo2,
+  X,
 } from 'lucide-react';
 import {
   anchorSchema,
@@ -45,6 +46,7 @@ import {
 } from '@markfix/contracts';
 import { describeTrustedEvent, mergeAdjacentInputSteps } from '@markfix/reproduction-model';
 import { composeScreenshot } from './screenshot-compositor';
+import { selectPageRecords } from './page-records';
 
 type Draft = {
   title: string;
@@ -203,8 +205,8 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   const selectedWorkspace = workspaces.find(({ id }) => id === selectedWorkspaceId);
   const selectedProject = selectedWorkspace?.projects.find(({ id }) => id === selectedProjectId);
   const selectedEnvironment = environments.find(({ id }) => id === selectedEnvironmentId);
-  const pageCaptures = savedCaptures.filter(({ pageUrl }) => pageUrl === url);
-  const pageElementComments = elementComments.filter(({ pageUrl }) => pageUrl === url);
+  const pageCaptures = selectPageRecords(savedCaptures, url);
+  const pageElementComments = selectPageRecords(elementComments, url);
 
   const clearReport = useCallback((outboxId?: string): boolean => {
     if (outboxId && pendingOutboxIdRef.current !== outboxId) return false;
@@ -1022,18 +1024,25 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                   onChange={(event) => setCaptureNote(event.target.value)}
                 />
                 <div className="capture-draft-actions">
-                  <button type="button" onClick={() => void cancelCapture()}>
-                    取消
+                  <button
+                    type="button"
+                    aria-label="取消截图"
+                    title="取消截图"
+                    onClick={() => void cancelCapture()}
+                  >
+                    <X />
                   </button>
                   <button
                     type="button"
                     className="primary"
+                    aria-label={editingCaptureId ? '保存截图修改' : '完成截图'}
+                    title={editingCaptureId ? '保存截图修改' : '完成截图'}
                     disabled={
                       !captureNote.trim() || !screenshot || captureLoading || captureRendering
                     }
                     onClick={() => void completeCapture()}
                   >
-                    {editingCaptureId ? '保存修改' : '完成批注'}
+                    <Check />
                   </button>
                 </div>
               </section>
@@ -1124,16 +1133,23 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                   onChange={(event) => setElementCommentNote(event.target.value)}
                 />
                 <div className="capture-draft-actions">
-                  <button type="button" onClick={clearElementSelection}>
-                    取消
+                  <button
+                    type="button"
+                    aria-label="取消批注"
+                    title="取消批注"
+                    onClick={clearElementSelection}
+                  >
+                    <X />
                   </button>
                   <button
                     type="button"
                     className="primary"
+                    aria-label={editingElementCommentId ? '保存批注修改' : '完成批注'}
+                    title={editingElementCommentId ? '保存批注修改' : '完成批注'}
                     disabled={!elementCommentNote.trim()}
                     onClick={() => void completeElementComment()}
                   >
-                    {editingElementCommentId ? '保存修改' : '完成批注'}
+                    <Check />
                   </button>
                 </div>
               </section>

@@ -476,12 +476,19 @@ textarea {
   margin-top: 10px;
 }
 .capture-draft-actions button {
+  display: grid;
+  place-items: center;
+  width: 34px;
   height: 34px;
-  padding: 0 13px;
+  padding: 0;
   border: 1px solid #e2e4e9;
   border-radius: 8px;
   background: #fff;
   cursor: pointer;
+}
+.capture-draft-actions button svg {
+  width: 17px;
+  height: 17px;
 }
 .capture-draft-actions button.primary {
   border-color: #5b52e8;

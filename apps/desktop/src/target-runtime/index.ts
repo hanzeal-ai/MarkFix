@@ -1094,21 +1094,54 @@ const showAnchor = (payload: AnchorPayload): void => {
     return;
   selectionShape?.remove();
   selectionLabel?.remove();
-  const polygon = svgElement('polygon');
-  setAttributes(polygon, {
-    points: `${firstQuad[0]},${firstQuad[1]} ${firstQuad[2]},${firstQuad[3]} ${firstQuad[4]},${firstQuad[5]} ${firstQuad[6]},${firstQuad[7]}`,
+  const [x1, y1, x2, y2, x3, y3, x4, y4] = firstQuad as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  const xValues = [x1, x2, x3, x4];
+  const yValues = [y1, y2, y3, y4];
+  const minX = Math.min(...xValues);
+  const maxX = Math.max(...xValues);
+  const minY = Math.min(...yValues);
+  const maxY = Math.max(...yValues);
+  const isAxisAligned =
+    Math.abs(y1 - y2) < 0.5 &&
+    Math.abs(x2 - x3) < 0.5 &&
+    Math.abs(y3 - y4) < 0.5 &&
+    Math.abs(x4 - x1) < 0.5;
+  const shape = isAxisAligned ? svgElement('rect') : svgElement('polygon');
+  if (shape instanceof SVGRectElement) {
+    setAttributes(shape, {
+      x: String(minX),
+      y: String(minY),
+      width: String(maxX - minX),
+      height: String(maxY - minY),
+      rx: '4',
+    });
+  } else {
+    setAttributes(shape, {
+      points: `${x1},${y1} ${x2},${y2} ${x3},${y3} ${x4},${y4}`,
+      'stroke-linejoin': 'round',
+    });
+  }
+  setAttributes(shape, {
     fill: 'rgba(91,82,232,.08)',
     stroke: '#5b52e8',
     'stroke-width': '2',
     'vector-effect': 'non-scaling-stroke',
   });
-  surface?.append(polygon);
-  selectionShape = polygon;
+  surface?.append(shape);
+  selectionShape = shape;
   if (typeof payload.cssSelector === 'string' && payload.cssSelector) {
     const selector = payload.cssSelector.slice(0, 80);
-    const x = Math.max(4, Math.min(...firstQuad.filter((_value, index) => index % 2 === 0)));
-    const targetY = Math.min(...firstQuad.filter((_value, index) => index % 2 === 1));
-    const y = targetY >= 24 ? targetY - 23 : targetY + 3;
+    const x = Math.max(4, minX);
+    const y = minY >= 20 ? minY - 20 : minY + 2;
     const width = Math.min(260, Math.max(54, selector.length * 6.5 + 12));
     const group = svgElement('g');
     group.style.pointerEvents = 'none';
