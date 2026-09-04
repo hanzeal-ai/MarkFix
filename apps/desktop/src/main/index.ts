@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import {
   app,
   BrowserWindow,
+  clipboard,
+  ClipboardItem,
+  dialog,
   ipcMain,
   safeStorage,
   session,
@@ -22,6 +25,7 @@ import {
   navigateInputSchema,
   recorderEventSchema,
   screenshotMarkSchema,
+  savedCaptureSchema,
   screenshotStyleSchema,
   screenshotToolSchema,
   type Anchor,
@@ -37,6 +41,7 @@ import { CaptureService } from './capture-service.js';
 import { DraftStore } from './draft-store.js';
 import type { OutboxEntry } from './draft-store.js';
 import { normalizeWebsiteUrl } from './url.js';
+import { decodeScreenshotDataUrl, safeScreenshotFilename } from './image-export.js';
 
 const toolbarHeight = 56;
 const panelWidth = 360;
@@ -134,20 +139,33 @@ const updatePageRevision = (url: string): void => {
   }
 };
 
-const setOverlayHidden = (hidden: boolean): Promise<void> => {
+const setOverlayHidden = async (hidden: boolean): Promise<void> => {
   if (!websiteView) return Promise.reject(new Error('Website view is unavailable'));
   const requestId = randomUUID();
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      overlayVisibilityWaiters.delete(requestId);
-      reject(new Error('Overlay did not acknowledge the capture transaction'));
-    }, 1500);
-    overlayVisibilityWaiters.set(requestId, () => {
-      clearTimeout(timer);
-      resolve();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        overlayVisibilityWaiters.delete(requestId);
+        reject(new Error('Overlay did not acknowledge the capture transaction'));
+      }, 1500);
+      overlayVisibilityWaiters.set(requestId, () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      websiteView?.webContents.send('markfix:set-overlay-hidden', { requestId, hidden });
     });
-    websiteView?.webContents.send('markfix:set-overlay-hidden', { requestId, hidden });
-  });
+  } catch {
+    const applied = (await websiteView.webContents.executeJavaScript(
+      `(() => {
+        const host = document.querySelector('[data-markfix-overlay-host]');
+        if (!(host instanceof HTMLElement)) return false;
+        host.style.visibility = '${hidden ? 'hidden' : 'visible'}';
+        return true;
+      })()`,
+      true,
+    )) as boolean;
+    if (!applied && hidden) throw new Error('Screenshot overlay is unavailable');
+  }
 };
 
 const syncEntry = async (entry: OutboxEntry): Promise<void> => {
@@ -189,7 +207,12 @@ const layoutWebsite = (): void => {
   websiteView.setBounds({
     x: workspaceMargin,
     y: toolbarHeight + workspaceMargin,
-    width: Math.max(320, width - sidebarWidth - workspaceMargin * 2),
+    width: Math.max(
+      320,
+      width -
+        sidebarWidth -
+        (currentBrowserMode === 'browse' ? workspaceMargin * 2 : workspaceMargin),
+    ),
     height: Math.max(200, height - toolbarHeight - workspaceMargin * 2),
   });
 };
@@ -388,6 +411,48 @@ const registerIpc = (): void => {
       screenshotMarkSchema.array().max(500).parse(input),
     );
   });
+  ipcMain.handle(ipcChannels.clearCaptureSelection, (event) => {
+    assertShellSender(event);
+    websiteView?.webContents.send('markfix:clear-capture-selection');
+  });
+  ipcMain.handle(ipcChannels.copyCaptureImage, async (event, input: unknown) => {
+    assertShellSender(event);
+    const image = decodeScreenshotDataUrl(input);
+    await clipboard.write([
+      new ClipboardItem({
+        'image/png': new Blob([new Uint8Array(image)], { type: 'image/png' }),
+      }),
+    ]);
+  });
+  ipcMain.handle(ipcChannels.saveCaptureImage, async (event, input: unknown) => {
+    assertShellSender(event);
+    if (!mainWindow) throw new Error('Desktop window is unavailable');
+    const payload = input as { dataUrl?: unknown; suggestedName?: unknown };
+    const image = decodeScreenshotDataUrl(payload.dataUrl);
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '保存 MarkFix 截图',
+      defaultPath: safeScreenshotFilename(payload.suggestedName),
+      filters: [{ name: 'PNG image', extensions: ['png'] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await writeFile(result.filePath, image);
+    return { canceled: false, filePath: result.filePath };
+  });
+  ipcMain.handle(ipcChannels.listCaptureRecords, (event) => {
+    assertShellSender(event);
+    return draftStore?.listCaptures() ?? [];
+  });
+  ipcMain.handle(ipcChannels.saveCaptureRecord, (event, input: unknown) => {
+    assertShellSender(event);
+    const capture = savedCaptureSchema.parse(input);
+    decodeScreenshotDataUrl(capture.dataUrl);
+    draftStore?.saveCapture(capture);
+  });
+  ipcMain.handle(ipcChannels.deleteCaptureRecord, (event, input: unknown) => {
+    assertShellSender(event);
+    if (typeof input !== 'string') throw new Error('Invalid capture ID');
+    draftStore?.deleteCapture(input);
+  });
   ipcMain.handle(ipcChannels.setRecording, (event, input: unknown) => {
     assertShellSender(event);
     if (typeof input !== 'boolean') throw new Error('Invalid recorder state');
@@ -503,6 +568,11 @@ const registerIpc = (): void => {
     const parsed = screenshotMarkSchema.array().max(500).safeParse(input);
     if (!parsed.success) return;
     sendShell(ipcChannels.captureMarksChanged, parsed.data);
+  });
+  ipcMain.on('markfix:capture-action', (event, input: unknown) => {
+    if (event.sender.id !== websiteView?.webContents.id) return;
+    if (!['copy', 'save', 'finish'].includes(String(input))) return;
+    sendShell(ipcChannels.captureAction, input);
   });
   ipcMain.on('markfix:recorder-event', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;

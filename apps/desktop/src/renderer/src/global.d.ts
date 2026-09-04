@@ -11,6 +11,7 @@ import type {
   ScreenshotMark,
   ScreenshotStyle,
   ScreenshotTool,
+  SavedCapture,
   WorkspaceSummary,
 } from '@markfix/contracts';
 
@@ -38,6 +39,15 @@ declare global {
       setCaptureTool(tool: ScreenshotTool): Promise<void>;
       setCaptureStyle(style: ScreenshotStyle): Promise<void>;
       syncCaptureMarks(marks: ScreenshotMark[]): Promise<void>;
+      clearCaptureSelection(): Promise<void>;
+      copyCaptureImage(dataUrl: string): Promise<void>;
+      saveCaptureImage(
+        dataUrl: string,
+        suggestedName: string,
+      ): Promise<{ canceled: boolean; filePath?: string }>;
+      listCaptureRecords(): Promise<SavedCapture[]>;
+      saveCaptureRecord(capture: SavedCapture): Promise<void>;
+      deleteCaptureRecord(id: string): Promise<void>;
       setRecording(enabled: boolean): Promise<void>;
       syncAnnotations(annotations: Annotation[]): Promise<void>;
       syncAnchor(anchor: Anchor | null): Promise<void>;
@@ -62,6 +72,7 @@ declare global {
       onRegion(listener: (payload: unknown) => void): () => void;
       onCaptureSelection(listener: (payload: unknown) => void): () => void;
       onCaptureMarksChanged(listener: (payload: unknown) => void): () => void;
+      onCaptureAction(listener: (payload: unknown) => void): () => void;
       onRecorderEvent(listener: (payload: unknown) => void): () => void;
       onAnnotationCreated(listener: (payload: unknown) => void): () => void;
       onAnnotationSelected(listener: (payload: unknown) => void): () => void;

@@ -126,6 +126,17 @@ export const screenshotMarkSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
+export const savedCaptureSchema = z.object({
+  id: z.uuid(),
+  pageUrl: z.url(),
+  note: z.string().min(1).max(2000),
+  dataUrl: z.string().startsWith('data:image/png;base64,'),
+  widthCssPx: z.number().positive(),
+  heightCssPx: z.number().positive(),
+  marks: z.array(screenshotMarkSchema).max(500),
+  createdAt: z.iso.datetime(),
+});
+
 export const reproductionStepSchema = z.object({
   id: z.uuid(),
   type: z.enum(['click', 'input', 'select', 'scroll', 'drag', 'navigation', 'wait', 'manual']),
@@ -355,6 +366,13 @@ export const ipcChannels = {
   setCaptureTool: 'capture:set-tool',
   setCaptureStyle: 'capture:set-style',
   syncCaptureMarks: 'capture:sync-marks',
+  clearCaptureSelection: 'capture:clear-selection',
+  copyCaptureImage: 'capture:copy-image',
+  saveCaptureImage: 'capture:save-image',
+  captureAction: 'capture:action',
+  listCaptureRecords: 'capture-record:list',
+  saveCaptureRecord: 'capture-record:save',
+  deleteCaptureRecord: 'capture-record:delete',
   syncStatus: 'sync:status',
 } as const;
 
@@ -375,6 +393,7 @@ export type AnnotationTool = z.infer<typeof annotationToolSchema>;
 export type ScreenshotTool = z.infer<typeof screenshotToolSchema>;
 export type ScreenshotMark = z.infer<typeof screenshotMarkSchema>;
 export type ScreenshotStyle = z.infer<typeof screenshotStyleSchema>;
+export type SavedCapture = z.infer<typeof savedCaptureSchema>;
 export type BrowserMode = z.infer<typeof browserModeSchema>;
 export type CaptureBundle = z.infer<typeof captureBundleSchema>;
 export type CaptureContext = z.infer<typeof captureContextSchema>;

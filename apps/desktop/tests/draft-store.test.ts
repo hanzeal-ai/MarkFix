@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { SavedCapture } from '@markfix/contracts';
 import { DraftStore } from '../src/main/draft-store.js';
 
 const temporaryDirectories: string[] = [];
@@ -48,6 +49,32 @@ describe('DraftStore outbox', () => {
     expect(store.claimDue()).toEqual([{ ...entry, attempts: 1 }]);
     store.recoverInterrupted();
     expect(store.claimDue()).toEqual([{ ...entry, attempts: 1 }]);
+    store.close();
+  });
+});
+
+describe('DraftStore screenshot annotations', () => {
+  it('persists, updates, lists, and deletes captures independently', () => {
+    const store = createStore();
+    const capture: SavedCapture = {
+      id: '1d04602d-c0cb-4aac-bf5b-066b33273a03',
+      pageUrl: 'https://example.com/page',
+      note: '按钮遮挡正文',
+      dataUrl: 'data:image/png;base64,AA==',
+      widthCssPx: 320,
+      heightCssPx: 180,
+      marks: [],
+      createdAt: '2026-09-04T08:00:00.000Z',
+    };
+
+    store.saveCapture(capture);
+    expect(store.listCaptures()).toEqual([capture]);
+
+    store.saveCapture({ ...capture, note: '按钮遮挡正文与链接' });
+    expect(store.listCaptures()).toEqual([{ ...capture, note: '按钮遮挡正文与链接' }]);
+
+    store.deleteCapture(capture.id);
+    expect(store.listCaptures()).toEqual([]);
     store.close();
   });
 });

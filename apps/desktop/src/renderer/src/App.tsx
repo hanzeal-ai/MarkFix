@@ -6,13 +6,11 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Circle,
+  Copy,
   Crosshair,
+  Download,
   Eye,
   EyeOff,
-  Globe2,
-  Grid2X2,
-  Hash,
   LoaderCircle,
   MessageSquareText,
   MousePointer2,
@@ -40,8 +38,8 @@ import {
   type CaptureContext,
   type Environment,
   type ReproductionStep,
+  type SavedCapture,
   type ScreenshotMark,
-  type ScreenshotTool,
   type WorkspaceSummary,
 } from '@markfix/contracts';
 import { describeTrustedEvent, mergeAdjacentInputSteps } from '@markfix/reproduction-model';
@@ -63,7 +61,6 @@ type BrowserState = { url?: string; loading?: boolean; error?: string };
 type DesktopUser = { id: string; email: string; displayName: string };
 type CaptureSelection = Extract<Anchor, { kind: 'region' }>;
 type CaptureSource = { dataUrl: string; captureScale: number };
-
 const annotationName = (annotation: Annotation): string => {
   if (annotation.type === 'pin') return `Pin ${annotation.label}`;
   if (annotation.type === 'text') return annotation.text;
@@ -140,15 +137,7 @@ function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser
   );
 }
 
-function AnnotationWorkspace({
-  user,
-  policy,
-  onLogout,
-}: {
-  user: DesktopUser;
-  policy: ClientPolicy | undefined;
-  onLogout: () => void;
-}) {
+function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   const [url, setUrl] = useState('https://example.com');
   const [browserState, setBrowserState] = useState<BrowserState>({ loading: true });
   const [mode, setModeState] = useState<BrowserMode>('browse');
@@ -164,11 +153,10 @@ function AnnotationWorkspace({
   const [captureSelection, setCaptureSelection] = useState<CaptureSelection>();
   const [captureSource, setCaptureSource] = useState<CaptureSource>();
   const [captureMarks, setCaptureMarks] = useState<ScreenshotMark[]>([]);
-  const [captureRedoStack, setCaptureRedoStack] = useState<ScreenshotMark[]>([]);
-  const [captureTool, setCaptureTool] = useState<ScreenshotTool>('select');
-  const [captureColor, setCaptureColor] = useState('#ef4444');
-  const [captureStrokeWidth, setCaptureStrokeWidth] = useState<2 | 4 | 6>(4);
   const [captureLoading, setCaptureLoading] = useState(false);
+  const [captureRendering, setCaptureRendering] = useState(false);
+  const [captureNote, setCaptureNote] = useState('');
+  const [savedCaptures, setSavedCaptures] = useState<SavedCapture[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(
     policy?.status === 'upgrade-recommended'
@@ -184,9 +172,12 @@ function AnnotationWorkspace({
   const [contextLoading, setContextLoading] = useState(true);
   const pendingOutboxIdRef = useRef<string | undefined>(undefined);
   const captureRequestIdRef = useRef<string | undefined>(undefined);
+  const screenshotRef = useRef<string | undefined>(undefined);
+  screenshotRef.current = screenshot;
   const selectedWorkspace = workspaces.find(({ id }) => id === selectedWorkspaceId);
   const selectedProject = selectedWorkspace?.projects.find(({ id }) => id === selectedProjectId);
   const selectedEnvironment = environments.find(({ id }) => id === selectedEnvironmentId);
+  const pageCaptures = savedCaptures.filter(({ pageUrl }) => pageUrl === url);
 
   const clearReport = useCallback((outboxId?: string): boolean => {
     if (outboxId && pendingOutboxIdRef.current !== outboxId) return false;
@@ -263,7 +254,27 @@ function AnnotationWorkspace({
         const parsed = screenshotMarkSchema.array().max(500).safeParse(payload);
         if (!parsed.success) return;
         setCaptureMarks(parsed.data);
-        setCaptureRedoStack([]);
+      }),
+      window.markfix.onCaptureAction((payload) => {
+        if (payload === 'finish') {
+          document.querySelector<HTMLTextAreaElement>('[data-capture-note]')?.focus();
+          setNotice('截图已确认，请填写备注。');
+          return;
+        }
+        const dataUrl = screenshotRef.current;
+        if (!dataUrl) return;
+        if (payload === 'copy') {
+          void window.markfix
+            .copyCaptureImage(dataUrl)
+            .then(() => setNotice('截图已复制到剪贴板。'));
+        }
+        if (payload === 'save') {
+          void window.markfix
+            .saveCaptureImage(dataUrl, `markfix-${new Date().toISOString().slice(0, 19)}`)
+            .then((result) => {
+              if (!result.canceled) setNotice(`截图已保存到 ${result.filePath ?? '本地文件'}`);
+            });
+        }
       }),
       window.markfix.onRecorderEvent((payload) => {
         const parsed = recorderEventSchema.safeParse(payload);
@@ -363,6 +374,21 @@ function AnnotationWorkspace({
 
   useEffect(() => {
     let active = true;
+    void window.markfix
+      .listCaptureRecords()
+      .then((captures) => {
+        if (active) setSavedCaptures(captures);
+      })
+      .catch((error: unknown) => {
+        if (active) setNotice(error instanceof Error ? error.message : '无法读取本机截图批注。');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     setContextLoading(true);
     void window.markfix
       .listWorkspaces()
@@ -449,6 +475,7 @@ function AnnotationWorkspace({
   useEffect(() => {
     if (!captureSelection || !captureSource) return;
     let active = true;
+    setCaptureRendering(true);
     void composeScreenshot(
       captureSource.dataUrl,
       captureMarks,
@@ -461,6 +488,9 @@ function AnnotationWorkspace({
       .catch((error: unknown) => {
         if (active)
           setNotice(error instanceof Error ? error.message : 'Could not render screenshot marks.');
+      })
+      .finally(() => {
+        if (active) setCaptureRendering(false);
       });
     return () => {
       active = false;
@@ -521,8 +551,7 @@ function AnnotationWorkspace({
       setCaptureSelection(undefined);
       setCaptureSource(undefined);
       setCaptureMarks([]);
-      setCaptureRedoStack([]);
-      setCaptureTool('select');
+      setCaptureNote('');
       setScreenshot(undefined);
       void window.markfix.setCaptureTool('select');
     }
@@ -536,48 +565,57 @@ function AnnotationWorkspace({
     setNotice(`Draw a ${nextTool} annotation on the page.`);
   };
 
-  const chooseCaptureTool = (nextTool: ScreenshotTool): void => {
-    setCaptureTool(nextTool);
-    void window.markfix.setCaptureTool(nextTool);
-  };
-
-  const chooseCaptureColor = (color: string): void => {
-    setCaptureColor(color);
-    void window.markfix.setCaptureStyle({ color, strokeWidth: captureStrokeWidth });
-  };
-
-  const chooseCaptureStroke = (strokeWidth: 2 | 4 | 6): void => {
-    setCaptureStrokeWidth(strokeWidth);
-    void window.markfix.setCaptureStyle({ color: captureColor, strokeWidth });
-  };
-
-  const undoCaptureMark = (): void => {
-    setCaptureMarks((current) => {
-      const removed = current.at(-1);
-      if (!removed) return current;
-      setCaptureRedoStack((redo) => [...redo, removed]);
-      return current.slice(0, -1);
-    });
-  };
-
-  const redoCaptureMark = (): void => {
-    setCaptureRedoStack((current) => {
-      const restored = current.at(-1);
-      if (!restored) return current;
-      setCaptureMarks((marks) => [...marks, restored]);
-      return current.slice(0, -1);
-    });
-  };
-
-  const clearCaptureMarks = (): void => {
-    setCaptureMarks([]);
-    setCaptureRedoStack([]);
-  };
-
   const updateCaptureText = (id: string, text: string): void => {
     setCaptureMarks((marks) =>
       marks.map((mark) => (mark.id === id && mark.type === 'text' ? { ...mark, text } : mark)),
     );
+  };
+
+  const copyCapture = async (dataUrl = screenshot): Promise<void> => {
+    if (!dataUrl) return;
+    await window.markfix.copyCaptureImage(dataUrl);
+    setNotice('截图已复制到剪贴板。');
+  };
+
+  const saveCapture = async (dataUrl = screenshot): Promise<void> => {
+    if (!dataUrl) return;
+    const result = await window.markfix.saveCaptureImage(
+      dataUrl,
+      `markfix-${new Date().toISOString().slice(0, 19)}`,
+    );
+    if (!result.canceled) setNotice(`截图已保存到 ${result.filePath ?? '本地文件'}`);
+  };
+
+  const completeCapture = async (): Promise<void> => {
+    if (!captureSelection || !screenshot || !captureNote.trim() || captureRendering) return;
+    const capture: SavedCapture = {
+      id: crypto.randomUUID(),
+      pageUrl: captureSelection.documentUrl,
+      note: captureNote.trim(),
+      dataUrl: screenshot,
+      widthCssPx: captureSelection.widthCssPx,
+      heightCssPx: captureSelection.heightCssPx,
+      marks: captureMarks,
+      createdAt: new Date().toISOString(),
+    };
+    await window.markfix.saveCaptureRecord(capture);
+    setSavedCaptures((captures) => [...captures, capture]);
+    setCaptureNote('');
+    setCaptureMarks([]);
+    await window.markfix.clearCaptureSelection();
+    setNotice('截图批注已保存到本机。');
+  };
+
+  const cancelCapture = async (): Promise<void> => {
+    setCaptureNote('');
+    setCaptureMarks([]);
+    await window.markfix.clearCaptureSelection();
+  };
+
+  const deleteSavedCapture = async (id: string): Promise<void> => {
+    await window.markfix.deleteCaptureRecord(id);
+    setSavedCaptures((captures) => captures.filter((capture) => capture.id !== id));
+    setNotice('截图批注已删除。');
   };
 
   const updateStep = (id: string, description: string): void => {
@@ -705,34 +743,42 @@ function AnnotationWorkspace({
       <header className="browser-bar">
         <div className="traffic-space" />
         <div className="brand">
-          <span>m</span>
+          <span>
+            <MessageSquareText />
+          </span>
+          <strong>MarkFix</strong>
         </div>
-        <div className="nav-buttons">
-          <button onClick={() => void window.markfix.back()}>
-            <ArrowLeft />
-          </button>
-          <button onClick={() => void window.markfix.forward()}>
-            <ArrowRight />
-          </button>
-          <button onClick={() => void window.markfix.reload()}>
-            <RefreshCw className={browserState.loading ? 'spin' : ''} />
-          </button>
+        <div className="prototype-browser-bar">
+          <div className="nav-buttons">
+            <button onClick={() => void window.markfix.back()}>
+              <ArrowLeft />
+            </button>
+            <button onClick={() => void window.markfix.forward()}>
+              <ArrowRight />
+            </button>
+            <button onClick={() => void window.markfix.reload()}>
+              <RefreshCw className={browserState.loading ? 'spin' : ''} />
+            </button>
+          </div>
+          <form
+            className="address"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void window.markfix
+                .navigate(url)
+                .catch((error: unknown) =>
+                  setNotice(error instanceof Error ? error.message : 'Invalid URL'),
+                );
+            }}
+          >
+            <span className="secure-dot" />
+            <input value={url} onChange={(event) => setUrl(event.target.value)} />
+          </form>
         </div>
-        <form
-          className="address"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void window.markfix
-              .navigate(url)
-              .catch((error: unknown) =>
-                setNotice(error instanceof Error ? error.message : 'Invalid URL'),
-              );
-          }}
-        >
-          <Globe2 />
-          <input value={url} onChange={(event) => setUrl(event.target.value)} />
-        </form>
         <div className="tools">
+          <span className="mode-status">
+            {mode === 'browse' ? '浏览模式' : mode === 'comment' ? '批注模式' : '截图模式'}
+          </span>
           <button
             className={mode === 'comment' ? 'active' : ''}
             onClick={() => void toggleMode('comment')}
@@ -745,155 +791,129 @@ function AnnotationWorkspace({
           >
             <Camera /> 截图
           </button>
-          <button
-            title={`Sign out ${user.email}`}
-            onClick={() => void window.markfix.logout().finally(onLogout)}
-          >
-            {user.displayName.slice(0, 2).toUpperCase()}
-          </button>
         </div>
       </header>
       {mode === 'capture' ? (
         <aside className="comment-panel capture-panel">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">SCREENSHOT</span>
-              <h1>截图批注</h1>
-            </div>
-            <Camera />
+          <div className="capture-panel-header">
+            <span>截图批注</span>
+            <small>{pageCaptures.length} 张</small>
           </div>
-          {captureSelection ? (
-            <section className="capture-selection-summary">
-              <span>{captureLoading ? '正在生成截图…' : '实时截图预览'}</span>
-              {screenshot && <img src={screenshot} alt="截图选区预览" />}
-              <strong>
-                {Math.round(captureSelection.widthCssPx)} ×{' '}
-                {Math.round(captureSelection.heightCssPx)} px
-              </strong>
-              <small>拖动选区可以移动，拖动八个控制点可以调整大小。</small>
-            </section>
-          ) : (
-            <section className="capture-empty">
-              <Crosshair />
-              <strong>框选需要截图的区域</strong>
-              <span>在左侧页面按住鼠标拖动创建选区。</span>
-            </section>
-          )}
-          {captureSelection && (
-            <section className="capture-editor">
-              <div className="capture-tool-grid" aria-label="截图标记工具">
-                <button
-                  className={captureTool === 'select' ? 'active' : ''}
-                  title="移动选区"
-                  onClick={() => chooseCaptureTool('select')}
-                >
-                  <MousePointer2 />
-                </button>
-                <button
-                  className={captureTool === 'rectangle' ? 'active' : ''}
-                  title="矩形"
-                  onClick={() => chooseCaptureTool('rectangle')}
-                >
-                  <Square />
-                </button>
-                <button
-                  className={captureTool === 'ellipse' ? 'active' : ''}
-                  title="椭圆"
-                  onClick={() => chooseCaptureTool('ellipse')}
-                >
-                  <Circle />
-                </button>
-                <button
-                  className={captureTool === 'arrow' ? 'active' : ''}
-                  title="箭头"
-                  onClick={() => chooseCaptureTool('arrow')}
-                >
-                  <MoveUpRight />
-                </button>
-                <button
-                  className={captureTool === 'pen' ? 'active' : ''}
-                  title="画笔"
-                  onClick={() => chooseCaptureTool('pen')}
-                >
-                  <PenLine />
-                </button>
-                <button
-                  className={captureTool === 'text' ? 'active' : ''}
-                  title="文字"
-                  onClick={() => chooseCaptureTool('text')}
-                >
-                  <Type />
-                </button>
-                <button
-                  className={captureTool === 'mosaic' ? 'active' : ''}
-                  title="马赛克"
-                  onClick={() => chooseCaptureTool('mosaic')}
-                >
-                  <Grid2X2 />
-                </button>
-                <button
-                  className={captureTool === 'number' ? 'active' : ''}
-                  title="序号"
-                  onClick={() => chooseCaptureTool('number')}
-                >
-                  <Hash />
-                </button>
-              </div>
-              <div className="capture-style-row">
-                <div className="capture-colors" aria-label="标记颜色">
-                  {['#ef4444', '#f97316', '#2563eb', '#111827'].map((color) => (
-                    <button
-                      key={color}
-                      className={captureColor === color ? 'active' : ''}
-                      style={{ background: color }}
-                      title={color}
-                      onClick={() => chooseCaptureColor(color)}
-                    />
-                  ))}
+          <div className="capture-panel-body">
+            {captureSelection && (
+              <section className="capture-selection-card">
+                <div className="capture-selection-kicker">
+                  <Camera /> {captureLoading ? '正在生成截图…' : '实时截图预览'}
                 </div>
-                <div className="capture-widths" aria-label="线宽">
-                  {([2, 4, 6] as const).map((width) => (
-                    <button
-                      key={width}
-                      className={captureStrokeWidth === width ? 'active' : ''}
-                      onClick={() => chooseCaptureStroke(width)}
-                    >
-                      {width}
-                    </button>
-                  ))}
+                {screenshot && (
+                  <div className="capture-thumbnail">
+                    <img src={screenshot} alt="截图选区预览" />
+                  </div>
+                )}
+                <div className="capture-meta">
+                  <span>
+                    {Math.round(captureSelection.widthCssPx)} ×{' '}
+                    {Math.round(captureSelection.heightCssPx)} px
+                  </span>
+                  <span>{captureMarks.length} 个标记</span>
                 </div>
-              </div>
-              <div className="capture-history-actions">
-                <button disabled={captureMarks.length === 0} onClick={undoCaptureMark}>
-                  <Undo2 /> 撤销
-                </button>
-                <button disabled={captureRedoStack.length === 0} onClick={redoCaptureMark}>
-                  <Redo2 /> 重做
-                </button>
-                <button disabled={captureMarks.length === 0} onClick={clearCaptureMarks}>
-                  <Trash2 /> 清除
-                </button>
-                <span>{captureMarks.length} 个标记</span>
-              </div>
-              {captureMarks.some(({ type }) => type === 'text') && (
-                <div className="capture-text-list">
-                  {captureMarks.map((mark, index) =>
-                    mark.type === 'text' ? (
-                      <label key={mark.id}>
-                        文字 {index + 1}
-                        <input
-                          value={mark.text}
-                          maxLength={200}
-                          onChange={(event) => updateCaptureText(mark.id, event.target.value)}
-                        />
-                      </label>
-                    ) : null,
-                  )}
+                {captureMarks.some(({ type }) => type === 'text') && (
+                  <div className="capture-text-list">
+                    {captureMarks.map((mark, index) =>
+                      mark.type === 'text' ? (
+                        <label key={mark.id}>
+                          文字 {index + 1}
+                          <input
+                            value={mark.text}
+                            maxLength={200}
+                            onChange={(event) => updateCaptureText(mark.id, event.target.value)}
+                          />
+                        </label>
+                      ) : null,
+                    )}
+                  </div>
+                )}
+                <textarea
+                  className="capture-note-input"
+                  data-capture-note
+                  value={captureNote}
+                  maxLength={2000}
+                  placeholder="说明截图中的问题…"
+                  onChange={(event) => setCaptureNote(event.target.value)}
+                />
+                <div className="capture-draft-actions">
+                  <button type="button" onClick={() => void cancelCapture()}>
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={
+                      !captureNote.trim() || !screenshot || captureLoading || captureRendering
+                    }
+                    onClick={() => void completeCapture()}
+                  >
+                    完成
+                  </button>
                 </div>
-              )}
-            </section>
-          )}
-          {notice && <div className="notice">{notice}</div>}
+              </section>
+            )}
+            {!captureSelection && pageCaptures.length === 0 && (
+              <section className="capture-empty">
+                <span className="capture-empty-icon">
+                  <Camera />
+                </span>
+                <strong>框选一个页面区域</strong>
+                <p>
+                  拖拽建立截图选区。选区可以移动、缩放，并支持矩形、椭圆、箭头、画笔、文字、马赛克和序号。
+                </p>
+              </section>
+            )}
+            {pageCaptures.length > 0 && (
+              <section className="capture-notes-list">
+                {[...pageCaptures].reverse().map((item, index) => (
+                  <article className="capture-note-card" key={item.id}>
+                    <div className="capture-note-head">
+                      <span>
+                        <i>{pageCaptures.length - index}</i> 截图批注
+                      </span>
+                      <span>
+                        {new Date(item.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        <button
+                          type="button"
+                          title="删除"
+                          onClick={() => void deleteSavedCapture(item.id)}
+                        >
+                          <Trash2 />
+                        </button>
+                      </span>
+                    </div>
+                    <div className="capture-thumbnail">
+                      <img src={item.dataUrl} alt={item.note} />
+                    </div>
+                    <div className="capture-meta">
+                      <span>
+                        {Math.round(item.widthCssPx)} × {Math.round(item.heightCssPx)} px
+                      </span>
+                      <span>{item.marks.length} 个标记</span>
+                    </div>
+                    <p>{item.note}</p>
+                    <div className="capture-note-actions">
+                      <button type="button" onClick={() => void copyCapture(item.dataUrl)}>
+                        <Copy /> 复制
+                      </button>
+                      <button type="button" onClick={() => void saveCapture(item.dataUrl)}>
+                        <Download /> 保存
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </section>
+            )}
+          </div>
         </aside>
       ) : mode !== 'browse' ? (
         <aside className="comment-panel">
@@ -1210,11 +1230,5 @@ export function App() {
   if (state.status === 'anonymous') {
     return <DesktopLogin onAuthenticated={(user) => setState({ status: 'authenticated', user })} />;
   }
-  return (
-    <AnnotationWorkspace
-      user={state.user}
-      policy={policy}
-      onLogout={() => setState({ status: 'anonymous' })}
-    />
-  );
+  return <AnnotationWorkspace policy={policy} />;
 }

@@ -27,6 +27,7 @@ let mode: Mode = 'browse';
 let tool: AnnotationTool = 'pin';
 let root: ShadowRoot | undefined;
 let surface: SVGSVGElement | undefined;
+let captureToolbar: HTMLDivElement | undefined;
 let selectionShape: SVGPolygonElement | SVGRectElement | undefined;
 let dragStart: Point | undefined;
 let penPoints: Point[] = [];
@@ -53,6 +54,7 @@ let screenshotTool: ScreenshotTool = 'select';
 let screenshotColor = '#ef4444';
 let screenshotStrokeWidth: 2 | 4 | 6 = 4;
 let screenshotMarks: ScreenshotMark[] = [];
+let screenshotRedoMarks: ScreenshotMark[] = [];
 let screenshotGesture:
   | {
       tool: Exclude<ScreenshotTool, 'select'>;
@@ -272,10 +274,236 @@ const renderScreenshotMark = (mark: ScreenshotMark, group: SVGGElement): void =>
   group.append(circle, label);
 };
 
+const emitScreenshotMarks = (): void => {
+  ipcRenderer.send('markfix:capture-marks-changed', screenshotMarks);
+};
+
+const styleCaptureToolbarButton = (button: HTMLButtonElement, active = false): void => {
+  Object.assign(button.style, {
+    flex: '0 0 auto',
+    width: '31px',
+    height: '30px',
+    padding: '0',
+    border: '0',
+    borderRadius: '7px',
+    background: active ? '#eeecff' : 'transparent',
+    color: active ? '#5b52e8' : '#191a1d',
+    display: 'grid',
+    placeItems: 'center',
+    font: '500 12px Inter, system-ui, sans-serif',
+    cursor: 'pointer',
+  });
+};
+
+const toolbarButton = (
+  content: string,
+  title: string,
+  active: boolean,
+  onClick: () => void,
+): HTMLButtonElement => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.innerHTML = content;
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  styleCaptureToolbarButton(button, active);
+  button.querySelectorAll<SVGElement>('svg').forEach((icon) => {
+    icon.style.width = '17px';
+    icon.style.height = '17px';
+  });
+  button.addEventListener('pointerdown', (event) => event.stopPropagation());
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  });
+  return button;
+};
+
+const toolbarDivider = (): HTMLSpanElement => {
+  const divider = document.createElement('span');
+  Object.assign(divider.style, {
+    flex: '0 0 auto',
+    width: '1px',
+    height: '20px',
+    margin: '0 3px',
+    background: '#e2e4e9',
+  });
+  return divider;
+};
+
+const captureToolIcons: Record<ScreenshotTool, string> = {
+  select:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 3 14 8-7 2-3 7Z"/></svg>',
+  rectangle:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="14" rx="1"/></svg>',
+  ellipse:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="12" rx="8" ry="6"/></svg>',
+  arrow:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 19 5M10 5h9v9"/></svg>',
+  pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c3-5 3-11 8-14 4-2 7 1 5 4-2 3-7 2-7 6 0 2 3 2 6 0"/></svg>',
+  text: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14M12 5v14M8 19h8"/></svg>',
+  mosaic:
+    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h5v5H4zM10 4h4v5h-4zM15 4h5v5h-5zM4 10h4v4H4zM9 10h6v4H9zM16 10h4v4h-4zM4 15h6v5H4zM11 15h4v5h-4zM16 15h4v5h-4z"/></svg>',
+  number:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M10.5 9.5 12 8v8M10 16h4"/></svg>',
+};
+
+const renderCaptureToolbar = (): void => {
+  if (!captureToolbar) return;
+  captureToolbar.replaceChildren();
+  if (mode !== 'capture' || !captureBounds) {
+    captureToolbar.style.display = 'none';
+    return;
+  }
+  captureToolbar.style.display = 'flex';
+  const toolLabel = document.createElement('span');
+  toolLabel.textContent = '截图';
+  Object.assign(toolLabel.style, {
+    flex: '0 0 auto',
+    padding: '0 5px 0 2px',
+    color: '#90949d',
+    font: '400 11px Inter, system-ui, sans-serif',
+  });
+  captureToolbar.append(toolLabel);
+  const tools: ReadonlyArray<{ tool: ScreenshotTool; title: string }> = [
+    { tool: 'select', title: '移动选区' },
+    { tool: 'rectangle', title: '矩形' },
+    { tool: 'ellipse', title: '椭圆' },
+    { tool: 'arrow', title: '箭头' },
+    { tool: 'pen', title: '画笔' },
+    { tool: 'text', title: '文字' },
+    { tool: 'mosaic', title: '马赛克' },
+    { tool: 'number', title: '序号标记' },
+  ];
+  tools.forEach(({ tool: requestedTool, title }) => {
+    captureToolbar?.append(
+      toolbarButton(
+        captureToolIcons[requestedTool],
+        title,
+        screenshotTool === requestedTool,
+        () => {
+          screenshotTool = requestedTool;
+          screenshotGesture = undefined;
+          renderCaptureSelection();
+        },
+      ),
+    );
+  });
+  captureToolbar.append(toolbarDivider());
+  const stroke = toolbarButton(
+    `<span style="width:17px;border-top:${screenshotStrokeWidth}px solid currentColor"></span>`,
+    `线宽 ${screenshotStrokeWidth}px`,
+    false,
+    () => {
+      screenshotStrokeWidth = screenshotStrokeWidth === 2 ? 4 : screenshotStrokeWidth === 4 ? 6 : 2;
+      renderCaptureToolbar();
+    },
+  );
+  captureToolbar.append(stroke);
+  ['#ef4444', '#f59e0b', '#2563eb', '#202228'].forEach((color) => {
+    const button = toolbarButton('', color, screenshotColor === color, () => {
+      screenshotColor = color;
+      renderCaptureToolbar();
+    });
+    Object.assign(button.style, {
+      width: '15px',
+      height: '15px',
+      padding: '0',
+      border: '2px solid white',
+      borderRadius: '50%',
+      background: color,
+      outline: screenshotColor === color ? '1px solid #61656f' : '1px solid transparent',
+      boxShadow: 'none',
+    });
+    captureToolbar?.append(button);
+  });
+  captureToolbar.append(toolbarDivider());
+  const undo = toolbarButton(
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 7-5 5 5 5"/><path d="M5 12h8a6 6 0 0 1 6 6"/></svg>',
+    '撤销',
+    false,
+    () => {
+      const mark = screenshotMarks.at(-1);
+      if (!mark) return;
+      screenshotMarks = screenshotMarks.slice(0, -1);
+      screenshotRedoMarks = [...screenshotRedoMarks, mark];
+      emitScreenshotMarks();
+      renderCaptureSelection();
+    },
+  );
+  undo.disabled = screenshotMarks.length === 0;
+  undo.style.opacity = undo.disabled ? '.4' : '1';
+  const redo = toolbarButton(
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 7 5 5-5 5"/><path d="M19 12h-8a6 6 0 0 0-6 6"/></svg>',
+    '重做',
+    false,
+    () => {
+      const mark = screenshotRedoMarks.at(-1);
+      if (!mark) return;
+      screenshotRedoMarks = screenshotRedoMarks.slice(0, -1);
+      screenshotMarks = [...screenshotMarks, mark];
+      emitScreenshotMarks();
+      renderCaptureSelection();
+    },
+  );
+  redo.disabled = screenshotRedoMarks.length === 0;
+  redo.style.opacity = redo.disabled ? '.4' : '1';
+  const clear = toolbarButton(
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 5 14 14M19 5 5 19"/></svg>',
+    '清除标记与选区',
+    false,
+    () => {
+      screenshotMarks = [];
+      screenshotRedoMarks = [];
+      captureBounds = undefined;
+      emitScreenshotMarks();
+      emitCaptureSelection();
+      renderCaptureSelection();
+    },
+  );
+  captureToolbar.append(undo, redo, clear);
+  captureToolbar.append(toolbarDivider());
+  const copy = toolbarButton(
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>',
+    '复制截图',
+    false,
+    () => ipcRenderer.send('markfix:capture-action', 'copy'),
+  );
+  const save = toolbarButton(
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>',
+    '保存截图',
+    false,
+    () => ipcRenderer.send('markfix:capture-action', 'save'),
+  );
+  const finish = toolbarButton(
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>',
+    '完成截图',
+    false,
+    () => ipcRenderer.send('markfix:capture-action', 'finish'),
+  );
+  finish.style.color = 'white';
+  finish.style.background = '#5b52e8';
+  captureToolbar.append(copy, save, finish);
+
+  const viewport = captureViewport();
+  const toolbarHeight = captureToolbar.offsetHeight || 42;
+  const placeBelow = captureBounds.y + captureBounds.height + toolbarHeight + 12 <= viewport.height;
+  const preferredLeft = captureBounds.x;
+  const toolbarWidth = captureToolbar.scrollWidth || 690;
+  Object.assign(captureToolbar.style, {
+    left: `${Math.max(12, Math.min(preferredLeft, viewport.width - toolbarWidth - 12))}px`,
+    top: `${placeBelow ? captureBounds.y + captureBounds.height + 10 : Math.max(8, captureBounds.y - toolbarHeight - 10)}px`,
+  });
+};
+
 const renderCaptureSelection = (): void => {
   if (!surface) return;
   surface.querySelector(`#${captureGroupId}`)?.remove();
-  if (mode !== 'capture') return;
+  if (mode !== 'capture') {
+    renderCaptureToolbar();
+    return;
+  }
 
   const group = svgElement('g');
   group.id = captureGroupId;
@@ -286,7 +514,7 @@ const renderCaptureSelection = (): void => {
     : '';
   setAttributes(mask, {
     d: `M 0 0 H ${viewport.width} V ${viewport.height} H 0 Z${selectionPath}`,
-    fill: 'rgba(17, 24, 39, .52)',
+    fill: 'rgba(20, 22, 28, .32)',
     'fill-rule': 'evenodd',
     'pointer-events': 'none',
   });
@@ -319,7 +547,7 @@ const renderCaptureSelection = (): void => {
       width: String(captureBounds.width),
       height: String(captureBounds.height),
       fill: 'transparent',
-      stroke: '#7c3aed',
+      stroke: '#5b52e8',
       'stroke-width': '2',
       'data-capture-body': '',
     });
@@ -336,7 +564,7 @@ const renderCaptureSelection = (): void => {
         height: '10',
         rx: '2',
         fill: 'white',
-        stroke: '#7c3aed',
+        stroke: '#5b52e8',
         'stroke-width': '2',
         'data-capture-handle': handle,
       });
@@ -345,17 +573,26 @@ const renderCaptureSelection = (): void => {
       group.append(item);
     });
 
+    const labelY = Math.max(4, captureBounds.y - 27);
+    const labelBackground = svgElement('rect');
+    setAttributes(labelBackground, {
+      x: String(captureBounds.x - 2),
+      y: String(labelY),
+      width: '76',
+      height: '21',
+      rx: '6',
+      fill: 'rgba(24, 25, 29, .88)',
+      'pointer-events': 'none',
+    });
+    group.append(labelBackground);
     const label = svgElement('text');
     setAttributes(label, {
-      x: String(captureBounds.x),
-      y: String(Math.max(18, captureBounds.y - 9)),
+      x: String(captureBounds.x + 5),
+      y: String(labelY + 14),
       fill: 'white',
-      'font-size': '12',
-      'font-family': 'system-ui',
-      'font-weight': '600',
-      'paint-order': 'stroke',
-      stroke: '#111827',
-      'stroke-width': '4',
+      'font-size': '11',
+      'font-family': 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      'font-weight': '400',
       'pointer-events': 'none',
     });
     label.textContent = `${Math.round(captureBounds.width)} × ${Math.round(captureBounds.height)}`;
@@ -363,6 +600,7 @@ const renderCaptureSelection = (): void => {
   }
 
   surface.append(group);
+  renderCaptureToolbar();
 };
 
 const emitCaptureSelection = (): void => {
@@ -523,6 +761,23 @@ const mount = (): void => {
   definitions.append(marker);
   surface.append(definitions);
   root.append(surface);
+  captureToolbar = document.createElement('div');
+  Object.assign(captureToolbar.style, {
+    position: 'fixed',
+    zIndex: '2147483647',
+    minHeight: '42px',
+    maxWidth: 'calc(100vw - 16px)',
+    padding: '5px 7px',
+    border: '1px solid #cfd2d9',
+    borderRadius: '10px',
+    background: '#ffffff',
+    alignItems: 'center',
+    gap: '2px',
+    overflowX: 'auto',
+    whiteSpace: 'nowrap',
+    pointerEvents: 'auto',
+  });
+  root.append(captureToolbar);
   document.documentElement.append(host);
   updatePointerMode();
   renderCaptureSelection();
@@ -568,7 +823,8 @@ const mount = (): void => {
         captureGesture = { kind: 'create', start };
         captureBounds = createCaptureBounds(start, start, captureViewport());
         screenshotMarks = [];
-        ipcRenderer.send('markfix:capture-marks-changed', screenshotMarks);
+        screenshotRedoMarks = [];
+        emitScreenshotMarks();
       }
       renderCaptureSelection();
       surface?.setPointerCapture(event.pointerId);
@@ -644,7 +900,8 @@ const mount = (): void => {
       const mark = isClickTool || distance >= 8 ? markFromGesture(gesture, true) : undefined;
       if (mark) {
         screenshotMarks = [...screenshotMarks, mark];
-        ipcRenderer.send('markfix:capture-marks-changed', screenshotMarks);
+        screenshotRedoMarks = [];
+        emitScreenshotMarks();
       }
       renderCaptureSelection();
       if (surface?.hasPointerCapture(event.pointerId))
@@ -1061,6 +1318,16 @@ ipcRenderer.on('markfix:sync-capture-marks', (_event, payload: unknown) => {
   screenshotGesture = undefined;
   renderCaptureSelection();
 });
+ipcRenderer.on('markfix:clear-capture-selection', () => {
+  captureBounds = undefined;
+  captureGesture = undefined;
+  screenshotGesture = undefined;
+  screenshotMarks = [];
+  screenshotRedoMarks = [];
+  renderCaptureSelection();
+  emitCaptureSelection();
+  emitScreenshotMarks();
+});
 ipcRenderer.on('markfix:set-recorder', (_event, payload: unknown) => {
   const candidate = payload as { enabled?: unknown; pageRevision?: unknown };
   if (typeof candidate.enabled !== 'boolean' || typeof candidate.pageRevision !== 'string') return;
@@ -1081,11 +1348,13 @@ ipcRenderer.on('markfix:set-overlay-hidden', (_event, payload: unknown) => {
   const host = document.documentElement.querySelector<HTMLElement>(`[${hostAttribute}]`);
   if (!host) return;
   host.style.visibility = candidate.hidden ? 'hidden' : 'visible';
-  window.requestAnimationFrame(() =>
-    ipcRenderer.send('markfix:overlay-visibility-changed', {
-      requestId: candidate.requestId,
-      hidden: candidate.hidden,
-    }),
+  window.setTimeout(
+    () =>
+      ipcRenderer.send('markfix:overlay-visibility-changed', {
+        requestId: candidate.requestId,
+        hidden: candidate.hidden,
+      }),
+    0,
   );
 });
 ipcRenderer.on('markfix:resolve-anchor', (_event, payload: unknown) => {

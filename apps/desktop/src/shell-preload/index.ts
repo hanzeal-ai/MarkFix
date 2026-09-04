@@ -10,6 +10,7 @@ import {
   type ScreenshotMark,
   type ScreenshotStyle,
   type ScreenshotTool,
+  type SavedCapture,
 } from '@markfix/contracts';
 
 const subscribe = (channel: string, listener: (payload: unknown) => void): (() => void) => {
@@ -38,6 +39,14 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(ipcChannels.setCaptureStyle, style),
   syncCaptureMarks: (marks: ScreenshotMark[]) =>
     ipcRenderer.invoke(ipcChannels.syncCaptureMarks, marks),
+  clearCaptureSelection: () => ipcRenderer.invoke(ipcChannels.clearCaptureSelection),
+  copyCaptureImage: (dataUrl: string) => ipcRenderer.invoke(ipcChannels.copyCaptureImage, dataUrl),
+  saveCaptureImage: (dataUrl: string, suggestedName: string) =>
+    ipcRenderer.invoke(ipcChannels.saveCaptureImage, { dataUrl, suggestedName }),
+  listCaptureRecords: () => ipcRenderer.invoke(ipcChannels.listCaptureRecords),
+  saveCaptureRecord: (capture: SavedCapture) =>
+    ipcRenderer.invoke(ipcChannels.saveCaptureRecord, capture),
+  deleteCaptureRecord: (id: string) => ipcRenderer.invoke(ipcChannels.deleteCaptureRecord, id),
   setRecording: (enabled: boolean) => ipcRenderer.invoke(ipcChannels.setRecording, enabled),
   syncAnnotations: (annotations: Annotation[]) =>
     ipcRenderer.invoke(ipcChannels.syncAnnotations, annotations),
@@ -58,6 +67,8 @@ contextBridge.exposeInMainWorld('markfix', {
     subscribe(ipcChannels.captureSelection, listener),
   onCaptureMarksChanged: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.captureMarksChanged, listener),
+  onCaptureAction: (listener: (payload: unknown) => void) =>
+    subscribe(ipcChannels.captureAction, listener),
   onRecorderEvent: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.recorderEvent, listener),
   onAnnotationCreated: (listener: (payload: unknown) => void) =>

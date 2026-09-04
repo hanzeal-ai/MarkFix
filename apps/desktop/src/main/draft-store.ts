@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import type { SavedCapture } from '@markfix/contracts';
 import { retryDelayMs } from './sync-policy.js';
 
 export type OutboxEntry = {
@@ -34,6 +35,14 @@ export class DraftStore {
         updated_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS outbox_due_idx ON outbox(status, next_attempt_at);
+      CREATE TABLE IF NOT EXISTS capture_annotations (
+        id TEXT PRIMARY KEY,
+        page_url TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS capture_annotations_page_idx
+        ON capture_annotations(page_url, created_at);
     `);
   }
 
@@ -55,6 +64,26 @@ export class DraftStore {
 
   clear(): void {
     this.database.prepare('DELETE FROM drafts WHERE id = ?').run('current');
+  }
+
+  listCaptures(): SavedCapture[] {
+    const rows = this.database
+      .prepare('SELECT payload FROM capture_annotations ORDER BY created_at ASC')
+      .all() as Array<{ payload: string }>;
+    return rows.map(({ payload }) => JSON.parse(payload) as SavedCapture);
+  }
+
+  saveCapture(capture: SavedCapture): void {
+    this.database
+      .prepare(
+        `INSERT INTO capture_annotations (id, page_url, payload, created_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET page_url = excluded.page_url, payload = excluded.payload`,
+      )
+      .run(capture.id, capture.pageUrl, JSON.stringify(capture), capture.createdAt);
+  }
+
+  deleteCapture(id: string): void {
+    this.database.prepare('DELETE FROM capture_annotations WHERE id = ?').run(id);
   }
 
   enqueue(payload: unknown, requestHash: string): OutboxEntry {
