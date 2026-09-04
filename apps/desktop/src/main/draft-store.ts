@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import type { SavedCapture, SavedElementComment } from '@markfix/contracts';
+import type { AnnotationSubmission, SavedCapture, SavedElementComment } from '@markfix/contracts';
 import { retryDelayMs } from './sync-policy.js';
 
 export type OutboxEntry = {
@@ -52,6 +52,13 @@ export class DraftStore {
       );
       CREATE INDEX IF NOT EXISTS element_comments_page_idx
         ON element_comments(page_url, created_at);
+      CREATE TABLE IF NOT EXISTS annotation_submissions (
+        id TEXT PRIMARY KEY,
+        payload TEXT NOT NULL,
+        submitted_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS annotation_submissions_date_idx
+        ON annotation_submissions(submitted_at);
     `);
   }
 
@@ -123,6 +130,24 @@ export class DraftStore {
 
   deleteElementComment(id: string): void {
     this.database.prepare('DELETE FROM element_comments WHERE id = ?').run(id);
+  }
+
+  saveAnnotationSubmission(submission: AnnotationSubmission): void {
+    const transaction = this.database.transaction(() => {
+      for (const comment of submission.elementComments) this.saveElementComment(comment);
+      for (const capture of submission.captures) this.saveCapture(capture);
+      this.database
+        .prepare(`INSERT INTO annotation_submissions (id, payload, submitted_at) VALUES (?, ?, ?)`)
+        .run(submission.id, JSON.stringify(submission), submission.submittedAt);
+    });
+    transaction();
+  }
+
+  listAnnotationSubmissions(): AnnotationSubmission[] {
+    const rows = this.database
+      .prepare('SELECT payload FROM annotation_submissions ORDER BY submitted_at ASC')
+      .all() as Array<{ payload: string }>;
+    return rows.map(({ payload }) => JSON.parse(payload) as AnnotationSubmission);
   }
 
   enqueue(payload: unknown, requestHash: string): OutboxEntry {

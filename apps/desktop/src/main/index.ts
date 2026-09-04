@@ -15,6 +15,7 @@ import {
 } from 'electron';
 import {
   anchorSchema,
+  annotationSubmissionSchema,
   annotationSchema,
   annotationToolSchema,
   browserModeSchema,
@@ -484,6 +485,17 @@ const registerIpc = (): void => {
     assertShellSender(event);
     currentElementComments = savedElementCommentSchema.array().max(500).parse(input);
     websiteView?.webContents.send('markfix:render-element-comments', currentElementComments);
+  });
+  ipcMain.handle(ipcChannels.saveAnnotationSubmission, (event, input: unknown) => {
+    assertShellSender(event);
+    const submission = annotationSubmissionSchema.parse(input);
+    for (const capture of submission.captures) decodeScreenshotDataUrl(capture.dataUrl);
+    draftStore?.saveAnnotationSubmission(submission);
+  });
+  ipcMain.handle(ipcChannels.setAnnotationReviewOpen, (event, input: unknown) => {
+    assertShellSender(event);
+    if (typeof input !== 'boolean') throw new Error('Invalid annotation review state');
+    websiteView?.setVisible(!input);
   });
   ipcMain.handle(ipcChannels.setRecording, (event, input: unknown) => {
     assertShellSender(event);

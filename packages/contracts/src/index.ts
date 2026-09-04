@@ -150,6 +150,18 @@ export const savedElementCommentSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
+export const annotationSubmissionSchema = z
+  .object({
+    id: z.uuid(),
+    elementComments: z.array(savedElementCommentSchema).max(500),
+    captures: z.array(savedCaptureSchema).max(500),
+    submittedAt: z.iso.datetime(),
+  })
+  .refine(
+    ({ elementComments, captures }) => elementComments.length + captures.length > 0,
+    'At least one annotation is required',
+  );
+
 export const reproductionStepSchema = z.object({
   id: z.uuid(),
   type: z.enum(['click', 'input', 'select', 'scroll', 'drag', 'navigation', 'wait', 'manual']),
@@ -391,6 +403,8 @@ export const ipcChannels = {
   saveElementComment: 'element-comment:save',
   deleteElementComment: 'element-comment:delete',
   syncElementComments: 'element-comment:sync',
+  saveAnnotationSubmission: 'annotation-submission:save',
+  setAnnotationReviewOpen: 'annotation-review:set-open',
   syncStatus: 'sync:status',
 } as const;
 
@@ -413,6 +427,7 @@ export type ScreenshotMark = z.infer<typeof screenshotMarkSchema>;
 export type ScreenshotStyle = z.infer<typeof screenshotStyleSchema>;
 export type SavedCapture = z.infer<typeof savedCaptureSchema>;
 export type SavedElementComment = z.infer<typeof savedElementCommentSchema>;
+export type AnnotationSubmission = z.infer<typeof annotationSubmissionSchema>;
 export type BrowserMode = z.infer<typeof browserModeSchema>;
 export type CaptureBundle = z.infer<typeof captureBundleSchema>;
 export type CaptureContext = z.infer<typeof captureContextSchema>;

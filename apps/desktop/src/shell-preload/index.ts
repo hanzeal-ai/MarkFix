@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   ipcChannels,
   type Annotation,
+  type AnnotationSubmission,
   type AnnotationTool,
   type Anchor,
   type BrowserMode,
@@ -57,6 +58,10 @@ contextBridge.exposeInMainWorld('markfix', {
   deleteElementComment: (id: string) => ipcRenderer.invoke(ipcChannels.deleteElementComment, id),
   syncElementComments: (comments: SavedElementComment[]) =>
     ipcRenderer.invoke(ipcChannels.syncElementComments, comments),
+  saveAnnotationSubmission: (submission: AnnotationSubmission) =>
+    ipcRenderer.invoke(ipcChannels.saveAnnotationSubmission, submission),
+  setAnnotationReviewOpen: (open: boolean) =>
+    ipcRenderer.invoke(ipcChannels.setAnnotationReviewOpen, open),
   setRecording: (enabled: boolean) => ipcRenderer.invoke(ipcChannels.setRecording, enabled),
   syncAnnotations: (annotations: Annotation[]) =>
     ipcRenderer.invoke(ipcChannels.syncAnnotations, annotations),

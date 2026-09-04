@@ -1,5 +1,6 @@
 import type {
   Annotation,
+  AnnotationSubmission,
   AnnotationTool,
   Anchor,
   BrowserMode,
@@ -55,6 +56,8 @@ declare global {
       saveElementComment(comment: SavedElementComment): Promise<void>;
       deleteElementComment(id: string): Promise<void>;
       syncElementComments(comments: SavedElementComment[]): Promise<void>;
+      saveAnnotationSubmission(submission: AnnotationSubmission): Promise<void>;
+      setAnnotationReviewOpen(open: boolean): Promise<void>;
       setRecording(enabled: boolean): Promise<void>;
       syncAnnotations(annotations: Annotation[]): Promise<void>;
       syncAnchor(anchor: Anchor | null): Promise<void>;

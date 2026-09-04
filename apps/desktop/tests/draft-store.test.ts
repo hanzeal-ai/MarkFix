@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SavedCapture, SavedElementComment } from '@markfix/contracts';
+import type { AnnotationSubmission, SavedCapture, SavedElementComment } from '@markfix/contracts';
 import { DraftStore } from '../src/main/draft-store.js';
 
 const temporaryDirectories: string[] = [];
@@ -113,6 +113,55 @@ describe('DraftStore element comments', () => {
 
     store.deleteElementComment(comment.id);
     expect(store.listElementComments()).toEqual([]);
+    store.close();
+  });
+});
+
+describe('DraftStore annotation submissions', () => {
+  it('persists the selected comments and screenshots as one submission', () => {
+    const store = createStore();
+    const submittedAt = '2026-09-04T09:00:00.000Z';
+    const submission: AnnotationSubmission = {
+      id: '65f6407e-9a65-47b5-a70a-f624813a1bbc',
+      elementComments: [
+        {
+          id: '80da5ff9-aa0e-4550-b5c8-d3f32fe15749',
+          pageUrl: 'https://example.com/page-a',
+          anchor: {
+            kind: 'element',
+            cssSelector: '[id="headline"]',
+            textQuote: 'Headline',
+            tagName: 'h1',
+            attributes: { id: 'headline' },
+            documentUrl: 'https://example.com/page-a',
+            framePath: [],
+            quadsCssPx: [[10, 20, 210, 20, 210, 80, 10, 80]],
+          },
+          note: '标题需要修改',
+          createdAt: submittedAt,
+          updatedAt: submittedAt,
+        },
+      ],
+      captures: [
+        {
+          id: '1c7e34ce-bdf0-471d-894d-447208f308f9',
+          pageUrl: 'https://example.com/page-b',
+          note: '截图中的按钮需要调整',
+          dataUrl: 'data:image/png;base64,AA==',
+          widthCssPx: 320,
+          heightCssPx: 180,
+          marks: [],
+          createdAt: submittedAt,
+        },
+      ],
+      submittedAt,
+    };
+
+    store.saveAnnotationSubmission(submission);
+
+    expect(store.listAnnotationSubmissions()).toEqual([submission]);
+    expect(store.listElementComments()).toEqual(submission.elementComments);
+    expect(store.listCaptures()).toEqual(submission.captures);
     store.close();
   });
 });

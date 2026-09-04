@@ -280,6 +280,243 @@ textarea {
   border-color: #c9c4ff;
   background: #eeecff;
 }
+.tools button.save-annotations-button {
+  border-color: #5b52e8;
+  background: #5b52e8;
+  color: #fff;
+}
+.tools button.save-annotations-button:hover {
+  border-color: #4238d4;
+  background: #4238d4;
+}
+.annotation-save-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  background: rgba(28, 29, 36, 0.42);
+  backdrop-filter: blur(2px);
+  -webkit-app-region: no-drag;
+}
+.annotation-save-dialog {
+  width: min(840px, calc(100vw - 80px));
+  max-height: min(760px, calc(100vh - 80px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #dddff0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(25, 26, 29, 0.24);
+}
+.annotation-save-dialog > header,
+.annotation-save-dialog > footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+}
+.annotation-save-dialog > header {
+  border-bottom: 1px solid #e7e8ee;
+}
+.annotation-save-dialog h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.annotation-save-dialog header p {
+  margin: 5px 0 0;
+  color: #7b7f89;
+  font-size: 12px;
+}
+.annotation-save-dialog button {
+  border: 1px solid #e2e4e9;
+  border-radius: 9px;
+  background: #fff;
+  color: #191a1d;
+  cursor: pointer;
+}
+.annotation-save-dialog header > button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+}
+.annotation-save-dialog header > button svg {
+  width: 17px;
+  height: 17px;
+}
+.annotation-save-summary {
+  flex: 0 0 auto;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  border-bottom: 1px solid #eeeff3;
+  background: #fafaff;
+  color: #6a6e78;
+  font-size: 12px;
+}
+.annotation-save-summary label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #33353b;
+  font-weight: 600;
+}
+.annotation-save-summary input,
+.annotation-save-item > input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #5b52e8;
+}
+.annotation-save-list {
+  flex: 1 1 auto;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 16px 22px;
+  background: #f7f8fa;
+}
+.annotation-save-item {
+  display: grid;
+  grid-template-columns: 18px 132px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 112px;
+  padding: 12px;
+  border: 1px solid #e2e4e9;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+.annotation-save-item.selected {
+  border-color: #b8b3ff;
+  background: #f8f7ff;
+  box-shadow: 0 0 0 1px rgba(91, 82, 232, 0.08);
+}
+.annotation-save-item > img,
+.annotation-save-item-icon {
+  width: 132px;
+  height: 86px;
+  border: 1px solid #e2e4e9;
+  border-radius: 9px;
+  background: #fff;
+}
+.annotation-save-item > img {
+  display: block;
+  object-fit: cover;
+}
+.annotation-save-item-icon {
+  display: grid;
+  place-items: center;
+  background: #eeecff;
+  color: #5b52e8;
+}
+.annotation-save-item-icon svg {
+  width: 26px;
+  height: 26px;
+}
+.annotation-save-item-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.annotation-save-item-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.annotation-save-item-heading strong {
+  font-size: 14px;
+}
+.annotation-save-item-heading time,
+.annotation-save-item-meta,
+.annotation-save-item-url {
+  color: #858994;
+  font-size: 11px;
+}
+.annotation-save-item-note {
+  overflow: hidden;
+  color: #33353b;
+  font-size: 13px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annotation-save-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annotation-save-item-meta svg {
+  width: 13px;
+  height: 13px;
+}
+.annotation-save-item-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annotation-save-empty {
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: #90949d;
+}
+.annotation-save-empty svg {
+  width: 36px;
+  height: 36px;
+  color: #aaa5f3;
+}
+.annotation-save-empty strong {
+  color: #4b4e57;
+}
+.annotation-save-empty span {
+  font-size: 12px;
+}
+.annotation-save-dialog > footer {
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #e7e8ee;
+}
+.annotation-save-dialog > footer button {
+  min-width: 84px;
+  height: 38px;
+  padding: 0 16px;
+}
+.annotation-save-dialog > footer button.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-color: #5b52e8;
+  background: #5b52e8;
+  color: #fff;
+}
+.annotation-save-dialog > footer button.primary svg {
+  width: 15px;
+  height: 15px;
+}
+.annotation-save-dialog button:disabled,
+.annotation-save-item:has(input:disabled) {
+  cursor: default;
+  opacity: 0.58;
+}
 .comment-panel {
   position: fixed;
   z-index: 9;
