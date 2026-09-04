@@ -57,6 +57,13 @@ type BrowserState = { url?: string; loading?: boolean; error?: string };
 type CaptureMode = CaptureRequest['mode'];
 type DesktopUser = { id: string; email: string; displayName: string };
 
+const annotationName = (annotation: Annotation): string => {
+  if (annotation.type === 'pin') return `Pin ${annotation.label}`;
+  if (annotation.type === 'text') return annotation.text;
+  if (annotation.type === 'pen') return 'Freehand mark';
+  return annotation.type === 'arrow' ? 'Arrow' : 'Rectangle';
+};
+
 function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser) => void }) {
   const [email, setEmail] = useState('admin');
   const [password, setPassword] = useState('');
@@ -144,6 +151,7 @@ function AnnotationWorkspace({
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [redoStack, setRedoStack] = useState<Annotation[]>([]);
   const [activeTool, setActiveTool] = useState<AnnotationTool>('pin');
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string>();
   const [reproduction, setReproduction] = useState<ReproductionStep[]>([]);
   const [screenshot, setScreenshot] = useState<string>();
   const [captureMode, setCaptureMode] = useState<CaptureMode>('visible');
@@ -174,6 +182,7 @@ function AnnotationWorkspace({
     setDescription('');
     setAnchor(undefined);
     setAnnotations([]);
+    setSelectedAnnotationId(undefined);
     setRedoStack([]);
     setScreenshot(undefined);
     setReproduction([]);
@@ -238,8 +247,14 @@ function AnnotationWorkspace({
           current.some(({ id }) => id === parsed.data.id) ? current : [...current, parsed.data],
         );
         setRedoStack([]);
+        setSelectedAnnotationId(parsed.data.id);
         setModeState('browse');
         setNotice(`${parsed.data.type} annotation added.`);
+      }),
+      window.markfix.onAnnotationSelected((payload) => {
+        if (typeof payload !== 'string') return;
+        setSelectedAnnotationId(payload);
+        setNotice('Annotation selected on the page.');
       }),
       window.markfix.onAnchorRecovery((payload) => {
         const recovery = payload as {
@@ -363,7 +378,14 @@ function AnnotationWorkspace({
 
   useEffect(() => {
     void window.markfix.syncAnnotations(annotations);
+    setSelectedAnnotationId((current) =>
+      current && annotations.some(({ id }) => id === current) ? current : undefined,
+    );
   }, [annotations]);
+
+  useEffect(() => {
+    if (selectedAnnotationId) void window.markfix.focusAnnotation(selectedAnnotationId);
+  }, [selectedAnnotationId]);
 
   useEffect(() => {
     void window.markfix.syncAnchor(anchor ?? null);
@@ -780,6 +802,24 @@ function AnnotationWorkspace({
           </div>
           <span>{annotations.length}</span>
         </section>
+        {annotations.length > 0 && (
+          <section className="annotation-list" aria-label="Annotations">
+            {annotations.map((annotation, index) => (
+              <button
+                type="button"
+                key={annotation.id}
+                className={annotation.id === selectedAnnotationId ? 'selected' : ''}
+                onClick={() => setSelectedAnnotationId(annotation.id)}
+              >
+                <span style={{ background: annotation.color }}>{index + 1}</span>
+                <span>
+                  <strong>{annotationName(annotation)}</strong>
+                  <small>{annotation.type}</small>
+                </span>
+              </button>
+            ))}
+          </section>
+        )}
         <label className="field">
           <span>Title</span>
           <input

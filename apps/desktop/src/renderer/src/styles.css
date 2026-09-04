@@ -246,6 +246,7 @@ textarea {
   flex-direction: column;
   gap: 19px;
   box-shadow: -12px 0 34px rgba(28, 40, 34, 0.06);
+  overflow-y: auto;
 }
 .panel-heading {
   display: flex;
@@ -404,6 +405,59 @@ textarea {
   place-items: center;
   font-size: 10px;
   font-weight: 700;
+}
+.annotation-list {
+  display: grid;
+  gap: 6px;
+  max-height: 132px;
+  overflow-y: auto;
+}
+.annotation-list button {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid #daddd7;
+  border-radius: 8px;
+  background: white;
+  color: #37413c;
+  text-align: left;
+}
+.annotation-list button:hover,
+.annotation-list button.selected {
+  border-color: #98aa80;
+  background: #f1f6e9;
+}
+.annotation-list button > span:first-child {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+}
+.annotation-list button > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.annotation-list strong,
+.annotation-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annotation-list strong {
+  font-size: 11px;
+}
+.annotation-list small {
+  color: #89918c;
+  font-size: 9px;
+  text-transform: capitalize;
 }
 .field {
   display: grid;

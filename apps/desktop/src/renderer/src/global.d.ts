@@ -35,6 +35,7 @@ declare global {
       setRecording(enabled: boolean): Promise<void>;
       syncAnnotations(annotations: Annotation[]): Promise<void>;
       syncAnchor(anchor: Anchor | null): Promise<void>;
+      focusAnnotation(annotationId: string): Promise<void>;
       capture(request: CaptureRequest): Promise<
         CaptureContext & {
           dataUrl: string;
@@ -55,6 +56,7 @@ declare global {
       onRegion(listener: (payload: unknown) => void): () => void;
       onRecorderEvent(listener: (payload: unknown) => void): () => void;
       onAnnotationCreated(listener: (payload: unknown) => void): () => void;
+      onAnnotationSelected(listener: (payload: unknown) => void): () => void;
       onAnchorRecovery(listener: (payload: unknown) => void): () => void;
       onSyncStatus(listener: (payload: unknown) => void): () => void;
     };

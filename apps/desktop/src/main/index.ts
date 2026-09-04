@@ -401,6 +401,13 @@ const registerIpc = (): void => {
         force: false,
       });
   });
+  ipcMain.handle(ipcChannels.focusAnnotation, (event, input: unknown) => {
+    assertShellSender(event);
+    if (typeof input !== 'string' || !currentAnnotations.some(({ id }) => id === input)) {
+      throw new Error('Unknown annotation');
+    }
+    websiteView?.webContents.send('markfix:focus-annotation', input);
+  });
   ipcMain.handle(ipcChannels.capture, async (event, input: unknown) => {
     assertShellSender(event);
     if (!captureService) throw new Error('Capture service is unavailable');
@@ -466,6 +473,11 @@ const registerIpc = (): void => {
     currentAnnotations = [...currentAnnotations, parsed.data];
     sendShell(ipcChannels.annotationCreated, parsed.data);
     websiteView?.webContents.send('markfix:render-annotations', currentAnnotations);
+  });
+  ipcMain.on('markfix:target-annotation-selected', (event, input: unknown) => {
+    if (event.sender.id !== websiteView?.webContents.id || typeof input !== 'string') return;
+    if (!currentAnnotations.some(({ id }) => id === input)) return;
+    sendShell(ipcChannels.annotationSelected, input);
   });
   ipcMain.on('markfix:overlay-visibility-changed', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;

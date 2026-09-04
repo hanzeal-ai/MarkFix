@@ -294,6 +294,8 @@ export const ipcChannels = {
   syncAnchor: 'anchor:sync',
   setAnnotationTool: 'annotation:set-tool',
   setRecording: 'recorder:set-recording',
+  focusAnnotation: 'annotation:focus',
+  annotationSelected: 'annotation:selected',
   syncStatus: 'sync:status',
 } as const;
 

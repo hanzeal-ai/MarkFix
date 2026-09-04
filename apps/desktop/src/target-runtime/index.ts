@@ -26,6 +26,8 @@ let dragOrigin: { target: Element; x: number; y: number } | undefined;
 let suppressClickUntil = 0;
 let trackedAnchor: ElementAnchor | undefined;
 let recoveryTimer: number | undefined;
+let renderedAnnotations: Annotation[] = [];
+let selectedAnnotationId: string | undefined;
 
 const svgElement = <K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] =>
   document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -38,6 +40,9 @@ const updatePointerMode = (): void => {
   if (!surface) return;
   surface.style.pointerEvents = mode === 'region' || mode === 'draw' ? 'auto' : 'none';
   surface.style.cursor = mode === 'region' || mode === 'draw' ? 'crosshair' : 'default';
+  surface.querySelectorAll<SVGGElement>('[data-markfix-annotation-id]').forEach((item) => {
+    item.style.pointerEvents = mode === 'browse' ? 'visiblePainted' : 'none';
+  });
 };
 
 const pointsAttribute = (points: readonly Point[]): string =>
@@ -123,10 +128,29 @@ const renderAnnotation = (annotation: Annotation, group: SVGGElement): void => {
 
 const renderAnnotations = (annotations: Annotation[]): void => {
   if (!surface) return;
+  renderedAnnotations = annotations;
   surface.querySelector(`#${annotationGroupId}`)?.remove();
   const group = svgElement('g');
   group.id = annotationGroupId;
-  annotations.forEach((annotation) => renderAnnotation(annotation, group));
+  annotations.forEach((annotation) => {
+    const item = svgElement('g');
+    item.setAttribute('data-markfix-annotation-id', annotation.id);
+    item.style.cursor = 'pointer';
+    item.style.pointerEvents = mode === 'browse' ? 'visiblePainted' : 'none';
+    if (annotation.id === selectedAnnotationId) {
+      item.style.filter = `drop-shadow(0 0 3px white) drop-shadow(0 0 6px ${annotation.color})`;
+    }
+    item.addEventListener('click', (event) => {
+      if (mode !== 'browse') return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectedAnnotationId = annotation.id;
+      renderAnnotations(renderedAnnotations);
+      ipcRenderer.send('markfix:target-annotation-selected', annotation.id);
+    });
+    renderAnnotation(annotation, item);
+    group.append(item);
+  });
   surface.prepend(group);
 };
 
@@ -611,6 +635,11 @@ ipcRenderer.on('markfix:show-anchor', (_event, payload: AnchorPayload) => {
 });
 ipcRenderer.on('markfix:render-annotations', (_event, payload: unknown) => {
   if (Array.isArray(payload)) renderAnnotations(payload as Annotation[]);
+});
+ipcRenderer.on('markfix:focus-annotation', (_event, payload: unknown) => {
+  if (typeof payload !== 'string' || !renderedAnnotations.some(({ id }) => id === payload)) return;
+  selectedAnnotationId = payload;
+  renderAnnotations(renderedAnnotations);
 });
 
 const observer = new MutationObserver(() => {
