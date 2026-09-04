@@ -8,6 +8,7 @@ const app = await NestFactory.create<NestFastifyApplication>(AppModule, new Fast
 });
 app.enableCors({
   origin: (process.env.MARKFIX_DASHBOARD_ORIGIN ?? 'http://localhost:4311').split(','),
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,
 });
 await app.listen(Number(process.env.PORT ?? 4310), '0.0.0.0');
