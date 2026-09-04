@@ -465,8 +465,8 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   }, [selectedAnnotationId]);
 
   useEffect(() => {
-    void window.markfix.syncAnchor(anchor ?? null);
-  }, [anchor]);
+    void window.markfix.syncAnchor(mode === 'comment' ? (anchor ?? null) : null);
+  }, [anchor, mode]);
 
   useEffect(() => {
     void window.markfix.syncCaptureMarks(captureMarks);
