@@ -55,6 +55,7 @@ type AnnotationKind = 'ELEMENT' | 'SCREENSHOT' | 'COMMENT';
 
 type ManagedAnnotation = {
   id: string;
+  sourceReportId: string | null;
   projectId: string;
   authorId: string | null;
   author: { id: string; displayName: string; email: string } | null;
@@ -379,6 +380,7 @@ function AnnotationEditor({
                     标注类型
                     <NativeSelect
                       value={kind}
+                      disabled={Boolean(annotation?.sourceReportId)}
                       onChange={(event) => setKind(event.target.value as AnnotationKind)}
                     >
                       {Object.entries(kindText).map(([value, label]) => (
@@ -631,18 +633,20 @@ function ProjectDrawer({
                           驳回
                         </Button>
                       )}
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className="delete-action"
-                        title="删除"
-                        onClick={() => {
-                          if (window.confirm(`确认删除“${annotation.title}”吗？此操作无法撤销。`))
-                            remove.mutate(annotation.id);
-                        }}
-                      >
-                        <Trash2 />
-                      </Button>
+                      {!annotation.sourceReportId && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="delete-action"
+                          title="删除"
+                          onClick={() => {
+                            if (window.confirm(`确认删除“${annotation.title}”吗？此操作无法撤销。`))
+                              remove.mutate(annotation.id);
+                          }}
+                        >
+                          <Trash2 />
+                        </Button>
+                      )}
                     </div>
                   )}
                 </Card>

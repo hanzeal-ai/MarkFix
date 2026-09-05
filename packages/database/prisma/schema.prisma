@@ -235,6 +235,7 @@ model Report {
   title          String
   description    String
   status         ReportStatus     @default(OPEN)
+  rejectionReason String?
   priority       ReportPriority   @default(MEDIUM)
   version        Int              @default(1)
   captureBundle  Json

@@ -102,6 +102,104 @@ describe('commercial annotation management', () => {
     });
   });
 
+  it('refreshes imported annotations when the source report changes', async () => {
+    const workspaceId = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+    const reportId = crypto.randomUUID();
+    const annotationId = crypto.randomUUID();
+    const update = vi.fn().mockResolvedValue({ id: annotationId });
+    const service = new CommercialService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue(managerMembership),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      project: { findMany: vi.fn().mockResolvedValue([]) },
+      report: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: reportId,
+            projectId,
+            reporterId: null,
+            title: 'Updated source title',
+            description: 'Updated source note',
+            status: 'CLOSED',
+            rejectionReason: 'Not planned',
+            captureBundle: { page: { url: 'https://example.test/updated' }, annotations: [] },
+            createdAt: new Date('2026-09-05T00:00:00.000Z'),
+          },
+        ]),
+      },
+      managedAnnotation: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: annotationId,
+            sourceReportId: reportId,
+            projectId,
+            authorId: null,
+            title: 'Old title',
+            note: 'Old note',
+            kind: 'COMMENT',
+            pageUrl: 'https://example.test/old',
+            status: 'OPEN',
+            rejectionReason: null,
+          },
+        ]),
+        createMany: vi.fn(),
+        update,
+      },
+      $transaction: vi.fn((operations) => Promise.all(operations)),
+    } as never);
+
+    await service.overview('admin-1', workspaceId);
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: annotationId },
+      data: expect.objectContaining({
+        title: 'Updated source title',
+        note: 'Updated source note',
+        status: 'REJECTED',
+        rejectionReason: 'Not planned',
+      }),
+    });
+  });
+
+  it('writes rejection decisions back to submitted reports and keeps them immutable', async () => {
+    const workspaceId = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+    const annotationId = crypto.randomUUID();
+    const reportId = crypto.randomUUID();
+    const managedUpdate = vi.fn().mockResolvedValue({ id: annotationId, status: 'REJECTED' });
+    const reportUpdate = vi.fn().mockResolvedValue({ id: reportId, status: 'CLOSED' });
+    const remove = vi.fn();
+    const service = new CommercialService({
+      managedAnnotation: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: annotationId,
+          projectId,
+          sourceReportId: reportId,
+          project: { id: projectId, workspaceId },
+        }),
+        update: managedUpdate,
+        delete: remove,
+      },
+      report: { update: reportUpdate },
+      project: { findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId }) },
+      membership: { findUnique: vi.fn().mockResolvedValue(managerMembership) },
+      $transaction: vi.fn((operations) => Promise.all(operations)),
+    } as never);
+
+    await service.rejectAnnotation('admin-1', annotationId, { reason: 'Not part of this release' });
+
+    expect(reportUpdate).toHaveBeenCalledWith({
+      where: { id: reportId },
+      data: { status: 'CLOSED', rejectionReason: 'Not part of this release' },
+    });
+    await expect(service.deleteAnnotation('admin-1', annotationId)).rejects.toThrow(
+      'Submitted annotations cannot be deleted',
+    );
+    expect(remove).not.toHaveBeenCalled();
+  });
+
   it('allows managers to create an annotation in their project', async () => {
     const workspaceId = crypto.randomUUID();
     const projectId = crypto.randomUUID();

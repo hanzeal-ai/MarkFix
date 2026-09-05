@@ -131,6 +131,42 @@ export class CommercialService implements OnApplicationBootstrap {
       Object.entries(parsed.data).filter(([, value]) => value !== undefined),
     ) as Prisma.ManagedAnnotationUncheckedUpdateInput;
     if (parsed.data.status) data.rejectionReason = null;
+    if (annotation.sourceReportId) {
+      const report = await this.database.report.findUnique({
+        where: { id: annotation.sourceReportId },
+        select: { captureBundle: true },
+      });
+      if (!report) throw new NotFoundException('Source report not found');
+      const captureBundle = report.captureBundle as {
+        page?: Record<string, unknown>;
+        [key: string]: unknown;
+      };
+      const reportData: Prisma.ReportUncheckedUpdateInput = {
+        ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
+        ...(parsed.data.note !== undefined ? { description: parsed.data.note } : {}),
+        ...(parsed.data.authorId !== undefined ? { reporterId: parsed.data.authorId } : {}),
+        ...(parsed.data.status !== undefined
+          ? { status: this.reportStatus(parsed.data.status), rejectionReason: null }
+          : {}),
+        ...(parsed.data.pageUrl !== undefined
+          ? {
+              captureBundle: {
+                ...captureBundle,
+                page: { ...captureBundle.page, url: parsed.data.pageUrl },
+              } as Prisma.InputJsonValue,
+            }
+          : {}),
+      };
+      const [updated] = await this.database.$transaction([
+        this.database.managedAnnotation.update({
+          where: { id: annotationId },
+          data,
+          include: annotationInclude,
+        }),
+        this.database.report.update({ where: { id: annotation.sourceReportId }, data: reportData }),
+      ]);
+      return updated;
+    }
     return this.database.managedAnnotation.update({
       where: { id: annotationId },
       data,
@@ -139,9 +175,23 @@ export class CommercialService implements OnApplicationBootstrap {
   }
 
   async rejectAnnotation(userId: string, annotationId: string, input: unknown) {
-    await this.requireAnnotationManager(userId, annotationId);
+    const annotation = await this.requireAnnotationManager(userId, annotationId);
     const parsed = rejectionSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message);
+    if (annotation.sourceReportId) {
+      const [updated] = await this.database.$transaction([
+        this.database.managedAnnotation.update({
+          where: { id: annotationId },
+          data: { status: 'REJECTED', rejectionReason: parsed.data.reason },
+          include: annotationInclude,
+        }),
+        this.database.report.update({
+          where: { id: annotation.sourceReportId },
+          data: { status: 'CLOSED', rejectionReason: parsed.data.reason },
+        }),
+      ]);
+      return updated;
+    }
     return this.database.managedAnnotation.update({
       where: { id: annotationId },
       data: { status: 'REJECTED', rejectionReason: parsed.data.reason },
@@ -150,7 +200,10 @@ export class CommercialService implements OnApplicationBootstrap {
   }
 
   async deleteAnnotation(userId: string, annotationId: string) {
-    await this.requireAnnotationManager(userId, annotationId);
+    const annotation = await this.requireAnnotationManager(userId, annotationId);
+    if (annotation.sourceReportId) {
+      throw new BadRequestException('Submitted annotations cannot be deleted; reject them instead');
+    }
     await this.database.managedAnnotation.delete({ where: { id: annotationId } });
     return { deleted: true };
   }
@@ -222,6 +275,7 @@ export class CommercialService implements OnApplicationBootstrap {
         title: true,
         description: true,
         status: true,
+        rejectionReason: true,
         captureBundle: true,
         createdAt: true,
       },
@@ -229,9 +283,20 @@ export class CommercialService implements OnApplicationBootstrap {
     if (!reports.length) return;
     const imported = await this.database.managedAnnotation.findMany({
       where: { sourceReportId: { in: reports.map(({ id }) => id) } },
-      select: { sourceReportId: true },
+      select: {
+        id: true,
+        sourceReportId: true,
+        projectId: true,
+        authorId: true,
+        title: true,
+        note: true,
+        kind: true,
+        pageUrl: true,
+        status: true,
+        rejectionReason: true,
+      },
     });
-    const importedIds = new Set(imported.map(({ sourceReportId }) => sourceReportId));
+    const importedByReport = new Map(imported.map((item) => [item.sourceReportId, item]));
     const statusMap = {
       OPEN: 'OPEN',
       IN_PROGRESS: 'IN_REVIEW',
@@ -239,32 +304,69 @@ export class CommercialService implements OnApplicationBootstrap {
       RESOLVED: 'RESOLVED',
       CLOSED: 'RESOLVED',
     } as const;
-    const pending = reports
-      .filter(({ id }) => !importedIds.has(id))
-      .map((report) => {
-        const captureBundle = report.captureBundle as {
-          page?: { url?: unknown };
-          annotations?: unknown[];
-        };
-        const pageUrl =
-          typeof captureBundle.page?.url === 'string'
-            ? captureBundle.page.url
-            : 'https://markfix.local';
-        return {
-          sourceReportId: report.id,
-          projectId: report.projectId,
-          authorId: report.reporterId,
-          title: report.title,
-          note: report.description,
-          kind: captureBundle.annotations?.length ? ('SCREENSHOT' as const) : ('COMMENT' as const),
-          pageUrl,
-          status: statusMap[report.status],
-          createdAt: report.createdAt,
-        };
-      });
+    const synchronized = reports.map((report) => {
+      const captureBundle = report.captureBundle as {
+        page?: { url?: unknown };
+        annotations?: unknown[];
+      };
+      const pageUrl =
+        typeof captureBundle.page?.url === 'string'
+          ? captureBundle.page.url
+          : 'https://markfix.local';
+      return {
+        sourceReportId: report.id,
+        projectId: report.projectId,
+        authorId: report.reporterId,
+        title: report.title,
+        note: report.description,
+        kind: captureBundle.annotations?.length ? ('SCREENSHOT' as const) : ('COMMENT' as const),
+        pageUrl,
+        status: report.rejectionReason ? ('REJECTED' as const) : statusMap[report.status],
+        rejectionReason: report.rejectionReason,
+        createdAt: report.createdAt,
+      };
+    });
+    const pending = synchronized.filter(
+      ({ sourceReportId }) => !importedByReport.has(sourceReportId),
+    );
     if (pending.length) {
       await this.database.managedAnnotation.createMany({ data: pending, skipDuplicates: true });
     }
+    const updates = synchronized.flatMap((next) => {
+      const current = importedByReport.get(next.sourceReportId);
+      if (!current) return [];
+      const changed =
+        current.projectId !== next.projectId ||
+        current.authorId !== next.authorId ||
+        current.title !== next.title ||
+        current.note !== next.note ||
+        current.kind !== next.kind ||
+        current.pageUrl !== next.pageUrl ||
+        current.status !== next.status ||
+        current.rejectionReason !== next.rejectionReason;
+      return changed
+        ? [
+            this.database.managedAnnotation.update({
+              where: { id: current.id },
+              data: {
+                projectId: next.projectId,
+                authorId: next.authorId,
+                title: next.title,
+                note: next.note,
+                kind: next.kind,
+                pageUrl: next.pageUrl,
+                status: next.status,
+                rejectionReason: next.rejectionReason,
+              },
+            }),
+          ]
+        : [];
+    });
+    if (updates.length) await this.database.$transaction(updates);
+  }
+
+  private reportStatus(status: 'OPEN' | 'IN_REVIEW' | 'RESOLVED') {
+    return status === 'IN_REVIEW' ? ('IN_PROGRESS' as const) : status;
   }
 
   private async seedLocalShowcase(): Promise<void> {
