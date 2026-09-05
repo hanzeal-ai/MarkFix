@@ -1,19 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@markfix/ui';
 import { History } from '@markfix/ui/icons';
-import type {
-  SavedCapture,
-  SavedDiagnosticAnnotation,
-  SavedElementComment,
-  WebsiteProject,
-} from '@markfix/contracts';
+import type { AnnotationHistorySummary, WebsiteProject } from '@markfix/contracts';
 import { HistoryPage } from './ProjectNavigation';
 
 export function HistoryWindow(): React.JSX.Element {
   const [projects, setProjects] = useState<WebsiteProject[]>([]);
-  const [captures, setCaptures] = useState<SavedCapture[]>([]);
-  const [diagnostics, setDiagnostics] = useState<SavedDiagnosticAnnotation[]>([]);
-  const [elementComments, setElementComments] = useState<SavedElementComment[]>([]);
+  const [summaries, setSummaries] = useState<AnnotationHistorySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
 
@@ -21,16 +14,12 @@ export function HistoryWindow(): React.JSX.Element {
     let active = true;
     void Promise.all([
       window.markfix.listWebsiteProjects(),
-      window.markfix.listCaptureRecords(),
-      window.markfix.listElementComments(),
-      window.markfix.listDiagnosticAnnotations(),
+      window.markfix.listAnnotationHistorySummaries(),
     ])
-      .then(([savedProjects, savedCaptures, savedComments, savedDiagnostics]) => {
+      .then(([savedProjects, savedSummaries]) => {
         if (!active) return;
         setProjects(savedProjects);
-        setCaptures(savedCaptures);
-        setElementComments(savedComments);
-        setDiagnostics(savedDiagnostics);
+        setSummaries(savedSummaries);
       })
       .catch((cause: unknown) => {
         if (active) setError(cause instanceof Error ? cause.message : '无法读取历史标注。');
@@ -71,9 +60,7 @@ export function HistoryWindow(): React.JSX.Element {
       ) : (
         <HistoryPage
           projects={projects}
-          captures={captures}
-          diagnostics={diagnostics}
-          elementComments={elementComments}
+          summaries={summaries}
           onSelectProject={(project) => void openProject(project.id)}
         />
       )}

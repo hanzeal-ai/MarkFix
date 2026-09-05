@@ -1,74 +1,95 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
-  Camera,
   ChevronUp,
+  CornerDownLeft,
+  EllipsisVertical,
   History,
   LogOut,
-  MessageSquareText,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   Plus,
+  Search,
   Settings2,
   SquarePen,
-  Terminal,
   Trash2,
 } from '@markfix/ui/icons';
-import { Badge, Button, Card, Input, Label } from '@markfix/ui';
-import type {
-  SavedCapture,
-  SavedDiagnosticAnnotation,
-  SavedElementComment,
-  WebsiteProject,
-} from '@markfix/contracts';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+} from '@markfix/ui';
+import type { WebsiteProject } from '@markfix/contracts';
+import { MarkFixGlyph, WebsiteLogo } from './project-navigation/WebsiteLogo';
 
-export type ProjectAnnotation =
-  | { type: 'element'; record: SavedElementComment }
-  | { type: 'capture'; record: SavedCapture }
-  | { type: 'diagnostic'; record: SavedDiagnosticAnnotation };
+export { HistoryPage, ProjectHistoryDetail } from './project-navigation/HistoryPages';
+export { annotationCounts, projectAnnotations, type ProjectAnnotation } from './project-navigation/model';
 
-export const projectAnnotations = (
-  projectId: string,
-  elementComments: readonly SavedElementComment[],
-  captures: readonly SavedCapture[],
-  diagnostics: readonly SavedDiagnosticAnnotation[],
-): ProjectAnnotation[] =>
-  [
-    ...elementComments
-      .filter((record) => record.projectId === projectId)
-      .map((record) => ({ type: 'element' as const, record })),
-    ...captures
-      .filter((record) => record.projectId === projectId)
-      .map((record) => ({ type: 'capture' as const, record })),
-    ...diagnostics
-      .filter((record) => record.projectId === projectId)
-      .map((record) => ({ type: 'diagnostic' as const, record })),
-  ].sort((left, right) => right.record.updatedAt.localeCompare(left.record.updatedAt));
+type WebsiteShortcut = {
+  id: string;
+  name: string;
+  url: string;
+};
 
-export const annotationCounts = (annotations: readonly ProjectAnnotation[]) => ({
-  total: annotations.length,
-  draft: annotations.filter(({ record }) => record.status === 'draft').length,
-  submitted: annotations.filter(({ record }) => record.status === 'submitted').length,
-  rejected: annotations.filter(({ record }) => record.status === 'rejected').length,
-});
+const websiteShortcutsStorageKey = 'markfix.website-shortcuts.v1';
+const maximumWebsiteShortcuts = 12;
 
-function MarkFixGlyph(): React.JSX.Element {
-  return (
-    <span className="markfix-glyph" aria-hidden="true">
-      <MessageSquareText />
-    </span>
-  );
-}
+const normalizeShortcutUrl = (input: string): string => {
+  if (!input.trim()) throw new Error('请输入网站地址');
+  const candidate = /^[a-z][a-z\d+.-]*:/i.test(input.trim())
+    ? input.trim()
+    : `https://${input.trim()}`;
+  const parsed = new URL(candidate);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
+    throw new Error('仅支持 HTTP 或 HTTPS 网站地址');
+  return parsed.href;
+};
 
-export function WebsiteLogo({ project }: { project: WebsiteProject }): React.JSX.Element {
+const defaultWebsiteShortcuts = (projects: readonly WebsiteProject[]): WebsiteShortcut[] =>
+  projects.slice(0, maximumWebsiteShortcuts).map((project) => ({
+    id: project.id,
+    name: project.title,
+    url: project.entryUrl,
+  }));
+
+const loadWebsiteShortcuts = (projects: readonly WebsiteProject[]): WebsiteShortcut[] => {
+  try {
+    const stored = window.localStorage.getItem(websiteShortcutsStorageKey);
+    if (stored === null) return defaultWebsiteShortcuts(projects);
+    const parsed = JSON.parse(stored) as unknown;
+    if (!Array.isArray(parsed)) return defaultWebsiteShortcuts(projects);
+    return parsed
+      .filter(
+        (shortcut): shortcut is WebsiteShortcut =>
+          typeof shortcut === 'object' &&
+          shortcut !== null &&
+          typeof (shortcut as WebsiteShortcut).id === 'string' &&
+          typeof (shortcut as WebsiteShortcut).name === 'string' &&
+          typeof (shortcut as WebsiteShortcut).url === 'string',
+      )
+      .slice(0, maximumWebsiteShortcuts);
+  } catch {
+    return defaultWebsiteShortcuts(projects);
+  }
+};
+
+function ShortcutLogo({ shortcut }: { shortcut: WebsiteShortcut }): React.JSX.Element {
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [project.faviconUrl]);
+  const faviconUrl = useMemo(() => new URL('/favicon.ico', shortcut.url).href, [shortcut.url]);
+  useEffect(() => setFailed(false), [faviconUrl]);
   return (
     <span className="website-logo" aria-hidden="true">
-      {!failed && project.faviconUrl ? (
-        <img src={project.faviconUrl} alt="" onError={() => setFailed(true)} />
-      ) : (
-        <MarkFixGlyph />
-      )}
+      {!failed ? <img src={faviconUrl} alt="" onError={() => setFailed(true)} /> : <MarkFixGlyph />}
     </span>
   );
 }
@@ -138,39 +159,10 @@ export function ProjectSidebar({
   onLogout: () => Promise<void>;
 }): React.JSX.Element | null {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const accountAreaRef = useRef<HTMLDivElement>(null);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
   const initials = Array.from(user.displayName.trim() || user.email)
     .slice(0, 2)
     .join('')
     .toUpperCase();
-
-  useEffect(() => {
-    if (!accountMenuOpen) return;
-    const closeOnOutsideClick = (event: PointerEvent): void => {
-      if (!accountAreaRef.current?.contains(event.target as Node)) setAccountMenuOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      event.stopPropagation();
-      setAccountMenuOpen(false);
-    };
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [accountMenuOpen]);
-
-  useEffect(() => {
-    if (!accountMenuOpen) return;
-    const frame = window.requestAnimationFrame(() => {
-      accountMenuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [accountMenuOpen]);
 
   if (!expanded) return null;
 
@@ -237,73 +229,53 @@ export function ProjectSidebar({
         <span>历史标注</span>
       </Button>
 
-      <div className="project-sidebar-account-area" ref={accountAreaRef}>
-        {accountMenuOpen && (
-          <div
-            ref={accountMenuRef}
+      <div className="project-sidebar-account-area">
+        <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
+          <DropdownMenuContent
             className="account-menu"
-            role="menu"
+            side="top"
+            align="start"
+            sideOffset={8}
             aria-label="账号菜单"
-            onKeyDown={(event) => {
-              const items = Array.from(
-                event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
-              );
-              const index = items.indexOf(document.activeElement as HTMLButtonElement);
-              const direction = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
-              if (!direction || items.length === 0) return;
-              event.preventDefault();
-              items[(index + direction + items.length) % items.length]?.focus();
-            }}
           >
-            <div className="account-menu-profile">
+            <DropdownMenuLabel className="account-menu-profile">
               <span className="account-avatar">{initials}</span>
               <span>
                 <strong>{user.displayName}</strong>
                 <small>{user.email}</small>
               </span>
-            </div>
-            <div className="account-menu-separator" />
-            <Button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setAccountMenuOpen(false);
-                onOpenSettings();
-              }}
-            >
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="account-menu-separator" />
+            <DropdownMenuItem onSelect={onOpenSettings}>
               <Settings2 />
               <span>设置</span>
               <kbd>⌘,</kbd>
-            </Button>
-            <Button
-              type="button"
-              role="menuitem"
+            </DropdownMenuItem>
+            <DropdownMenuItem
               className="account-menu-logout"
-              onClick={() => {
-                setAccountMenuOpen(false);
+              onSelect={() => {
                 void onLogout();
               }}
             >
               <LogOut />
               <span>退出登录</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              className="project-sidebar-account"
+              aria-label={`账号：${user.displayName}`}
+            >
+              <span className="account-avatar">{initials}</span>
+              <span className="project-sidebar-account-copy">
+                <strong>{user.displayName}</strong>
+                <small>{user.email}</small>
+              </span>
+              <ChevronUp className={accountMenuOpen ? 'open' : ''} />
             </Button>
-          </div>
-        )}
-        <Button
-          type="button"
-          className="project-sidebar-account"
-          aria-label={`账号：${user.displayName}`}
-          aria-haspopup="menu"
-          aria-expanded={accountMenuOpen}
-          onClick={() => setAccountMenuOpen((open) => !open)}
-        >
-          <span className="account-avatar">{initials}</span>
-          <span className="project-sidebar-account-copy">
-            <strong>{user.displayName}</strong>
-            <small>{user.email}</small>
-          </span>
-          <ChevronUp className={accountMenuOpen ? 'open' : ''} />
-        </Button>
+          </DropdownMenuTrigger>
+        </DropdownMenu>
       </div>
     </nav>
   );
@@ -313,35 +285,144 @@ export function NewProjectPage({
   initialValue,
   busy,
   error,
+  projects,
   onSubmit,
+  onShortcut,
 }: {
   initialValue: string;
   busy: boolean;
   error: string | undefined;
+  projects: WebsiteProject[];
   onSubmit: (url: string) => void;
+  onShortcut: (url: string) => void;
 }): React.JSX.Element {
   const [value, setValue] = useState(initialValue);
+  const [shortcuts, setShortcuts] = useState<WebsiteShortcut[]>(() =>
+    loadWebsiteShortcuts(projects),
+  );
+  const shortcutPreferenceExistsRef = useRef(
+    window.localStorage.getItem(websiteShortcutsStorageKey) !== null,
+  );
+  const [openMenuId, setOpenMenuId] = useState<string>();
+  const [shortcutDialogMode, setShortcutDialogMode] = useState<'add' | 'edit'>();
+  const [editingShortcutId, setEditingShortcutId] = useState<string>();
+  const [shortcutName, setShortcutName] = useState('');
+  const [shortcutUrl, setShortcutUrl] = useState('');
+  const [shortcutError, setShortcutError] = useState<string>();
+  const [pendingDelete, setPendingDelete] = useState<WebsiteShortcut>();
+
   useEffect(() => setValue(initialValue), [initialValue]);
+  useEffect(() => {
+    if (shortcutPreferenceExistsRef.current || shortcuts.length > 0 || projects.length === 0)
+      return;
+    setShortcuts(defaultWebsiteShortcuts(projects));
+  }, [projects, shortcuts.length]);
+  useEffect(() => {
+    if (!shortcutPreferenceExistsRef.current && shortcuts.length === 0) return;
+    window.localStorage.setItem(websiteShortcutsStorageKey, JSON.stringify(shortcuts));
+    shortcutPreferenceExistsRef.current = true;
+  }, [shortcuts]);
   const submit = (event: FormEvent): void => {
     event.preventDefault();
     if (value.trim() && !busy) onSubmit(value.trim());
   };
+
+  const openShortcutDialog = (shortcut?: WebsiteShortcut): void => {
+    setOpenMenuId(undefined);
+    setShortcutError(undefined);
+    setEditingShortcutId(shortcut?.id);
+    setShortcutName(shortcut?.name ?? '');
+    setShortcutUrl(shortcut?.url ?? '');
+    setShortcutDialogMode(shortcut ? 'edit' : 'add');
+  };
+
+  const saveShortcut = (event: FormEvent): void => {
+    event.preventDefault();
+    const name = shortcutName.trim();
+    if (!name) {
+      setShortcutError('请输入快捷方式名称');
+      return;
+    }
+    let normalizedUrl: string;
+    try {
+      normalizedUrl = normalizeShortcutUrl(shortcutUrl);
+    } catch (shortcutValidationError) {
+      setShortcutError(
+        shortcutValidationError instanceof Error
+          ? shortcutValidationError.message
+          : '请输入有效的网站地址',
+      );
+      return;
+    }
+    if (
+      shortcuts.some(
+        (shortcut) => shortcut.id !== editingShortcutId && shortcut.url === normalizedUrl,
+      )
+    ) {
+      setShortcutError('该网址已存在于快捷方式中');
+      return;
+    }
+    if (shortcutDialogMode === 'edit' && editingShortcutId) {
+      setShortcuts((current) =>
+        current.map((shortcut) =>
+          shortcut.id === editingShortcutId
+            ? { ...shortcut, name: name.slice(0, 120), url: normalizedUrl }
+            : shortcut,
+        ),
+      );
+    } else {
+      if (shortcuts.length >= maximumWebsiteShortcuts) {
+        setShortcutError(`快捷方式最多只能添加 ${maximumWebsiteShortcuts} 个`);
+        return;
+      }
+      setShortcuts((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          name: name.slice(0, 120),
+          url: normalizedUrl,
+        },
+      ]);
+    }
+    setShortcutDialogMode(undefined);
+  };
+
+  const deleteShortcut = (): void => {
+    if (!pendingDelete) return;
+    setShortcuts((current) => current.filter(({ id }) => id !== pendingDelete.id));
+    setOpenMenuId(undefined);
+    setPendingDelete(undefined);
+  };
+
   return (
     <main className="navigation-page new-project-page">
-      <Card>
-        <form aria-label="新建标注" onSubmit={submit}>
-          <Label htmlFor="new-project-url">网站地址</Label>
-          <div>
+      <section className="new-project-home">
+        <header className="new-project-hero">
+          <h1>MarkFix</h1>
+        </header>
+
+        <form className="new-project-form" aria-label="新建标注" onSubmit={submit}>
+          <label className="new-project-visually-hidden" htmlFor="new-project-url">
+            网站地址
+          </label>
+          <div className="new-project-search">
+            <Search aria-hidden="true" />
             <Input
               id="new-project-url"
               autoFocus
               value={value}
-              placeholder="example.com 或 https://example.com/page"
+              placeholder="输入网站地址，例如 example.com"
               aria-describedby={error ? 'new-project-error' : undefined}
               onChange={(event) => setValue(event.target.value)}
             />
-            <Button type="submit" disabled={!value.trim() || busy}>
-              {busy ? '正在加载…' : '进入标注'}
+            <Button
+              className="new-project-submit"
+              type="submit"
+              aria-label={busy ? '正在打开网站' : '进入标注'}
+              title={busy ? '正在打开…' : '进入标注（回车）'}
+              disabled={!value.trim() || busy}
+            >
+              <CornerDownLeft aria-hidden="true" />
             </Button>
           </div>
           {error && (
@@ -350,168 +431,145 @@ export function NewProjectPage({
             </p>
           )}
         </form>
-      </Card>
-    </main>
-  );
-}
 
-function StatusBadge({ status }: { status: ProjectAnnotation['record']['status'] }) {
-  const text = status === 'draft' ? '未提交' : status === 'submitted' ? '已提交' : '驳回';
-  return (
-    <Badge variant="outline" className={`annotation-status ${status}`}>
-      {text}
-    </Badge>
-  );
-}
+        <section className="new-project-recents" aria-label="快捷入口">
+          <div className="new-project-shortcuts">
+            {shortcuts.map((shortcut) => (
+              <DropdownMenu
+                key={shortcut.id}
+                open={openMenuId === shortcut.id}
+                onOpenChange={(open) => setOpenMenuId(open ? shortcut.id : undefined)}
+              >
+                <div className="new-project-shortcut-card">
+                  <Button
+                    className="new-project-shortcut"
+                    type="button"
+                    variant="ghost"
+                    title={shortcut.name}
+                    onClick={() => onShortcut(shortcut.url)}
+                  >
+                    <ShortcutLogo shortcut={shortcut} />
+                    <strong>{shortcut.name}</strong>
+                  </Button>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      className="new-project-shortcut-menu-trigger"
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`管理快捷方式：${shortcut.name}`}
+                    >
+                      <EllipsisVertical />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="new-project-shortcut-menu"
+                    side="bottom"
+                    align="center"
+                    sideOffset={8}
+                    avoidCollisions={false}
+                  >
+                    <DropdownMenuItem onSelect={() => openShortcutDialog(shortcut)}>
+                      <Pencil /> 修改
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="danger"
+                      onSelect={() => {
+                        setOpenMenuId(undefined);
+                        setPendingDelete(shortcut);
+                      }}
+                    >
+                      <Trash2 /> 删除
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </div>
+              </DropdownMenu>
+            ))}
+            {shortcuts.length < maximumWebsiteShortcuts && (
+              <Button
+                className="new-project-shortcut new-project-shortcut-add"
+                type="button"
+                variant="ghost"
+                onClick={() => openShortcutDialog()}
+              >
+                <span className="website-logo" aria-hidden="true">
+                  <Plus />
+                </span>
+                <strong>添加快捷方式</strong>
+              </Button>
+            )}
+          </div>
+        </section>
+      </section>
 
-export function ProjectHistoryDetail({
-  project,
-  annotations,
-  onSelect,
-}: {
-  project: WebsiteProject;
-  annotations: ProjectAnnotation[];
-  onSelect: (annotation: ProjectAnnotation) => void;
-}): React.JSX.Element {
-  const counts = annotationCounts(annotations);
-  return (
-    <main className="project-history-page">
-      <header>
-        <div>
-          <WebsiteLogo project={project} />
-          <span>
-            <h1>{project.title}</h1>
-            <p>
-              {new URL(project.origin).hostname} · {counts.total} 条标注
-            </p>
-          </span>
-        </div>
-      </header>
-      <div className="project-history-stats">
-        <span className="draft">
-          <b>{counts.draft}</b>未提交
-        </span>
-        <span className="submitted">
-          <b>{counts.submitted}</b>已提交
-        </span>
-        <span className="rejected">
-          <b>{counts.rejected}</b>驳回
-        </span>
-      </div>
-      <div className="project-history-list">
-        {annotations.map((annotation) => (
-          <Button
-            type="button"
-            key={`${annotation.type}-${annotation.record.id}`}
-            onClick={() => onSelect(annotation)}
-          >
-            <span className="history-record-icon">
-              {annotation.type === 'capture' ? (
-                <Camera />
-              ) : annotation.type === 'diagnostic' ? (
-                <Terminal />
-              ) : (
-                <MessageSquareText />
-              )}
-            </span>
-            <span className="history-record-copy">
-              <span>
-                <strong>
-                  {annotation.type === 'capture'
-                    ? '截图批注'
-                    : annotation.type === 'diagnostic'
-                      ? '调试标注'
-                      : '元素批注'}
-                </strong>
-                <StatusBadge status={annotation.record.status} />
-              </span>
-              <small>{annotation.record.pageTitle || annotation.record.pageUrl}</small>
-              <p>
-                {annotation.type === 'diagnostic'
-                  ? annotation.record.evidence.title
-                  : annotation.record.note}
-              </p>
-            </span>
-            <time>{new Date(annotation.record.updatedAt).toLocaleString()}</time>
-          </Button>
-        ))}
-      </div>
-    </main>
-  );
-}
-
-export function HistoryPage({
-  projects,
-  elementComments,
-  captures,
-  diagnostics,
-  onSelectProject,
-}: {
-  projects: WebsiteProject[];
-  elementComments: SavedElementComment[];
-  captures: SavedCapture[];
-  diagnostics: SavedDiagnosticAnnotation[];
-  onSelectProject: (project: WebsiteProject) => void;
-}): React.JSX.Element {
-  const entries = useMemo(
-    () =>
-      projects
-        .map((project) => ({
-          project,
-          annotations: projectAnnotations(project.id, elementComments, captures, diagnostics),
-        }))
-        .filter(({ annotations }) => annotations.length > 0)
-        .sort((left, right) => {
-          const leftDate = left.annotations[0]?.record.updatedAt ?? '';
-          const rightDate = right.annotations[0]?.record.updatedAt ?? '';
-          return rightDate.localeCompare(leftDate);
-        }),
-    [captures, diagnostics, elementComments, projects],
-  );
-  return (
-    <main className="navigation-page history-page">
-      <header>
-        <span>
-          <History />
-        </span>
-        <div>
-          <h1>历史标注</h1>
-          <p>按项目查看已保存的元素、截图和调试标注。</p>
-        </div>
-      </header>
-      {entries.length === 0 ? (
-        <div className="history-empty">
-          <MessageSquareText />
-          <strong>暂无历史标注</strong>
-          <span>完成第一条批注后会显示在这里。</span>
-        </div>
-      ) : (
-        <div className="history-project-grid">
-          {entries.map(({ project, annotations }) => {
-            const counts = annotationCounts(annotations);
-            return (
+      <Dialog
+        open={Boolean(shortcutDialogMode)}
+        onOpenChange={(open) => {
+          if (!open) setShortcutDialogMode(undefined);
+        }}
+      >
+        <DialogContent className="shortcut-dialog">
+          <DialogHeader>
+            <DialogTitle>
+              {shortcutDialogMode === 'edit' ? '修改快捷方式' : '添加快捷方式'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={saveShortcut}>
+            <label htmlFor="shortcut-name">
+              名称
+              <Input
+                id="shortcut-name"
+                autoFocus
+                maxLength={120}
+                value={shortcutName}
+                onChange={(event) => setShortcutName(event.target.value)}
+              />
+            </label>
+            <label htmlFor="shortcut-url">
+              网址
+              <Input
+                id="shortcut-url"
+                value={shortcutUrl}
+                placeholder="https://example.com"
+                onChange={(event) => setShortcutUrl(event.target.value)}
+              />
+            </label>
+            {shortcutError && <p role="alert">{shortcutError}</p>}
+            <footer>
               <Button
                 type="button"
-                key={project.id}
-                className="history-project-card"
-                onClick={() => onSelectProject(project)}
+                variant="outline"
+                onClick={() => setShortcutDialogMode(undefined)}
               >
-                <WebsiteLogo project={project} />
-                <span className="history-project-title">
-                  <strong>{project.title}</strong>
-                  <small>{new URL(project.origin).hostname}</small>
-                </span>
-                <b>{counts.total}</b>
-                <span className="history-project-counts">
-                  <i className="draft">{counts.draft} 未提交</i>
-                  <i className="submitted">{counts.submitted} 已提交</i>
-                  <i className="rejected">{counts.rejected} 驳回</i>
-                </span>
+                取消
               </Button>
-            );
-          })}
-        </div>
-      )}
+              <Button type="submit">完成</Button>
+            </footer>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => !open && setPendingDelete(undefined)}
+      >
+        <DialogContent className="shortcut-dialog shortcut-delete-dialog">
+          <DialogHeader>
+            <DialogTitle>删除快捷方式？</DialogTitle>
+            <DialogDescription>
+              将从首页移除“{pendingDelete?.name}”，不会删除对应的项目及标注数据。
+            </DialogDescription>
+          </DialogHeader>
+          <footer>
+            <Button type="button" variant="outline" onClick={() => setPendingDelete(undefined)}>
+              取消
+            </Button>
+            <Button type="button" variant="destructive" onClick={deleteShortcut}>
+              删除
+            </Button>
+          </footer>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

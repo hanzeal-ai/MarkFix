@@ -14,6 +14,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import { createReadStream } from 'node:fs';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppService } from './app.service.js';
 import { AuthService } from './auth.service.js';
@@ -368,8 +369,13 @@ export class AppController {
   async artifact(
     @CurrentUser() user: AuthenticatedUser,
     @Param('artifactId') artifactId: string,
+    @Headers('if-none-match') ifNoneMatch: string | undefined,
     @Res() reply: FastifyReply,
   ) {
-    return reply.send(await this.app.getArtifact(user.id, artifactId));
+    const artifact = await this.app.getArtifact(user.id, artifactId);
+    reply.header('Cache-Control', 'private, max-age=86400');
+    reply.header('ETag', artifact.etag);
+    if (ifNoneMatch === artifact.etag) return reply.status(304).send();
+    return reply.send(createReadStream(artifact.path));
   }
 }

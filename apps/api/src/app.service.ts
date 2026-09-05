@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, rm, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   ConflictException,
@@ -7,6 +7,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
 import {
@@ -37,13 +38,23 @@ const publicUserSelect = {
 } satisfies Prisma.UserSelect;
 
 @Injectable()
-export class AppService implements OnModuleInit {
+export class AppService implements OnModuleInit, OnModuleDestroy {
   private readonly artifactDirectory = resolve(process.env.ARTIFACT_DIR ?? './data/artifacts');
+  private cleanupTimer?: NodeJS.Timeout;
 
   constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   async onModuleInit(): Promise<void> {
     await mkdir(this.artifactDirectory, { recursive: true });
+    await this.cleanupExpiredSubmissions();
+    this.cleanupTimer = setInterval(
+      () =>
+        void this.cleanupExpiredSubmissions().catch((error: unknown) =>
+          console.error('Expired submission cleanup failed', error),
+        ),
+      60 * 60 * 1000,
+    );
+    this.cleanupTimer.unref();
     const demoPassword = process.env.MARKFIX_DEMO_PASSWORD;
     if (!demoPassword) return;
     const demoEmail = process.env.MARKFIX_DEMO_EMAIL ?? 'admin@markfix.local';
@@ -80,6 +91,26 @@ export class AppService implements OnModuleInit {
         },
       });
     }
+  }
+
+  onModuleDestroy(): void {
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+  }
+
+  private async cleanupExpiredSubmissions(): Promise<void> {
+    const expired = await this.database.reportSubmission.findMany({
+      where: { expiresAt: { lt: new Date() }, status: { not: 'FINALIZED' } },
+      include: { artifact: true },
+      take: 500,
+    });
+    await Promise.all(
+      expired.map(async (submission) => {
+        if (submission.artifact) {
+          await rm(join(this.artifactDirectory, `${submission.artifact.id}.png`), { force: true });
+        }
+        await this.database.reportSubmission.deleteMany({ where: { id: submission.id } });
+      }),
+    );
   }
 
   async bootstrap(userId: string) {
@@ -409,13 +440,8 @@ export class AppService implements OnModuleInit {
   }
 
   async uploadArtifact(userId: string, artifactId: string, input: unknown) {
-    const payload = input as { dataUrl?: unknown };
-    if (
-      typeof payload.dataUrl !== 'string' ||
-      !payload.dataUrl.startsWith('data:image/png;base64,')
-    ) {
-      throw new ConflictException('Expected a PNG data URL');
-    }
+    if (!Buffer.isBuffer(input)) throw new ConflictException('Expected PNG bytes');
+    const bytes = input;
     const artifact = await this.database.artifact.findUnique({
       where: { id: artifactId },
       include: { submission: { include: { project: true } } },
@@ -426,7 +452,6 @@ export class AppService implements OnModuleInit {
       artifact.submission.createdById,
       artifact.submission.project.workspaceId,
     );
-    const bytes = Buffer.from(payload.dataUrl.slice('data:image/png;base64,'.length), 'base64');
     if (bytes.byteLength !== artifact.size || sha256(bytes) !== artifact.sha256) {
       throw new ConflictException('Artifact checksum or size mismatch');
     }
@@ -444,14 +469,14 @@ export class AppService implements OnModuleInit {
 
   async finalizeSubmission(userId: string, submissionId: string) {
     await this.requireSubmissionAccess(userId, submissionId);
-    return this.database.$transaction(async (transaction) => {
+    const report = await this.database.$transaction(async (transaction) => {
       const submission = await transaction.reportSubmission.findUnique({
         where: { id: submissionId },
         include: { artifact: true, report: true },
       });
       if (!submission) throw new NotFoundException('Submission not found');
       if (submission.report) return submission.report;
-      if (!submission.artifact || submission.artifact.uploadStatus !== 'COMPLETE') {
+      if (submission.artifact && submission.artifact.uploadStatus !== 'COMPLETE') {
         throw new ConflictException('Artifact upload is incomplete');
       }
       const payload = createReportSchema
@@ -466,7 +491,7 @@ export class AppService implements OnModuleInit {
           description: payload.description,
           priority: payload.priority,
           captureBundle: payload.captureBundle as unknown as Prisma.InputJsonValue,
-          screenshotPath: submission.artifact.id,
+          screenshotPath: submission.artifact?.id ?? null,
           reporterId: submission.createdById,
           activities: {
             create: { type: 'REPORT_CREATED', payload: {}, actorId: submission.createdById },
@@ -479,6 +504,7 @@ export class AppService implements OnModuleInit {
       });
       return report;
     });
+    return report;
   }
 
   async listReports(
@@ -545,14 +571,17 @@ export class AppService implements OnModuleInit {
     return report;
   }
 
-  async getArtifact(userId: string, id: string): Promise<Buffer> {
+  async getArtifact(userId: string, id: string): Promise<{ path: string; etag: string }> {
     const artifact = await this.database.artifact.findUnique({
       where: { id },
       include: { submission: { include: { project: true } } },
     });
     if (!artifact) throw new NotFoundException('Artifact not found');
     await this.requireMembership(userId, artifact.submission.project.workspaceId);
-    return readFile(join(this.artifactDirectory, `${artifact.id}.png`));
+    return {
+      path: join(this.artifactDirectory, `${artifact.id}.png`),
+      etag: `"${artifact.sha256}"`,
+    };
   }
 
   async addComment(userId: string, reportId: string, input: unknown) {
@@ -657,7 +686,7 @@ export class AppService implements OnModuleInit {
       throw new ConflictException('Resolution summary is required');
     }
     const nextStatus = transitionReport(current.status as ReportStatus, payload.action);
-    return this.database.report.update({
+    const updated = await this.database.report.update({
       where: { id, version: current.version },
       data: {
         status: nextStatus,
@@ -671,6 +700,7 @@ export class AppService implements OnModuleInit {
         },
       },
     });
+    return updated;
   }
 
   private async requireMembership(

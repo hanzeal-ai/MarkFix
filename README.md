@@ -15,11 +15,11 @@
 - Single-use password recovery with session revocation and a provider-neutral email webhook port
 - HttpOnly dashboard cookies and operating-system-encrypted desktop refresh credentials
 - Server-driven desktop compatibility checks with mandatory-upgrade submission blocking
-- Background cleanup worker and compatibility test page
+- In-process scheduled cleanup and compatibility test page
 
 ## Run locally
 
-The API, worker, database, website, management dashboard, and compatibility lab run in Docker.
+The API, database, website, management dashboard, and compatibility lab run in Docker.
 Docker Desktop with Compose v2 or newer is the only requirement for the local service stack.
 
 ```bash

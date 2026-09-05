@@ -1,10 +1,20 @@
-FROM node:24-bookworm-slim AS build
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+FROM node:24-alpine AS build
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+  npm_config_trust_lockfile=true
 RUN corepack enable
 WORKDIR /app
-COPY . .
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/dashboard/package.json apps/dashboard/package.json
+COPY packages/api-client/package.json packages/api-client/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/ui/package.json packages/ui/package.json
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-  pnpm install --filter @markfix/dashboard... --frozen-lockfile
+  pnpm install --filter @markfix/dashboard... --frozen-lockfile --trust-lockfile
+COPY tsconfig.json tsconfig.json
+COPY apps/dashboard apps/dashboard
+COPY packages/api-client packages/api-client
+COPY packages/contracts packages/contracts
+COPY packages/ui packages/ui
 ARG VITE_API_URL=http://localhost:4310
 ENV VITE_API_URL=$VITE_API_URL
 RUN pnpm --filter @markfix/dashboard build

@@ -28,7 +28,7 @@ services:
     command:
       - sh
       - -c
-      - pnpm --filter @markfix/database db:push && exec pnpm --filter @markfix/api start
+      - node node_modules/prisma/build/index.js db push --skip-generate --schema prisma/schema.prisma && exec node dist/main.js
     environment:
       <<: *api-environment
       PORT: 4310
@@ -56,19 +56,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
-
-  worker:
-    build:
-      context: .
-      dockerfile: infra/Dockerfile.api
-    command: ['pnpm', '--filter', '@markfix/api', 'worker']
-    environment:
-      <<: *api-environment
-    volumes:
-      - artifact-data:/data/artifacts
-    depends_on:
-      api:
-        condition: service_healthy
 
   dashboard:
     build:

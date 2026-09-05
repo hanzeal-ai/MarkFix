@@ -161,6 +161,14 @@ export const diagnosticEvidenceSchema = z.object({
 });
 
 export const annotationRecordStatusSchema = z.enum(['draft', 'submitted', 'rejected']);
+export type AnnotationHistorySummary = {
+  projectId: string;
+  total: number;
+  draft: number;
+  submitted: number;
+  rejected: number;
+  updatedAt: string;
+};
 
 const annotationRecordContextSchema = z.object({
   projectId: z.uuid(),
@@ -298,7 +306,10 @@ export const captureContextSchema = z.object({
 export const captureBundleSchema = z.object({
   schemaVersion: z.literal(1),
   page: pageSnapshotSchema,
-  anchor: anchorSchema,
+  anchor: anchorSchema.optional(),
+  annotationKind: z.enum(['ELEMENT', 'SCREENSHOT', 'COMMENT']).optional(),
+  sourceAnnotationId: z.uuid().optional(),
+  evidence: z.array(diagnosticEvidenceSchema).max(50).optional(),
   annotations: z.array(annotationSchema).max(500),
   reproduction: z.array(reproductionStepSchema).max(500),
   capture: captureContextSchema.optional(),
@@ -311,7 +322,7 @@ export const createReportSchema = z.object({
   description: z.string().min(1).max(20_000),
   priority: z.enum(reportPriorities).default('MEDIUM'),
   captureBundle: captureBundleSchema,
-  screenshotDataUrl: z.string().startsWith('data:image/png;base64,'),
+  screenshotDataUrl: z.string().startsWith('data:image/png;base64,').optional(),
 });
 
 export const userSummarySchema = z.object({
@@ -354,7 +365,6 @@ export const websiteProjectSchema = z.object({
   entryUrl: webUrlSchema,
   faviconUrl: z.string().max(4096).nullable(),
   faviconSource: z.enum(['page', 'apple-touch-icon', 'root', 'markfix']),
-  metadataResolvedAt: z.iso.datetime().optional(),
   currentPageSessionId: z.uuid(),
   currentUrl: webUrlSchema,
   createdAt: z.iso.datetime(),
@@ -409,7 +419,7 @@ export const reportSchema = createReportSchema.omit({ screenshotDataUrl: true })
   environment: environmentSchema.nullable().optional(),
   status: z.enum(reportStatuses),
   version: z.number().int().positive(),
-  screenshotUrl: z.string(),
+  screenshotUrl: z.string().optional(),
   assignee: userSummarySchema.nullable().optional(),
   reporter: userSummarySchema.nullable().optional(),
   createdAt: z.iso.datetime(),
@@ -452,9 +462,11 @@ export const ipcChannels = {
   authStatus: 'auth:status',
   authLogin: 'auth:login',
   authLogout: 'auth:logout',
+  desktopBootstrap: 'desktop:bootstrap',
   listWorkspaces: 'workspace:list',
   listEnvironments: 'environment:list',
   listWebsiteProjects: 'website-project:list',
+  listProjectAnnotationReports: 'project-annotation-reports:list',
   createWebsiteProject: 'website-project:create',
   switchWebsiteProject: 'website-project:switch',
   deleteWebsiteProject: 'website-project:delete',
@@ -497,6 +509,7 @@ export const ipcChannels = {
   saveCaptureImage: 'capture:save-image',
   captureAction: 'capture:action',
   listCaptureRecords: 'capture-record:list',
+  listAnnotationHistorySummaries: 'annotation-history-summary:list',
   saveCaptureRecord: 'capture-record:save',
   deleteCaptureRecord: 'capture-record:delete',
   listElementComments: 'element-comment:list',

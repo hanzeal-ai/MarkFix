@@ -1,5 +1,6 @@
 import type {
   Annotation,
+  AnnotationHistorySummary,
   AnnotationSubmission,
   AnnotationTool,
   Anchor,
@@ -12,6 +13,7 @@ import type {
   Environment,
   HistoryAnnotationReference,
   RegionAnchor,
+  Report,
   ScreenshotMark,
   ScreenshotStyle,
   ScreenshotTool,
@@ -35,9 +37,15 @@ declare global {
         password: string,
       ): Promise<{ id: string; email: string; displayName: string }>;
       logout(): Promise<boolean>;
+      desktopBootstrap(): Promise<{
+        workspaces: WorkspaceSummary[];
+        websiteProjects: WebsiteProject[];
+        draft: unknown;
+      }>;
       listWorkspaces(): Promise<WorkspaceSummary[]>;
       listEnvironments(projectId: string): Promise<Environment[]>;
       listWebsiteProjects(): Promise<WebsiteProject[]>;
+      listProjectAnnotationReports(projectId: string): Promise<Report[]>;
       createWebsiteProject(
         workspaceId: string,
         url: string,
@@ -75,14 +83,15 @@ declare global {
         dataUrl: string,
         suggestedName: string,
       ): Promise<{ canceled: boolean; filePath?: string }>;
-      listCaptureRecords(): Promise<SavedCapture[]>;
+      listCaptureRecords(projectId?: string): Promise<SavedCapture[]>;
+      listAnnotationHistorySummaries(): Promise<AnnotationHistorySummary[]>;
       saveCaptureRecord(capture: SavedCapture): Promise<void>;
       deleteCaptureRecord(id: string): Promise<void>;
-      listElementComments(): Promise<SavedElementComment[]>;
+      listElementComments(projectId?: string): Promise<SavedElementComment[]>;
       saveElementComment(comment: SavedElementComment): Promise<void>;
       deleteElementComment(id: string): Promise<void>;
       syncElementComments(comments: SavedElementComment[]): Promise<void>;
-      listDiagnosticAnnotations(): Promise<SavedDiagnosticAnnotation[]>;
+      listDiagnosticAnnotations(projectId?: string): Promise<SavedDiagnosticAnnotation[]>;
       saveDiagnosticAnnotation(annotation: SavedDiagnosticAnnotation): Promise<void>;
       deleteDiagnosticAnnotation(id: string): Promise<void>;
       saveAnnotationSubmission(submission: AnnotationSubmission): Promise<void>;
@@ -111,7 +120,11 @@ declare global {
       loadDraft(): Promise<unknown>;
       clearDraft(): Promise<void>;
       loadSyncStatus(outboxId: string): Promise<{ status: string; reportId?: string } | undefined>;
-      submitReport(report: CreateReport): Promise<unknown>;
+      submitReport(
+        report: CreateReport,
+        idempotencyKey?: string,
+        clearDraft?: boolean,
+      ): Promise<unknown>;
       onBrowserState(listener: (payload: unknown) => void): () => void;
       onDiagnostic(listener: (payload: DiagnosticEvidence) => void): () => void;
       onModeShortcut(listener: (payload: unknown) => void): () => void;

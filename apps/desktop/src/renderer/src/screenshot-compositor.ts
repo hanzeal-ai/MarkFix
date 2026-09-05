@@ -2,12 +2,41 @@ import type { ScreenshotMark } from '@markfix/contracts';
 
 type Region = { xCssPx: number; yCssPx: number };
 
-const loadImage = (source: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
+let cachedImageSource: string | undefined;
+let cachedImage: Promise<HTMLImageElement> | undefined;
+
+const loadImage = (source: string): Promise<HTMLImageElement> => {
+  if (source === cachedImageSource && cachedImage) return cachedImage;
+  cachedImageSource = source;
+  cachedImage = new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('The selected screenshot could not be decoded'));
+    image.onerror = () => {
+      cachedImageSource = undefined;
+      cachedImage = undefined;
+      reject(new Error('The selected screenshot could not be decoded'));
+    };
     image.src = source;
+  });
+  return cachedImage;
+};
+
+const encodePng = (canvas: HTMLCanvasElement): Promise<string> =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('The screenshot could not be encoded'));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () =>
+        typeof reader.result === 'string'
+          ? resolve(reader.result)
+          : reject(new Error('The screenshot could not be encoded'));
+      reader.onerror = () =>
+        reject(reader.error ?? new Error('The screenshot could not be encoded'));
+      reader.readAsDataURL(blob);
+    }, 'image/png');
   });
 
 const arrowhead = (
@@ -152,5 +181,5 @@ export const composeScreenshot = async (
     context.restore();
   }
 
-  return canvas.toDataURL('image/png');
+  return encodePng(canvas);
 };

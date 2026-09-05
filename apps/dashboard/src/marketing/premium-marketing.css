@@ -82,6 +82,30 @@
 .premium-menu-button {
   display: none !important;
 }
+.premium-mobile-nav-sheet {
+  width: min(360px, 100vw);
+  padding: 72px 24px 24px;
+  background: var(--paper);
+}
+.premium-mobile-nav {
+  display: grid;
+  gap: 8px;
+}
+.premium-mobile-nav > a {
+  padding: 13px 10px;
+  border-radius: 9px;
+  color: #5e5e68;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.premium-mobile-nav > a:hover {
+  background: #f1f1f4;
+  color: var(--ink);
+}
+.premium-mobile-nav > button {
+  margin-top: 8px;
+}
 
 .premium-hero {
   align-items: center;
@@ -1635,7 +1659,7 @@
   gap: 6px;
   padding: 9px 10px;
 }
-.mf-demo-modes button.is-active {
+.mf-demo-modes button[data-state='on'] {
   background: #eae7ff;
   color: var(--purple);
   font-weight: 690;
@@ -2221,35 +2245,6 @@
   height: 14px;
   width: 14px;
 }
-.mf-demo-toast {
-  align-items: center;
-  background: #1f1f26;
-  border-radius: 10px;
-  bottom: 20px;
-  color: white;
-  display: flex;
-  font-size: 11px;
-  gap: 8px;
-  left: 50%;
-  max-width: calc(100% - 40px);
-  opacity: 0;
-  padding: 11px 14px;
-  pointer-events: none;
-  position: absolute;
-  transform: translate(-50%, 8px);
-  transition: 0.2s ease;
-  white-space: nowrap;
-  z-index: 30;
-}
-.mf-demo-toast.is-visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-.mf-demo-toast svg {
-  color: #9f94ff;
-  height: 14px;
-  width: 14px;
-}
 
 @media (max-width: 1160px) {
   .premium-header {
@@ -2391,23 +2386,7 @@
     padding: 0 18px;
   }
   .premium-nav {
-    align-items: stretch;
-    background: var(--paper);
-    border-bottom: 1px solid var(--line);
     display: none;
-    flex-direction: column;
-    left: 0;
-    padding: 16px 18px 22px;
-    position: absolute;
-    right: 0;
-    top: 65px;
-  }
-  .premium-nav.is-open {
-    display: flex;
-  }
-  .premium-nav > a {
-    display: block;
-    padding: 12px 4px;
   }
   .premium-menu-button {
     display: inline-flex !important;
@@ -2656,10 +2635,6 @@
   .mf-demo-capture-layer {
     cursor: default;
   }
-  .mf-demo-toast {
-    white-space: normal;
-    width: max-content;
-  }
   .premium-footer {
     padding: 38px 20px;
   }
@@ -2678,8 +2653,5 @@
 @media (prefers-reduced-motion: reduce) {
   .premium-site {
     scroll-behavior: auto;
-  }
-  .mf-demo-toast {
-    transition: none;
   }
 }

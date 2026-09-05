@@ -84,13 +84,14 @@ export class CaptureService {
     }
     if (revision !== this.getPageRevision()) throw new Error('Page changed during capture');
     const size = image.getSize();
-    if (image.toPNG().byteLength > 20 * 1024 * 1024)
+    const png = image.toPNG();
+    if (png.byteLength > 20 * 1024 * 1024)
       throw new Error('Capture exceeds the 20 MB safety limit');
     const captureScale = size.width / Math.max(1, capturedCssSize.width);
     const widthCssPx = size.width / captureScale;
     const heightCssPx = size.height / captureScale;
     return {
-      dataUrl: image.toDataURL(),
+      dataUrl: `data:image/png;base64,${png.toString('base64')}`,
       mode,
       imageWidthPx: size.width,
       imageHeightPx: size.height,

@@ -3,8 +3,8 @@ import { lazy, Suspense } from 'react';
 const MarketingSite = lazy(() =>
   import('./marketing/MarketingSite.js').then((module) => ({ default: module.MarketingSite })),
 );
-const AdminApp = lazy(() =>
-  import('./admin/AdminApp.js').then((module) => ({ default: module.AdminApp })),
+const AdminEntry = lazy(() =>
+  import('./admin/AdminEntry.js').then((module) => ({ default: module.AdminEntry })),
 );
 const AdminLogin = lazy(() =>
   import('./admin/AdminLogin.js').then((module) => ({ default: module.AdminLogin })),
@@ -22,7 +22,7 @@ const DownloadPage = lazy(() =>
 export function WebRoot() {
   const pathname = window.location.pathname;
   const page = pathname.startsWith('/app') ? (
-    <AdminApp />
+    <AdminEntry />
   ) : pathname === '/login' ? (
     <AdminLogin />
   ) : pathname === '/docs' ? (

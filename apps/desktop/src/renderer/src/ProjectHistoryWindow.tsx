@@ -33,9 +33,9 @@ export function ProjectHistoryWindow(): React.JSX.Element {
     }
     void Promise.all([
       window.markfix.listWebsiteProjects(),
-      window.markfix.listCaptureRecords(),
-      window.markfix.listElementComments(),
-      window.markfix.listDiagnosticAnnotations(),
+      window.markfix.listCaptureRecords(projectId),
+      window.markfix.listElementComments(projectId),
+      window.markfix.listDiagnosticAnnotations(projectId),
     ])
       .then(([projects, savedCaptures, savedComments, savedDiagnostics]) => {
         if (!active) return;

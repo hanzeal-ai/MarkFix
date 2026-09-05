@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from '@markfix/ui';
 import { WebRoot } from './WebRoot.js';
 import { topLevelRoute } from './routes.js';
 import './styles.css';
@@ -19,18 +19,17 @@ const route = topLevelRoute(window.location.pathname);
 
 ReactDOM.createRoot(document.querySelector('#root') as HTMLElement).render(
   <React.StrictMode>
-    <QueryClientProvider client={new QueryClient()}>
-      <React.Suspense fallback={<main className="loading">正在打开 MarkFix…</main>}>
-        {route === 'account-access' ? (
-          <AccountAccess />
-        ) : route === 'account-settings' ? (
-          <AccountSettings />
-        ) : route === 'legal' ? (
-          <LegalPage />
-        ) : (
-          <WebRoot />
-        )}
-      </React.Suspense>
-    </QueryClientProvider>
+    <React.Suspense fallback={<main className="loading">正在打开 MarkFix…</main>}>
+      {route === 'account-access' ? (
+        <AccountAccess />
+      ) : route === 'account-settings' ? (
+        <AccountSettings />
+      ) : route === 'legal' ? (
+        <LegalPage />
+      ) : (
+        <WebRoot />
+      )}
+    </React.Suspense>
+    <Toaster position="bottom-center" richColors closeButton />
   </React.StrictMode>,
 );

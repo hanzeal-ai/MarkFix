@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { readFile, unlink, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   app,
@@ -9,7 +9,6 @@ import {
   dialog,
   ipcMain,
   Menu,
-  safeStorage,
   session,
   WebContentsView,
   type IpcMainInvokeEvent,
@@ -17,7 +16,6 @@ import {
 } from 'electron';
 import {
   anchorSchema,
-  annotationSubmissionSchema,
   annotationSchema,
   annotationToolSchema,
   browserModeSchema,
@@ -31,16 +29,13 @@ import {
   recorderEventSchema,
   regionAnchorSchema,
   screenshotMarkSchema,
-  savedCaptureSchema,
-  savedDiagnosticAnnotationSchema,
-  savedElementCommentSchema,
   screenshotStyleSchema,
   screenshotToolSchema,
   websiteProjectSchema,
   type Anchor,
   type Annotation,
-  type ClientPolicy,
   type CreateReport,
+  type Report,
   type BrowserMode,
   type SavedElementComment,
   type WebsiteProject,
@@ -57,10 +52,12 @@ import { subscriptionIpcChannels } from '../subscription.js';
 import { decodeScreenshotDataUrl, safeScreenshotFilename } from './image-export.js';
 import { modeForShortcut } from './mode-shortcuts.js';
 import { windowActionForShortcut, type WindowShortcutAction } from './window-shortcuts.js';
+import { DesktopSessionManager } from './session-manager.js';
+import { websiteLoadFailure } from './website-load-error.js';
+import { registerAnnotationStoreIpc } from './ipc/register-annotation-store-ipc.js';
 
 const toolbarHeight = 56;
 const panelWidth = 360;
-const workspaceMargin = 14;
 const diagnosticsPanelHeight = 300;
 const macWindowMaterial =
   process.platform === 'darwin'
@@ -70,6 +67,7 @@ const macWindowMaterial =
       } as const)
     : {};
 const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? 'http://localhost:4310');
+const desktopSession = new DesktopSessionManager(api);
 let mainWindow: BrowserWindow | undefined;
 let annotationReviewWindow: BrowserWindow | undefined;
 let annotationReviewProjectId: string | undefined;
@@ -92,69 +90,34 @@ let syncTimer: ReturnType<typeof setInterval> | undefined;
 let recording = false;
 let pageRevision = randomUUID();
 let authenticatedUser: { id: string; email: string; displayName: string } | undefined;
-let policyCache: { value: ClientPolicy; checkedAtMs: number } | undefined;
 let currentBrowserMode: BrowserMode = 'browse';
 let diagnosticsOpen = false;
 let navigationSidebarWidth = 228;
 let workspaceViewVisible = false;
+let websiteContentReady = false;
 let activeWebsiteProjectId: string | undefined;
 let navigationWebsiteProjectId: string | undefined;
-let websiteProjectSwitchQueue: Promise<void> = Promise.resolve();
 let websiteProjectSwitchGeneration = 0;
 let currentPageTitle = '';
 let currentPageFaviconUrl: string | null = null;
 const mainRecorderRuntimeId = randomUUID();
 const overlayVisibilityWaiters = new Map<string, () => void>();
 
-const loadClientPolicy = async (force = false): Promise<ClientPolicy> => {
-  if (!force && policyCache && Date.now() - policyCache.checkedAtMs < 5 * 60 * 1000) {
-    return policyCache.value;
-  }
-  const value = await api.clientPolicy(app.getVersion(), process.platform, process.arch);
-  policyCache = { value, checkedAtMs: Date.now() };
-  return value;
-};
-
-const assertSupportedClient = (policy: ClientPolicy): void => {
-  if (policy.status === 'upgrade-required') {
-    throw new Error(
-      `MarkFix ${policy.minimumVersion} or newer is required. Install the latest desktop release.`,
-    );
-  }
-};
-
-const credentialPath = (): string => join(app.getPath('userData'), 'refresh-token.secure');
-
-const saveRefreshToken = async (refreshToken: string): Promise<void> => {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('The operating system credential vault is unavailable');
-  }
-  await writeFile(credentialPath(), safeStorage.encryptString(refreshToken), { mode: 0o600 });
-};
-
-const clearRefreshToken = async (): Promise<void> => {
-  await unlink(credentialPath()).catch((error: unknown) => {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-  });
-};
+const loadClientPolicy = (force = false) => desktopSession.loadPolicy(force);
+const assertSupportedClient = (policy: Awaited<ReturnType<typeof loadClientPolicy>>) =>
+  desktopSession.assertSupported(policy);
+const saveRefreshToken = (refreshToken: string) => desktopSession.saveRefreshToken(refreshToken);
+const clearRefreshToken = () => desktopSession.clearRefreshToken();
 
 const restoreSession = async () => {
   if (authenticatedUser) return authenticatedUser;
-  if (!safeStorage.isEncryptionAvailable()) return undefined;
-  try {
-    const refreshToken = safeStorage.decryptString(await readFile(credentialPath()));
-    api.setTokens({ accessToken: '', refreshToken });
-    const tokens = await api.refreshWithToken();
-    api.setTokens(tokens);
-    await saveRefreshToken(tokens.refreshToken);
-    authenticatedUser = await api.me();
+  const user = await desktopSession.restore();
+  if (user) {
+    authenticatedUser = user;
     layoutWebsite();
     return authenticatedUser;
-  } catch {
-    api.setTokens();
-    await clearRefreshToken();
-    return undefined;
   }
+  return undefined;
 };
 
 const assertShellSender = (event: IpcMainInvokeEvent): void => {
@@ -282,7 +245,7 @@ const setOverlayHidden = async (hidden: boolean): Promise<void> => {
   }
 };
 
-const syncEntry = async (entry: OutboxEntry): Promise<void> => {
+const syncEntry = async (entry: OutboxEntry): Promise<Report | undefined> => {
   if (!draftStore) return;
   try {
     assertSupportedClient(await loadClientPolicy());
@@ -293,7 +256,9 @@ const syncEntry = async (entry: OutboxEntry): Promise<void> => {
       status: 'completed',
       outboxId: entry.id,
       reportId: report.id,
+      report,
     });
+    return report;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown synchronization failure';
     draftStore.markFailed(entry.id, entry.attempts + 1, message);
@@ -304,34 +269,33 @@ const syncEntry = async (entry: OutboxEntry): Promise<void> => {
   }
 };
 
-const flushOutbox = async (): Promise<void> => {
-  if (isSyncing || !draftStore || !authenticatedUser) return;
+const flushOutbox = async (): Promise<Map<string, Report>> => {
+  const reports = new Map<string, Report>();
+  if (isSyncing || !draftStore || !authenticatedUser) return reports;
   isSyncing = true;
   try {
-    for (const entry of draftStore.claimDue()) await syncEntry(entry);
+    for (const entry of draftStore.claimDue()) {
+      const report = await syncEntry(entry);
+      if (report) reports.set(entry.id, report);
+    }
   } finally {
     isSyncing = false;
   }
+  return reports;
 };
 
 const layoutWebsite = (): void => {
   if (!mainWindow || !websiteView) return;
   const [width = 1060, height = 680] = mainWindow.getContentSize();
   const sidebarWidth = currentBrowserMode === 'browse' ? 0 : panelWidth;
-  const bottomPanelHeight = diagnosticsOpen ? diagnosticsPanelHeight + workspaceMargin : 0;
+  const bottomPanelHeight = diagnosticsOpen ? diagnosticsPanelHeight : 0;
   websiteView.setBounds({
-    x: navigationSidebarWidth + workspaceMargin,
-    y: toolbarHeight + workspaceMargin,
-    width: Math.max(
-      320,
-      width -
-        navigationSidebarWidth -
-        sidebarWidth -
-        (currentBrowserMode === 'browse' ? workspaceMargin * 2 : workspaceMargin),
-    ),
-    height: Math.max(200, height - toolbarHeight - workspaceMargin * 2 - bottomPanelHeight),
+    x: navigationSidebarWidth,
+    y: toolbarHeight,
+    width: Math.max(320, width - navigationSidebarWidth - sidebarWidth),
+    height: Math.max(200, height - toolbarHeight - bottomPanelHeight),
   });
-  websiteView.setVisible(Boolean(authenticatedUser) && workspaceViewVisible);
+  websiteView.setVisible(Boolean(authenticatedUser) && workspaceViewVisible && websiteContentReady);
 };
 
 const resolveWebsiteMetadata = async (
@@ -359,9 +323,11 @@ const resolveWebsiteMetadata = async (
   };
 };
 
-const ensureWebsiteProjects = async (): Promise<WebsiteProject[]> => {
+const ensureWebsiteProjects = async (
+  availableWorkspaces?: Awaited<ReturnType<MarkFixApi['listWorkspaces']>>,
+): Promise<WebsiteProject[]> => {
   if (!draftStore || !authenticatedUser) return [];
-  const workspaces = await api.listWorkspaces();
+  const workspaces = availableWorkspaces ?? (await api.listWorkspaces());
   const accessibleProjectIds = new Set<string>();
   for (const workspace of workspaces) {
     for (const project of workspace.projects) {
@@ -374,9 +340,7 @@ const ensureWebsiteProjects = async (): Promise<WebsiteProject[]> => {
         const origin = new URL(entryUrl).origin;
         const now = new Date().toISOString();
         const existingById = draftStore.getWebsiteProject(project.id);
-        const existingByOrigin = draftStore.findWebsiteProjectByOrigin(origin);
-        const existing = existingById ?? existingByOrigin;
-        const preservedProject = existing?.origin === origin ? existing : undefined;
+        const preservedProject = existingById?.origin === origin ? existingById : undefined;
         const websiteProject = websiteProjectSchema.parse({
           id: project.id,
           workspaceId: workspace.id,
@@ -385,21 +349,12 @@ const ensureWebsiteProjects = async (): Promise<WebsiteProject[]> => {
           entryUrl: preservedProject?.entryUrl ?? entryUrl,
           faviconUrl: preservedProject?.faviconUrl ?? new URL('/favicon.ico', entryUrl).href,
           faviconSource: preservedProject?.faviconSource ?? 'root',
-          ...(preservedProject?.metadataResolvedAt
-            ? { metadataResolvedAt: preservedProject.metadataResolvedAt }
-            : {}),
           currentPageSessionId: preservedProject?.currentPageSessionId ?? randomUUID(),
           currentUrl: preservedProject?.currentUrl ?? entryUrl,
           createdAt: project.createdAt,
           updatedAt: preservedProject?.updatedAt ?? project.updatedAt ?? now,
         });
-        if (existing && existing.id !== project.id) {
-          draftStore.migrateWebsiteProject(existing.id, websiteProject);
-          if (activeWebsiteProjectId === existing.id) activeWebsiteProjectId = project.id;
-          if (navigationWebsiteProjectId === existing.id) navigationWebsiteProjectId = project.id;
-        } else {
-          draftStore.saveWebsiteProject(websiteProject);
-        }
+        draftStore.saveWebsiteProject(websiteProject);
         if (!preservedProject) draftStore.recordProjectPage(project.id, entryUrl, project.name);
         accessibleProjectIds.add(project.id);
       } catch {
@@ -410,76 +365,44 @@ const ensureWebsiteProjects = async (): Promise<WebsiteProject[]> => {
   return draftStore.listWebsiteProjects().filter(({ id }) => accessibleProjectIds.has(id));
 };
 
-const websiteLoadError = (error: unknown, url: string): Error => {
-  const hostname = new URL(url).hostname;
-  const code = (error as { code?: unknown }).code;
-  if (code === 'ERR_NAME_NOT_RESOLVED')
-    return new Error(`无法打开 ${hostname}：域名无法解析，请检查项目地址或删除该项目。`);
-  if (code === 'ERR_CONNECTION_REFUSED')
-    return new Error(`无法打开 ${hostname}：目标服务拒绝连接，请确认服务已启动。`);
-  return new Error(`无法打开 ${hostname}，已保留当前项目。`);
-};
-
-const activateWebsiteProject = async (
-  projectId: string,
-  switchGeneration: number,
-): Promise<WebsiteProject> => {
+const activateWebsiteProject = (projectId: string, switchGeneration: number): WebsiteProject => {
   if (!draftStore) throw new Error('本地项目存储不可用');
   if (!websiteView) throw new Error('网站视图不可用');
-  let project = draftStore.getWebsiteProject(projectId);
+  const project = draftStore.getWebsiteProject(projectId);
   if (!project) throw new Error('项目不存在或已被移除');
-  await api.getProject(project.id);
   const targetUrl = project.currentUrl || project.entryUrl;
-  if (activeWebsiteProjectId === project.id && websiteView.webContents.getURL() === targetUrl)
+  if (
+    activeWebsiteProjectId === project.id &&
+    websiteContentReady &&
+    websiteView.webContents.getURL() === targetUrl
+  )
     return project;
 
-  const previousProject = activeWebsiteProjectId
-    ? draftStore.getWebsiteProject(activeWebsiteProjectId)
-    : undefined;
-  navigationWebsiteProjectId = project.id;
-  workspaceViewVisible = Boolean(previousProject);
-  layoutWebsite();
-  try {
-    if (!project.metadataResolvedAt) {
-      const metadata = await resolveWebsiteMetadata(targetUrl);
-      const resolvedAt = new Date().toISOString();
-      project = {
-        ...project,
-        title: metadata.title.slice(0, 120),
-        faviconUrl: metadata.faviconUrl,
-        faviconSource: metadata.faviconSource,
-        metadataResolvedAt: resolvedAt,
-        updatedAt: resolvedAt,
-      };
-      draftStore.saveWebsiteProject(project);
-      draftStore.recordProjectPage(project.id, metadata.url, metadata.title);
-    } else {
-      await websiteView.webContents.loadURL(targetUrl);
-    }
-  } catch (error) {
-    if (switchGeneration !== websiteProjectSwitchGeneration) {
-      navigationWebsiteProjectId = undefined;
-      workspaceViewVisible = Boolean(previousProject);
-      layoutWebsite();
-      throw new Error('项目切换已被新的操作取代', { cause: error });
-    }
-    navigationWebsiteProjectId = previousProject?.id;
-    if (previousProject) {
-      const previousUrl = previousProject.currentUrl || previousProject.entryUrl;
-      if (websiteView.webContents.getURL() !== previousUrl)
-        await websiteView.webContents.loadURL(previousUrl).catch(() => undefined);
-    }
-    navigationWebsiteProjectId = undefined;
-    workspaceViewVisible = Boolean(previousProject);
-    layoutWebsite();
-    throw websiteLoadError(error, targetUrl);
-  }
-
   activeWebsiteProjectId = project.id;
-  navigationWebsiteProjectId = undefined;
-  workspaceViewVisible = true;
+  navigationWebsiteProjectId = project.id;
+  websiteContentReady = false;
   layoutWebsite();
-  return draftStore.getWebsiteProject(project.id) ?? project;
+  websiteView.webContents.stop();
+  void websiteView.webContents
+    .loadURL(targetUrl)
+    .catch((error: unknown) => {
+      if (switchGeneration !== websiteProjectSwitchGeneration) return;
+      const description =
+        typeof (error as { code?: unknown }).code === 'string'
+          ? String((error as { code: string }).code)
+          : error instanceof Error
+            ? error.message
+            : 'ERR_FAILED';
+      sendBrowserState({
+        loading: false,
+        loadFailure: websiteLoadFailure(targetUrl, description),
+      });
+    })
+    .finally(() => {
+      if (switchGeneration === websiteProjectSwitchGeneration)
+        navigationWebsiteProjectId = undefined;
+    });
+  return project;
 };
 
 const loadRendererView = async (
@@ -766,9 +689,25 @@ const createWindow = async (): Promise<void> => {
   websiteView.webContents.on('did-start-loading', () => {
     currentPageTitle = '';
     currentPageFaviconUrl = null;
-    sendBrowserState({ loading: true, pageTitle: '', faviconUrl: null });
+    sendBrowserState({
+      loading: true,
+      pageTitle: '',
+      faviconUrl: null,
+      error: null,
+      loadFailure: null,
+    });
   });
-  websiteView.webContents.on('did-stop-loading', () => sendBrowserState({ loading: false }));
+  websiteView.webContents.on('dom-ready', () => {
+    if (!navigationWebsiteProjectId || navigationWebsiteProjectId !== activeWebsiteProjectId)
+      return;
+    websiteContentReady = true;
+    layoutWebsite();
+  });
+  websiteView.webContents.on('did-stop-loading', () => {
+    sendBrowserState({
+      loading: Boolean(navigationWebsiteProjectId) && !websiteContentReady,
+    });
+  });
   websiteView.webContents.on('will-navigate', (_event, url) => sendBrowserState({ url }));
   websiteView.webContents.on('did-navigate', (_event, url) => {
     const navigationProjectId = navigationWebsiteProjectId ?? activeWebsiteProjectId;
@@ -861,14 +800,18 @@ const createWindow = async (): Promise<void> => {
         force: true,
       });
     websiteView?.webContents.send('markfix:set-recorder', { enabled: recording, pageRevision });
+    navigationWebsiteProjectId = undefined;
   });
   websiteView.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
-    if (isMainFrame)
-      sendBrowserState({
-        url,
-        loading: false,
-        error: `${description} (${code})`,
-      });
+    if (!isMainFrame || code === -3) return;
+    websiteContentReady = false;
+    navigationWebsiteProjectId = undefined;
+    layoutWebsite();
+    sendBrowserState({
+      url,
+      loading: false,
+      loadFailure: websiteLoadFailure(url, description, code),
+    });
   });
 
   inspector = new CdpInspector(
@@ -906,6 +849,16 @@ const createWindow = async (): Promise<void> => {
 };
 
 const registerIpc = (): void => {
+  registerAnnotationStoreIpc({
+    assertSender: assertShellSender,
+    draftStore: () => draftStore,
+    websiteView: () => websiteView,
+    elementComments: () => currentElementComments,
+    setElementComments: (comments) => {
+      currentElementComments = comments;
+    },
+    sendShell,
+  });
   ipcMain.handle(ipcChannels.authStatus, async (event) => {
     assertShellSender(event);
     const policy = await loadClientPolicy(true).catch(() => undefined);
@@ -967,6 +920,19 @@ const registerIpc = (): void => {
     if (!authenticatedUser) throw new Error('Sign in to load workspaces');
     return api.listWorkspaces();
   });
+  ipcMain.handle(ipcChannels.desktopBootstrap, async (event) => {
+    assertShellSender(event);
+    if (!authenticatedUser) throw new Error('Sign in to load the workspace');
+    const workspaces = await api.listWorkspaces();
+    const websiteProjects = await ensureWebsiteProjects(workspaces);
+    const storedDraft = draftStore?.load();
+    const syncStatus = storedDraft?.pendingOutboxId
+      ? draftStore?.outboxStatus(storedDraft.pendingOutboxId)
+      : undefined;
+    const draft = syncStatus?.status === 'COMPLETED' ? undefined : storedDraft;
+    if (!draft && storedDraft) draftStore?.clear();
+    return { workspaces, websiteProjects, draft };
+  });
   ipcMain.handle(subscriptionIpcChannels.get, async (event, input: unknown) => {
     assertSubscriptionSender(event);
     if (!authenticatedUser) throw new Error('Sign in to load the subscription');
@@ -998,15 +964,8 @@ const registerIpc = (): void => {
       throw new Error('请选择工作区并输入网站地址');
     const normalized = normalizeWebsiteUrl(payload.url, process.env.MARKFIX_ALLOW_HTTP === 'true');
     const origin = new URL(normalized).origin;
-    const existing = draftStore.findWebsiteProjectByOrigin(origin);
-    if (existing) {
-      try {
-        await api.getProject(existing.id);
-        return { project: existing, created: false };
-      } catch (error) {
-        if (!(error instanceof Error) || error.message !== 'Project not found') throw error;
-      }
-    }
+    const existing = draftStore.listWebsiteProjects().find((project) => project.origin === origin);
+    if (existing) return { project: existing, created: false };
 
     activeWebsiteProjectId = undefined;
     const metadata = await resolveWebsiteMetadata(normalized);
@@ -1023,36 +982,30 @@ const registerIpc = (): void => {
       entryUrl: metadata.url,
       faviconUrl: currentPageFaviconUrl ?? metadata.faviconUrl,
       faviconSource: currentPageFaviconUrl ? 'page' : metadata.faviconSource,
-      metadataResolvedAt: now,
       currentPageSessionId: randomUUID(),
       currentUrl: metadata.url,
       createdAt: project.createdAt || now,
       updatedAt: now,
     });
-    if (existing) draftStore.migrateWebsiteProject(existing.id, websiteProject);
-    else draftStore.saveWebsiteProject(websiteProject);
+    draftStore.saveWebsiteProject(websiteProject);
     activeWebsiteProjectId = websiteProject.id;
     const current = draftStore.recordProjectPage(websiteProject.id, metadata.url, metadata.title);
     workspaceViewVisible = true;
+    websiteContentReady = true;
     layoutWebsite();
     return { project: current ?? websiteProject, created: true };
   });
-  ipcMain.handle(ipcChannels.switchWebsiteProject, async (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.listProjectAnnotationReports, async (event, input: unknown) => {
+    assertShellSender(event);
+    if (!authenticatedUser) throw new Error('请先登录后再加载标注');
+    if (typeof input !== 'string') throw new Error('无效的项目 ID');
+    return api.listAllReports(input);
+  });
+  ipcMain.handle(ipcChannels.switchWebsiteProject, (event, input: unknown) => {
     assertShellSender(event);
     if (typeof input !== 'string') throw new Error('无效的项目 ID');
     const switchGeneration = ++websiteProjectSwitchGeneration;
-    if (navigationWebsiteProjectId && navigationWebsiteProjectId !== input)
-      websiteView?.webContents.stop();
-    const operation = websiteProjectSwitchQueue.then(() => {
-      if (switchGeneration !== websiteProjectSwitchGeneration)
-        throw new Error('项目切换已被新的操作取代');
-      return activateWebsiteProject(input, switchGeneration);
-    });
-    websiteProjectSwitchQueue = operation.then(
-      () => undefined,
-      () => undefined,
-    );
-    return operation;
+    return activateWebsiteProject(input, switchGeneration);
   });
   ipcMain.handle(ipcChannels.deleteWebsiteProject, async (event, input: unknown) => {
     assertShellSender(event);
@@ -1072,13 +1025,13 @@ const registerIpc = (): void => {
       noLink: true,
     });
     if (response !== 1) return { deleted: false };
-    await websiteProjectSwitchQueue;
     await api.deleteProject(project.id);
     draftStore.deleteWebsiteProject(project.id);
     if (activeWebsiteProjectId === project.id) {
       activeWebsiteProjectId = undefined;
       navigationWebsiteProjectId = undefined;
       workspaceViewVisible = false;
+      websiteContentReady = false;
       currentAnnotations = [];
       currentElementComments = [];
       currentAnchor = undefined;
@@ -1160,6 +1113,9 @@ const registerIpc = (): void => {
     assertShellSender(event);
     const { url } = navigateInputSchema.parse(input);
     const normalized = normalizeWebsiteUrl(url, process.env.MARKFIX_ALLOW_HTTP === 'true');
+    navigationWebsiteProjectId = activeWebsiteProjectId;
+    websiteContentReady = false;
+    layoutWebsite();
     await websiteView?.webContents.loadURL(normalized);
     return normalized;
   });
@@ -1167,16 +1123,29 @@ const registerIpc = (): void => {
     assertShellSender(event);
     if (!activeWebsiteProjectId || !draftStore) return;
     const entry = draftStore.stepProjectHistory(activeWebsiteProjectId, -1);
-    if (entry) await websiteView?.webContents.loadURL(entry.url);
+    if (entry) {
+      navigationWebsiteProjectId = activeWebsiteProjectId;
+      websiteContentReady = false;
+      layoutWebsite();
+      await websiteView?.webContents.loadURL(entry.url);
+    }
   });
   ipcMain.handle(ipcChannels.goForward, async (event) => {
     assertShellSender(event);
     if (!activeWebsiteProjectId || !draftStore) return;
     const entry = draftStore.stepProjectHistory(activeWebsiteProjectId, 1);
-    if (entry) await websiteView?.webContents.loadURL(entry.url);
+    if (entry) {
+      navigationWebsiteProjectId = activeWebsiteProjectId;
+      websiteContentReady = false;
+      layoutWebsite();
+      await websiteView?.webContents.loadURL(entry.url);
+    }
   });
   ipcMain.handle(ipcChannels.reload, (event) => {
     assertShellSender(event);
+    navigationWebsiteProjectId = activeWebsiteProjectId;
+    websiteContentReady = false;
+    layoutWebsite();
     websiteView?.webContents.reload();
   });
   ipcMain.handle(ipcChannels.diagnosticsSetOpen, (event, input: unknown) => {
@@ -1272,74 +1241,6 @@ const registerIpc = (): void => {
     if (result.canceled || !result.filePath) return { canceled: true };
     await writeFile(result.filePath, image);
     return { canceled: false, filePath: result.filePath };
-  });
-  ipcMain.handle(ipcChannels.listCaptureRecords, (event) => {
-    assertShellSender(event);
-    return draftStore?.listCaptures() ?? [];
-  });
-  ipcMain.handle(ipcChannels.saveCaptureRecord, (event, input: unknown) => {
-    assertShellSender(event);
-    const capture = savedCaptureSchema.parse(input);
-    decodeScreenshotDataUrl(capture.dataUrl);
-    draftStore?.saveCapture(capture);
-  });
-  ipcMain.handle(ipcChannels.deleteCaptureRecord, (event, input: unknown) => {
-    assertShellSender(event);
-    if (typeof input !== 'string') throw new Error('Invalid capture ID');
-    draftStore?.deleteCapture(input);
-  });
-  ipcMain.handle(ipcChannels.listElementComments, (event) => {
-    assertShellSender(event);
-    return draftStore?.listElementComments() ?? [];
-  });
-  ipcMain.handle(ipcChannels.saveElementComment, (event, input: unknown) => {
-    assertShellSender(event);
-    const comment = savedElementCommentSchema.parse(input);
-    draftStore?.saveElementComment(comment);
-  });
-  ipcMain.handle(ipcChannels.deleteElementComment, (event, input: unknown) => {
-    assertShellSender(event);
-    if (typeof input !== 'string') throw new Error('Invalid element comment ID');
-    draftStore?.deleteElementComment(input);
-  });
-  ipcMain.handle(ipcChannels.listDiagnosticAnnotations, (event) => {
-    assertShellSender(event);
-    return draftStore?.listDiagnosticAnnotations() ?? [];
-  });
-  ipcMain.handle(ipcChannels.saveDiagnosticAnnotation, (event, input: unknown) => {
-    assertShellSender(event);
-    const annotation = savedDiagnosticAnnotationSchema.parse(input);
-    draftStore?.saveDiagnosticAnnotation(annotation);
-  });
-  ipcMain.handle(ipcChannels.deleteDiagnosticAnnotation, (event, input: unknown) => {
-    assertShellSender(event);
-    if (typeof input !== 'string') throw new Error('Invalid diagnostic annotation ID');
-    draftStore?.deleteDiagnosticAnnotation(input);
-  });
-  ipcMain.handle(ipcChannels.syncElementComments, (event, input: unknown) => {
-    assertShellSender(event);
-    currentElementComments = savedElementCommentSchema.array().max(500).parse(input);
-    websiteView?.webContents.send('markfix:render-element-comments', currentElementComments);
-  });
-  ipcMain.handle(ipcChannels.saveAnnotationSubmission, (event, input: unknown) => {
-    assertShellSender(event);
-    const submission = annotationSubmissionSchema.parse(input);
-    for (const capture of submission.captures) decodeScreenshotDataUrl(capture.dataUrl);
-    draftStore?.saveAnnotationSubmission(submission);
-    const submittedElementCommentIds = submission.elementComments.map(({ id }) => id);
-    currentElementComments = currentElementComments.filter(
-      ({ id }) => !submittedElementCommentIds.includes(id),
-    );
-    websiteView?.webContents.send('markfix:render-element-comments', currentElementComments);
-    sendShell(ipcChannels.annotationSubmissionSaved, {
-      elementCommentCount: submission.elementComments.length,
-      captureCount: submission.captures.length,
-      diagnosticAnnotationCount: submission.diagnostics.length,
-      elementCommentIds: submittedElementCommentIds,
-      captureIds: submission.captures.map(({ id }) => id),
-      diagnosticAnnotationIds: submission.diagnostics.map(({ id }) => id),
-      submittedAt: submission.submittedAt,
-    });
   });
   ipcMain.handle(ipcChannels.openAnnotationReview, async (event, input: unknown) => {
     assertShellSender(event);
@@ -1471,16 +1372,24 @@ const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.submitReport, async (event, input: unknown) => {
     assertShellSender(event);
     assertSupportedClient(await loadClientPolicy(true));
-    const candidate = createReportSchema.parse(input) as CreateReport;
+    const payload = input as {
+      report?: unknown;
+      idempotencyKey?: unknown;
+      clearDraft?: unknown;
+    };
+    const candidate = createReportSchema.parse(payload.report) as CreateReport;
     captureBundleSchema.parse(candidate.captureBundle);
     if (!draftStore) throw new Error('Local outbox is unavailable');
     const requestHash = createHash('sha256').update(JSON.stringify(candidate)).digest('hex');
-    const entry = draftStore.enqueue(candidate, requestHash);
-    await flushOutbox();
+    const idempotencyKey =
+      typeof payload.idempotencyKey === 'string' ? payload.idempotencyKey : randomUUID();
+    const entry = draftStore.enqueue(candidate, requestHash, idempotencyKey);
+    const synchronized = await flushOutbox();
     const status = draftStore.outboxStatus(entry.id);
-    if (status?.status === 'COMPLETED') draftStore.clear();
+    const report = synchronized.get(entry.id);
+    if (status?.status === 'COMPLETED' && payload.clearDraft !== false) draftStore.clear();
     return status?.status === 'COMPLETED'
-      ? { disposition: 'submitted', reportId: status.reportId }
+      ? { disposition: 'submitted', reportId: status.reportId, report }
       : { disposition: 'queued', outboxId: entry.id };
   });
   ipcMain.on('markfix:target-region', (event, input: unknown) => {

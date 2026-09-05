@@ -1,14 +1,38 @@
-FROM node:24-bookworm-slim
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates openssl \
-  && rm -rf /var/lib/apt/lists/*
+FROM node:24-alpine AS base
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+  npm_config_trust_lockfile=true
+RUN apk add --no-cache ca-certificates openssl
 RUN corepack enable
 WORKDIR /app
-COPY . .
+
+FROM base AS build
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json apps/api/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/database/package.json packages/database/package.json
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-  pnpm install --filter @markfix/api... --frozen-lockfile
+  pnpm install --filter @markfix/api... --frozen-lockfile --trust-lockfile
+COPY tsconfig.json tsconfig.json
+COPY apps/api apps/api
+COPY packages/contracts packages/contracts
+COPY packages/database packages/database
 RUN pnpm --filter @markfix/database db:generate && pnpm --filter @markfix/api build
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+  pnpm --trust-lockfile --offline --filter @markfix/api deploy --prod /opt/markfix-api
+RUN mkdir -p /opt/markfix-api/prisma \
+  && cp packages/database/prisma/schema.prisma /opt/markfix-api/prisma/schema.prisma \
+  && mkdir -p /opt/markfix-api/packages \
+  && cp -R packages/contracts /opt/markfix-api/packages/contracts \
+  && cp -R packages/database /opt/markfix-api/packages/database \
+  && rm -rf /opt/markfix-api/node_modules/@markfix/contracts \
+  && rm -rf /opt/markfix-api/node_modules/@markfix/database \
+  && ln -s ../../packages/contracts /opt/markfix-api/node_modules/@markfix/contracts \
+  && ln -s ../../packages/database /opt/markfix-api/node_modules/@markfix/database \
+  && cd /opt/markfix-api \
+  && node node_modules/prisma/build/index.js generate --schema prisma/schema.prisma
+
+FROM base AS runtime
+COPY --from=build /opt/markfix-api ./
 EXPOSE 4310
 STOPSIGNAL SIGTERM
-CMD ["pnpm", "--filter", "@markfix/api", "start"]
+CMD ["node", "dist/main.js"]

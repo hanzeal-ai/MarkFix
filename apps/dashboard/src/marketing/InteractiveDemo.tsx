@@ -3,13 +3,12 @@ import {
   ArrowLeft,
   ArrowRight,
   Camera,
-  Check,
   MessageSquareText,
   MousePointer2,
   RefreshCw,
   Trash2,
 } from '@markfix/ui/icons';
-import { Badge, Button, Textarea } from '@markfix/ui';
+import { Badge, Button, Textarea, ToggleGroup, ToggleGroupItem, toast } from '@markfix/ui';
 import { CaptureDemo } from './CaptureDemo';
 
 type DemoMode = 'browse' | 'comment' | 'capture';
@@ -68,19 +67,15 @@ const target = (id: string, label: string, selector: string): DemoTarget => ({
 
 export function InteractiveDemo() {
   const nextAnnotationId = useRef(1);
-  const toastTimer = useRef<number | undefined>(undefined);
   const [mode, setMode] = useState<DemoMode>('comment');
   const [page, setPage] = useState<DemoPage>('home');
   const [draftTarget, setDraftTarget] = useState<DemoTarget | null>(null);
   const [draftNote, setDraftNote] = useState('');
   const [annotations, setAnnotations] = useState<DemoAnnotation[]>([]);
   const [captureResetKey, setCaptureResetKey] = useState(0);
-  const [toast, setToast] = useState('');
 
   const showToast = (message: string) => {
-    window.clearTimeout(toastTimer.current);
-    setToast(message);
-    toastTimer.current = window.setTimeout(() => setToast(''), 2600);
+    toast(message, { duration: 2600 });
   };
 
   const annotationNumberFor = (targetId: string) => {
@@ -190,29 +185,26 @@ export function InteractiveDemo() {
           <div className="mf-demo-address">
             <span /> demo.markfix.app/{page === 'home' ? '' : page}
           </div>
-          <div className="mf-demo-modes" role="group" aria-label="体验模式">
-            <button
-              className={mode === 'browse' ? 'is-active' : ''}
-              type="button"
-              onClick={() => chooseMode('browse')}
-            >
+          <ToggleGroup
+            className="mf-demo-modes"
+            type="single"
+            value={mode}
+            aria-label="体验模式"
+            onValueChange={(value) => {
+              if (value === 'browse' || value === 'comment' || value === 'capture')
+                chooseMode(value);
+            }}
+          >
+            <ToggleGroupItem value="browse">
               <MousePointer2 /> 浏览
-            </button>
-            <button
-              className={mode === 'comment' ? 'is-active' : ''}
-              type="button"
-              onClick={() => chooseMode('comment')}
-            >
+            </ToggleGroupItem>
+            <ToggleGroupItem value="comment">
               <MessageSquareText /> 批注
-            </button>
-            <button
-              className={mode === 'capture' ? 'is-active' : ''}
-              type="button"
-              onClick={() => chooseMode('capture')}
-            >
+            </ToggleGroupItem>
+            <ToggleGroupItem value="capture">
               <Camera /> 截图
-            </button>
-          </div>
+            </ToggleGroupItem>
+          </ToggleGroup>
           <Button size="sm" disabled={!annotations.length} onClick={submitDemo}>
             完成体验 <span>{annotations.length}</span>
           </Button>
@@ -447,13 +439,6 @@ export function InteractiveDemo() {
             </div>
           </aside>
         </div>
-      </div>
-      <div
-        className={toast ? 'mf-demo-toast is-visible' : 'mf-demo-toast'}
-        role="status"
-        aria-live="polite"
-      >
-        <Check /> {toast}
       </div>
     </div>
   );

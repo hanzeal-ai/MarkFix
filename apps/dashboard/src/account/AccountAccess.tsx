@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff } from '@markfix/ui/icons';
-import { Alert, AlertDescription, Button, Card, Input, Label } from '@markfix/ui';
+import { ArrowLeft, ArrowRight, CheckCircle2 } from '@markfix/ui/icons';
+import { Alert, AlertDescription, Button, Card, Input, Label, PasswordInput } from '@markfix/ui';
 import { MarkFixApi } from '@markfix/api-client';
 import './account-access.css';
 
@@ -25,37 +25,6 @@ const content: Record<AccountMode, { eyebrow: string; title: string }> = {
   reset: { eyebrow: 'Account recovery', title: '设置新密码' },
   invite: { eyebrow: 'Team invitation', title: '加入工作区' },
 };
-
-function PasswordInput({
-  value,
-  onChange,
-  autoComplete,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  autoComplete: string;
-}) {
-  const [visible, setVisible] = useState(false);
-  return (
-    <span className="account-password">
-      <Input
-        autoComplete={autoComplete}
-        minLength={10}
-        required
-        type={visible ? 'text' : 'password'}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      <button
-        type="button"
-        aria-label={visible ? '隐藏密码' : '显示密码'}
-        onClick={() => setVisible((current) => !current)}
-      >
-        {visible ? <EyeOff /> : <Eye />}
-      </button>
-    </span>
-  );
-}
 
 export function AccountAccess() {
   const mode = modeForPath(window.location.pathname);
@@ -254,8 +223,11 @@ export function AccountAccess() {
               <Label>
                 {mode === 'reset' ? '新密码' : '密码'}
                 <PasswordInput
+                  wrapperClassName="account-password"
                   value={password}
-                  onChange={setPassword}
+                  onChange={(event) => setPassword(event.target.value)}
+                  minLength={10}
+                  required
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 />
               </Label>
@@ -264,8 +236,11 @@ export function AccountAccess() {
               <Label>
                 确认新密码
                 <PasswordInput
+                  wrapperClassName="account-password"
                   value={confirmation}
-                  onChange={setConfirmation}
+                  onChange={(event) => setConfirmation(event.target.value)}
+                  minLength={10}
+                  required
                   autoComplete="new-password"
                 />
               </Label>

@@ -170,6 +170,9 @@ export function CaptureDemo({ active, onComplete, resetKey, showToast }: Capture
   const overlayRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
   const nextMarkId = useRef(1);
+  const pointerFrame = useRef<number | undefined>(undefined);
+  const pendingPoint = useRef<Point | null>(null);
+  const draftMarkRef = useRef<CaptureMark | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [tool, setTool] = useState<CaptureTool>('select');
   const [color, setColor] = useState<Color>('#ef4444');
@@ -183,8 +186,16 @@ export function CaptureDemo({ active, onComplete, resetKey, showToast }: Capture
     setMarks([]);
     setRedoMarks([]);
     setDraftMark(null);
+    draftMarkRef.current = null;
     setTool('select');
   }, [resetKey]);
+
+  useEffect(
+    () => () => {
+      if (pointerFrame.current !== undefined) cancelAnimationFrame(pointerFrame.current);
+    },
+    [],
+  );
 
   if (!active) return null;
 
@@ -261,10 +272,9 @@ export function CaptureDemo({ active, onComplete, resetKey, showToast }: Capture
     gesture.current = { kind: 'mark', start: bounded, points: [bounded] };
   };
 
-  const move = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const applyMove = (point: Point) => {
     const currentGesture = gesture.current;
-    const point = pointFor(event);
-    if (!currentGesture || !point) return;
+    if (!currentGesture) return;
 
     if (currentGesture.kind === 'selection') {
       setSelection({
@@ -324,10 +334,32 @@ export function CaptureDemo({ active, onComplete, resetKey, showToast }: Capture
     const bounded = clampPoint(point, selection);
     const points = tool === 'pen' ? [...currentGesture.points, bounded] : currentGesture.points;
     gesture.current = { ...currentGesture, points };
-    setDraftMark(markFromGesture(currentGesture.start, bounded, points));
+    const nextDraft = markFromGesture(currentGesture.start, bounded, points);
+    draftMarkRef.current = nextDraft;
+    setDraftMark(nextDraft);
+  };
+
+  const move = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const point = pointFor(event);
+    if (!gesture.current || !point) return;
+    pendingPoint.current = point;
+    if (pointerFrame.current !== undefined) return;
+    pointerFrame.current = requestAnimationFrame(() => {
+      pointerFrame.current = undefined;
+      const nextPoint = pendingPoint.current;
+      pendingPoint.current = null;
+      if (nextPoint) applyMove(nextPoint);
+    });
   };
 
   const end = () => {
+    if (pointerFrame.current !== undefined) {
+      cancelAnimationFrame(pointerFrame.current);
+      pointerFrame.current = undefined;
+    }
+    const finalPoint = pendingPoint.current;
+    pendingPoint.current = null;
+    if (finalPoint) applyMove(finalPoint);
     const currentGesture = gesture.current;
     gesture.current = null;
     if (!currentGesture) return;
@@ -340,14 +372,17 @@ export function CaptureDemo({ active, onComplete, resetKey, showToast }: Capture
       return;
     }
 
-    if (currentGesture.kind === 'mark' && draftMark) {
-      if ('width' in draftMark && (draftMark.width < 5 || draftMark.height < 5)) {
+    const finalDraft = draftMarkRef.current;
+    if (currentGesture.kind === 'mark' && finalDraft) {
+      if ('width' in finalDraft && (finalDraft.width < 5 || finalDraft.height < 5)) {
+        draftMarkRef.current = null;
         setDraftMark(null);
         return;
       }
-      setMarks((current) => [...current, { ...draftMark, id: nextMarkId.current }]);
+      setMarks((current) => [...current, { ...finalDraft, id: nextMarkId.current }]);
       nextMarkId.current += 1;
       setRedoMarks([]);
+      draftMarkRef.current = null;
       setDraftMark(null);
     }
   };

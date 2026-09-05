@@ -1,6 +1,15 @@
 import { useState } from 'react';
-import { Menu, X } from '@markfix/ui/icons';
-import { Button } from '@markfix/ui';
+import { Menu } from '@markfix/ui/icons';
+import {
+  Button,
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@markfix/ui';
 
 const navigation = [
   { label: '产品', href: '/#product' },
@@ -19,24 +28,37 @@ export function SiteHeader() {
         <span aria-hidden="true">M</span>
         MarkFix
       </a>
-      <nav className={menuOpen ? 'premium-nav is-open' : 'premium-nav'} aria-label="主导航">
+      <nav className="premium-nav" aria-label="主导航">
         {navigation.map((item) => (
-          <a key={item.href} href={item.href} onClick={() => setMenuOpen(false)}>
+          <a key={item.href} href={item.href}>
             {item.label}
           </a>
         ))}
         <Button onClick={() => window.location.assign('/login')}>登录</Button>
       </nav>
-      <Button
-        className="premium-menu-button"
-        variant="ghost"
-        size="icon"
-        aria-label={menuOpen ? '关闭菜单' : '打开菜单'}
-        aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((current) => !current)}
-      >
-        {menuOpen ? <X /> : <Menu />}
-      </Button>
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetTrigger asChild>
+          <Button className="premium-menu-button" variant="ghost" size="icon" aria-label="打开菜单">
+            <Menu />
+          </Button>
+        </SheetTrigger>
+        <SheetContent className="premium-mobile-nav-sheet">
+          <SheetHeader className="sr-only">
+            <SheetTitle>网站导航</SheetTitle>
+            <SheetDescription>浏览 MarkFix 产品、文档、定价和下载页面。</SheetDescription>
+          </SheetHeader>
+          <nav className="premium-mobile-nav" aria-label="移动端主导航">
+            {navigation.map((item) => (
+              <SheetClose asChild key={item.href}>
+                <a href={item.href}>{item.label}</a>
+              </SheetClose>
+            ))}
+            <SheetClose asChild>
+              <Button onClick={() => window.location.assign('/login')}>登录</Button>
+            </SheetClose>
+          </nav>
+        </SheetContent>
+      </Sheet>
     </header>
   );
 }

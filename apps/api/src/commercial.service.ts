@@ -9,6 +9,13 @@ import {
 import { Prisma } from '@markfix/database';
 import { z } from 'zod';
 import { DatabaseService } from './database.service.js';
+import {
+  reportAnnotationStatus,
+  reportStatusForAnnotation,
+  reportToCommercialAnnotation,
+  updateReportBundle,
+  type CommercialAnnotationStatus,
+} from './commercial/report-annotation.js';
 
 const annotationInputSchema = z.object({
   title: z.string().trim().min(1).max(160),
@@ -25,6 +32,12 @@ const annotationUpdateSchema = annotationInputSchema
 
 const rejectionSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
 const categorySchema = z.object({ category: z.string().trim().min(1).max(40) });
+const annotationListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  status: z.enum(['OPEN', 'IN_REVIEW', 'RESOLVED', 'REJECTED']).optional(),
+  query: z.string().trim().max(200).optional(),
+});
 
 const annotationInclude = {
   author: { select: { id: true, displayName: true, email: true } },
@@ -35,62 +48,161 @@ export class CommercialService implements OnApplicationBootstrap {
   constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    if (!process.env.MARKFIX_DEMO_PASSWORD) return;
-    await this.seedLocalShowcase();
+    if (process.env.MARKFIX_DEMO_PASSWORD) await this.seedLocalShowcase();
   }
 
   async overview(userId: string, workspaceId: string) {
     await this.requireMembership(userId, workspaceId);
-    await this.syncReportAnnotations({ workspaceId });
-    const [projects, members] = await Promise.all([
+    return this.buildOverview(workspaceId);
+  }
+
+  async bootstrap(userId: string) {
+    const [user, workspaces] = await Promise.all([
+      this.database.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          emailVerifiedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.database.workspace.findMany({
+        where: { memberships: { some: { userId, status: 'ACTIVE' } } },
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true,
+          memberships: {
+            where: { userId, status: 'ACTIVE' },
+            select: { role: true },
+            take: 1,
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+    ]);
+    if (!user) throw new NotFoundException('User not found');
+    const workspace = workspaces[0];
+    if (!workspace) throw new NotFoundException('No workspace is available for this account');
+    const overview = await this.buildOverview(workspace.id);
+    const { emailVerifiedAt, ...publicUser } = user;
+    return {
+      user: { ...publicUser, emailVerified: Boolean(emailVerifiedAt) },
+      workspaces: workspaces.map(({ memberships, ...item }) => ({
+        ...item,
+        role: memberships[0]?.role,
+      })),
+      workspaceId: workspace.id,
+      overview,
+    };
+  }
+
+  private async buildOverview(workspaceId: string) {
+    const [projects, members, annotationGroups, reportGroups] = await Promise.all([
       this.database.project.findMany({
         where: { workspaceId },
         orderBy: { updatedAt: 'desc' },
-        include: { annotations: { include: annotationInclude, orderBy: { updatedAt: 'desc' } } },
       }),
       this.database.membership.findMany({
         where: { workspaceId, status: 'ACTIVE' },
         orderBy: { createdAt: 'asc' },
         include: { user: { select: { id: true, displayName: true, email: true } } },
       }),
+      this.database.managedAnnotation.groupBy({
+        by: ['projectId', 'authorId', 'status'],
+        where: { project: { workspaceId }, sourceReportId: null },
+        _count: { _all: true },
+      }),
+      this.database.report.groupBy({
+        by: ['projectId', 'reporterId', 'status', 'rejectionReason'],
+        where: { project: { workspaceId } },
+        _count: { _all: true },
+      }),
     ]);
-    const annotations = projects.flatMap((project) =>
-      project.annotations.map((annotation) => ({ ...annotation, category: project.category })),
-    );
-    const countStatus = (status: string) =>
-      annotations.filter((annotation) => annotation.status === status).length;
+    const projectById = new Map(projects.map((project) => [project.id, project]));
+    const projectCounts = new Map<
+      string,
+      { annotations: number; pending: number; rejected: number; resolved: number }
+    >();
+    const userCounts = new Map<
+      string,
+      { annotations: number; rejected: number; categories: Map<string, number> }
+    >();
+    const metrics = { projects: projects.length, annotations: 0, pending: 0, rejected: 0 };
+
+    const groups: Array<{
+      projectId: string;
+      authorId: string | null;
+      status: CommercialAnnotationStatus;
+      count: number;
+    }> = [
+      ...annotationGroups.map((group) => ({
+        projectId: group.projectId,
+        authorId: group.authorId,
+        status: group.status,
+        count: group._count._all,
+      })),
+      ...reportGroups.map((group) => ({
+        projectId: group.projectId,
+        authorId: group.reporterId,
+        status: reportAnnotationStatus(group),
+        count: group._count._all,
+      })),
+    ];
+
+    for (const group of groups) {
+      const count = group.count;
+      metrics.annotations += count;
+      if (group.status === 'OPEN' || group.status === 'IN_REVIEW') metrics.pending += count;
+      if (group.status === 'REJECTED') metrics.rejected += count;
+
+      const projectCount = projectCounts.get(group.projectId) ?? {
+        annotations: 0,
+        pending: 0,
+        rejected: 0,
+        resolved: 0,
+      };
+      projectCount.annotations += count;
+      if (group.status === 'OPEN' || group.status === 'IN_REVIEW') projectCount.pending += count;
+      if (group.status === 'REJECTED') projectCount.rejected += count;
+      if (group.status === 'RESOLVED') projectCount.resolved += count;
+      projectCounts.set(group.projectId, projectCount);
+
+      if (!group.authorId) continue;
+      const userCount = userCounts.get(group.authorId) ?? {
+        annotations: 0,
+        rejected: 0,
+        categories: new Map<string, number>(),
+      };
+      userCount.annotations += count;
+      if (group.status === 'REJECTED') userCount.rejected += count;
+      const category = projectById.get(group.projectId)?.category;
+      if (category)
+        userCount.categories.set(category, (userCount.categories.get(category) ?? 0) + count);
+      userCounts.set(group.authorId, userCount);
+    }
 
     return {
-      metrics: {
-        projects: projects.length,
-        annotations: annotations.length,
-        pending: annotations.filter((annotation) =>
-          ['OPEN', 'IN_REVIEW'].includes(annotation.status),
-        ).length,
-        rejected: countStatus('REJECTED'),
-      },
-      projects: projects.map(({ annotations: items, ...project }) => ({
+      metrics,
+      projects: projects.map((project) => ({
         ...project,
-        annotationCount: items.length,
-        pendingCount: items.filter((item) => ['OPEN', 'IN_REVIEW'].includes(item.status)).length,
-        rejectedCount: items.filter((item) => item.status === 'REJECTED').length,
-        resolvedCount: items.filter((item) => item.status === 'RESOLVED').length,
+        annotationCount: projectCounts.get(project.id)?.annotations ?? 0,
+        pendingCount: projectCounts.get(project.id)?.pending ?? 0,
+        rejectedCount: projectCounts.get(project.id)?.rejected ?? 0,
+        resolvedCount: projectCounts.get(project.id)?.resolved ?? 0,
       })),
       users: members.map(({ user, role }) => {
-        const authored = annotations.filter((annotation) => annotation.authorId === user.id);
-        const categoryCounts = new Map<string, number>();
-        for (const annotation of authored) {
-          categoryCounts.set(
-            annotation.category,
-            (categoryCounts.get(annotation.category) ?? 0) + 1,
-          );
-        }
+        const counts = userCounts.get(user.id);
         return {
           ...user,
           role,
-          annotationCount: authored.length,
-          rejectedCount: authored.filter((annotation) => annotation.status === 'REJECTED').length,
-          projectCategories: [...categoryCounts.entries()].map(([category, count]) => ({
+          annotationCount: counts?.annotations ?? 0,
+          rejectedCount: counts?.rejected ?? 0,
+          projectCategories: [...(counts?.categories.entries() ?? [])].map(([category, count]) => ({
             category,
             count,
           })),
@@ -99,14 +211,43 @@ export class CommercialService implements OnApplicationBootstrap {
     };
   }
 
-  async annotations(userId: string, projectId: string) {
+  async annotations(userId: string, projectId: string, query: unknown = {}) {
     await this.requireProject(userId, projectId);
-    await this.syncReportAnnotations({ projectId });
-    return this.database.managedAnnotation.findMany({
-      where: { projectId },
-      include: annotationInclude,
-      orderBy: { updatedAt: 'desc' },
-    });
+    const parsedResult = annotationListQuerySchema.safeParse(query);
+    if (!parsedResult.success)
+      throw new BadRequestException(parsedResult.error.issues[0]?.message ?? 'Invalid query');
+    const parsed = parsedResult.data;
+    const [standaloneAnnotations, reports] = await Promise.all([
+      this.database.managedAnnotation.findMany({
+        where: { projectId, sourceReportId: null },
+        include: annotationInclude,
+      }),
+      this.database.report.findMany({
+        where: { projectId },
+        include: { reporter: { select: { id: true, displayName: true, email: true } } },
+      }),
+    ]);
+    const normalizedQuery = parsed.query?.toLocaleLowerCase();
+    const allItems = [
+      ...standaloneAnnotations,
+      ...reports.map((report) => reportToCommercialAnnotation(report)),
+    ]
+      .filter((annotation) => !parsed.status || annotation.status === parsed.status)
+      .filter(
+        (annotation) =>
+          !normalizedQuery ||
+          `${annotation.title} ${annotation.note} ${annotation.pageUrl}`
+            .toLocaleLowerCase()
+            .includes(normalizedQuery),
+      )
+      .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime());
+    const offset = (parsed.page - 1) * parsed.pageSize;
+    return {
+      items: allItems.slice(offset, offset + parsed.pageSize),
+      total: allItems.length,
+      page: parsed.page,
+      pageSize: parsed.pageSize,
+    };
   }
 
   async createAnnotation(userId: string, projectId: string, input: unknown) {
@@ -122,51 +263,40 @@ export class CommercialService implements OnApplicationBootstrap {
   }
 
   async updateAnnotation(userId: string, annotationId: string, input: unknown) {
-    const annotation = await this.requireAnnotationManager(userId, annotationId);
+    const target = await this.requireAnnotationManager(userId, annotationId);
     const parsed = annotationUpdateSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message);
     if (parsed.data.authorId)
-      await this.requireWorkspaceUser(annotation.projectId, parsed.data.authorId);
-    const data = Object.fromEntries(
-      Object.entries(parsed.data).filter(([, value]) => value !== undefined),
-    ) as Prisma.ManagedAnnotationUncheckedUpdateInput;
-    if (parsed.data.status) data.rejectionReason = null;
-    if (annotation.sourceReportId) {
-      const report = await this.database.report.findUnique({
-        where: { id: annotation.sourceReportId },
-        select: { captureBundle: true },
-      });
-      if (!report) throw new NotFoundException('Source report not found');
-      const captureBundle = report.captureBundle as {
-        page?: Record<string, unknown>;
-        [key: string]: unknown;
-      };
+      await this.requireWorkspaceUser(target.record.projectId, parsed.data.authorId);
+    if (target.source === 'report') {
       const reportData: Prisma.ReportUncheckedUpdateInput = {
         ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
         ...(parsed.data.note !== undefined ? { description: parsed.data.note } : {}),
         ...(parsed.data.authorId !== undefined ? { reporterId: parsed.data.authorId } : {}),
         ...(parsed.data.status !== undefined
-          ? { status: this.reportStatus(parsed.data.status), rejectionReason: null }
+          ? { status: reportStatusForAnnotation(parsed.data.status), rejectionReason: null }
           : {}),
-        ...(parsed.data.pageUrl !== undefined
+        ...(parsed.data.kind !== undefined || parsed.data.pageUrl !== undefined
           ? {
-              captureBundle: {
-                ...captureBundle,
-                page: { ...captureBundle.page, url: parsed.data.pageUrl },
-              } as Prisma.InputJsonValue,
+              captureBundle: updateReportBundle(target.record.captureBundle, {
+                ...(parsed.data.kind ? { kind: parsed.data.kind } : {}),
+                ...(parsed.data.pageUrl ? { pageUrl: parsed.data.pageUrl } : {}),
+              }),
             }
           : {}),
+        version: { increment: 1 },
       };
-      const [updated] = await this.database.$transaction([
-        this.database.managedAnnotation.update({
-          where: { id: annotationId },
-          data,
-          include: annotationInclude,
-        }),
-        this.database.report.update({ where: { id: annotation.sourceReportId }, data: reportData }),
-      ]);
-      return updated;
+      const updated = await this.database.report.update({
+        where: { id: target.record.id },
+        data: reportData,
+        include: { reporter: { select: { id: true, displayName: true, email: true } } },
+      });
+      return reportToCommercialAnnotation(updated);
     }
+    const data = Object.fromEntries(
+      Object.entries(parsed.data).filter(([, value]) => value !== undefined),
+    ) as Prisma.ManagedAnnotationUncheckedUpdateInput;
+    if (parsed.data.status) data.rejectionReason = null;
     return this.database.managedAnnotation.update({
       where: { id: annotationId },
       data,
@@ -175,22 +305,20 @@ export class CommercialService implements OnApplicationBootstrap {
   }
 
   async rejectAnnotation(userId: string, annotationId: string, input: unknown) {
-    const annotation = await this.requireAnnotationManager(userId, annotationId);
+    const target = await this.requireAnnotationManager(userId, annotationId);
     const parsed = rejectionSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message);
-    if (annotation.sourceReportId) {
-      const [updated] = await this.database.$transaction([
-        this.database.managedAnnotation.update({
-          where: { id: annotationId },
-          data: { status: 'REJECTED', rejectionReason: parsed.data.reason },
-          include: annotationInclude,
-        }),
-        this.database.report.update({
-          where: { id: annotation.sourceReportId },
-          data: { status: 'CLOSED', rejectionReason: parsed.data.reason },
-        }),
-      ]);
-      return updated;
+    if (target.source === 'report') {
+      const updated = await this.database.report.update({
+        where: { id: target.record.id },
+        data: {
+          status: 'CLOSED',
+          rejectionReason: parsed.data.reason,
+          version: { increment: 1 },
+        },
+        include: { reporter: { select: { id: true, displayName: true, email: true } } },
+      });
+      return reportToCommercialAnnotation(updated);
     }
     return this.database.managedAnnotation.update({
       where: { id: annotationId },
@@ -200,8 +328,8 @@ export class CommercialService implements OnApplicationBootstrap {
   }
 
   async deleteAnnotation(userId: string, annotationId: string) {
-    const annotation = await this.requireAnnotationManager(userId, annotationId);
-    if (annotation.sourceReportId) {
+    const target = await this.requireAnnotationManager(userId, annotationId);
+    if (target.source === 'report') {
       throw new BadRequestException('Submitted annotations cannot be deleted; reject them instead');
     }
     await this.database.managedAnnotation.delete({ where: { id: annotationId } });
@@ -243,13 +371,28 @@ export class CommercialService implements OnApplicationBootstrap {
   }
 
   private async requireAnnotationManager(userId: string, annotationId: string) {
-    const annotation = await this.database.managedAnnotation.findUnique({
-      where: { id: annotationId },
-      include: { project: true },
-    });
-    if (!annotation) throw new NotFoundException('Annotation not found');
-    await this.requireProjectManager(userId, annotation.projectId);
-    return annotation;
+    const [annotation, report] = await Promise.all([
+      this.database.managedAnnotation.findFirst({
+        where: { id: annotationId, sourceReportId: null },
+        include: { project: true },
+      }),
+      this.database.report.findUnique({
+        where: { id: annotationId },
+        include: {
+          project: true,
+          reporter: { select: { id: true, displayName: true, email: true } },
+        },
+      }),
+    ]);
+    if (annotation) {
+      await this.requireProjectManager(userId, annotation.projectId);
+      return { source: 'managed', record: annotation } as const;
+    }
+    if (report) {
+      await this.requireProjectManager(userId, report.projectId);
+      return { source: 'report', record: report } as const;
+    }
+    throw new NotFoundException('Annotation not found');
   }
 
   private async requireWorkspaceUser(projectId: string, targetUserId: string) {
@@ -260,113 +403,6 @@ export class CommercialService implements OnApplicationBootstrap {
     });
     if (!membership || membership.status !== 'ACTIVE')
       throw new BadRequestException('Author must be an active workspace member');
-  }
-
-  private async syncReportAnnotations(scope: { workspaceId: string } | { projectId: string }) {
-    const reports = await this.database.report.findMany({
-      where:
-        'projectId' in scope
-          ? { projectId: scope.projectId }
-          : { project: { workspaceId: scope.workspaceId } },
-      select: {
-        id: true,
-        projectId: true,
-        reporterId: true,
-        title: true,
-        description: true,
-        status: true,
-        rejectionReason: true,
-        captureBundle: true,
-        createdAt: true,
-      },
-    });
-    if (!reports.length) return;
-    const imported = await this.database.managedAnnotation.findMany({
-      where: { sourceReportId: { in: reports.map(({ id }) => id) } },
-      select: {
-        id: true,
-        sourceReportId: true,
-        projectId: true,
-        authorId: true,
-        title: true,
-        note: true,
-        kind: true,
-        pageUrl: true,
-        status: true,
-        rejectionReason: true,
-      },
-    });
-    const importedByReport = new Map(imported.map((item) => [item.sourceReportId, item]));
-    const statusMap = {
-      OPEN: 'OPEN',
-      IN_PROGRESS: 'IN_REVIEW',
-      READY_FOR_VERIFY: 'IN_REVIEW',
-      RESOLVED: 'RESOLVED',
-      CLOSED: 'RESOLVED',
-    } as const;
-    const synchronized = reports.map((report) => {
-      const captureBundle = report.captureBundle as {
-        page?: { url?: unknown };
-        annotations?: unknown[];
-      };
-      const pageUrl =
-        typeof captureBundle.page?.url === 'string'
-          ? captureBundle.page.url
-          : 'https://markfix.local';
-      return {
-        sourceReportId: report.id,
-        projectId: report.projectId,
-        authorId: report.reporterId,
-        title: report.title,
-        note: report.description,
-        kind: captureBundle.annotations?.length ? ('SCREENSHOT' as const) : ('COMMENT' as const),
-        pageUrl,
-        status: report.rejectionReason ? ('REJECTED' as const) : statusMap[report.status],
-        rejectionReason: report.rejectionReason,
-        createdAt: report.createdAt,
-      };
-    });
-    const pending = synchronized.filter(
-      ({ sourceReportId }) => !importedByReport.has(sourceReportId),
-    );
-    if (pending.length) {
-      await this.database.managedAnnotation.createMany({ data: pending, skipDuplicates: true });
-    }
-    const updates = synchronized.flatMap((next) => {
-      const current = importedByReport.get(next.sourceReportId);
-      if (!current) return [];
-      const changed =
-        current.projectId !== next.projectId ||
-        current.authorId !== next.authorId ||
-        current.title !== next.title ||
-        current.note !== next.note ||
-        current.kind !== next.kind ||
-        current.pageUrl !== next.pageUrl ||
-        current.status !== next.status ||
-        current.rejectionReason !== next.rejectionReason;
-      return changed
-        ? [
-            this.database.managedAnnotation.update({
-              where: { id: current.id },
-              data: {
-                projectId: next.projectId,
-                authorId: next.authorId,
-                title: next.title,
-                note: next.note,
-                kind: next.kind,
-                pageUrl: next.pageUrl,
-                status: next.status,
-                rejectionReason: next.rejectionReason,
-              },
-            }),
-          ]
-        : [];
-    });
-    if (updates.length) await this.database.$transaction(updates);
-  }
-
-  private reportStatus(status: 'OPEN' | 'IN_REVIEW' | 'RESOLVED') {
-    return status === 'IN_REVIEW' ? ('IN_PROGRESS' as const) : status;
   }
 
   private async seedLocalShowcase(): Promise<void> {
@@ -418,7 +454,7 @@ export class CommercialService implements OnApplicationBootstrap {
     }
     if (
       (await this.database.managedAnnotation.count({
-        where: { project: { workspaceId: workspace.id } },
+        where: { project: { workspaceId: workspace.id }, sourceReportId: null },
       })) > 0
     )
       return;

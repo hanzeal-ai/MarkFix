@@ -8,6 +8,10 @@ import type {
   SavedElementComment,
 } from '@markfix/contracts';
 import { AnnotationSaveDialog } from './AnnotationSaveDialog';
+import {
+  annotationSelectionReportInputs,
+  type AnnotationSelection,
+} from './annotation-submission/report-inputs';
 
 export function AnnotationSaveWindow(): React.JSX.Element {
   const projectId = new URLSearchParams(window.location.search).get('projectId');
@@ -28,27 +32,15 @@ export function AnnotationSaveWindow(): React.JSX.Element {
       };
     }
     void Promise.all([
-      window.markfix.listCaptureRecords(),
-      window.markfix.listElementComments(),
-      window.markfix.listDiagnosticAnnotations(),
+      window.markfix.listCaptureRecords(projectId),
+      window.markfix.listElementComments(projectId),
+      window.markfix.listDiagnosticAnnotations(projectId),
     ])
       .then(([savedCaptures, savedComments, savedDiagnostics]) => {
         if (!active) return;
-        setCaptures(
-          savedCaptures.filter(
-            (capture) => capture.projectId === projectId && capture.status === 'draft',
-          ),
-        );
-        setElementComments(
-          savedComments.filter(
-            (comment) => comment.projectId === projectId && comment.status === 'draft',
-          ),
-        );
-        setDiagnostics(
-          savedDiagnostics.filter(
-            (diagnostic) => diagnostic.projectId === projectId && diagnostic.status === 'draft',
-          ),
-        );
+        setCaptures(savedCaptures.filter((capture) => capture.status === 'draft'));
+        setElementComments(savedComments.filter((comment) => comment.status === 'draft'));
+        setDiagnostics(savedDiagnostics.filter((diagnostic) => diagnostic.status === 'draft'));
       })
       .catch((cause: unknown) => {
         if (active) setError(cause instanceof Error ? cause.message : '无法读取本机标注。');
@@ -74,11 +66,7 @@ export function AnnotationSaveWindow(): React.JSX.Element {
       );
   }, []);
 
-  const submit = async (selection: {
-    captures: SavedCapture[];
-    diagnostics: SavedDiagnosticAnnotation[];
-    elementComments: SavedElementComment[];
-  }): Promise<void> => {
+  const submit = async (selection: AnnotationSelection): Promise<void> => {
     setBusy(true);
     setError(undefined);
     try {
@@ -96,6 +84,12 @@ export function AnnotationSaveWindow(): React.JSX.Element {
         )
       )
         throw new Error('一次只能提交同一项目的标注。');
+      const reports = annotationSelectionReportInputs(projectId, selection);
+      await Promise.all(
+        reports.map(({ report, idempotencyKey }) =>
+          window.markfix.submitReport(report, idempotencyKey, false),
+        ),
+      );
       const submission = {
         id: crypto.randomUUID(),
         projectId,

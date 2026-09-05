@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, Eye, EyeOff } from '@markfix/ui/icons';
-import { Button, Card, Input, Label } from '@markfix/ui';
+import { ArrowLeft, ArrowRight } from '@markfix/ui/icons';
+import { Button, Card, Input, Label, PasswordInput } from '@markfix/ui';
 import { MarkFixApi } from '@markfix/api-client';
 import './admin-login.css';
 
@@ -9,7 +9,6 @@ const api = new MarkFixApi(import.meta.env.VITE_API_URL ?? 'http://localhost:431
 export function AdminLogin() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -55,23 +54,14 @@ export function AdminLogin() {
           </Label>
           <Label>
             密码
-            <span className="admin-login-password">
-              <Input
-                autoComplete="current-password"
-                minLength={8}
-                required
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-              <button
-                type="button"
-                aria-label={showPassword ? '隐藏密码' : '显示密码'}
-                onClick={() => setShowPassword((current) => !current)}
-              >
-                {showPassword ? <EyeOff /> : <Eye />}
-              </button>
-            </span>
+            <PasswordInput
+              wrapperClassName="admin-login-password"
+              autoComplete="current-password"
+              minLength={8}
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
           </Label>
           {error ? <p className="admin-login-error">{error}</p> : null}
           <Button size="lg" type="submit" disabled={busy}>

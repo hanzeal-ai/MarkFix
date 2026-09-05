@@ -41,6 +41,20 @@ describe('DraftStore outbox', () => {
     store.close();
   });
 
+  it('uses the local annotation id as a stable idempotency key across retries', () => {
+    const store = createStore();
+    const localAnnotationId = '49bbad52-952f-4c45-96e9-5020106f9324';
+    const first = store.enqueue({ title: 'Element note' }, 'request-v1', localAnnotationId);
+    store.markCompleted(first.id, 'report-1');
+
+    const retried = store.enqueue({ title: 'Element note updated' }, 'request-v2', localAnnotationId);
+
+    expect(retried.id).toBe(first.id);
+    expect(retried.idempotencyKey).toBe(localAnnotationId);
+    expect(store.claimDue()).toEqual([]);
+    store.close();
+  });
+
   it('applies retry backoff and recovers interrupted claims', () => {
     const now = 1_800_000_000_000;
     vi.spyOn(Date, 'now').mockReturnValue(now);
@@ -351,7 +365,6 @@ describe('DraftStore website projects', () => {
     const second = store.recordProjectPage(project.id, 'https://example.com/page', 'Page updated');
     store.recordProjectPage(project.id, 'https://example.com/other', 'Other page');
 
-    expect(store.findWebsiteProjectByOrigin(project.origin)?.id).toBe(project.id);
     expect(first?.currentPageSessionId).toBe(second?.currentPageSessionId);
     expect(store.stepProjectHistory(project.id, -1)?.url).toBe('https://example.com/page');
     expect(store.stepProjectHistory(project.id, 1)?.url).toBe('https://example.com/other');
@@ -367,72 +380,6 @@ describe('DraftStore website projects', () => {
     expect(store.getWebsiteProject(project.id)).toBeUndefined();
     expect(store.stepProjectHistory(project.id, -1)).toBeUndefined();
     expect(store.load()).toBeUndefined();
-    store.close();
-  });
-
-  it('migrates local project state when the server replaces a project ID', () => {
-    const store = createStore();
-    const previousId = '90e2a0c5-0755-49b9-9d5d-41534ed41b41';
-    const projectId = 'aa6ba68a-60ad-4116-acd8-bc42c496fa1c';
-    const project: WebsiteProject = {
-      id: previousId,
-      workspaceId: 'bb0ee545-59c0-427f-ad9c-fb976ef266d5',
-      title: 'Example',
-      origin: 'https://example.com',
-      entryUrl: 'https://example.com/start',
-      faviconUrl: 'https://example.com/favicon.ico',
-      faviconSource: 'root',
-      currentPageSessionId: '60bba625-07f2-40f6-8eef-1ddb681f8513',
-      currentUrl: 'https://example.com/start',
-      createdAt: '2026-09-04T08:00:00.000Z',
-      updatedAt: '2026-09-04T08:00:00.000Z',
-    };
-    const comment: SavedElementComment = {
-      id: '86c28bc3-a8a0-40df-a4b6-c7f71823d41a',
-      projectId: previousId,
-      pageSessionId: project.currentPageSessionId,
-      pageTitle: 'Example page',
-      status: 'draft',
-      pageUrl: 'https://example.com/page',
-      anchor: {
-        kind: 'element',
-        cssSelector: '[id="headline"]',
-        textQuote: 'A headline',
-        tagName: 'h1',
-        attributes: { id: 'headline' },
-        documentUrl: 'https://example.com/page',
-        framePath: [],
-        quadsCssPx: [[10, 20, 210, 20, 210, 80, 10, 80]],
-      },
-      note: '标题需要修改',
-      createdAt: '2026-09-04T08:00:00.000Z',
-      updatedAt: '2026-09-04T08:00:00.000Z',
-    };
-    store.saveWebsiteProject(project);
-    store.recordProjectPage(project.id, project.entryUrl, project.title);
-    store.recordProjectPage(project.id, comment.pageUrl, comment.pageTitle);
-    store.saveElementComment(comment);
-    store.save({
-      title: '',
-      description: '',
-      url: comment.pageUrl,
-      annotations: [],
-      reproduction: [],
-      projectId: previousId,
-    });
-
-    const migrated = store.migrateWebsiteProject(previousId, {
-      ...project,
-      id: projectId,
-      workspaceId: 'cf3f22df-a04d-4ff2-839d-39d032f263a2',
-    });
-
-    expect(migrated.id).toBe(projectId);
-    expect(store.getWebsiteProject(previousId)).toBeUndefined();
-    expect(store.getWebsiteProject(projectId)).toEqual(migrated);
-    expect(store.listElementComments()[0]?.projectId).toBe(projectId);
-    expect(store.load()?.projectId).toBe(projectId);
-    expect(store.stepProjectHistory(projectId, -1)?.url).toBe(project.entryUrl);
     store.close();
   });
 });

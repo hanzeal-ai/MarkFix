@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('markfix', {
   login: (email: string, password: string) =>
     ipcRenderer.invoke(ipcChannels.authLogin, { email, password }),
   logout: () => ipcRenderer.invoke(ipcChannels.authLogout),
+  desktopBootstrap: () => ipcRenderer.invoke(ipcChannels.desktopBootstrap),
   listWorkspaces: () => ipcRenderer.invoke(ipcChannels.listWorkspaces),
   getSubscription: (workspaceId: string) =>
     ipcRenderer.invoke(subscriptionIpcChannels.get, workspaceId),
@@ -39,6 +40,8 @@ contextBridge.exposeInMainWorld('markfix', {
   listEnvironments: (projectId: string) =>
     ipcRenderer.invoke(ipcChannels.listEnvironments, projectId),
   listWebsiteProjects: () => ipcRenderer.invoke(ipcChannels.listWebsiteProjects),
+  listProjectAnnotationReports: (projectId: string) =>
+    ipcRenderer.invoke(ipcChannels.listProjectAnnotationReports, projectId),
   createWebsiteProject: (workspaceId: string, url: string) =>
     ipcRenderer.invoke(ipcChannels.createWebsiteProject, { workspaceId, url }),
   switchWebsiteProject: (projectId: string) =>
@@ -77,17 +80,22 @@ contextBridge.exposeInMainWorld('markfix', {
   copyCaptureImage: (dataUrl: string) => ipcRenderer.invoke(ipcChannels.copyCaptureImage, dataUrl),
   saveCaptureImage: (dataUrl: string, suggestedName: string) =>
     ipcRenderer.invoke(ipcChannels.saveCaptureImage, { dataUrl, suggestedName }),
-  listCaptureRecords: () => ipcRenderer.invoke(ipcChannels.listCaptureRecords),
+  listCaptureRecords: (projectId?: string) =>
+    ipcRenderer.invoke(ipcChannels.listCaptureRecords, projectId),
+  listAnnotationHistorySummaries: () =>
+    ipcRenderer.invoke(ipcChannels.listAnnotationHistorySummaries),
   saveCaptureRecord: (capture: SavedCapture) =>
     ipcRenderer.invoke(ipcChannels.saveCaptureRecord, capture),
   deleteCaptureRecord: (id: string) => ipcRenderer.invoke(ipcChannels.deleteCaptureRecord, id),
-  listElementComments: () => ipcRenderer.invoke(ipcChannels.listElementComments),
+  listElementComments: (projectId?: string) =>
+    ipcRenderer.invoke(ipcChannels.listElementComments, projectId),
   saveElementComment: (comment: SavedElementComment) =>
     ipcRenderer.invoke(ipcChannels.saveElementComment, comment),
   deleteElementComment: (id: string) => ipcRenderer.invoke(ipcChannels.deleteElementComment, id),
   syncElementComments: (comments: SavedElementComment[]) =>
     ipcRenderer.invoke(ipcChannels.syncElementComments, comments),
-  listDiagnosticAnnotations: () => ipcRenderer.invoke(ipcChannels.listDiagnosticAnnotations),
+  listDiagnosticAnnotations: (projectId?: string) =>
+    ipcRenderer.invoke(ipcChannels.listDiagnosticAnnotations, projectId),
   saveDiagnosticAnnotation: (annotation: SavedDiagnosticAnnotation) =>
     ipcRenderer.invoke(ipcChannels.saveDiagnosticAnnotation, annotation),
   deleteDiagnosticAnnotation: (id: string) =>
@@ -117,7 +125,8 @@ contextBridge.exposeInMainWorld('markfix', {
   loadDraft: () => ipcRenderer.invoke(ipcChannels.loadDraft),
   clearDraft: () => ipcRenderer.invoke(ipcChannels.clearDraft),
   loadSyncStatus: (outboxId: string) => ipcRenderer.invoke(ipcChannels.loadSyncStatus, outboxId),
-  submitReport: (report: CreateReport) => ipcRenderer.invoke(ipcChannels.submitReport, report),
+  submitReport: (report: CreateReport, idempotencyKey?: string, clearDraft = true) =>
+    ipcRenderer.invoke(ipcChannels.submitReport, { report, idempotencyKey, clearDraft }),
   onBrowserState: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.browserState, listener),
   onDiagnostic: (listener: (payload: DiagnosticEvidence) => void) =>
