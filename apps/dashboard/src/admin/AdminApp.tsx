@@ -6,6 +6,7 @@ import {
   ChevronRight,
   CircleDot,
   Clock3,
+  Copy,
   ExternalLink,
   Filter,
   FolderKanban,
@@ -975,44 +976,128 @@ function ProjectsView({
   );
 }
 
-function UsersView({ users }: { users: OverviewUser[] }) {
+function UsersView({
+  users,
+  workspaceId,
+  canManage,
+}: {
+  users: OverviewUser[];
+  workspaceId: string;
+  canManage: boolean;
+}) {
+  const [query, setQuery] = useState('');
+  const [email, setEmail] = useState('');
+  const [inviteUrl, setInviteUrl] = useState('');
+  const [copied, setCopied] = useState(false);
+  const invitation = useMutation({
+    mutationFn: () => api.createInvitation(workspaceId, email, 'MEMBER'),
+    onSuccess: ({ token }) => {
+      setInviteUrl(
+        `${window.location.origin}/accept-invitation?token=${encodeURIComponent(token)}`,
+      );
+      setEmail('');
+    },
+  });
+  const normalized = query.trim().toLocaleLowerCase();
+  const visibleUsers = users.filter(
+    (user) =>
+      !normalized || `${user.displayName} ${user.email}`.toLocaleLowerCase().includes(normalized),
+  );
+
   return (
-    <Card className="users-card">
-      <div className="users-table-head">
-        <span>用户</span>
-        <span>角色</span>
-        <span>项目分类</span>
-        <span>标注</span>
-        <span>驳回</span>
+    <>
+      <div className="users-toolbar">
+        <Label className="admin-search">
+          <Search />
+          <Input
+            placeholder="搜索用户"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </Label>
+        {canManage && (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              invitation.mutate();
+            }}
+          >
+            <Input
+              aria-label="邀请邮箱"
+              placeholder="输入邮箱邀请成员"
+              required
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+            <Button type="submit" disabled={invitation.isPending}>
+              <Plus />
+              {invitation.isPending ? '正在创建…' : '邀请成员'}
+            </Button>
+          </form>
+        )}
       </div>
-      {users.map((user) => (
-        <div className="users-table-row" key={user.id}>
-          <span className="user-identity">
-            <i>{user.displayName.slice(0, 1)}</i>
-            <span>
-              <strong>{user.displayName}</strong>
-              <small>{user.email}</small>
+      {invitation.error instanceof Error && (
+        <Alert variant="destructive">
+          <AlertDescription>{invitation.error.message}</AlertDescription>
+        </Alert>
+      )}
+      {inviteUrl && (
+        <Alert className="invitation-result">
+          <AlertDescription>
+            <strong>邀请已创建</strong>
+            <span>复制链接发送给成员。</span>
+            <span className="invitation-link">
+              <Input readOnly value={inviteUrl} />
+              <Button
+                variant="outline"
+                onClick={() => {
+                  void navigator.clipboard.writeText(inviteUrl).then(() => setCopied(true));
+                }}
+              >
+                <Copy />
+                {copied ? '已复制' : '复制'}
+              </Button>
             </span>
-          </span>
-          <Badge variant="outline">{user.role}</Badge>
-          <span className="category-badges">
-            {user.projectCategories.length ? (
-              user.projectCategories.map((item) => (
-                <Badge variant="secondary" key={item.category}>
-                  {item.category}
-                </Badge>
-              ))
-            ) : (
-              <small>暂无分类</small>
-            )}
-          </span>
-          <strong>{user.annotationCount}</strong>
-          <strong className={user.rejectedCount ? 'rejected-number' : ''}>
-            {user.rejectedCount}
-          </strong>
+          </AlertDescription>
+        </Alert>
+      )}
+      <Card className="users-card">
+        <div className="users-table-head">
+          <span>用户</span>
+          <span>项目分类</span>
+          <span>标注</span>
+          <span>驳回</span>
         </div>
-      ))}
-    </Card>
+        {visibleUsers.map((user) => (
+          <div className="users-table-row" key={user.id}>
+            <span className="user-identity">
+              <i>{user.displayName.slice(0, 1)}</i>
+              <span>
+                <strong>{user.displayName}</strong>
+                <small>{user.email}</small>
+              </span>
+            </span>
+            <span className="category-badges">
+              {user.projectCategories.length ? (
+                user.projectCategories.map((item) => (
+                  <Badge variant="secondary" key={item.category}>
+                    {item.category}
+                  </Badge>
+                ))
+              ) : (
+                <small>暂无分类</small>
+              )}
+            </span>
+            <strong>{user.annotationCount}</strong>
+            <strong className={user.rejectedCount ? 'rejected-number' : ''}>
+              {user.rejectedCount}
+            </strong>
+          </div>
+        ))}
+      </Card>
+      {!visibleUsers.length && <EmptyState icon={Users} title="没有找到用户" />}
+    </>
   );
 }
 
@@ -1163,7 +1248,9 @@ export function AdminApp() {
             onProject={setSelectedProject}
           />
         )}
-        {overview.data && view === 'users' && <UsersView users={overview.data.users} />}
+        {overview.data && workspaceId && view === 'users' && (
+          <UsersView users={overview.data.users} workspaceId={workspaceId} canManage={canManage} />
+        )}
       </main>
 
       <ProjectDrawer

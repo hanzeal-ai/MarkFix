@@ -14,6 +14,7 @@ const accountPaths = new Set([
   '/verify-email',
   '/forgot-password',
   '/reset-password',
+  '/accept-invitation',
 ]);
 
 ReactDOM.createRoot(document.querySelector('#root') as HTMLElement).render(

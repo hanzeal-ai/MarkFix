@@ -6,13 +6,14 @@ import './account-access.css';
 
 const api = new MarkFixApi(import.meta.env.VITE_API_URL ?? 'http://localhost:4310');
 
-type AccountMode = 'login' | 'register' | 'verify' | 'forgot' | 'reset';
+type AccountMode = 'login' | 'register' | 'verify' | 'forgot' | 'reset' | 'invite';
 
 const modeForPath = (pathname: string): AccountMode => {
   if (pathname === '/register') return 'register';
   if (pathname === '/verify-email') return 'verify';
   if (pathname === '/forgot-password') return 'forgot';
   if (pathname === '/reset-password') return 'reset';
+  if (pathname === '/accept-invitation') return 'invite';
   return 'login';
 };
 
@@ -22,6 +23,7 @@ const content: Record<AccountMode, { eyebrow: string; title: string }> = {
   verify: { eyebrow: 'Email verification', title: '验证邮箱' },
   forgot: { eyebrow: 'Account recovery', title: '找回密码' },
   reset: { eyebrow: 'Account recovery', title: '设置新密码' },
+  invite: { eyebrow: 'Team invitation', title: '加入工作区' },
 };
 
 function PasswordInput({
@@ -58,6 +60,10 @@ function PasswordInput({
 export function AccountAccess() {
   const mode = modeForPath(window.location.pathname);
   const token = useMemo(() => new URLSearchParams(window.location.search).get('token') ?? '', []);
+  const nextPath = useMemo(() => {
+    const value = new URLSearchParams(window.location.search).get('next');
+    return value?.startsWith('/') && !value.startsWith('//') ? value : '/app';
+  }, []);
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
@@ -86,7 +92,7 @@ export function AccountAccess() {
     try {
       if (mode === 'login') {
         await api.login(email, password);
-        window.location.replace('/app');
+        window.location.replace(nextPath);
         return;
       }
       if (mode === 'register') {
@@ -99,7 +105,7 @@ export function AccountAccess() {
         if (result.verificationToken) {
           await api.verifyEmail(result.verificationToken);
           await api.login(email, password);
-          window.location.replace('/app');
+          window.location.replace(nextPath);
           return;
         }
         setMessage('账户已创建，请通过邮件完成邮箱验证后登录。');
@@ -122,6 +128,20 @@ export function AccountAccess() {
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '请求失败，请稍后重试。');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const acceptInvitation = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      if (!token) throw new Error('邀请链接缺少有效令牌。');
+      await api.acceptInvitation(token, '');
+      window.location.replace('/app');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '接受邀请失败。');
     } finally {
       setBusy(false);
     }
@@ -168,6 +188,30 @@ export function AccountAccess() {
             <Button variant="outline" onClick={() => window.location.assign('/login')}>
               返回登录
             </Button>
+          </div>
+        ) : mode === 'invite' ? (
+          <div className="account-result">
+            <p>登录或注册后，即可接受邀请并加入团队工作区。</p>
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Button disabled={busy || !token} onClick={() => void acceptInvitation()}>
+              {busy ? '正在加入…' : '接受邀请'}
+            </Button>
+            <div className="account-invite-links">
+              <a
+                href={`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+              >
+                登录
+              </a>
+              <a
+                href={`/register?next=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+              >
+                注册新账户
+              </a>
+            </div>
           </div>
         ) : (
           <form onSubmit={(event) => void submit(event)}>
@@ -241,14 +285,24 @@ export function AccountAccess() {
           <footer>
             <a href="/forgot-password">忘记密码</a>
             <span>
-              还没有账户？<a href="/register">立即注册</a>
+              还没有账户？
+              <a
+                href={`/register${nextPath === '/app' ? '' : `?next=${encodeURIComponent(nextPath)}`}`}
+              >
+                立即注册
+              </a>
             </span>
           </footer>
         )}
         {!message && mode === 'register' && (
           <footer>
             <span>
-              已有账户？<a href="/login">返回登录</a>
+              已有账户？
+              <a
+                href={`/login${nextPath === '/app' ? '' : `?next=${encodeURIComponent(nextPath)}`}`}
+              >
+                返回登录
+              </a>
             </span>
           </footer>
         )}
