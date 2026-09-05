@@ -37,6 +37,11 @@ enum WorkspaceRole {
   REPORTER
 }
 
+enum WorkspacePlan {
+  FREE
+  TEAM
+}
+
 enum MembershipStatus {
   ACTIVE
   SUSPENDED
@@ -116,15 +121,17 @@ model PasswordResetToken {
 }
 
 model Workspace {
-  id          String       @id @default(uuid()) @db.Uuid
-  name        String
-  createdById String?      @db.Uuid
-  createdBy   User?        @relation("WorkspaceCreator", fields: [createdById], references: [id])
-  projects    Project[]
-  memberships Membership[]
-  invitations Invitation[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id                 String        @id @default(uuid()) @db.Uuid
+  name               String
+  createdById        String?       @db.Uuid
+  createdBy          User?         @relation("WorkspaceCreator", fields: [createdById], references: [id])
+  projects           Project[]
+  memberships        Membership[]
+  invitations        Invitation[]
+  plan               WorkspacePlan @default(FREE)
+  upgradeRequestedAt DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 }
 
 model Membership {

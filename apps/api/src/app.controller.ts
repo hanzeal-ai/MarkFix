@@ -19,6 +19,7 @@ import { AuthService } from './auth.service.js';
 import { ClientPolicyService } from './client-policy.service.js';
 import { CurrentUser, type AuthenticatedUser } from './current-user.decorator.js';
 import { Public } from './public.decorator.js';
+import { SubscriptionService } from './subscription.service.js';
 
 const cookie = (name: string, value: string, maxAge: number): string =>
   `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${
@@ -53,6 +54,7 @@ export class AppController {
     @Inject(AppService) private readonly app: AppService,
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(ClientPolicyService) private readonly clientPolicy: ClientPolicyService,
+    @Inject(SubscriptionService) private readonly subscriptions: SubscriptionService,
   ) {}
 
   @Get('health')
@@ -171,11 +173,12 @@ export class AppController {
   }
 
   @Post('workspaces/:workspaceId/projects')
-  createProject(
+  async createProject(
     @CurrentUser() user: AuthenticatedUser,
     @Param('workspaceId') workspaceId: string,
     @Body() body: unknown,
   ) {
+    await this.subscriptions.assertCanCreateProject(user.id, workspaceId);
     return this.app.createProject(user.id, workspaceId, body);
   }
 
@@ -227,11 +230,12 @@ export class AppController {
   }
 
   @Post('workspaces/:workspaceId/invitations')
-  invite(
+  async invite(
     @CurrentUser() user: AuthenticatedUser,
     @Param('workspaceId') workspaceId: string,
     @Body() body: unknown,
   ) {
+    await this.subscriptions.assertCanInviteMember(user.id, workspaceId);
     return this.app.createInvitation(user.id, workspaceId, body);
   }
 

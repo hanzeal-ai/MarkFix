@@ -9,6 +9,8 @@ import { CommercialController } from './commercial.controller.js';
 import { CommercialService } from './commercial.service.js';
 import { DatabaseService } from './database.service.js';
 import { DevelopmentEmailAdapter, EmailPort, WebhookEmailAdapter } from './email.port.js';
+import { SubscriptionController } from './subscription.controller.js';
+import { SubscriptionService } from './subscription.service.js';
 
 const emailProvider = {
   provide: EmailPort,
@@ -29,13 +31,14 @@ const emailProvider = {
 };
 
 @Module({
-  controllers: [AppController, CommercialController],
+  controllers: [AppController, CommercialController, SubscriptionController],
   providers: [
     AppService,
     AuthService,
     ClientPolicyService,
     CommercialService,
     DatabaseService,
+    SubscriptionService,
     emailProvider,
     { provide: APP_GUARD, useClass: AuthGuard },
   ],

@@ -375,6 +375,10 @@ export class CommercialService implements OnApplicationBootstrap {
     if (!owner) return;
     const workspace = await this.database.workspace.findFirst({ where: { createdById: owner.id } });
     if (!workspace) return;
+    await this.database.workspace.update({
+      where: { id: workspace.id },
+      data: { plan: 'TEAM', upgradeRequestedAt: null },
+    });
     const demoMembers = await Promise.all(
       [
         { email: 'lin@markfix.local', displayName: '林乔' },
