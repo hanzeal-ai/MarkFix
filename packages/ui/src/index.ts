@@ -16,6 +16,15 @@ export {
 export { Input } from './components/input.js';
 export { Label } from './components/label.js';
 export { NativeSelect } from './components/native-select.js';
+export {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from './components/sheet.js';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs.js';
 export { Textarea } from './components/textarea.js';
 export { cn } from './lib/cn.js';

@@ -121,6 +121,48 @@ describe('commercial annotation management', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('updates and rejects an annotation while preserving the project boundary', async () => {
+    const workspaceId = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+    const annotationId = crypto.randomUUID();
+    const update = vi.fn().mockImplementation(({ data }) => Promise.resolve(data));
+    const service = new CommercialService({
+      managedAnnotation: {
+        findUnique: vi.fn().mockResolvedValue({ id: annotationId, projectId, project: {} }),
+        update,
+      },
+      project: { findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId }) },
+      membership: { findUnique: vi.fn().mockResolvedValue(managerMembership) },
+    } as never);
+
+    await service.updateAnnotation('admin-1', annotationId, {
+      title: 'Updated annotation',
+      status: 'RESOLVED',
+    });
+    await service.rejectAnnotation('admin-1', annotationId, {
+      reason: 'Not part of this release.',
+    });
+
+    expect(update).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: { id: annotationId },
+        data: expect.objectContaining({
+          title: 'Updated annotation',
+          status: 'RESOLVED',
+          rejectionReason: null,
+        }),
+      }),
+    );
+    expect(update).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { id: annotationId },
+        data: { status: 'REJECTED', rejectionReason: 'Not part of this release.' },
+      }),
+    );
+  });
+
   it('deletes only after validating annotation project access', async () => {
     const workspaceId = crypto.randomUUID();
     const projectId = crypto.randomUUID();

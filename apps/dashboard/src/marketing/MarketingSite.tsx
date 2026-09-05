@@ -116,7 +116,7 @@ export function MarketingSite() {
         <section className="marketing-hero">
           <div className="hero-copy">
             <Badge variant="secondary">
-              <Sparkles /> 为网站反馈而生
+              <Sparkles /> Mark It! Fix It!
             </Badge>
             <h1>把网页问题，直接标在问题发生的地方。</h1>
             <p>
@@ -322,7 +322,7 @@ export function MarketingSite() {
 
         <section className="final-cta">
           <div>
-            <span>Mark it. Fix it.</span>
+            <span>Mark It! Fix It!</span>
             <h2>让每一条网页反馈，都有准确的落点。</h2>
           </div>
           <Button size="lg" onClick={() => go('/app')}>

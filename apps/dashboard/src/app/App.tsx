@@ -997,6 +997,7 @@ export function App() {
       <AuthScreen
         onAuthenticated={async () => {
           await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
+          window.location.assign('/app');
         }}
       />
     );
@@ -1008,6 +1009,7 @@ export function App() {
       <AuthScreen
         onAuthenticated={async () => {
           await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
+          window.location.assign('/app');
         }}
       />
     );
