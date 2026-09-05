@@ -11,11 +11,13 @@ import {
   Post,
   Put,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppService } from './app.service.js';
 import { AuthService } from './auth.service.js';
+import { AuthRateLimitService } from './auth-rate-limit.service.js';
 import { ClientPolicyService } from './client-policy.service.js';
 import { CurrentUser, type AuthenticatedUser } from './current-user.decorator.js';
 import { Public } from './public.decorator.js';
@@ -53,6 +55,7 @@ export class AppController {
   constructor(
     @Inject(AppService) private readonly app: AppService,
     @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(AuthRateLimitService) private readonly authRateLimit: AuthRateLimitService,
     @Inject(ClientPolicyService) private readonly clientPolicy: ClientPolicyService,
     @Inject(SubscriptionService) private readonly subscriptions: SubscriptionService,
   ) {}
@@ -76,31 +79,40 @@ export class AppController {
 
   @Post('auth/register')
   @Public()
-  register(@Body() body: unknown) {
+  register(@Req() request: FastifyRequest, @Body() body: unknown) {
+    this.authRateLimit.consume('register', request.ip, 8, 60 * 60 * 1000);
     return this.auth.register(body);
   }
 
   @Post('auth/verify-email')
   @Public()
-  verifyEmail(@Body() body: unknown) {
+  verifyEmail(@Req() request: FastifyRequest, @Body() body: unknown) {
+    this.authRateLimit.consume('verify-email', request.ip, 20, 60 * 60 * 1000);
     return this.auth.verifyEmail(body);
   }
 
   @Post('auth/forgot-password')
   @Public()
-  forgotPassword(@Body() body: unknown) {
+  forgotPassword(@Req() request: FastifyRequest, @Body() body: unknown) {
+    this.authRateLimit.consume('forgot-password', request.ip, 5, 60 * 60 * 1000);
     return this.auth.forgotPassword(body);
   }
 
   @Post('auth/reset-password')
   @Public()
-  resetPassword(@Body() body: unknown) {
+  resetPassword(@Req() request: FastifyRequest, @Body() body: unknown) {
+    this.authRateLimit.consume('reset-password', request.ip, 10, 60 * 60 * 1000);
     return this.auth.resetPassword(body);
   }
 
   @Post('auth/login')
   @Public()
-  async login(@Body() body: unknown, @Res({ passthrough: true }) reply: FastifyReply) {
+  async login(
+    @Req() request: FastifyRequest,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    this.authRateLimit.consume('login', request.ip, 20, 15 * 60 * 1000);
     const tokens = await this.auth.login(body);
     const desktop = (body as { clientType?: unknown }).clientType === 'desktop';
     if (desktop) return tokens;

@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthGuard } from './auth.guard.js';
+import { AuthRateLimitService } from './auth-rate-limit.service.js';
 import { AuthService } from './auth.service.js';
 import { ClientPolicyService } from './client-policy.service.js';
 import { CommercialController } from './commercial.controller.js';
@@ -35,6 +36,7 @@ const emailProvider = {
   providers: [
     AppService,
     AuthService,
+    AuthRateLimitService,
     ClientPolicyService,
     CommercialService,
     DatabaseService,
