@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MarkFixApi } from '@markfix/api-client';
 import {
   ArrowUpRight,
-  CheckCircle2,
   ChevronRight,
   CircleDot,
   Clock3,
@@ -1110,12 +1109,6 @@ export function AdminApp() {
             用户管理
           </Button>
         </nav>
-        <div className="admin-sidebar-note">
-          <span>
-            <CheckCircle2 />
-            桌面端已连接
-          </span>
-        </div>
         <div className="admin-profile">
           <span className="user-symbol">{currentUser.data?.displayName.slice(0, 1) ?? 'M'}</span>
           <span>

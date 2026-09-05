@@ -103,29 +103,8 @@
   text-align: center;
 }
 
-.admin-sidebar-note {
-  margin-top: auto;
-  border: 1px solid #34323c;
-  border-radius: 12px;
-  background: #232229;
-  padding: 14px;
-}
-
-.admin-sidebar-note span {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #dedde4;
-  font-size: 12px;
-}
-
-.admin-sidebar-note svg {
-  width: 15px;
-  color: #8c83ff;
-}
-
 .admin-profile {
-  margin-top: 14px;
+  margin-top: auto;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto;
   align-items: center;
@@ -1161,10 +1140,6 @@ button.dimension-row:hover {
   .admin-nav button svg {
     width: 18px;
     height: 18px;
-  }
-
-  .admin-sidebar-note {
-    display: none;
   }
 
   .admin-profile {
