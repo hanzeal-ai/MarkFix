@@ -52,6 +52,25 @@ describe('workspace and project management', () => {
     });
   });
 
+  it('allows owners to permanently delete a project', async () => {
+    const remove = vi.fn().mockResolvedValue({ id: 'project-1' });
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+        delete: remove,
+      },
+      artifact: { findMany: vi.fn().mockResolvedValue([]) },
+    } as never);
+
+    await expect(service.deleteProject('user-1', 'project-1')).resolves.toEqual({
+      deleted: true,
+    });
+    expect(remove).toHaveBeenCalledWith({ where: { id: 'project-1' } });
+  });
+
   it('rejects project creation by regular workspace members', async () => {
     const create = vi.fn();
     const service = new AppService({
@@ -175,6 +194,8 @@ describe('workspace and project management', () => {
           widthCssPx: 100,
           heightCssPx: 80,
           documentUrl: 'https://example.test',
+          scrollXCssPx: 0,
+          scrollYCssPx: 0,
         },
         annotations: [],
         reproduction: [],
@@ -184,6 +205,54 @@ describe('workspace and project management', () => {
     expect(create).toHaveBeenCalledWith({
       data: expect.objectContaining({ projectId, environmentId, createdById: 'user-1' }),
     });
+  });
+
+  it('rejects a report whose payload project differs from the route project', async () => {
+    const routeProjectId = crypto.randomUUID();
+    const payloadProjectId = crypto.randomUUID();
+    const create = vi.fn();
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: routeProjectId, workspaceId: 'workspace-1' }),
+      },
+      reportSubmission: { create },
+    } as never);
+
+    await expect(
+      service.createSubmission('user-1', routeProjectId, 'request-mismatch', {
+        projectId: payloadProjectId,
+        title: 'Wrong project',
+        description: 'This payload must not cross the project boundary.',
+        priority: 'MEDIUM',
+        captureBundle: {
+          schemaVersion: 1,
+          page: {
+            url: 'https://example.test',
+            title: 'Example',
+            viewportWidthCssPx: 1280,
+            viewportHeightCssPx: 720,
+            deviceScaleFactor: 1,
+            capturedAt: new Date().toISOString(),
+          },
+          anchor: {
+            kind: 'region',
+            xCssPx: 10,
+            yCssPx: 10,
+            widthCssPx: 100,
+            heightCssPx: 80,
+            documentUrl: 'https://example.test',
+            scrollXCssPx: 0,
+            scrollYCssPx: 0,
+          },
+          annotations: [],
+          reproduction: [],
+        },
+      }),
+    ).rejects.toThrow('Project ID mismatch');
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('rejects a report environment owned by another project', async () => {
@@ -230,6 +299,8 @@ describe('workspace and project management', () => {
             widthCssPx: 100,
             heightCssPx: 80,
             documentUrl: 'https://example.test',
+            scrollXCssPx: 0,
+            scrollYCssPx: 0,
           },
           annotations: [],
           reproduction: [],

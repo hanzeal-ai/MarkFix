@@ -3,8 +3,10 @@ import {
   createEnvironmentSchema,
   createProjectSchema,
   createReportSchema,
+  desktopDraftSchema,
   recorderEventSchema,
   regionAnchorSchema,
+  savedCaptureSchema,
   updateEnvironmentSchema,
   updateProjectSchema,
 } from '../src/index.js';
@@ -19,8 +21,51 @@ describe('regionAnchorSchema', () => {
         widthCssPx: 0,
         heightCssPx: 20,
         documentUrl: 'https://example.com',
+        scrollXCssPx: 0,
+        scrollYCssPx: 0,
       }),
     ).toThrow();
+  });
+
+  it('requires the current page scroll position', () => {
+    expect(
+      regionAnchorSchema.safeParse({
+        kind: 'region',
+        xCssPx: 1,
+        yCssPx: 1,
+        widthCssPx: 20,
+        heightCssPx: 20,
+        documentUrl: 'https://example.com',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('current desktop persistence schemas', () => {
+  it('rejects drafts without the current annotation collections', () => {
+    expect(desktopDraftSchema.safeParse({ title: '', description: '', url: '' }).success).toBe(
+      false,
+    );
+  });
+
+  it('rejects captures without editable source context', () => {
+    expect(
+      savedCaptureSchema.safeParse({
+        id: crypto.randomUUID(),
+        projectId: crypto.randomUUID(),
+        pageSessionId: crypto.randomUUID(),
+        pageTitle: 'Example',
+        status: 'draft',
+        pageUrl: 'https://example.com',
+        note: 'Missing source context',
+        dataUrl: 'data:image/png;base64,AA==',
+        widthCssPx: 20,
+        heightCssPx: 20,
+        marks: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }).success,
+    ).toBe(false);
   });
 });
 

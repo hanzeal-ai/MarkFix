@@ -12,6 +12,8 @@ describe('screenshot capture contract', () => {
         widthCssPx: 320,
         heightCssPx: 180,
         documentUrl: 'https://example.com/page',
+        scrollXCssPx: 0,
+        scrollYCssPx: 0,
       },
     });
 

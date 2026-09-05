@@ -8,11 +8,14 @@ import {
   type BrowserMode,
   type CaptureRequest,
   type CreateReport,
+  type DiagnosticEvidence,
+  type HistoryAnnotationReference,
   type RegionAnchor,
   type ScreenshotMark,
   type ScreenshotStyle,
   type ScreenshotTool,
   type SavedCapture,
+  type SavedDiagnosticAnnotation,
   type SavedElementComment,
 } from '@markfix/contracts';
 import { subscriptionIpcChannels } from '../subscription.js';
@@ -35,10 +38,31 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(subscriptionIpcChannels.upgrade, workspaceId),
   listEnvironments: (projectId: string) =>
     ipcRenderer.invoke(ipcChannels.listEnvironments, projectId),
+  listWebsiteProjects: () => ipcRenderer.invoke(ipcChannels.listWebsiteProjects),
+  createWebsiteProject: (workspaceId: string, url: string) =>
+    ipcRenderer.invoke(ipcChannels.createWebsiteProject, { workspaceId, url }),
+  switchWebsiteProject: (projectId: string) =>
+    ipcRenderer.invoke(ipcChannels.switchWebsiteProject, projectId),
+  deleteWebsiteProject: (projectId: string) =>
+    ipcRenderer.invoke(ipcChannels.deleteWebsiteProject, projectId),
+  confirmDiscardDraft: (reason: 'switch-project' | 'new-annotation') =>
+    ipcRenderer.invoke(ipcChannels.confirmDiscardDraft, reason),
+  setWorkspaceLayout: (sidebarWidth: 0 | 228, visible: boolean) =>
+    ipcRenderer.invoke(ipcChannels.setWorkspaceLayout, { sidebarWidth, visible }),
+  openMoreMenu: (x: number, y: number) => ipcRenderer.invoke(ipcChannels.openMoreMenu, { x, y }),
+  openSettings: () => ipcRenderer.invoke(ipcChannels.openSettings),
+  submitProjectAnnotations: (projectId: string) =>
+    ipcRenderer.invoke(ipcChannels.submitProjectAnnotations, projectId),
   navigate: (url: string) => ipcRenderer.invoke(ipcChannels.navigate, { url }),
   back: () => ipcRenderer.invoke(ipcChannels.goBack),
   forward: () => ipcRenderer.invoke(ipcChannels.goForward),
   reload: () => ipcRenderer.invoke(ipcChannels.reload),
+  setDiagnosticsOpen: (open: boolean) => ipcRenderer.invoke(ipcChannels.diagnosticsSetOpen, open),
+  listDiagnostics: () => ipcRenderer.invoke(ipcChannels.diagnosticsList),
+  clearDiagnostics: (scope: 'all' | 'console' | 'network' = 'all') =>
+    ipcRenderer.invoke(ipcChannels.diagnosticsClear, scope),
+  evaluateJavaScript: (input: string) => ipcRenderer.invoke(ipcChannels.diagnosticsEvaluate, input),
+  runCurl: (input: string) => ipcRenderer.invoke(ipcChannels.diagnosticsRunCurl, input),
   setMode: (mode: BrowserMode) => ipcRenderer.invoke(ipcChannels.setMode, mode),
   setAnnotationTool: (tool: AnnotationTool) =>
     ipcRenderer.invoke(ipcChannels.setAnnotationTool, tool),
@@ -63,10 +87,21 @@ contextBridge.exposeInMainWorld('markfix', {
   deleteElementComment: (id: string) => ipcRenderer.invoke(ipcChannels.deleteElementComment, id),
   syncElementComments: (comments: SavedElementComment[]) =>
     ipcRenderer.invoke(ipcChannels.syncElementComments, comments),
+  listDiagnosticAnnotations: () => ipcRenderer.invoke(ipcChannels.listDiagnosticAnnotations),
+  saveDiagnosticAnnotation: (annotation: SavedDiagnosticAnnotation) =>
+    ipcRenderer.invoke(ipcChannels.saveDiagnosticAnnotation, annotation),
+  deleteDiagnosticAnnotation: (id: string) =>
+    ipcRenderer.invoke(ipcChannels.deleteDiagnosticAnnotation, id),
   saveAnnotationSubmission: (submission: AnnotationSubmission) =>
     ipcRenderer.invoke(ipcChannels.saveAnnotationSubmission, submission),
-  openAnnotationReview: () => ipcRenderer.invoke(ipcChannels.openAnnotationReview),
+  openAnnotationReview: (projectId: string) =>
+    ipcRenderer.invoke(ipcChannels.openAnnotationReview, projectId),
   closeAnnotationReview: () => ipcRenderer.invoke(ipcChannels.closeAnnotationReview),
+  openAnnotationHistory: () => ipcRenderer.invoke(ipcChannels.openAnnotationHistory),
+  openProjectAnnotationHistory: (projectId: string) =>
+    ipcRenderer.invoke(ipcChannels.openProjectAnnotationHistory, projectId),
+  selectHistoricalAnnotation: (reference: HistoryAnnotationReference) =>
+    ipcRenderer.invoke(ipcChannels.selectAnnotationHistory, reference),
   openCapturePreview: (captureId: string) =>
     ipcRenderer.invoke(ipcChannels.openCapturePreview, captureId),
   loadCapturePreview: (captureId: string) =>
@@ -85,6 +120,8 @@ contextBridge.exposeInMainWorld('markfix', {
   submitReport: (report: CreateReport) => ipcRenderer.invoke(ipcChannels.submitReport, report),
   onBrowserState: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.browserState, listener),
+  onDiagnostic: (listener: (payload: DiagnosticEvidence) => void) =>
+    subscribe(ipcChannels.diagnosticsEvent, (payload) => listener(payload as DiagnosticEvidence)),
   onModeShortcut: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.modeShortcut, listener),
   onSelection: (listener: (payload: unknown) => void) => subscribe(ipcChannels.selection, listener),
@@ -107,4 +144,8 @@ contextBridge.exposeInMainWorld('markfix', {
     subscribe(ipcChannels.syncStatus, listener),
   onAnnotationSubmissionSaved: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.annotationSubmissionSaved, listener),
+  onHistoricalAnnotationSelected: (listener: (payload: HistoryAnnotationReference) => void) =>
+    subscribe(ipcChannels.annotationHistorySelected, (payload) =>
+      listener(payload as HistoryAnnotationReference),
+    ),
 });

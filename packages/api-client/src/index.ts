@@ -107,7 +107,7 @@ export class MarkFixApi {
       ...init,
       credentials: 'include',
       headers: {
-        'content-type': 'application/json',
+        ...(init?.body !== undefined ? { 'content-type': 'application/json' } : {}),
         ...(this.accessToken ? { authorization: `Bearer ${this.accessToken}` } : {}),
         ...init?.headers,
       },
@@ -275,6 +275,10 @@ export class MarkFixApi {
     );
   }
 
+  async deleteProject(projectId: string): Promise<{ deleted: boolean }> {
+    return this.request(`/v1/projects/${projectId}`, { method: 'DELETE' });
+  }
+
   async listEnvironments(projectId: string): Promise<Environment[]> {
     return environmentSchema
       .array()
@@ -400,13 +404,16 @@ export class MarkFixApi {
 
   async getReport(id: string): Promise<DetailedReport> {
     const report = await this.request<Record<string, unknown>>(`/v1/reports/${id}`);
+    if (!Array.isArray(report.comments) || !Array.isArray(report.activities)) {
+      throw new Error('Invalid report detail response');
+    }
     return {
       ...reportSchema.parse({
         ...report,
         screenshotUrl: `${this.baseUrl}/v1/artifacts/${String(report.screenshotPath)}`,
       }),
-      comments: (report.comments ?? []) as Comment[],
-      activities: (report.activities ?? []) as Array<Record<string, unknown>>,
+      comments: report.comments as Comment[],
+      activities: report.activities as Array<Record<string, unknown>>,
     };
   }
 

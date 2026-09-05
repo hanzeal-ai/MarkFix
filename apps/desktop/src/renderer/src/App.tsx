@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
   Camera,
@@ -13,23 +14,38 @@ import {
   EyeOff,
   LoaderCircle,
   MessageSquareText,
+  MoreHorizontal,
   MousePointer2,
   MoveUpRight,
+  Paperclip,
   PenLine,
   Redo2,
   RefreshCw,
-  Save,
   Send,
   Sparkles,
   Square,
+  Terminal,
   Trash2,
   Type,
   Undo2,
   X,
-} from 'lucide-react';
+} from '@markfix/ui/icons';
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Card,
+  Input,
+  Label,
+  NativeSelect,
+  Textarea,
+} from '@markfix/ui';
 import {
   anchorSchema,
   annotationSchema,
+  desktopDraftSchema,
+  diagnosticEvidenceSchema,
+  historyAnnotationReferenceSchema,
   recorderEventSchema,
   screenshotMarkSchema,
   type Anchor,
@@ -38,30 +54,40 @@ import {
   type BrowserMode,
   type ClientPolicy,
   type CaptureContext,
+  type DiagnosticEvidence,
+  type DesktopDraft,
   type Environment,
+  type HistoryAnnotationReference,
   type ReproductionStep,
   type SavedCapture,
+  type SavedDiagnosticAnnotation,
   type SavedElementComment,
   type ScreenshotMark,
+  type WebsiteProject,
   type WorkspaceSummary,
 } from '@markfix/contracts';
 import { describeTrustedEvent, mergeAdjacentInputSteps } from '@markfix/reproduction-model';
 import { composeScreenshot } from './screenshot-compositor';
-import { selectPageRecords } from './page-records';
+import { selectProjectPageRecords } from './page-records';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
+import {
+  HeaderNavigationControls,
+  NewProjectPage,
+  ProjectSidebar,
+  projectAnnotations,
+  type ProjectAnnotation,
+} from './ProjectNavigation';
 
-type Draft = {
-  title: string;
-  description: string;
-  url: string;
-  anchor: Anchor | undefined;
-  annotations: Annotation[];
-  reproduction: ReproductionStep[];
-  workspaceId?: string;
-  projectId?: string;
-  environmentId?: string;
-  pendingOutboxId?: string;
+type BrowserState = {
+  url?: string;
+  pageTitle?: string;
+  pageSessionId?: string;
+  loading?: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  faviconUrl?: string | null;
+  error?: string;
 };
-type BrowserState = { url?: string; loading?: boolean; error?: string };
 type DesktopUser = { id: string; email: string; displayName: string };
 type CaptureSelection = Extract<Anchor, { kind: 'region' }>;
 type CaptureSource = { dataUrl: string; captureScale: number };
@@ -71,6 +97,29 @@ const annotationName = (annotation: Annotation): string => {
   if (annotation.type === 'pen') return 'Freehand mark';
   return annotation.type === 'arrow' ? 'Arrow' : 'Rectangle';
 };
+
+function EvidenceReferences({
+  items,
+  onRemove,
+}: {
+  items: DiagnosticEvidence[];
+  onRemove: (id: string) => void;
+}): React.JSX.Element | null {
+  if (items.length === 0) return null;
+  return (
+    <div className="evidence-references" aria-label="已引用的调试证据">
+      {items.map((item) => (
+        <span key={item.id} className={item.level}>
+          <Paperclip />
+          <b>{item.title}</b>
+          <Button type="button" title="移除引用" onClick={() => onRemove(item.id)}>
+            <X />
+          </Button>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 const elementAnchorsEqual = (
   left: Extract<Anchor, { kind: 'element' }>,
@@ -84,11 +133,17 @@ const elementAnchorsEqual = (
 };
 
 function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser) => void }) {
-  const [email, setEmail] = useState('admin');
+  const [email, setEmail] = useState('admin@markfix.local');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!error) return;
+    const timer = window.setTimeout(() => setError(''), 4_000);
+    return () => window.clearTimeout(timer);
+  }, [error]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -97,7 +152,12 @@ function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser
     try {
       onAuthenticated(await window.markfix.login(email, password));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Sign in failed');
+      const message = cause instanceof Error ? cause.message : '';
+      setError(
+        /fetch failed|ECONNREFUSED/i.test(message)
+          ? '无法连接 MarkFix 服务，请确认本地 API 已启动。'
+          : message || '登录失败，请检查账号和密码。',
+      );
     } finally {
       setBusy(false);
     }
@@ -105,7 +165,13 @@ function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser
 
   return (
     <main className="desktop-auth">
-      <section>
+      {error && (
+        <Alert className="auth-message" variant="destructive">
+          <AlertCircle />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      <Card>
         <div className="desktop-auth-brand">
           <span>m</span> MarkFix
         </div>
@@ -113,48 +179,67 @@ function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser
         <h1>Sign in to start marking</h1>
         <p>Your refresh credential stays encrypted in the operating system vault.</p>
         <form onSubmit={(event) => void submit(event)}>
-          <label>
-            Username
-            <input
-              type="text"
+          <Label>
+            Email
+            <Input
+              type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
             />
-          </label>
-          <label>
+          </Label>
+          <Label>
             Password
             <span className="password-field">
-              <input
+              <Input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
               />
-              <button
+              <Button
                 className="password-toggle"
                 type="button"
+                variant="ghost"
+                size="icon"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 title={showPassword ? 'Hide password' : 'Show password'}
                 onClick={() => setShowPassword((visible) => !visible)}
               >
                 {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-              </button>
+              </Button>
             </span>
-          </label>
-          {error && <div className="auth-error">{error}</div>}
-          <button type="submit" disabled={busy}>
+          </Label>
+          <Button type="submit" disabled={busy}>
             {busy ? 'Signing in…' : 'Sign in'}
-          </button>
+          </Button>
         </form>
-      </section>
+      </Card>
     </main>
   );
 }
 
-function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
-  const [url, setUrl] = useState('https://example.com');
-  const [browserState, setBrowserState] = useState<BrowserState>({ loading: true });
+function AnnotationWorkspace({
+  policy,
+  user,
+  onLoggedOut,
+}: {
+  policy: ClientPolicy | undefined;
+  user: DesktopUser;
+  onLoggedOut: () => Promise<void>;
+}) {
+  const [url, setUrl] = useState('');
+  const [browserState, setBrowserState] = useState<BrowserState>({ loading: false });
+  const [pageSessionId, setPageSessionId] = useState<string>();
+  const [pageTitle, setPageTitle] = useState('');
+  const [websiteProjects, setWebsiteProjects] = useState<WebsiteProject[]>([]);
+  const [activeView, setActiveView] = useState<'workspace' | 'new'>('new');
+  const [sidebarExpanded, setSidebarExpanded] = useState(
+    () => window.localStorage.getItem('markfix:sidebar-expanded') !== 'false',
+  );
+  const [newProjectInput, setNewProjectInput] = useState('');
+  const [newProjectError, setNewProjectError] = useState<string>();
+  const [creatingProject, setCreatingProject] = useState(false);
   const [mode, setModeState] = useState<BrowserMode>('browse');
   const [anchor, setAnchor] = useState<Anchor>();
   const [title, setTitle] = useState('');
@@ -171,11 +256,18 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   const [captureLoading, setCaptureLoading] = useState(false);
   const [captureRendering, setCaptureRendering] = useState(false);
   const [captureNote, setCaptureNote] = useState('');
+  const [captureEvidence, setCaptureEvidence] = useState<DiagnosticEvidence[]>([]);
   const [savedCaptures, setSavedCaptures] = useState<SavedCapture[]>([]);
   const [editingCaptureId, setEditingCaptureId] = useState<string>();
   const [elementComments, setElementComments] = useState<SavedElementComment[]>([]);
+  const [diagnosticAnnotations, setDiagnosticAnnotations] = useState<SavedDiagnosticAnnotation[]>(
+    [],
+  );
   const [elementCommentNote, setElementCommentNote] = useState('');
+  const [elementEvidence, setElementEvidence] = useState<DiagnosticEvidence[]>([]);
   const [editingElementCommentId, setEditingElementCommentId] = useState<string>();
+  const [diagnosticsOpen, setDiagnosticsOpenState] = useState(false);
+  const [diagnosticEntries, setDiagnosticEntries] = useState<DiagnosticEvidence[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(
     policy?.status === 'upgrade-recommended'
@@ -187,10 +279,15 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>();
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
+  const [switchingProjectId, setSwitchingProjectId] = useState<string>();
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string>();
   const [contextLoading, setContextLoading] = useState(true);
   const pendingOutboxIdRef = useRef<string | undefined>(undefined);
+  const selectedProjectIdRef = useRef<string | undefined>(undefined);
+  const projectSwitchRequestRef = useRef(0);
+  const addressInputRef = useRef<HTMLInputElement>(null);
   const modeRef = useRef<BrowserMode>('browse');
+  const diagnosticsOpenRef = useRef(false);
   const captureRequestIdRef = useRef<string | undefined>(undefined);
   const captureRestoreRef = useRef<
     | {
@@ -202,14 +299,47 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   >(undefined);
   const screenshotRef = useRef<string | undefined>(undefined);
   const elementCommentsRef = useRef<SavedElementComment[]>([]);
+  const savedCapturesRef = useRef<SavedCapture[]>([]);
+  const diagnosticAnnotationsRef = useRef<SavedDiagnosticAnnotation[]>([]);
+  const editHistoricalAnnotationRef = useRef<(annotation: ProjectAnnotation) => Promise<void>>(
+    async () => undefined,
+  );
   modeRef.current = mode;
+  diagnosticsOpenRef.current = diagnosticsOpen;
   screenshotRef.current = screenshot;
   elementCommentsRef.current = elementComments;
+  savedCapturesRef.current = savedCaptures;
+  diagnosticAnnotationsRef.current = diagnosticAnnotations;
+  selectedProjectIdRef.current = selectedProjectId;
+  const setDiagnosticsVisibility = useCallback(async (open: boolean): Promise<void> => {
+    try {
+      await window.markfix.setDiagnosticsOpen(open);
+      diagnosticsOpenRef.current = open;
+      setDiagnosticsOpenState(open);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '无法切换网站控制台。');
+    }
+  }, []);
   const selectedWorkspace = workspaces.find(({ id }) => id === selectedWorkspaceId);
   const selectedProject = selectedWorkspace?.projects.find(({ id }) => id === selectedProjectId);
   const selectedEnvironment = environments.find(({ id }) => id === selectedEnvironmentId);
-  const pageCaptures = selectPageRecords(savedCaptures, url);
-  const pageElementComments = selectPageRecords(elementComments, url);
+  const pageCaptures = selectProjectPageRecords(savedCaptures, selectedProjectId, pageSessionId);
+  const pageElementComments = selectProjectPageRecords(
+    elementComments,
+    selectedProjectId,
+    pageSessionId,
+  );
+  const pageDiagnosticAnnotations = selectProjectPageRecords(
+    diagnosticAnnotations,
+    selectedProjectId,
+    pageSessionId,
+  );
+  const currentProjectAnnotations = selectedProjectId
+    ? projectAnnotations(selectedProjectId, elementComments, savedCaptures, diagnosticAnnotations)
+    : [];
+  const unsubmittedCount = currentProjectAnnotations.filter(
+    ({ record }) => record.status === 'draft',
+  ).length;
 
   const clearReport = useCallback((outboxId?: string): boolean => {
     if (outboxId && pendingOutboxIdRef.current !== outboxId) return false;
@@ -231,16 +361,41 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
     const cleanups = [
       window.markfix.onBrowserState((payload) => {
         const state = payload as BrowserState;
-        setBrowserState(state);
+        setBrowserState((current) => ({ ...current, ...state }));
         if (state.url) setUrl(state.url);
+        if (state.pageSessionId) setPageSessionId(state.pageSessionId);
+        if (state.pageTitle !== undefined) setPageTitle(state.pageTitle);
+        if (state.faviconUrl && selectedProjectIdRef.current) {
+          setWebsiteProjects((projects) =>
+            projects.map((project) =>
+              project.id === selectedProjectIdRef.current
+                ? { ...project, faviconUrl: state.faviconUrl ?? null, faviconSource: 'page' }
+                : project,
+            ),
+          );
+        }
         if (state.error) setNotice(state.error);
       }),
       window.markfix.onModeShortcut((payload) => {
+        if (payload === 'toggle-sidebar') {
+          setSidebarExpanded((expanded) => !expanded);
+          return;
+        }
+        if (payload === 'new-annotation') {
+          setNewProjectError(undefined);
+          setActiveView('new');
+          return;
+        }
+        if (payload === 'diagnostics') {
+          void setDiagnosticsVisibility(!diagnosticsOpenRef.current);
+          return;
+        }
         if (payload !== 'capture' && payload !== 'comment') return;
         const destination = modeRef.current === payload ? 'browse' : payload;
         if (destination === 'comment') {
           setAnchor(undefined);
           setElementCommentNote('');
+          setElementEvidence([]);
           setEditingElementCommentId(undefined);
         } else if (destination === 'capture') {
           captureRequestIdRef.current = undefined;
@@ -249,6 +404,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           setCaptureSource(undefined);
           setCaptureMarks([]);
           setCaptureNote('');
+          setCaptureEvidence([]);
           setEditingCaptureId(undefined);
           setScreenshot(undefined);
           void window.markfix.setCaptureTool('select');
@@ -268,12 +424,15 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
         const parsed = anchorSchema.safeParse(payload);
         if (!parsed.success || parsed.data.kind !== 'element') return;
         const nextAnchor = parsed.data;
-        const existing = elementCommentsRef.current.find(({ anchor: savedAnchor }) =>
-          elementAnchorsEqual(savedAnchor, nextAnchor),
+        const existing = elementCommentsRef.current.find(
+          ({ projectId, anchor: savedAnchor }) =>
+            projectId === selectedProjectIdRef.current &&
+            elementAnchorsEqual(savedAnchor, nextAnchor),
         );
         setAnchor(nextAnchor);
         setEditingElementCommentId(existing?.id);
         setElementCommentNote(existing?.note ?? '');
+        setElementEvidence(existing?.evidence ?? []);
         setNotice(existing ? '已加载这个元素的批注。' : '已选择元素，请填写批注。');
         window.requestAnimationFrame(() => {
           document.querySelector<HTMLTextAreaElement>('[data-element-comment-note]')?.focus();
@@ -294,6 +453,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           setCaptureSelection(undefined);
           setCaptureSource(undefined);
           setScreenshot(undefined);
+          setCaptureEvidence([]);
           return;
         }
         const parsed = anchorSchema.safeParse(payload);
@@ -304,15 +464,17 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           setCaptureSelection(parsed.data);
           setCaptureMarks(restore.marks);
           setCaptureNote(restore.capture.note);
+          setCaptureEvidence(restore.capture.evidence ?? []);
           setCaptureSource({
-            dataUrl: restore.capture.sourceDataUrl ?? restore.capture.dataUrl,
-            captureScale: restore.capture.captureScale ?? 1,
+            dataUrl: restore.capture.sourceDataUrl,
+            captureScale: restore.capture.captureScale,
           });
           setScreenshot(restore.capture.dataUrl);
           setCaptureLoading(false);
           return;
         }
         setCaptureSelection(parsed.data);
+        setCaptureEvidence([]);
         setCaptureLoading(true);
         setCaptureSource(undefined);
         setScreenshot(undefined);
@@ -433,8 +595,11 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
         const counts = payload as {
           elementCommentCount?: unknown;
           captureCount?: unknown;
+          diagnosticAnnotationCount?: unknown;
           elementCommentIds?: unknown;
           captureIds?: unknown;
+          diagnosticAnnotationIds?: unknown;
+          submittedAt?: unknown;
         };
         const elementCommentIds = Array.isArray(counts.elementCommentIds)
           ? counts.elementCommentIds.filter((id): id is string => typeof id === 'string')
@@ -442,39 +607,98 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
         const captureIds = Array.isArray(counts.captureIds)
           ? counts.captureIds.filter((id): id is string => typeof id === 'string')
           : [];
+        const diagnosticAnnotationIds = Array.isArray(counts.diagnosticAnnotationIds)
+          ? counts.diagnosticAnnotationIds.filter((id): id is string => typeof id === 'string')
+          : [];
+        if (typeof counts.submittedAt !== 'string') return;
+        const submittedAt = counts.submittedAt;
         setElementComments((comments) =>
-          comments.filter(({ id }) => !elementCommentIds.includes(id)),
+          comments.map((comment) =>
+            elementCommentIds.includes(comment.id)
+              ? { ...comment, status: 'submitted', submittedAt }
+              : comment,
+          ),
         );
-        setSavedCaptures((captures) => captures.filter(({ id }) => !captureIds.includes(id)));
+        setSavedCaptures((captures) =>
+          captures.map((capture) =>
+            captureIds.includes(capture.id)
+              ? { ...capture, status: 'submitted', submittedAt }
+              : capture,
+          ),
+        );
+        setDiagnosticAnnotations((annotations) =>
+          annotations.map((annotation) =>
+            diagnosticAnnotationIds.includes(annotation.id)
+              ? { ...annotation, status: 'submitted', submittedAt, updatedAt: submittedAt }
+              : annotation,
+          ),
+        );
         captureRequestIdRef.current = undefined;
         captureRestoreRef.current = undefined;
         setAnchor(undefined);
         setElementCommentNote('');
+        setElementEvidence([]);
         setEditingElementCommentId(undefined);
         setCaptureSelection(undefined);
         setCaptureSource(undefined);
         setCaptureMarks([]);
         setCaptureNote('');
+        setCaptureEvidence([]);
         setEditingCaptureId(undefined);
         setScreenshot(undefined);
         void window.markfix.clearCaptureSelection();
         void window.markfix.setCaptureTool('select');
         setNotice(
-          `已保存 ${Number(counts.elementCommentCount ?? 0)} 条批注和 ${Number(counts.captureCount ?? 0)} 张截图。`,
+          `已提交 ${Number(counts.elementCommentCount ?? 0)} 条元素批注、${Number(counts.captureCount ?? 0)} 张截图和 ${Number(counts.diagnosticAnnotationCount ?? 0)} 条调试标注。`,
+        );
+      }),
+      window.markfix.onHistoricalAnnotationSelected((payload: HistoryAnnotationReference) => {
+        const parsed = historyAnnotationReferenceSchema.safeParse(payload);
+        if (!parsed.success) return;
+        let annotation: ProjectAnnotation | undefined;
+        if (parsed.data.type === 'element') {
+          const record = elementCommentsRef.current.find(({ id }) => id === parsed.data.id);
+          if (record) annotation = { type: 'element', record };
+        } else if (parsed.data.type === 'capture') {
+          const record = savedCapturesRef.current.find(({ id }) => id === parsed.data.id);
+          if (record) annotation = { type: 'capture', record };
+        } else {
+          const record = diagnosticAnnotationsRef.current.find(({ id }) => id === parsed.data.id);
+          if (record) annotation = { type: 'diagnostic', record };
+        }
+        if (!annotation) {
+          setNotice('这条历史标注已不存在，请重新打开历史窗口。');
+          return;
+        }
+        void editHistoricalAnnotationRef.current(annotation);
+      }),
+      window.markfix.onDiagnostic((payload) => {
+        const parsed = diagnosticEvidenceSchema.safeParse(payload);
+        if (!parsed.success) return;
+        setDiagnosticEntries((entries) =>
+          entries.some(({ id }) => id === parsed.data.id)
+            ? entries
+            : [...entries, parsed.data].slice(-500),
         );
       }),
     ];
     void window.markfix.loadDraft().then((payload) => {
-      const draft = payload as Draft | undefined;
-      if (!draft) return;
+      if (payload === undefined) return;
+      const parsed = desktopDraftSchema.safeParse(payload);
+      if (!parsed.success) {
+        setNotice('本地草稿不是当前版本，已停止恢复。');
+        return;
+      }
+      const draft = parsed.data;
       setTitle(draft.title);
       setDescription(draft.description);
       setUrl(draft.url);
       setAnchor(draft.anchor);
-      setAnnotations(draft.annotations ?? []);
-      setReproduction(draft.reproduction ?? []);
+      setAnnotations(draft.annotations);
+      setReproduction(draft.reproduction);
       setSelectedWorkspaceId(draft.workspaceId);
       setSelectedProjectId(draft.projectId);
+      selectedProjectIdRef.current = draft.projectId;
       setSelectedEnvironmentId(draft.environmentId);
       setPendingOutboxId(draft.pendingOutboxId);
       pendingOutboxIdRef.current = draft.pendingOutboxId;
@@ -484,19 +708,82 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
             setNotice('Queued report synchronized successfully.');
         });
       }
-      if (draft.url) void window.markfix.navigate(draft.url);
       setNotice('Restored your local draft.');
     });
     return () => cleanups.forEach((cleanup) => cleanup());
-  }, [clearReport]);
+  }, [clearReport, setDiagnosticsVisibility]);
 
   useEffect(() => {
     let active = true;
-    void Promise.all([window.markfix.listCaptureRecords(), window.markfix.listElementComments()])
-      .then(([captures, comments]) => {
+    void window.markfix
+      .listDiagnostics()
+      .then((entries) => {
+        if (!active) return;
+        const parsed = diagnosticEvidenceSchema.array().safeParse(entries);
+        if (!parsed.success) return;
+        setDiagnosticEntries((current) => {
+          const merged = new Map([...parsed.data, ...current].map((entry) => [entry.id, entry]));
+          return [...merged.values()].sort((left, right) =>
+            left.timestamp.localeCompare(right.timestamp),
+          );
+        });
+      })
+      .catch((error: unknown) => {
+        if (active) setNotice(error instanceof Error ? error.message : '无法读取网站控制台记录。');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const requestId = ++projectSwitchRequestRef.current;
+    void Promise.all([window.markfix.listWebsiteProjects(), window.markfix.loadDraft()])
+      .then(async ([projects, draftPayload]) => {
+        if (!active) return;
+        setWebsiteProjects(projects);
+        const draftProjectId = (draftPayload as DesktopDraft | undefined)?.projectId;
+        const selected =
+          projects.find(({ id }) => id === draftProjectId) ??
+          projects.find(({ id }) => id === selectedProjectIdRef.current) ??
+          projects[0];
+        if (!selected) return;
+        const current = await window.markfix.switchWebsiteProject(selected.id);
+        if (!active || requestId !== projectSwitchRequestRef.current) return;
+        selectedProjectIdRef.current = selected.id;
+        setSelectedProjectId(selected.id);
+        setSelectedWorkspaceId(selected.workspaceId);
+        setActiveView('workspace');
+        setUrl(current.currentUrl);
+        setPageSessionId(current.currentPageSessionId);
+      })
+      .catch((error: unknown) => {
+        if (active && requestId === projectSwitchRequestRef.current)
+          setNewProjectError(error instanceof Error ? error.message : '无法读取项目。');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('markfix:sidebar-expanded', String(sidebarExpanded));
+    void window.markfix.setWorkspaceLayout(sidebarExpanded ? 228 : 0, activeView === 'workspace');
+  }, [activeView, sidebarExpanded]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      window.markfix.listCaptureRecords(),
+      window.markfix.listElementComments(),
+      window.markfix.listDiagnosticAnnotations(),
+    ])
+      .then(([captures, comments, diagnostics]) => {
         if (!active) return;
         setSavedCaptures(captures);
         setElementComments(comments);
+        setDiagnosticAnnotations(diagnostics);
       })
       .catch((error: unknown) => {
         if (active) setNotice(error instanceof Error ? error.message : '无法读取本机批注。');
@@ -533,15 +820,8 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   }, [selectedWorkspaceId, workspaces]);
 
   useEffect(() => {
-    if (!selectedWorkspace) return;
-    if (selectedWorkspace.projects.some(({ id }) => id === selectedProjectId)) return;
-    setSelectedProjectId(selectedWorkspace.projects[0]?.id);
-    setSelectedEnvironmentId(undefined);
-  }, [selectedProjectId, selectedWorkspace]);
-
-  useEffect(() => {
     let active = true;
-    if (!selectedProjectId) {
+    if (!selectedProjectId || switchingProjectId === selectedProjectId) {
       setEnvironments([]);
       setSelectedEnvironmentId(undefined);
       return () => {
@@ -570,7 +850,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
     return () => {
       active = false;
     };
-  }, [selectedProjectId]);
+  }, [selectedProjectId, switchingProjectId]);
 
   useEffect(() => {
     void window.markfix.syncAnnotations(annotations);
@@ -588,8 +868,8 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   }, [anchor, mode]);
 
   useEffect(() => {
-    void window.markfix.syncElementComments(elementComments);
-  }, [elementComments]);
+    void window.markfix.syncElementComments(pageElementComments);
+  }, [pageElementComments]);
 
   useEffect(() => {
     void window.markfix.syncCaptureMarks(captureMarks);
@@ -636,7 +916,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           ...(selectedProjectId ? { projectId: selectedProjectId } : {}),
           ...(selectedEnvironmentId ? { environmentId: selectedEnvironmentId } : {}),
           ...(pendingOutboxId ? { pendingOutboxId } : {}),
-        } satisfies Draft);
+        } satisfies DesktopDraft);
       }
     }, 400);
     return () => window.clearTimeout(timer);
@@ -673,6 +953,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
     if (destination === 'comment') {
       setAnchor(undefined);
       setElementCommentNote('');
+      setElementEvidence([]);
       setEditingElementCommentId(undefined);
     }
     if (destination === 'capture') {
@@ -681,6 +962,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
       setCaptureSource(undefined);
       setCaptureMarks([]);
       setCaptureNote('');
+      setCaptureEvidence([]);
       setEditingCaptureId(undefined);
       setScreenshot(undefined);
       void window.markfix.setCaptureTool('select');
@@ -688,13 +970,74 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
     return setMode(destination);
   };
 
-  const openAnnotationSave = async (): Promise<void> => {
+  const toggleDiagnostics = async (): Promise<void> => {
+    await setDiagnosticsVisibility(!diagnosticsOpenRef.current);
+  };
+
+  const clearDiagnostics = async (scope: 'console' | 'network'): Promise<void> => {
     try {
-      await window.markfix.openAnnotationReview();
+      await window.markfix.clearDiagnostics(scope);
+      setDiagnosticEntries((entries) =>
+        entries.filter((entry) =>
+          scope === 'network' ? entry.kind !== 'network' : entry.kind === 'network',
+        ),
+      );
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : '无法打开标注确认窗口。');
+      setNotice(error instanceof Error ? error.message : '无法清空网站控制台。');
     }
   };
+
+  const quoteDiagnostic = async (entry: DiagnosticEvidence): Promise<void> => {
+    const add = (items: DiagnosticEvidence[]): DiagnosticEvidence[] =>
+      items.some(({ id }) => id === entry.id) ? items : [...items, entry].slice(-50);
+    if (mode === 'comment' && anchor?.kind === 'element') {
+      setElementEvidence(add);
+      setNotice('调试证据已引用到当前元素批注。');
+      return;
+    }
+    if (mode === 'capture' && captureSelection) {
+      setCaptureEvidence(add);
+      setNotice('调试证据已引用到当前截图批注。');
+      return;
+    }
+    if (!selectedProjectId || !pageSessionId) {
+      setNotice('请先打开一个标注项目。');
+      return;
+    }
+    if (diagnosticAnnotations.some((annotation) => annotation.evidence.id === entry.id)) return;
+    const now = new Date().toISOString();
+    const annotation: SavedDiagnosticAnnotation = {
+      id: crypto.randomUUID(),
+      projectId: selectedProjectId,
+      pageSessionId,
+      pageUrl: entry.pageUrl,
+      pageTitle: pageTitle || entry.pageUrl,
+      status: 'draft',
+      evidence: entry,
+      createdAt: now,
+      updatedAt: now,
+    };
+    try {
+      await window.markfix.saveDiagnosticAnnotation(annotation);
+      setDiagnosticAnnotations((items) => [...items, annotation]);
+      if (mode !== 'comment') await setMode('comment');
+      setNotice('已创建调试标注。');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '无法创建调试标注。');
+    }
+  };
+
+  const activeEvidence =
+    mode === 'comment'
+      ? elementEvidence
+      : mode === 'capture' && captureSelection
+        ? captureEvidence
+        : [];
+  const selectedEvidenceIds = new Set([
+    ...activeEvidence.map(({ id }) => id),
+    ...diagnosticAnnotations.map(({ evidence }) => evidence.id),
+  ]);
+  const diagnosticErrorCount = diagnosticEntries.filter(({ level }) => level === 'error').length;
 
   const beginAnnotation = async (nextTool: AnnotationTool): Promise<void> => {
     setActiveTool(nextTool);
@@ -725,20 +1068,34 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   };
 
   const completeCapture = async (): Promise<void> => {
-    if (!captureSelection || !screenshot || !captureNote.trim() || captureRendering) return;
+    if (
+      !captureSelection ||
+      !screenshot ||
+      !captureSource ||
+      !captureNote.trim() ||
+      captureRendering ||
+      !selectedProjectId ||
+      !pageSessionId
+    )
+      return;
     const existing = savedCaptures.find(({ id }) => id === editingCaptureId);
     const now = new Date().toISOString();
     const capture: SavedCapture = {
       id: existing?.id ?? crypto.randomUUID(),
+      projectId: selectedProjectId,
+      pageSessionId,
       pageUrl: captureSelection.documentUrl,
+      pageTitle: pageTitle || captureSelection.documentUrl,
       note: captureNote.trim(),
+      status: 'draft',
       dataUrl: screenshot,
       widthCssPx: captureSelection.widthCssPx,
       heightCssPx: captureSelection.heightCssPx,
       marks: captureMarks,
+      ...(captureEvidence.length > 0 ? { evidence: captureEvidence } : {}),
       selection: captureSelection,
-      ...(captureSource ? { sourceDataUrl: captureSource.dataUrl } : {}),
-      ...(captureSource ? { captureScale: captureSource.captureScale } : {}),
+      sourceDataUrl: captureSource.dataUrl,
+      captureScale: captureSource.captureScale,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };
@@ -749,6 +1106,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
         : [...captures, capture],
     );
     setCaptureNote('');
+    setCaptureEvidence([]);
     setCaptureMarks([]);
     setEditingCaptureId(undefined);
     await window.markfix.clearCaptureSelection();
@@ -758,6 +1116,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
 
   const cancelCapture = async (): Promise<void> => {
     setCaptureNote('');
+    setCaptureEvidence([]);
     setCaptureMarks([]);
     setEditingCaptureId(undefined);
     await window.markfix.clearCaptureSelection();
@@ -772,18 +1131,12 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   };
 
   const selectSavedCapture = async (capture: SavedCapture): Promise<void> => {
-    const selection: CaptureSelection = capture.selection ?? {
-      kind: 'region',
-      xCssPx: 24,
-      yCssPx: 24,
-      widthCssPx: capture.widthCssPx,
-      heightCssPx: capture.heightCssPx,
-      documentUrl: capture.pageUrl,
-    };
-    const marks = capture.sourceDataUrl ? capture.marks : [];
+    const selection = capture.selection;
+    const marks = capture.marks;
     captureRestoreRef.current = { capture, selection, marks };
     setEditingCaptureId(capture.id);
     setCaptureNote(capture.note);
+    setCaptureEvidence(capture.evidence ?? []);
     setScreenshot(capture.dataUrl);
     await window.markfix.restoreCaptureSelection(selection, marks);
     window.requestAnimationFrame(() => {
@@ -794,21 +1147,34 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
   const clearElementSelection = (): void => {
     setAnchor(undefined);
     setElementCommentNote('');
+    setElementEvidence([]);
     setEditingElementCommentId(undefined);
   };
 
   const completeElementComment = async (): Promise<void> => {
-    if (anchor?.kind !== 'element' || !elementCommentNote.trim()) return;
+    if (
+      anchor?.kind !== 'element' ||
+      !elementCommentNote.trim() ||
+      !selectedProjectId ||
+      !pageSessionId
+    )
+      return;
     const now = new Date().toISOString();
     const existing = elementComments.find(
       (comment) =>
-        comment.id === editingElementCommentId || elementAnchorsEqual(comment.anchor, anchor),
+        comment.projectId === selectedProjectId &&
+        (comment.id === editingElementCommentId || elementAnchorsEqual(comment.anchor, anchor)),
     );
     const comment: SavedElementComment = {
       id: existing?.id ?? crypto.randomUUID(),
+      projectId: selectedProjectId,
+      pageSessionId,
       pageUrl: anchor.documentUrl,
+      pageTitle: pageTitle || anchor.documentUrl,
       anchor,
       note: elementCommentNote.trim(),
+      status: 'draft',
+      ...(elementEvidence.length > 0 ? { evidence: elementEvidence } : {}),
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };
@@ -826,6 +1192,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
     setAnchor(comment.anchor);
     setEditingElementCommentId(comment.id);
     setElementCommentNote(comment.note);
+    setElementEvidence(comment.evidence ?? []);
     window.requestAnimationFrame(() => {
       document.querySelector<HTMLTextAreaElement>('[data-element-comment-note]')?.focus();
     });
@@ -837,6 +1204,198 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
     if (editingElementCommentId === id) clearElementSelection();
     setNotice('元素批注已删除。');
   };
+
+  const deleteDiagnosticAnnotation = async (id: string): Promise<void> => {
+    await window.markfix.deleteDiagnosticAnnotation(id);
+    setDiagnosticAnnotations((annotations) =>
+      annotations.filter((annotation) => annotation.id !== id),
+    );
+    setNotice('调试标注已删除。');
+  };
+
+  const hasUnsavedDraft = (): boolean =>
+    Boolean(
+      elementCommentNote.trim() ||
+      captureNote.trim() ||
+      captureMarks.length > 0 ||
+      title.trim() ||
+      description.trim() ||
+      annotations.length > 0,
+    );
+
+  const resetTransientDraft = async (): Promise<void> => {
+    clearElementSelection();
+    if (captureSelection) await cancelCapture();
+    setTitle('');
+    setDescription('');
+    setAnnotations([]);
+    setRedoStack([]);
+    setReproduction([]);
+    await setMode('browse');
+  };
+
+  const switchProject = async (project: WebsiteProject): Promise<boolean> => {
+    if (selectedProjectId && selectedProjectId !== project.id && hasUnsavedDraft()) {
+      const confirmed = await window.markfix.confirmDiscardDraft('switch-project');
+      if (!confirmed) return false;
+    }
+    const requestId = ++projectSwitchRequestRef.current;
+    const previousProjectId = selectedProjectIdRef.current;
+    const previousWorkspaceId = selectedWorkspaceId;
+    const previousEnvironmentId = selectedEnvironmentId;
+    const previousActiveView = activeView;
+    const previousUrl = url;
+    const previousPageSessionId = pageSessionId;
+    const changingProject = previousProjectId !== project.id;
+    setNewProjectError(undefined);
+    if (changingProject) {
+      setSwitchingProjectId(project.id);
+      selectedProjectIdRef.current = project.id;
+      setSelectedProjectId(project.id);
+      setSelectedWorkspaceId(project.workspaceId);
+      setSelectedEnvironmentId(undefined);
+      setActiveView('workspace');
+      setUrl(project.currentUrl);
+      setPageSessionId(project.currentPageSessionId);
+      setBrowserState((current) => ({ ...current, loading: true }));
+      setNotice(`正在切换到 ${project.title}…`);
+    }
+    try {
+      if (changingProject) await resetTransientDraft();
+      if (requestId !== projectSwitchRequestRef.current) return false;
+      const current = await window.markfix.switchWebsiteProject(project.id);
+      if (requestId !== projectSwitchRequestRef.current) return false;
+      setSelectedProjectId(project.id);
+      selectedProjectIdRef.current = project.id;
+      setSelectedWorkspaceId(project.workspaceId);
+      setSelectedEnvironmentId(undefined);
+      setActiveView('workspace');
+      setUrl(current.currentUrl);
+      setPageSessionId(current.currentPageSessionId);
+      setSwitchingProjectId(undefined);
+      setWebsiteProjects((projects) =>
+        projects.map((item) => (item.id === current.id ? current : item)),
+      );
+      setNotice(`已切换到 ${current.title}`);
+      return true;
+    } catch (error) {
+      if (requestId === projectSwitchRequestRef.current) {
+        setSwitchingProjectId(undefined);
+        selectedProjectIdRef.current = previousProjectId;
+        setSelectedProjectId(previousProjectId);
+        setSelectedWorkspaceId(previousWorkspaceId);
+        setSelectedEnvironmentId(previousEnvironmentId);
+        setActiveView(previousActiveView);
+        setUrl(previousUrl);
+        setPageSessionId(previousPageSessionId);
+        setBrowserState((current) => ({ ...current, loading: false }));
+        setNotice(error instanceof Error ? error.message : '项目切换失败。');
+      }
+      return false;
+    }
+  };
+
+  const deleteWebsiteProject = async (project: WebsiteProject): Promise<void> => {
+    try {
+      const result = await window.markfix.deleteWebsiteProject(project.id);
+      if (!result.deleted) return;
+      projectSwitchRequestRef.current += 1;
+      setWebsiteProjects((projects) => projects.filter(({ id }) => id !== project.id));
+      setElementComments((records) => records.filter(({ projectId }) => projectId !== project.id));
+      setSavedCaptures((records) => records.filter(({ projectId }) => projectId !== project.id));
+      setDiagnosticAnnotations((records) =>
+        records.filter(({ projectId }) => projectId !== project.id),
+      );
+      if (selectedProjectIdRef.current === project.id) {
+        selectedProjectIdRef.current = undefined;
+        setSelectedProjectId(undefined);
+        setSelectedEnvironmentId(undefined);
+        setEnvironments([]);
+        setPageSessionId(undefined);
+        setUrl('');
+        setActiveView('new');
+        await resetTransientDraft();
+        await window.markfix.clearDraft();
+      }
+      void window.markfix
+        .listWorkspaces()
+        .then(setWorkspaces)
+        .catch(() => undefined);
+      setNotice(`已删除项目：${project.title}`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '项目删除失败。');
+    }
+  };
+
+  const createWebsiteProject = async (input: string): Promise<void> => {
+    const hadUnsavedDraft = hasUnsavedDraft();
+    if (hadUnsavedDraft && !(await window.markfix.confirmDiscardDraft('new-annotation'))) return;
+    if (hadUnsavedDraft) await resetTransientDraft();
+    const workspaceId = selectedWorkspaceId ?? workspaces[0]?.id;
+    if (!workspaceId) {
+      setNewProjectError('当前账号没有可用工作区，请先在管理端创建工作区。');
+      return;
+    }
+    setCreatingProject(true);
+    setNewProjectError(undefined);
+    setNewProjectInput(input);
+    try {
+      const result = await window.markfix.createWebsiteProject(workspaceId, input);
+      const projects = await window.markfix.listWebsiteProjects();
+      setWebsiteProjects(projects);
+      if (!(await switchProject(result.project))) return;
+      setNotice(
+        result.created ? `已创建项目：${result.project.title}` : '该网站已存在，已切换到原项目。',
+      );
+      window.markfix
+        .listWorkspaces()
+        .then(setWorkspaces)
+        .catch(() => undefined);
+    } catch (error) {
+      setNewProjectError(
+        error instanceof Error ? error.message : '网站加载或解析失败，请检查地址后重试。',
+      );
+    } finally {
+      setCreatingProject(false);
+    }
+  };
+
+  const openCurrentProjectAnnotationReview = async (): Promise<void> => {
+    if (!selectedProjectId || unsubmittedCount === 0 || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await window.markfix.openAnnotationReview(selectedProjectId);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '无法打开标注确认窗口。');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const editHistoricalAnnotation = async (annotation: ProjectAnnotation): Promise<void> => {
+    if (
+      hasUnsavedDraft() &&
+      !window.confirm('当前有未保存的编辑内容。恢复历史标注将放弃这些内容，是否继续？')
+    )
+      return;
+    if (hasUnsavedDraft()) await resetTransientDraft();
+    const project = websiteProjects.find(({ id }) => id === annotation.record.projectId);
+    if (!project || !(await switchProject(project))) return;
+    await window.markfix.navigate(annotation.record.pageUrl);
+    setUrl(annotation.record.pageUrl);
+    setPageSessionId(annotation.record.pageSessionId);
+    if (annotation.type === 'element') {
+      await setMode('comment');
+      selectElementComment(annotation.record);
+    } else if (annotation.type === 'capture') {
+      await setMode('capture');
+      await selectSavedCapture(annotation.record);
+    } else {
+      await setMode('comment');
+    }
+    setNotice('已恢复标注上下文，可继续编辑。');
+  };
+  editHistoricalAnnotationRef.current = editHistoricalAnnotation;
 
   const updateStep = (id: string, description: string): void => {
     setReproduction((steps) =>
@@ -966,6 +1525,12 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent): void => {
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        addressInputRef.current?.focus();
+        addressInputRef.current?.select();
+        return;
+      }
       if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
         if (mode === 'comment' && anchor?.kind === 'element' && elementCommentNote.trim()) {
           event.preventDefault();
@@ -988,27 +1553,98 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
     return () => window.removeEventListener('keydown', handleShortcut);
   });
 
+  const toggleSidebar = (): void => setSidebarExpanded((expanded) => !expanded);
+  const openNewAnnotation = (): void => {
+    setNewProjectError(undefined);
+    setActiveView('new');
+  };
+  const navigation = (
+    <ProjectSidebar
+      expanded={sidebarExpanded}
+      user={user}
+      projects={websiteProjects}
+      selectedProjectId={selectedProjectId}
+      activeView={activeView}
+      annotationCount={(projectId) =>
+        projectAnnotations(projectId, elementComments, savedCaptures, diagnosticAnnotations).length
+      }
+      onNew={openNewAnnotation}
+      onHistory={() => {
+        void window.markfix
+          .openAnnotationHistory()
+          .catch((error: unknown) =>
+            setNotice(error instanceof Error ? error.message : '无法打开历史标注窗口。'),
+          );
+      }}
+      onProject={(project) => void switchProject(project)}
+      onDeleteProject={(project) => void deleteWebsiteProject(project)}
+      onOpenSettings={() => {
+        void window.markfix
+          .openSettings()
+          .catch((error: unknown) =>
+            setNotice(error instanceof Error ? error.message : '无法打开设置窗口。'),
+          );
+      }}
+      onLogout={onLoggedOut}
+    />
+  );
+  const headerNavigation = (
+    <HeaderNavigationControls
+      expanded={sidebarExpanded}
+      onToggle={toggleSidebar}
+      onNew={openNewAnnotation}
+    />
+  );
+  const toast = notice ? (
+    <Alert className="app-toast" role="status">
+      <Check />
+      <AlertDescription>{notice}</AlertDescription>
+    </Alert>
+  ) : null;
+
+  if (activeView === 'new') {
+    return (
+      <div className={`shell ${sidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
+        {navigation}
+        <header className="navigation-header">{headerNavigation}</header>
+        {toast}
+        <NewProjectPage
+          initialValue={newProjectInput}
+          busy={creatingProject}
+          error={newProjectError}
+          onSubmit={(input) => void createWebsiteProject(input)}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="shell">
+    <div className={`shell ${sidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
+      {navigation}
+      {toast}
       <header className="browser-bar">
-        <div className="traffic-space" />
-        <div className="brand">
-          <span>
-            <MessageSquareText />
-          </span>
-          <strong>MarkFix</strong>
-        </div>
+        {headerNavigation}
         <div className="prototype-browser-bar">
           <div className="nav-buttons">
-            <button aria-label="后退" title="后退" onClick={() => void window.markfix.back()}>
+            <Button
+              aria-label="后退"
+              title="后退"
+              disabled={!browserState.canGoBack}
+              onClick={() => void window.markfix.back()}
+            >
               <ArrowLeft />
-            </button>
-            <button aria-label="前进" title="前进" onClick={() => void window.markfix.forward()}>
+            </Button>
+            <Button
+              aria-label="前进"
+              title="前进"
+              disabled={!browserState.canGoForward}
+              onClick={() => void window.markfix.forward()}
+            >
               <ArrowRight />
-            </button>
-            <button aria-label="刷新" title="刷新" onClick={() => void window.markfix.reload()}>
+            </Button>
+            <Button aria-label="刷新" title="刷新" onClick={() => void window.markfix.reload()}>
               <RefreshCw className={browserState.loading ? 'spin' : ''} />
-            </button>
+            </Button>
           </div>
           <form
             className="address"
@@ -1022,41 +1658,72 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
             }}
           >
             <span className="secure-dot" />
-            <input value={url} onChange={(event) => setUrl(event.target.value)} />
+            <Input
+              ref={addressInputRef}
+              value={url}
+              aria-label="网站地址"
+              aria-keyshortcuts="Meta+L"
+              spellCheck={false}
+              onFocus={(event) => event.currentTarget.select()}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape') return;
+                event.preventDefault();
+                event.stopPropagation();
+                setUrl(browserState.url ?? '');
+                event.currentTarget.blur();
+              }}
+              onChange={(event) => setUrl(event.target.value)}
+            />
           </form>
         </div>
         <div className="tools">
-          <span className="mode-status">
-            {mode === 'browse' ? '浏览模式' : mode === 'comment' ? '批注模式' : '截图模式'}
-          </span>
-          <button
-            className={mode === 'comment' ? 'active' : ''}
-            aria-pressed={mode === 'comment'}
-            aria-keyshortcuts="Alt+W"
-            title="批注（⌥W）"
-            onClick={() => void toggleMode('comment')}
+          <div className="annotation-mode-control" role="group" aria-label="标注工具">
+            <Button
+              className={mode === 'comment' ? 'active' : ''}
+              aria-pressed={mode === 'comment'}
+              aria-keyshortcuts="Alt+W"
+              title="批注（⌥W）"
+              onClick={() => void toggleMode('comment')}
+            >
+              <MessageSquareText /> 批注 <kbd>⌥W</kbd>
+            </Button>
+            <Button
+              className={mode === 'capture' ? 'active' : ''}
+              aria-pressed={mode === 'capture'}
+              aria-keyshortcuts="Alt+A"
+              title="截图（⌥A）"
+              onClick={() => void toggleMode('capture')}
+            >
+              <Camera /> 截图 <kbd>⌥A</kbd>
+            </Button>
+          </div>
+          <Button
+            className="more-menu-trigger diagnostics-button"
+            aria-label="更多"
+            title="更多"
+            aria-haspopup="menu"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              void window.markfix
+                .openMoreMenu(rect.left, rect.bottom)
+                .catch((error: unknown) =>
+                  setNotice(error instanceof Error ? error.message : '无法打开更多菜单。'),
+                );
+            }}
           >
-            <MessageSquareText /> 批注 <kbd>⌥W</kbd>
-          </button>
-          <button
-            className={mode === 'capture' ? 'active' : ''}
-            aria-pressed={mode === 'capture'}
-            aria-keyshortcuts="Alt+A"
-            title="截图（⌥A）"
-            onClick={() => void toggleMode('capture')}
+            <MoreHorizontal />
+            {diagnosticErrorCount > 0 && <i>{Math.min(99, diagnosticErrorCount)}</i>}
+          </Button>
+          <Button
+            className="save-annotations-button"
+            disabled={unsubmittedCount === 0 || isSubmitting}
+            onClick={() => void openCurrentProjectAnnotationReview()}
           >
-            <Camera /> 截图 <kbd>⌥A</kbd>
-          </button>
-          <button className="save-annotations-button" onClick={() => void openAnnotationSave()}>
-            <Save /> 保存标注
-          </button>
+            {isSubmitting ? <LoaderCircle className="spin" /> : <Send />}
+            提交标注{unsubmittedCount > 0 ? ` ${unsubmittedCount}` : ''}
+          </Button>
         </div>
       </header>
-      {notice && (
-        <div className="app-toast" role="status">
-          <Check /> {notice}
-        </div>
-      )}
       {mode === 'capture' ? (
         <aside className="comment-panel capture-panel">
           <div className="capture-panel-header">
@@ -1065,7 +1732,7 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           </div>
           <div className="capture-panel-body">
             {captureSelection && (
-              <section className="capture-selection-card">
+              <Card className="capture-selection-card">
                 <div className="capture-selection-kicker">
                   <Camera /> {captureLoading ? '正在生成截图…' : '实时截图预览'}
                 </div>
@@ -1085,19 +1752,19 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                   <div className="capture-text-list">
                     {captureMarks.map((mark, index) =>
                       mark.type === 'text' ? (
-                        <label key={mark.id}>
+                        <Label key={mark.id}>
                           文字 {index + 1}
-                          <input
+                          <Input
                             value={mark.text}
                             maxLength={200}
                             onChange={(event) => updateCaptureText(mark.id, event.target.value)}
                           />
-                        </label>
+                        </Label>
                       ) : null,
                     )}
                   </div>
                 )}
-                <textarea
+                <Textarea
                   className="capture-note-input"
                   data-capture-note
                   value={captureNote}
@@ -1105,16 +1772,22 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                   placeholder="说明截图中的问题…"
                   onChange={(event) => setCaptureNote(event.target.value)}
                 />
+                <EvidenceReferences
+                  items={captureEvidence}
+                  onRemove={(id) =>
+                    setCaptureEvidence((items) => items.filter((item) => item.id !== id))
+                  }
+                />
                 <div className="capture-draft-actions">
-                  <button
+                  <Button
                     type="button"
                     aria-label="取消截图"
                     title="取消截图"
                     onClick={() => void cancelCapture()}
                   >
                     <X />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     className="primary"
                     aria-label={editingCaptureId ? '保存截图修改' : '完成截图'}
@@ -1125,9 +1798,9 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                     onClick={() => void completeCapture()}
                   >
                     <Check />
-                  </button>
+                  </Button>
                 </div>
-              </section>
+              </Card>
             )}
             {!captureSelection && pageCaptures.length === 0 && (
               <section className="capture-empty">
@@ -1153,16 +1826,16 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
-                        <button
+                        <Button
                           type="button"
                           title="删除"
                           onClick={() => void deleteSavedCapture(item.id)}
                         >
                           <Trash2 />
-                        </button>
+                        </Button>
                       </span>
                     </div>
-                    <button
+                    <Button
                       type="button"
                       className="capture-history-select"
                       onClick={() => void selectSavedCapture(item)}
@@ -1174,17 +1847,22 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                         <span>
                           {Math.round(item.widthCssPx)} × {Math.round(item.heightCssPx)} px
                         </span>
-                        <span>{item.marks.length} 个标记</span>
+                        <span>
+                          {item.marks.length} 个标记
+                          {(item.evidence?.length ?? 0) > 0
+                            ? ` · ${item.evidence?.length ?? 0} 条证据`
+                            : ''}
+                        </span>
                       </div>
                       <p>{item.note}</p>
-                    </button>
+                    </Button>
                     <div className="capture-note-actions">
-                      <button type="button" onClick={() => void copyCapture(item.dataUrl)}>
+                      <Button type="button" onClick={() => void copyCapture(item.dataUrl)}>
                         <Copy /> 复制
-                      </button>
-                      <button type="button" onClick={() => void saveCapture(item.dataUrl)}>
+                      </Button>
+                      <Button type="button" onClick={() => void saveCapture(item.dataUrl)}>
                         <Download /> 保存
-                      </button>
+                      </Button>
                     </div>
                   </article>
                 ))}
@@ -1195,35 +1873,41 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
       ) : mode === 'comment' ? (
         <aside className="comment-panel capture-panel element-comment-panel">
           <div className="capture-panel-header">
-            <span>元素批注</span>
-            <small>{pageElementComments.length} 条</small>
+            <span>批注</span>
+            <small>{pageElementComments.length + pageDiagnosticAnnotations.length} 条</small>
           </div>
           <div className="capture-panel-body">
             {anchor?.kind === 'element' && (
-              <section className="element-selection-card">
+              <Card className="element-selection-card">
                 <div className="element-selection-kicker">
                   <MousePointer2 />
                   <strong>{editingElementCommentId ? '编辑已有批注' : '已选择元素'}</strong>
                 </div>
                 <code>{anchor.cssSelector}</code>
                 <div className="element-preview">{anchor.textQuote || `<${anchor.tagName}>`}</div>
-                <textarea
+                <Textarea
                   data-element-comment-note
                   value={elementCommentNote}
                   maxLength={2000}
                   placeholder="描述这里需要修改什么…"
                   onChange={(event) => setElementCommentNote(event.target.value)}
                 />
+                <EvidenceReferences
+                  items={elementEvidence}
+                  onRemove={(id) =>
+                    setElementEvidence((items) => items.filter((item) => item.id !== id))
+                  }
+                />
                 <div className="capture-draft-actions">
-                  <button
+                  <Button
                     type="button"
                     aria-label="取消批注"
                     title="取消批注"
                     onClick={clearElementSelection}
                   >
                     <X />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     className="primary"
                     aria-label={editingElementCommentId ? '保存批注修改' : '完成批注'}
@@ -1232,17 +1916,58 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                     onClick={() => void completeElementComment()}
                   >
                     <Check />
-                  </button>
+                  </Button>
                 </div>
-              </section>
+              </Card>
             )}
-            {!anchor && pageElementComments.length === 0 && (
+            {!anchor && pageElementComments.length + pageDiagnosticAnnotations.length === 0 && (
               <section className="capture-empty element-comment-empty">
                 <span className="capture-empty-icon">
                   <MousePointer2 />
                 </span>
                 <strong>选择页面中的元素</strong>
                 <p>点击页面中的任意元素添加批注，批注会保留元素位置和页面上下文。</p>
+              </section>
+            )}
+            {pageDiagnosticAnnotations.length > 0 && (
+              <section className="capture-notes-list diagnostic-notes-list">
+                {[...pageDiagnosticAnnotations].reverse().map((item, index) => (
+                  <article className="capture-note-card diagnostic-note-card" key={item.id}>
+                    <div className="capture-note-head">
+                      <span>
+                        <i>{pageDiagnosticAnnotations.length - index}</i>
+                        {item.evidence.kind === 'network'
+                          ? 'Network 标注'
+                          : item.evidence.kind === 'command'
+                            ? '命令标注'
+                            : 'Console 标注'}
+                      </span>
+                      <span>
+                        {new Date(item.updatedAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        <Button
+                          type="button"
+                          title="删除"
+                          onClick={() => void deleteDiagnosticAnnotation(item.id)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </span>
+                    </div>
+                    <div className={`diagnostic-annotation-content ${item.evidence.level}`}>
+                      <span>
+                        <Terminal />
+                        <strong>{item.evidence.title}</strong>
+                      </span>
+                      <p>{item.evidence.message}</p>
+                      <small>
+                        {item.evidence.source ?? item.evidence.request?.url ?? item.pageUrl}
+                      </small>
+                    </div>
+                  </article>
+                ))}
               </section>
             )}
             {pageElementComments.length > 0 && (
@@ -1261,23 +1986,28 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
-                        <button
+                        <Button
                           type="button"
                           title="删除"
                           onClick={() => void deleteElementComment(item.id)}
                         >
                           <Trash2 />
-                        </button>
+                        </Button>
                       </span>
                     </div>
-                    <button
+                    <Button
                       type="button"
                       className="element-note-select"
                       onClick={() => selectElementComment(item)}
                     >
                       <code>{item.anchor.cssSelector}</code>
                       <p>{item.note}</p>
-                    </button>
+                      {(item.evidence?.length ?? 0) > 0 && (
+                        <small className="saved-evidence-count">
+                          <Paperclip /> {item.evidence?.length ?? 0} 条调试证据
+                        </small>
+                      )}
+                    </Button>
                   </article>
                 ))}
               </section>
@@ -1295,9 +2025,9 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           </div>
           <section className="report-context">
             <div className="context-pair">
-              <label>
+              <Label>
                 <span>Workspace</span>
-                <select
+                <NativeSelect
                   aria-label="Workspace"
                   value={selectedWorkspaceId ?? ''}
                   disabled={contextLoading || workspaces.length === 0 || Boolean(pendingOutboxId)}
@@ -1312,11 +2042,11 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                       {workspace.name}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label>
+                </NativeSelect>
+              </Label>
+              <Label>
                 <span>Project</span>
-                <select
+                <NativeSelect
                   aria-label="Project"
                   value={selectedProjectId ?? ''}
                   disabled={
@@ -1335,12 +2065,12 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                       {project.name}
                     </option>
                   ))}
-                </select>
-              </label>
+                </NativeSelect>
+              </Label>
             </div>
-            <label>
+            <Label>
               <span>Environment</span>
-              <select
+              <NativeSelect
                 aria-label="Environment"
                 value={selectedEnvironmentId ?? ''}
                 disabled={
@@ -1356,8 +2086,8 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                     {environment.name}
                   </option>
                 ))}
-              </select>
-            </label>
+              </NativeSelect>
+            </Label>
             <small>
               {contextLoading
                 ? 'Loading report destination…'
@@ -1397,56 +2127,56 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           </section>
           <section className="annotation-toolbar">
             <div className="annotation-tools">
-              <button
+              <Button
                 className={activeTool === 'pin' && mode === 'draw' ? 'active' : ''}
                 title="Pin"
                 onClick={() => void beginAnnotation('pin')}
               >
                 <Crosshair />
-              </button>
-              <button
+              </Button>
+              <Button
                 className={activeTool === 'rectangle' && mode === 'draw' ? 'active' : ''}
                 title="Rectangle"
                 onClick={() => void beginAnnotation('rectangle')}
               >
                 <Square />
-              </button>
-              <button
+              </Button>
+              <Button
                 className={activeTool === 'arrow' && mode === 'draw' ? 'active' : ''}
                 title="Arrow"
                 onClick={() => void beginAnnotation('arrow')}
               >
                 <MoveUpRight />
-              </button>
-              <button
+              </Button>
+              <Button
                 className={activeTool === 'text' && mode === 'draw' ? 'active' : ''}
                 title="Text"
                 onClick={() => void beginAnnotation('text')}
               >
                 <Type />
-              </button>
-              <button
+              </Button>
+              <Button
                 className={activeTool === 'pen' && mode === 'draw' ? 'active' : ''}
                 title="Pen"
                 onClick={() => void beginAnnotation('pen')}
               >
                 <PenLine />
-              </button>
+              </Button>
             </div>
             <div className="history-tools">
-              <button title="Undo" disabled={annotations.length === 0} onClick={undo}>
+              <Button title="Undo" disabled={annotations.length === 0} onClick={undo}>
                 <Undo2 />
-              </button>
-              <button title="Redo" disabled={redoStack.length === 0} onClick={redo}>
+              </Button>
+              <Button title="Redo" disabled={redoStack.length === 0} onClick={redo}>
                 <Redo2 />
-              </button>
+              </Button>
             </div>
             <span>{annotations.length}</span>
           </section>
           {annotations.length > 0 && (
             <section className="annotation-list" aria-label="Annotations">
               {annotations.map((annotation, index) => (
-                <button
+                <Button
                   type="button"
                   key={annotation.id}
                   className={annotation.id === selectedAnnotationId ? 'selected' : ''}
@@ -1457,28 +2187,28 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                     <strong>{annotationName(annotation)}</strong>
                     <small>{annotation.type}</small>
                   </span>
-                </button>
+                </Button>
               ))}
             </section>
           )}
-          <label className="field">
+          <Label className="field">
             <span>Title</span>
-            <input
+            <Input
               value={title}
               maxLength={200}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="What needs fixing?"
             />
-          </label>
-          <label className="field grow">
+          </Label>
+          <Label className="field grow">
             <span>Comment</span>
-            <textarea
+            <Textarea
               value={description}
               maxLength={20000}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Describe what you expected and what happened…"
             />
-          </label>
+          </Label>
           {screenshot && (
             <div className="thumbnail">
               <img src={screenshot} alt="Latest capture" />
@@ -1488,9 +2218,9 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           <section className="steps">
             <div className="steps-heading">
               <strong>Reproduction trail</strong>
-              <button type="button" onClick={addManualStep}>
+              <Button type="button" onClick={addManualStep}>
                 + Manual
-              </button>
+              </Button>
             </div>
             {reproduction.length === 0 ? (
               <span className="steps-empty">Record page actions or add a manual step.</span>
@@ -1499,30 +2229,30 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                 {reproduction.map((step, index) => (
                   <li key={step.id}>
                     <span className="step-number">{index + 1}</span>
-                    <input
+                    <Input
                       value={step.description}
                       maxLength={2000}
                       aria-label={`Step ${index + 1}`}
                       onChange={(event) => updateStep(step.id, event.target.value)}
                     />
                     <div className="step-actions">
-                      <button
+                      <Button
                         type="button"
                         title="Move up"
                         disabled={index === 0}
                         onClick={() => moveStep(index, -1)}
                       >
                         <ChevronUp />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
                         title="Move down"
                         disabled={index === reproduction.length - 1}
                         onClick={() => moveStep(index, 1)}
                       >
                         <ChevronDown />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
                         title="Delete step"
                         onClick={() =>
@@ -1530,15 +2260,19 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
                         }
                       >
                         <Trash2 />
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ))}
               </ol>
             )}
           </section>
-          {notice && <div className="notice">{notice}</div>}
-          <button
+          {notice && (
+            <Alert className="notice">
+              <AlertDescription>{notice}</AlertDescription>
+            </Alert>
+          )}
+          <Button
             className="submit"
             disabled={
               !anchor ||
@@ -1552,10 +2286,20 @@ function AnnotationWorkspace({ policy }: { policy: ClientPolicy | undefined }) {
           >
             {isSubmitting ? <LoaderCircle className="spin" /> : <Send />}{' '}
             {pendingOutboxId ? 'Queued for sync' : 'Submit report'}
-          </button>
+          </Button>
           <p className="draft-state">Draft saved locally</p>
         </aside>
       ) : null}
+      {diagnosticsOpen && (
+        <DiagnosticsPanel
+          entries={diagnosticEntries}
+          selectedEvidenceIds={selectedEvidenceIds}
+          withSidebar={mode !== 'browse'}
+          onClear={clearDiagnostics}
+          onClose={() => void toggleDiagnostics()}
+          onQuote={quoteDiagnostic}
+        />
+      )}
     </div>
   );
 }
@@ -1580,7 +2324,7 @@ export function App() {
   if (policy?.status === 'upgrade-required') {
     return (
       <main className="desktop-auth">
-        <section>
+        <Card>
           <div className="desktop-auth-brand">
             <span>m</span> MarkFix
           </div>
@@ -1590,7 +2334,7 @@ export function App() {
             Install MarkFix {policy.minimumVersion} or newer before signing in or submitting
             reports. Recommended version: {policy.recommendedVersion}.
           </p>
-        </section>
+        </Card>
       </main>
     );
   }
@@ -1599,5 +2343,13 @@ export function App() {
   if (state.status === 'anonymous') {
     return <DesktopLogin onAuthenticated={(user) => setState({ status: 'authenticated', user })} />;
   }
-  return <AnnotationWorkspace policy={policy} />;
+  return (
+    <AnnotationWorkspace
+      policy={policy}
+      user={state.user}
+      onLoggedOut={async () => {
+        if (await window.markfix.logout()) setState({ status: 'anonymous' });
+      }}
+    />
+  );
 }

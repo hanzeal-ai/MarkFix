@@ -621,6 +621,8 @@ const emitCaptureSelection = (): void => {
           widthCssPx: captureBounds.width,
           heightCssPx: captureBounds.height,
           documentUrl: location.href,
+          scrollXCssPx: window.scrollX,
+          scrollYCssPx: window.scrollY,
         }
       : null,
   );
@@ -1059,6 +1061,8 @@ const mount = (): void => {
           widthCssPx: width,
           heightCssPx: height,
           documentUrl: location.href,
+          scrollXCssPx: window.scrollX,
+          scrollYCssPx: window.scrollY,
         });
       mode = 'browse';
       updatePointerMode();
@@ -1296,6 +1300,7 @@ const recoverAnchor = (): void => {
     .map(({ element, anchor }) => {
       const center = anchorCenter(anchor);
       return {
+        element,
         anchor,
         candidate: {
           cssSelectorMatched: selectorMatches.has(element),
@@ -1318,8 +1323,10 @@ const recoverAnchor = (): void => {
     });
     return;
   }
-  const recovered = entries.find(({ candidate }) => candidate === best.candidate)?.anchor;
-  if (!recovered) return;
+  const recoveredEntry = entries.find(({ candidate }) => candidate === best.candidate);
+  if (!recoveredEntry) return;
+  recoveredEntry.element.scrollIntoView({ block: 'center', inline: 'center' });
+  const recovered = elementAnchor(recoveredEntry.element) ?? recoveredEntry.anchor;
   trackedAnchor = recovered;
   showAnchor(recovered);
   ipcRenderer.send('markfix:anchor-recovery', {
@@ -1569,6 +1576,11 @@ ipcRenderer.on('markfix:restore-capture-selection', (_event, payload: unknown) =
     return;
   const x = Number(selection.xCssPx);
   const y = Number(selection.yCssPx);
+  const scrollXCssPx = Number((selection as { scrollXCssPx?: unknown }).scrollXCssPx);
+  const scrollYCssPx = Number((selection as { scrollYCssPx?: unknown }).scrollYCssPx);
+  if (Number.isFinite(scrollXCssPx) && Number.isFinite(scrollYCssPx)) {
+    window.scrollTo(scrollXCssPx, scrollYCssPx);
+  }
   captureBounds = createCaptureBounds(
     { x, y },
     { x: x + Number(selection.widthCssPx), y: y + Number(selection.heightCssPx) },

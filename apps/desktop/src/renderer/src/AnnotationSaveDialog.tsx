@@ -1,28 +1,43 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Camera, Check, MessageSquareText, ZoomIn } from 'lucide-react';
-import type { SavedCapture, SavedElementComment } from '@markfix/contracts';
+import { Button, Card, Checkbox, Label } from '@markfix/ui';
+import { Camera, Check, MessageSquareText, Terminal, ZoomIn } from '@markfix/ui/icons';
+import type {
+  SavedCapture,
+  SavedDiagnosticAnnotation,
+  SavedElementComment,
+} from '@markfix/contracts';
 
 type AnnotationSaveDialogProps = {
   captures: SavedCapture[];
+  diagnostics: SavedDiagnosticAnnotation[];
   elementComments: SavedElementComment[];
   busy: boolean;
   onCancel: () => void;
   onPreviewCapture: (capture: SavedCapture) => void;
   onSubmit: (selection: {
     captures: SavedCapture[];
+    diagnostics: SavedDiagnosticAnnotation[];
     elementComments: SavedElementComment[];
   }) => void;
 };
 
 type ReviewItem =
   | { key: string; kind: 'comment'; record: SavedElementComment; createdAt: string }
-  | { key: string; kind: 'capture'; record: SavedCapture; createdAt: string };
+  | { key: string; kind: 'capture'; record: SavedCapture; createdAt: string }
+  | {
+      key: string;
+      kind: 'diagnostic';
+      record: SavedDiagnosticAnnotation;
+      createdAt: string;
+    };
 
 const commentKey = (id: string): string => `comment:${id}`;
 const captureKey = (id: string): string => `capture:${id}`;
+const diagnosticKey = (id: string): string => `diagnostic:${id}`;
 
 export function AnnotationSaveDialog({
   captures,
+  diagnostics,
   elementComments,
   busy,
   onCancel,
@@ -48,8 +63,16 @@ export function AnnotationSaveDialog({
             createdAt: record.createdAt,
           }),
         ),
+        ...diagnostics.map(
+          (record): ReviewItem => ({
+            key: diagnosticKey(record.id),
+            kind: 'diagnostic',
+            record,
+            createdAt: record.createdAt,
+          }),
+        ),
       ].sort((left, right) => left.createdAt.localeCompare(right.createdAt)),
-    [captures, elementComments],
+    [captures, diagnostics, elementComments],
   );
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(
     () => new Set(items.map(({ key }) => key)),
@@ -83,23 +106,23 @@ export function AnnotationSaveDialog({
     onSubmit({
       elementComments: elementComments.filter(({ id }) => selectedKeys.has(commentKey(id))),
       captures: captures.filter(({ id }) => selectedKeys.has(captureKey(id))),
+      diagnostics: diagnostics.filter(({ id }) => selectedKeys.has(diagnosticKey(id))),
     });
   };
 
   return (
-    <section className="annotation-save-dialog" aria-label="保存标注">
+    <Card className="annotation-save-dialog" aria-label="保存标注">
       <div className="annotation-save-summary">
-        <label>
-          <input
-            type="checkbox"
+        <Label>
+          <Checkbox
             checked={allSelected}
             disabled={items.length === 0 || busy}
-            onChange={() =>
+            onCheckedChange={() =>
               setSelectedKeys(allSelected ? new Set() : new Set(items.map(({ key }) => key)))
             }
           />
           全选
-        </label>
+        </Label>
         <span>
           已选择 {selectedKeys.size} / {items.length} 项
         </span>
@@ -120,14 +143,13 @@ export function AnnotationSaveDialog({
                 className={`annotation-save-item ${selected ? 'selected' : ''}`}
                 key={item.key}
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={selected}
                   disabled={busy}
-                  onChange={() => toggleItem(item.key)}
+                  onCheckedChange={() => toggleItem(item.key)}
                 />
                 {item.kind === 'capture' ? (
-                  <button
+                  <Button
                     type="button"
                     className="annotation-save-preview-button"
                     aria-label={`预览截图：${item.record.note}`}
@@ -138,15 +160,25 @@ export function AnnotationSaveDialog({
                     <span>
                       <ZoomIn /> 预览
                     </span>
-                  </button>
-                ) : (
+                  </Button>
+                ) : item.kind === 'comment' ? (
                   <span className="annotation-save-item-icon">
                     <MessageSquareText />
+                  </span>
+                ) : (
+                  <span className="annotation-save-item-icon">
+                    <Terminal />
                   </span>
                 )}
                 <span className="annotation-save-item-content">
                   <span className="annotation-save-item-heading">
-                    <strong>{item.kind === 'capture' ? '截图标注' : '元素批注'}</strong>
+                    <strong>
+                      {item.kind === 'capture'
+                        ? '截图标注'
+                        : item.kind === 'comment'
+                          ? '元素批注'
+                          : '调试标注'}
+                    </strong>
                     <time>
                       {new Date(item.createdAt).toLocaleString([], {
                         month: '2-digit',
@@ -156,15 +188,26 @@ export function AnnotationSaveDialog({
                       })}
                     </time>
                   </span>
-                  <span className="annotation-save-item-note">{item.record.note}</span>
+                  <span className="annotation-save-item-note">
+                    {item.kind === 'diagnostic' ? item.record.evidence.title : item.record.note}
+                  </span>
                   <span className="annotation-save-item-meta">
                     {item.kind === 'capture' ? (
                       <>
                         <Camera /> {Math.round(item.record.widthCssPx)} ×{' '}
                         {Math.round(item.record.heightCssPx)} px · {item.record.marks.length} 个标记
+                        {(item.record.evidence?.length ?? 0) > 0
+                          ? ` · ${item.record.evidence?.length ?? 0} 条调试证据`
+                          : ''}
                       </>
+                    ) : item.kind === 'comment' ? (
+                      `${item.record.anchor.cssSelector}${
+                        (item.record.evidence?.length ?? 0) > 0
+                          ? ` · ${item.record.evidence?.length ?? 0} 条调试证据`
+                          : ''
+                      }`
                     ) : (
-                      item.record.anchor.cssSelector
+                      item.record.evidence.message || item.record.evidence.source || '调试记录'
                     )}
                   </span>
                   <span className="annotation-save-item-url">{item.record.pageUrl}</span>
@@ -176,15 +219,15 @@ export function AnnotationSaveDialog({
       </div>
 
       <footer>
-        <button
+        <Button
           type="button"
           className="primary"
           disabled={busy || selectedKeys.size === 0}
           onClick={submit}
         >
           <Check /> {busy ? '提交中…' : '提交'}
-        </button>
+        </Button>
       </footer>
-    </section>
+    </Card>
   );
 }

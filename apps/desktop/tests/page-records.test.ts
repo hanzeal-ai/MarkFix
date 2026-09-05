@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectPageRecords } from '../src/renderer/src/page-records';
+import { selectPageRecords, selectProjectPageRecords } from '../src/renderer/src/page-records';
 
 describe('page-scoped annotation records', () => {
   it('restores each page own element comments and screenshots', () => {
@@ -30,5 +30,17 @@ describe('page-scoped annotation records', () => {
 
     expect(selectPageRecords(elementComments, pageA)).toHaveLength(1);
     expect(selectPageRecords(screenshots, pageA)).toHaveLength(3);
+  });
+
+  it('isolates identical page sessions between projects', () => {
+    const records = [
+      { id: 'project-a', projectId: 'a', pageSessionId: 'page-1' },
+      { id: 'project-b', projectId: 'b', pageSessionId: 'page-1' },
+      { id: 'other-page', projectId: 'a', pageSessionId: 'page-2' },
+    ];
+
+    expect(selectProjectPageRecords(records, 'a', 'page-1')).toEqual([records[0]]);
+    expect(selectProjectPageRecords(records, 'b', 'page-1')).toEqual([records[1]]);
+    expect(selectProjectPageRecords(records, undefined, 'page-1')).toEqual([]);
   });
 });

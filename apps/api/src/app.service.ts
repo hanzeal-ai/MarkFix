@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   ConflictException,
@@ -78,18 +78,6 @@ export class AppService implements OnModuleInit {
           memberships: { create: { userId: demoUser.id, role: 'OWNER' } },
           projects: { create: { name: 'Website feedback', baseUrl: 'https://example.com' } },
         },
-      });
-    } else {
-      await this.database.workspace.update({
-        where: { id: existingWorkspace.id },
-        data: { createdById: existingWorkspace.createdById ?? demoUser.id },
-      });
-      await this.database.membership.upsert({
-        where: {
-          workspaceId_userId: { workspaceId: existingWorkspace.id, userId: demoUser.id },
-        },
-        update: { status: 'ACTIVE' },
-        create: { workspaceId: existingWorkspace.id, userId: demoUser.id, role: 'OWNER' },
       });
     }
   }
@@ -188,6 +176,20 @@ export class AppService implements OnModuleInit {
         ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl || null } : {}),
       },
     });
+  }
+
+  async deleteProject(userId: string, projectId: string) {
+    const project = await this.requireProjectAccess(userId, projectId);
+    await this.requireMembership(userId, project.workspaceId, ['OWNER', 'ADMIN']);
+    const artifacts = await this.database.artifact.findMany({
+      where: { submission: { projectId } },
+      select: { id: true },
+    });
+    await this.database.project.delete({ where: { id: projectId } });
+    await Promise.allSettled(
+      artifacts.map(({ id }) => unlink(join(this.artifactDirectory, `${id}.png`))),
+    );
+    return { deleted: true };
   }
 
   async listEnvironments(userId: string, projectId: string) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Camera } from 'lucide-react';
+import { Alert, AlertDescription } from '@markfix/ui';
+import { Camera } from '@markfix/ui/icons';
 import type { SavedCapture } from '@markfix/contracts';
 
 export function CapturePreviewWindow(): React.JSX.Element {
@@ -36,7 +37,9 @@ export function CapturePreviewWindow(): React.JSX.Element {
         <i>截图预览</i>
       </div>
       {error ? (
-        <div className="capture-preview-error">{error}</div>
+        <Alert className="capture-preview-error" variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : capture ? (
         <figure>
           <img src={capture.dataUrl} alt={capture.note} />

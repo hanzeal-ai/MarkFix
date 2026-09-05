@@ -36,6 +36,10 @@
   padding: 22px 24px 24px;
 }
 
+.settings-subscription {
+  min-height: 100%;
+}
+
 .subscription-heading {
   display: flex;
   min-height: 44px;

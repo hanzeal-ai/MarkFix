@@ -39,6 +39,8 @@ export const regionAnchorSchema = z.object({
   widthCssPx: z.number().positive(),
   heightCssPx: z.number().positive(),
   documentUrl: z.url(),
+  scrollXCssPx: z.number().finite(),
+  scrollYCssPx: z.number().finite(),
 });
 
 export const anchorSchema = z.discriminatedUnion('kind', [elementAnchorSchema, regionAnchorSchema]);
@@ -126,7 +128,50 @@ export const screenshotMarkSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
-export const savedCaptureSchema = z.object({
+export const diagnosticEvidenceSchema = z.object({
+  id: z.uuid(),
+  kind: z.enum(['console', 'exception', 'network', 'command', 'system']),
+  level: z.enum(['info', 'warning', 'error']),
+  timestamp: z.iso.datetime(),
+  pageUrl: z.string().max(4096),
+  pageRevision: z.uuid().optional(),
+  title: z.string().min(1).max(500),
+  message: z.string().max(20_000),
+  source: z.string().max(4096).optional(),
+  stack: z.string().max(20_000).optional(),
+  request: z
+    .object({
+      requestId: z.string().max(500).optional(),
+      method: z.string().min(1).max(32),
+      url: z.string().max(4096),
+      status: z.number().int().min(0).max(999).optional(),
+      statusText: z.string().max(500).optional(),
+      resourceType: z.string().max(100).optional(),
+      durationMs: z.number().nonnegative().optional(),
+    })
+    .optional(),
+  command: z
+    .object({
+      mode: z.enum(['javascript', 'curl']),
+      input: z.string().min(1).max(20_000),
+      output: z.string().max(65_536),
+    })
+    .optional(),
+  redactions: z.array(z.string().max(200)).max(50).default([]),
+});
+
+export const annotationRecordStatusSchema = z.enum(['draft', 'submitted', 'rejected']);
+
+const annotationRecordContextSchema = z.object({
+  projectId: z.uuid(),
+  pageSessionId: z.uuid(),
+  pageTitle: z.string().max(500),
+  status: annotationRecordStatusSchema,
+  rejectionReason: z.string().max(2000).optional(),
+  submittedAt: z.iso.datetime().optional(),
+});
+
+export const savedCaptureSchema = annotationRecordContextSchema.extend({
   id: z.uuid(),
   pageUrl: z.url(),
   note: z.string().min(1).max(2000),
@@ -134,31 +179,49 @@ export const savedCaptureSchema = z.object({
   widthCssPx: z.number().positive(),
   heightCssPx: z.number().positive(),
   marks: z.array(screenshotMarkSchema).max(500),
-  selection: regionAnchorSchema.optional(),
-  sourceDataUrl: z.string().startsWith('data:image/png;base64,').optional(),
-  captureScale: z.number().positive().optional(),
+  selection: regionAnchorSchema,
+  sourceDataUrl: z.string().startsWith('data:image/png;base64,'),
+  captureScale: z.number().positive(),
+  evidence: z.array(diagnosticEvidenceSchema).max(50).optional(),
   createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime().optional(),
+  updatedAt: z.iso.datetime(),
 });
 
-export const savedElementCommentSchema = z.object({
+export const savedElementCommentSchema = annotationRecordContextSchema.extend({
   id: z.uuid(),
   pageUrl: z.url(),
   anchor: elementAnchorSchema,
   note: z.string().min(1).max(2000),
+  evidence: z.array(diagnosticEvidenceSchema).max(50).optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
+});
+
+export const savedDiagnosticAnnotationSchema = annotationRecordContextSchema.extend({
+  id: z.uuid(),
+  pageUrl: z.url(),
+  evidence: diagnosticEvidenceSchema,
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const historyAnnotationReferenceSchema = z.object({
+  type: z.enum(['element', 'capture', 'diagnostic']),
+  id: z.uuid(),
 });
 
 export const annotationSubmissionSchema = z
   .object({
     id: z.uuid(),
+    projectId: z.uuid(),
     elementComments: z.array(savedElementCommentSchema).max(500),
     captures: z.array(savedCaptureSchema).max(500),
+    diagnostics: z.array(savedDiagnosticAnnotationSchema).max(500),
     submittedAt: z.iso.datetime(),
   })
   .refine(
-    ({ elementComments, captures }) => elementComments.length + captures.length > 0,
+    ({ elementComments, captures, diagnostics }) =>
+      elementComments.length + captures.length + diagnostics.length > 0,
     'At least one annotation is required',
   );
 
@@ -182,6 +245,19 @@ export const reproductionStepSchema = z.object({
       url: z.url().optional(),
     })
     .optional(),
+});
+
+export const desktopDraftSchema = z.object({
+  title: z.string().max(200),
+  description: z.string().max(20_000),
+  url: z.string().max(4096),
+  anchor: anchorSchema.optional(),
+  annotations: z.array(annotationSchema).max(500),
+  reproduction: z.array(reproductionStepSchema).max(500),
+  workspaceId: z.uuid().optional(),
+  projectId: z.uuid().optional(),
+  environmentId: z.uuid().optional(),
+  pendingOutboxId: z.uuid().optional(),
 });
 
 export const recorderEventSchema = z.object({
@@ -269,6 +345,21 @@ export const webUrlSchema = z.url().refine((value) => {
   const protocol = new URL(value).protocol;
   return protocol === 'http:' || protocol === 'https:';
 }, 'Only HTTP and HTTPS URLs are supported');
+
+export const websiteProjectSchema = z.object({
+  id: z.uuid(),
+  workspaceId: z.uuid(),
+  title: z.string().min(1).max(120),
+  origin: webUrlSchema,
+  entryUrl: webUrlSchema,
+  faviconUrl: z.string().max(4096).nullable(),
+  faviconSource: z.enum(['page', 'apple-touch-icon', 'root', 'markfix']),
+  metadataResolvedAt: z.iso.datetime().optional(),
+  currentPageSessionId: z.uuid(),
+  currentUrl: webUrlSchema,
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
 
 export const environmentSchema = z.object({
   id: z.uuid(),
@@ -363,6 +454,15 @@ export const ipcChannels = {
   authLogout: 'auth:logout',
   listWorkspaces: 'workspace:list',
   listEnvironments: 'environment:list',
+  listWebsiteProjects: 'website-project:list',
+  createWebsiteProject: 'website-project:create',
+  switchWebsiteProject: 'website-project:switch',
+  deleteWebsiteProject: 'website-project:delete',
+  confirmDiscardDraft: 'desktop-dialog:confirm-discard-draft',
+  setWorkspaceLayout: 'workspace-layout:set',
+  openMoreMenu: 'desktop-menu:open-more',
+  openSettings: 'settings:open',
+  submitProjectAnnotations: 'project-annotations:submit',
   navigate: 'browser:navigate',
   goBack: 'browser:back',
   goForward: 'browser:forward',
@@ -403,13 +503,26 @@ export const ipcChannels = {
   saveElementComment: 'element-comment:save',
   deleteElementComment: 'element-comment:delete',
   syncElementComments: 'element-comment:sync',
+  listDiagnosticAnnotations: 'diagnostic-annotation:list',
+  saveDiagnosticAnnotation: 'diagnostic-annotation:save',
+  deleteDiagnosticAnnotation: 'diagnostic-annotation:delete',
   saveAnnotationSubmission: 'annotation-submission:save',
   openAnnotationReview: 'annotation-review:open',
   closeAnnotationReview: 'annotation-review:close',
+  openAnnotationHistory: 'annotation-history:open',
+  openProjectAnnotationHistory: 'annotation-history:open-project',
+  selectAnnotationHistory: 'annotation-history:select',
+  annotationHistorySelected: 'annotation-history:selected',
   openCapturePreview: 'capture-preview:open',
   loadCapturePreview: 'capture-preview:load',
   annotationSubmissionSaved: 'annotation-submission:saved',
   modeShortcut: 'annotation:mode-shortcut',
+  diagnosticsSetOpen: 'diagnostics:set-open',
+  diagnosticsList: 'diagnostics:list',
+  diagnosticsClear: 'diagnostics:clear',
+  diagnosticsEvaluate: 'diagnostics:evaluate',
+  diagnosticsRunCurl: 'diagnostics:run-curl',
+  diagnosticsEvent: 'diagnostics:event',
   syncStatus: 'sync:status',
 } as const;
 
@@ -432,6 +545,11 @@ export type ScreenshotMark = z.infer<typeof screenshotMarkSchema>;
 export type ScreenshotStyle = z.infer<typeof screenshotStyleSchema>;
 export type SavedCapture = z.infer<typeof savedCaptureSchema>;
 export type SavedElementComment = z.infer<typeof savedElementCommentSchema>;
+export type SavedDiagnosticAnnotation = z.infer<typeof savedDiagnosticAnnotationSchema>;
+export type HistoryAnnotationReference = z.infer<typeof historyAnnotationReferenceSchema>;
+export type AnnotationRecordStatus = z.infer<typeof annotationRecordStatusSchema>;
+export type DiagnosticEvidence = z.infer<typeof diagnosticEvidenceSchema>;
+export type DesktopDraft = z.infer<typeof desktopDraftSchema>;
 export type AnnotationSubmission = z.infer<typeof annotationSubmissionSchema>;
 export type BrowserMode = z.infer<typeof browserModeSchema>;
 export type CaptureBundle = z.infer<typeof captureBundleSchema>;
@@ -455,3 +573,4 @@ export type ReproductionStep = z.infer<typeof reproductionStepSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
 export type UpdateEnvironment = z.infer<typeof updateEnvironmentSchema>;
 export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;
+export type WebsiteProject = z.infer<typeof websiteProjectSchema>;

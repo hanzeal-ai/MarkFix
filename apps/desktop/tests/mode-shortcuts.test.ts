@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { modeForShortcut, type ModeShortcutInput } from '../src/main/mode-shortcuts.js';
+import { modeForShortcut } from '../src/main/mode-shortcuts.js';
+import type { ShortcutInput } from '../src/main/shortcut-input.js';
 
-const input = (overrides: Partial<ModeShortcutInput> = {}): ModeShortcutInput => ({
+const input = (overrides: Partial<ShortcutInput> = {}): ShortcutInput => ({
   type: 'keyDown',
   code: 'KeyA',
   alt: true,
@@ -18,10 +19,27 @@ describe('desktop mode shortcuts', () => {
     expect(modeForShortcut(input({ code: 'KeyW' }))).toBe('comment');
   });
 
+  it('maps Command+Shift+C to diagnostics', () => {
+    expect(modeForShortcut(input({ code: 'KeyC', alt: false, meta: true, shift: true }))).toBe(
+      'diagnostics',
+    );
+  });
+
+  it('maps Command+B to the sidebar and Command+N to a new annotation', () => {
+    expect(modeForShortcut(input({ code: 'KeyB', alt: false, meta: true }))).toBe('toggle-sidebar');
+    expect(modeForShortcut(input({ code: 'KeyN', alt: false, meta: true }))).toBe('new-annotation');
+  });
+
   it('ignores keyup, repeats, and shortcuts with extra modifiers', () => {
     expect(modeForShortcut(input({ type: 'keyUp' }))).toBeUndefined();
     expect(modeForShortcut(input({ isAutoRepeat: true }))).toBeUndefined();
     expect(modeForShortcut(input({ meta: true }))).toBeUndefined();
     expect(modeForShortcut(input({ alt: false }))).toBeUndefined();
+    expect(
+      modeForShortcut(input({ code: 'KeyC', alt: false, meta: true, shift: false })),
+    ).toBeUndefined();
+    expect(
+      modeForShortcut(input({ code: 'KeyB', alt: false, meta: true, shift: true })),
+    ).toBeUndefined();
   });
 });

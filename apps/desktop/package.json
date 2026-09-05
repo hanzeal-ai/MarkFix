@@ -19,14 +19,15 @@
     "@markfix/api-client": "workspace:*",
     "@markfix/contracts": "workspace:*",
     "@markfix/reproduction-model": "workspace:*",
+    "@markfix/ui": "workspace:*",
     "better-sqlite3": "13.0.3",
-    "lucide-react": "0.562.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zustand": "5.0.15",
     "zod": "4.5.4"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
     "@electron/rebuild": "4.2.0",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "24.10.7",
@@ -36,6 +37,7 @@
     "electron": "44.1.1",
     "electron-builder": "26.15.3",
     "electron-vite": "5.0.0",
+    "tailwindcss": "^4.1.18",
     "vite": "7.3.6"
   },
   "build": {

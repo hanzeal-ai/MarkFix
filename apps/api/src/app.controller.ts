@@ -224,6 +224,11 @@ export class AppController {
     return this.app.updateProject(user.id, projectId, body);
   }
 
+  @Delete('projects/:projectId')
+  deleteProject(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
+    return this.app.deleteProject(user.id, projectId);
+  }
+
   @Get('projects/:projectId/environments')
   environments(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
     return this.app.listEnvironments(user.id, projectId);

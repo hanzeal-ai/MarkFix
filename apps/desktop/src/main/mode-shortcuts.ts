@@ -1,14 +1,34 @@
-export type ModeShortcutInput = {
-  type: string;
-  code: string;
-  alt: boolean;
-  control: boolean;
-  meta: boolean;
-  shift: boolean;
-  isAutoRepeat: boolean;
-};
+import type { ShortcutInput } from './shortcut-input.js';
 
-export const modeForShortcut = (input: ModeShortcutInput): 'capture' | 'comment' | undefined => {
+export type DesktopShortcut =
+  | 'capture'
+  | 'comment'
+  | 'diagnostics'
+  | 'toggle-sidebar'
+  | 'new-annotation';
+
+export const modeForShortcut = (input: ShortcutInput): DesktopShortcut | undefined => {
+  if (
+    input.type === 'keyDown' &&
+    !input.isAutoRepeat &&
+    input.meta &&
+    !input.shift &&
+    !input.alt &&
+    !input.control
+  ) {
+    if (input.code === 'KeyB') return 'toggle-sidebar';
+    if (input.code === 'KeyN') return 'new-annotation';
+  }
+  if (
+    input.type === 'keyDown' &&
+    !input.isAutoRepeat &&
+    input.code === 'KeyC' &&
+    input.meta &&
+    input.shift &&
+    !input.alt &&
+    !input.control
+  )
+    return 'diagnostics';
   if (
     input.type !== 'keyDown' ||
     input.isAutoRepeat ||
