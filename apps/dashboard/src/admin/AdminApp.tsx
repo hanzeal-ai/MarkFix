@@ -121,12 +121,20 @@ const viewTitles: Record<AdminView, string> = {
   users: '用户管理',
 };
 
-async function commercialRequest<T>(path: string, init?: RequestInit): Promise<T> {
+async function commercialRequest<T>(
+  path: string,
+  init?: RequestInit,
+  retryAfterRefresh = true,
+): Promise<T> {
   const response = await fetch(`${apiBaseUrl}/v1/commercial${path}`, {
     ...init,
     credentials: 'include',
     headers: { 'content-type': 'application/json', ...init?.headers },
   });
+  if (response.status === 401 && retryAfterRefresh) {
+    await api.me();
+    return commercialRequest(path, init, false);
+  }
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as { message?: string | string[] };
     const message = Array.isArray(payload.message) ? payload.message[0] : payload.message;
