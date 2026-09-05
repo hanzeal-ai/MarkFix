@@ -52,6 +52,23 @@ export type SubscriptionUpgradeResult = WorkspaceSubscription & {
   upgradeRequested?: boolean;
   upgradeUrl?: string;
 };
+export type AccountExport = {
+  exportedAt: string;
+  account: {
+    id: string;
+    email: string;
+    displayName: string;
+    emailVerifiedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  memberships: unknown[];
+  reports: unknown[];
+  annotations: unknown[];
+  comments: unknown[];
+  activities: unknown[];
+  sessions: unknown[];
+};
 
 const dataUrlBytes = (dataUrl: string): Uint8Array => {
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
@@ -184,6 +201,14 @@ export class MarkFixApi {
 
   me(): Promise<AuthUser> {
     return this.request('/v1/me');
+  }
+
+  exportAccountData(): Promise<AccountExport> {
+    return this.request('/v1/me/export');
+  }
+
+  deleteAccount(password: string): Promise<{ deleted: boolean }> {
+    return this.request('/v1/me', { method: 'DELETE', body: JSON.stringify({ password }) });
   }
 
   async clientPolicy(version: string, platform: string, arch: string): Promise<ClientPolicy> {

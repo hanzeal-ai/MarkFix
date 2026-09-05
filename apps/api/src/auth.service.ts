@@ -1,3 +1,5 @@
+import { unlink } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import {
   ConflictException,
   Inject,
@@ -32,6 +34,7 @@ type RegisterInput = {
 export class AuthService {
   private readonly secret =
     process.env.MARKFIX_AUTH_SECRET ?? 'markfix-local-development-secret-change-before-production';
+  private readonly artifactDirectory = resolve(process.env.ARTIFACT_DIR ?? './data/artifacts');
 
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
@@ -269,6 +272,136 @@ export class AuthService {
     const user = await this.database.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
     return this.publicUser(user);
+  }
+
+  async exportData(userId: string) {
+    const [account, memberships, reports, annotations, comments, activities, sessions] =
+      await Promise.all([
+        this.database.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            emailVerifiedAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        }),
+        this.database.membership.findMany({
+          where: { userId },
+          select: {
+            role: true,
+            status: true,
+            createdAt: true,
+            workspace: {
+              select: {
+                id: true,
+                name: true,
+                plan: true,
+                createdAt: true,
+                projects: {
+                  select: { id: true, name: true, baseUrl: true, category: true, createdAt: true },
+                },
+              },
+            },
+          },
+        }),
+        this.database.report.findMany({
+          where: { reporterId: userId },
+          select: {
+            id: true,
+            projectId: true,
+            title: true,
+            description: true,
+            status: true,
+            rejectionReason: true,
+            priority: true,
+            captureBundle: true,
+            screenshotPath: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        }),
+        this.database.managedAnnotation.findMany({
+          where: { authorId: userId },
+          select: {
+            id: true,
+            projectId: true,
+            title: true,
+            note: true,
+            kind: true,
+            pageUrl: true,
+            status: true,
+            rejectionReason: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        }),
+        this.database.comment.findMany({
+          where: { authorId: userId },
+          select: { id: true, reportId: true, body: true, createdAt: true, updatedAt: true },
+        }),
+        this.database.activity.findMany({
+          where: { actorId: userId },
+          select: { id: true, reportId: true, type: true, payload: true, createdAt: true },
+        }),
+        this.sessions(userId),
+      ]);
+    if (!account) throw new NotFoundException('User not found');
+    return {
+      exportedAt: new Date().toISOString(),
+      account,
+      memberships,
+      reports,
+      annotations,
+      comments,
+      activities,
+      sessions,
+    };
+  }
+
+  async deleteAccount(userId: string, input: unknown) {
+    const password =
+      typeof (input as { password?: unknown }).password === 'string'
+        ? (input as { password: string }).password
+        : '';
+    const user = await this.database.user.findUnique({ where: { id: userId } });
+    if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+      throw new UnauthorizedException('Password is incorrect');
+    }
+    const ownedWorkspaces = await this.database.workspace.findMany({
+      where: { createdById: userId },
+      select: { id: true, name: true, _count: { select: { memberships: true } } },
+    });
+    const sharedWorkspace = ownedWorkspaces.find((workspace) => workspace._count.memberships > 1);
+    if (sharedWorkspace) {
+      throw new ConflictException(
+        `Transfer or remove members from ${sharedWorkspace.name} before deleting the account`,
+      );
+    }
+    const artifacts = ownedWorkspaces.length
+      ? await this.database.artifact.findMany({
+          where: {
+            submission: {
+              project: { workspaceId: { in: ownedWorkspaces.map((workspace) => workspace.id) } },
+            },
+          },
+          select: { id: true },
+        })
+      : [];
+    await this.database.$transaction(async (transaction) => {
+      if (ownedWorkspaces.length) {
+        await transaction.workspace.deleteMany({
+          where: { id: { in: ownedWorkspaces.map((workspace) => workspace.id) } },
+        });
+      }
+      await transaction.user.delete({ where: { id: userId } });
+    });
+    await Promise.allSettled(
+      artifacts.map(({ id }) => unlink(join(this.artifactDirectory, `${id}.png`))),
+    );
+    return { deleted: true };
   }
 
   async sessions(userId: string) {

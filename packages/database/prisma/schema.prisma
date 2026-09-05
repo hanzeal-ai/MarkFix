@@ -217,7 +217,7 @@ model ReportSubmission {
   environmentId  String?          @db.Uuid
   environment    Environment?     @relation(fields: [environmentId], references: [id], onDelete: Restrict)
   createdById    String?          @db.Uuid
-  createdBy      User?            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy      User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
   idempotencyKey String
   requestHash    String
   payload        Json

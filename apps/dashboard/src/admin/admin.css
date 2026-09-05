@@ -106,7 +106,7 @@
 .admin-profile {
   margin-top: auto;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 9px;
   border-top: 1px solid #312f38;
@@ -138,6 +138,16 @@
 
 .admin-profile button {
   color: #777580;
+}
+
+.admin-profile-settings {
+  color: #aaa8b2;
+  font-size: 10px;
+  text-decoration: none;
+}
+
+.admin-profile-settings:hover {
+  color: #fff;
 }
 
 .admin-main {
@@ -1189,6 +1199,10 @@ button.dimension-row:hover {
     display: none;
   }
 
+  .admin-profile-settings {
+    display: none;
+  }
+
   .admin-main {
     padding-inline: 22px;
   }
@@ -1251,6 +1265,10 @@ button.dimension-row:hover {
 
   .admin-profile .user-symbol {
     display: none;
+  }
+
+  .admin-profile-settings {
+    display: inline;
   }
 
   .admin-main {

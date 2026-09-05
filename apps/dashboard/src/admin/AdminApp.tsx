@@ -1210,8 +1210,11 @@ export function AdminApp() {
           <span className="user-symbol">{currentUser.data?.displayName.slice(0, 1) ?? 'M'}</span>
           <span>
             <strong>{currentUser.data?.displayName ?? 'MarkFix 用户'}</strong>
-            <small>{currentWorkspace?.role ?? 'MEMBER'}</small>
+            <small>{currentUser.data?.email ?? ''}</small>
           </span>
+          <a className="admin-profile-settings" href="/account">
+            账户
+          </a>
           <Button
             size="icon-sm"
             variant="ghost"
@@ -1234,9 +1237,6 @@ export function AdminApp() {
             <h1>{pageTitle}</h1>
           </div>
           <div className="admin-header-actions">
-            <Badge variant={canManage ? 'default' : 'secondary'}>
-              {canManage ? '可管理' : '只读'}
-            </Badge>
             <Button variant="outline" onClick={() => overview.refetch()}>
               <ArrowUpRight />
               刷新数据

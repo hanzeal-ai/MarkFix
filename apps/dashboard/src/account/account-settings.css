@@ -1,0 +1,139 @@
+.account-settings-shell {
+  min-height: 100vh;
+  background: #f7f7f9;
+  color: #1c1d22;
+  padding: 36px 24px 72px;
+}
+
+.account-settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #696b75;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.account-settings-back svg {
+  width: 15px;
+}
+
+.account-settings-content {
+  width: min(720px, 100%);
+  display: grid;
+  gap: 18px;
+  margin: 48px auto 0;
+}
+
+.account-settings-content > header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.account-settings-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 14px;
+  background: #e9e7ff;
+  color: #5b52e8;
+}
+
+.account-settings-icon svg {
+  width: 22px;
+}
+
+.account-settings-content h1,
+.account-settings-content h2,
+.account-settings-content p {
+  margin: 0;
+}
+
+.account-settings-content > header p {
+  color: #5b52e8;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.account-settings-content > header h1 {
+  margin: 2px 0;
+  font-size: 24px;
+}
+
+.account-settings-content > header > div > span {
+  color: #73747d;
+  font-size: 12px;
+}
+
+.account-settings-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+}
+
+.account-settings-card h2 {
+  font-size: 15px;
+}
+
+.account-settings-card p {
+  margin-top: 6px;
+  color: #73747d;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.account-settings-danger {
+  align-items: start;
+  border-color: #f4c7c2;
+}
+
+.account-settings-danger form {
+  width: 260px;
+  display: grid;
+  gap: 12px;
+}
+
+.account-settings-danger form > label:first-child {
+  display: grid;
+  gap: 7px;
+  font-size: 11px;
+}
+
+.account-settings-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #62636c;
+  font-size: 11px;
+}
+
+.account-settings-spin {
+  animation: account-settings-spin 0.8s linear infinite;
+}
+
+@keyframes account-settings-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .account-settings-content {
+    margin-top: 32px;
+  }
+
+  .account-settings-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .account-settings-danger form {
+    width: 100%;
+  }
+}

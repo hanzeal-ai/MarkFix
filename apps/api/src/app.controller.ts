@@ -147,6 +147,22 @@ export class AppController {
     return this.auth.me(user.id);
   }
 
+  @Get('me/export')
+  exportData(@CurrentUser() user: AuthenticatedUser) {
+    return this.auth.exportData(user.id);
+  }
+
+  @Delete('me')
+  async deleteAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const result = await this.auth.deleteAccount(user.id, body);
+    reply.header('Set-Cookie', [clearCookie('markfix_access'), clearCookie('markfix_refresh')]);
+    return result;
+  }
+
   @Get('me/sessions')
   sessions(@CurrentUser() user: AuthenticatedUser) {
     return this.auth.sessions(user.id);
