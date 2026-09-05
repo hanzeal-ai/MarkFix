@@ -1,0 +1,103 @@
+name: markfix
+
+x-api-environment: &api-environment
+  DATABASE_URL: postgresql://markfix:markfix@postgres:5432/markfix?schema=public
+  ARTIFACT_DIR: /data/artifacts
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: markfix
+      POSTGRES_PASSWORD: markfix
+      POSTGRES_DB: markfix
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U markfix -d markfix']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.api
+    command:
+      - sh
+      - -c
+      - pnpm --filter @markfix/database db:push && exec pnpm --filter @markfix/api start
+    environment:
+      <<: *api-environment
+      PORT: 4310
+      MARKFIX_AUTH_SECRET: change-this-before-production
+      MARKFIX_DASHBOARD_ORIGIN: http://localhost:4311
+      MARKFIX_DEMO_EMAIL: admin@markfix.local
+      MARKFIX_DEMO_PASSWORD: markfix-admin
+      MARKFIX_MINIMUM_DESKTOP_VERSION: 0.1.0
+      MARKFIX_RECOMMENDED_DESKTOP_VERSION: 0.1.0
+      MARKFIX_EXPOSE_AUTH_TOKENS: 'true'
+    ports:
+      - '4310:4310'
+    volumes:
+      - artifact-data:/data/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:4310/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.api
+    command: ['pnpm', '--filter', '@markfix/api', 'worker']
+    environment:
+      <<: *api-environment
+    volumes:
+      - artifact-data:/data/artifacts
+    depends_on:
+      api:
+        condition: service_healthy
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.dashboard
+      args:
+        VITE_API_URL: http://localhost:4310
+    ports:
+      - '4311:80'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ >/dev/null']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  compatibility-lab:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.testkit
+    ports:
+      - '4312:80'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ >/dev/null']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres-data:
+  artifact-data:

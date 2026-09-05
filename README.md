@@ -19,29 +19,35 @@
 
 ## Run locally
 
-Requirements: Node 24, pnpm 10.33, Docker Desktop.
+The API, worker, database, website, management dashboard, and compatibility lab run in Docker.
+Docker Desktop with Compose v2 or newer is the only requirement for the local service stack.
+
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+- Website and management dashboard: <http://localhost:4311>
+- API health check: <http://localhost:4310/v1/health>
+- Compatibility lab: <http://localhost:4312>
+
+Follow logs or stop the complete stack with:
+
+```bash
+docker compose logs -f
+docker compose down
+```
+
+Electron uses macOS windowing, keychain, and capture APIs and therefore remains a native process.
+Only desktop development requires Node 24 and pnpm 11.25 after the Docker stack is healthy:
 
 ```bash
 pnpm install
-docker compose -f infra/compose.yaml up postgres minio -d
-cp apps/api/.env.example apps/api/.env
-set -a && source apps/api/.env && set +a
-pnpm --filter @markfix/database db:push
-pnpm --filter @markfix/api dev
+MARKFIX_ALLOW_HTTP=true pnpm dev:desktop
 ```
 
-In separate terminals:
-
-```bash
-pnpm --filter @markfix/dashboard dev
-pnpm --filter @markfix/desktop dev
-pnpm --filter @markfix/testkit dev
-```
-
-Dashboard: <http://localhost:4311>. Compatibility lab: <http://localhost:4312> (enable local HTTP with `MARKFIX_ALLOW_HTTP=true` when launching desktop).
-
-The local environment seeds the username `admin` with password `admin` (stored internally as
-`admin@markfix.local`). Remove `MARKFIX_DEMO_PASSWORD` outside local development. New local
+The local environment seeds the email `admin@markfix.local` with password `markfix-admin`. Remove
+`MARKFIX_DEMO_PASSWORD` outside local development. New local
 dashboard registrations are verified inline; production deployments must connect the generated
 verification token to their email delivery provider.
 

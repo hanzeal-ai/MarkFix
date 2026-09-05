@@ -2,8 +2,12 @@ packages:
   - apps/*
   - packages/*
 
-onlyBuiltDependencies:
-  - '@electron/rebuild'
-  - better-sqlite3
-  - electron
-  - esbuild
+allowBuilds:
+  '@electron/rebuild': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  better-sqlite3: true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  prisma: true
