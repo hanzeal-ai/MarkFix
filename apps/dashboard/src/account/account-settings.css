@@ -117,6 +117,17 @@
   animation: account-settings-spin 0.8s linear infinite;
 }
 
+.account-settings-legal {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  font-size: 11px;
+}
+
+.account-settings-legal a {
+  color: #6861cf;
+}
+
 @keyframes account-settings-spin {
   to {
     transform: rotate(360deg);

@@ -122,6 +122,10 @@ export function AccountSettings(): React.JSX.Element {
             </Button>
           </form>
         </Card>
+        <footer className="account-settings-legal">
+          <a href="/privacy">隐私政策</a>
+          <a href="/terms">服务条款</a>
+        </footer>
       </section>
     </main>
   );

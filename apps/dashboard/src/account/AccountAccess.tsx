@@ -306,8 +306,17 @@ export function AccountAccess() {
             </span>
           </footer>
         )}
+        {mode === 'register' ? (
+          <p className="account-consent">
+            创建账户即表示你同意 <a href="/terms">服务条款</a> 和 <a href="/privacy">隐私政策</a>。
+          </p>
+        ) : null}
       </Card>
-      <small>Mark It! Fix It!</small>
+      <div className="account-legal-footer">
+        <small>Mark It! Fix It!</small>
+        <a href="/privacy">隐私</a>
+        <a href="/terms">条款</a>
+      </div>
     </main>
   );
 }
