@@ -76,6 +76,15 @@
   gap: 64px;
 }
 
+.marketing-hero > *,
+.hero-copy,
+.product-stage,
+.browser-frame,
+.browser-content,
+.demo-page {
+  min-width: 0;
+}
+
 .hero-copy h1 {
   max-width: 600px;
   margin: 22px 0 24px;
@@ -826,7 +835,7 @@
 
   .browser-content {
     min-height: 350px;
-    grid-template-columns: 1fr 132px;
+    grid-template-columns: minmax(0, 1fr) 132px;
   }
 
   .demo-page {
@@ -914,7 +923,7 @@
 
 @media (max-width: 420px) {
   .browser-content {
-    grid-template-columns: 1fr 112px;
+    grid-template-columns: minmax(0, 1fr) 112px;
   }
 
   .comment-rail {

@@ -1,9 +1,21 @@
-import { App } from './app/App.js';
-import { AdminApp } from './admin/AdminApp.js';
-import { MarketingSite } from './marketing/MarketingSite.js';
+import { lazy, Suspense } from 'react';
+
+const MarketingSite = lazy(() =>
+  import('./marketing/MarketingSite.js').then((module) => ({ default: module.MarketingSite })),
+);
+const AdminApp = lazy(() =>
+  import('./admin/AdminApp.js').then((module) => ({ default: module.AdminApp })),
+);
+const LegacyApp = lazy(() => import('./app/App.js').then((module) => ({ default: module.App })));
 
 export function WebRoot() {
-  if (window.location.pathname === '/') return <MarketingSite />;
-  if (window.location.pathname.startsWith('/app')) return <AdminApp />;
-  return <App />;
+  const page =
+    window.location.pathname === '/' ? (
+      <MarketingSite />
+    ) : window.location.pathname.startsWith('/app') ? (
+      <AdminApp />
+    ) : (
+      <LegacyApp />
+    );
+  return <Suspense fallback={<main className="loading">正在打开 MarkFix…</main>}>{page}</Suspense>;
 }

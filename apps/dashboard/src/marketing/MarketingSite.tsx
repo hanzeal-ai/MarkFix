@@ -5,6 +5,7 @@ import {
   BarChart3,
   Check,
   CheckCircle2,
+  Download,
   Layers3,
   Menu,
   MessageSquareText,
@@ -129,6 +130,9 @@ export function MarketingSite() {
               </Button>
               <Button size="lg" variant="outline" onClick={() => go('/login')}>
                 登录本地工作区
+              </Button>
+              <Button size="lg" variant="secondary" disabled title="桌面端安装包即将开放">
+                <Download /> macOS 桌面端 · 即将开放
               </Button>
             </div>
             <div className="hero-proof" aria-label="核心能力">
