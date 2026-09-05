@@ -5,9 +5,7 @@ import { AuthService } from '../src/auth.service.js';
 describe('authentication service', () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it('maps the local demo username to its internal email account', async () => {
-    vi.stubEnv('MARKFIX_DEMO_USERNAME', 'admin');
-    vi.stubEnv('MARKFIX_DEMO_EMAIL', 'admin@markfix.local');
+  it('logs in with the current email account', async () => {
     const findUnique = vi.fn().mockResolvedValue({
       id: crypto.randomUUID(),
       email: 'admin@markfix.local',
@@ -22,7 +20,7 @@ describe('authentication service', () => {
     };
     const service = new AuthService(database as never, {} as never);
 
-    const result = await service.login({ email: 'admin', password: 'admin' });
+    const result = await service.login({ email: 'ADMIN@markfix.local', password: 'admin' });
 
     expect(findUnique).toHaveBeenCalledWith({ where: { email: 'admin@markfix.local' } });
     expect(result).toMatchObject({ expiresIn: 900 });

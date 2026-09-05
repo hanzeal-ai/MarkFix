@@ -48,16 +48,10 @@ export class AppService implements OnModuleInit {
     if (!demoPassword) return;
     const demoEmail = process.env.MARKFIX_DEMO_EMAIL ?? 'admin@markfix.local';
     const demoPasswordHash = await hashPassword(demoPassword);
-    let demoUser = await this.database.user.findUnique({ where: { email: demoEmail } });
-    if (!demoUser && demoEmail !== 'demo@markfix.local') {
-      const legacyDemoUser = await this.database.user.findUnique({
-        where: { email: 'demo@markfix.local' },
-      });
-      if (legacyDemoUser) demoUser = legacyDemoUser;
-    }
-    demoUser = demoUser
+    const existingDemoUser = await this.database.user.findUnique({ where: { email: demoEmail } });
+    const demoUser = existingDemoUser
       ? await this.database.user.update({
-          where: { id: demoUser.id },
+          where: { id: existingDemoUser.id },
           data: {
             email: demoEmail,
             displayName: 'Admin',
