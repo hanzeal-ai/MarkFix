@@ -43,12 +43,63 @@ describe('commercial annotation management', () => {
         ]),
       },
       project: { findMany: vi.fn().mockResolvedValue([project]) },
+      report: { findMany: vi.fn().mockResolvedValue([]) },
     } as never);
 
     const result = await service.overview(userId, workspaceId);
 
     expect(result.metrics).toEqual({ projects: 1, annotations: 1, pending: 0, rejected: 1 });
     expect(result.users[0]?.projectCategories).toEqual([{ category: '品牌官网', count: 1 }]);
+  });
+
+  it('imports existing desktop report submissions into managed annotations', async () => {
+    const workspaceId = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+    const reportId = crypto.randomUUID();
+    const createMany = vi.fn().mockResolvedValue({ count: 1 });
+    const service = new CommercialService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue(managerMembership),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      project: { findMany: vi.fn().mockResolvedValue([]) },
+      report: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: reportId,
+            projectId,
+            reporterId: 'reporter-1',
+            title: 'Header overlaps navigation',
+            description: 'The issue appears below 768px.',
+            status: 'OPEN',
+            captureBundle: {
+              page: { url: 'https://example.test/pricing' },
+              annotations: [{ type: 'rectangle' }],
+            },
+            createdAt: new Date('2026-09-05T00:00:00.000Z'),
+          },
+        ]),
+      },
+      managedAnnotation: {
+        findMany: vi.fn().mockResolvedValue([]),
+        createMany,
+      },
+    } as never);
+
+    await service.overview('admin-1', workspaceId);
+
+    expect(createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          sourceReportId: reportId,
+          projectId,
+          kind: 'SCREENSHOT',
+          pageUrl: 'https://example.test/pricing',
+          status: 'OPEN',
+        }),
+      ],
+      skipDuplicates: true,
+    });
   });
 
   it('allows managers to create an annotation in their project', async () => {

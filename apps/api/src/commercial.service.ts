@@ -41,6 +41,7 @@ export class CommercialService implements OnApplicationBootstrap {
 
   async overview(userId: string, workspaceId: string) {
     await this.requireMembership(userId, workspaceId);
+    await this.syncReportAnnotations({ workspaceId });
     const [projects, members] = await Promise.all([
       this.database.project.findMany({
         where: { workspaceId },
@@ -100,6 +101,7 @@ export class CommercialService implements OnApplicationBootstrap {
 
   async annotations(userId: string, projectId: string) {
     await this.requireProject(userId, projectId);
+    await this.syncReportAnnotations({ projectId });
     return this.database.managedAnnotation.findMany({
       where: { projectId },
       include: annotationInclude,
@@ -205,6 +207,64 @@ export class CommercialService implements OnApplicationBootstrap {
     });
     if (!membership || membership.status !== 'ACTIVE')
       throw new BadRequestException('Author must be an active workspace member');
+  }
+
+  private async syncReportAnnotations(scope: { workspaceId: string } | { projectId: string }) {
+    const reports = await this.database.report.findMany({
+      where:
+        'projectId' in scope
+          ? { projectId: scope.projectId }
+          : { project: { workspaceId: scope.workspaceId } },
+      select: {
+        id: true,
+        projectId: true,
+        reporterId: true,
+        title: true,
+        description: true,
+        status: true,
+        captureBundle: true,
+        createdAt: true,
+      },
+    });
+    if (!reports.length) return;
+    const imported = await this.database.managedAnnotation.findMany({
+      where: { sourceReportId: { in: reports.map(({ id }) => id) } },
+      select: { sourceReportId: true },
+    });
+    const importedIds = new Set(imported.map(({ sourceReportId }) => sourceReportId));
+    const statusMap = {
+      OPEN: 'OPEN',
+      IN_PROGRESS: 'IN_REVIEW',
+      READY_FOR_VERIFY: 'IN_REVIEW',
+      RESOLVED: 'RESOLVED',
+      CLOSED: 'RESOLVED',
+    } as const;
+    const pending = reports
+      .filter(({ id }) => !importedIds.has(id))
+      .map((report) => {
+        const captureBundle = report.captureBundle as {
+          page?: { url?: unknown };
+          annotations?: unknown[];
+        };
+        const pageUrl =
+          typeof captureBundle.page?.url === 'string'
+            ? captureBundle.page.url
+            : 'https://markfix.local';
+        return {
+          sourceReportId: report.id,
+          projectId: report.projectId,
+          authorId: report.reporterId,
+          title: report.title,
+          note: report.description,
+          kind: captureBundle.annotations?.length ? ('SCREENSHOT' as const) : ('COMMENT' as const),
+          pageUrl,
+          status: statusMap[report.status],
+          createdAt: report.createdAt,
+        };
+      });
+    if (pending.length) {
+      await this.database.managedAnnotation.createMany({ data: pending, skipDuplicates: true });
+    }
   }
 
   private async seedLocalShowcase(): Promise<void> {
