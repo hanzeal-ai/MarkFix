@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useState, type ComponentType, type CSSProperties } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MarkFixApi } from '@markfix/api-client';
 import {
@@ -115,22 +115,10 @@ const kindText: Record<AnnotationKind, string> = {
   COMMENT: '文字批注',
 };
 
-const viewMeta: Record<AdminView, { eyebrow: string; title: string; description: string }> = {
-  overview: {
-    eyebrow: '工作区概览',
-    title: '统计总览',
-    description: '从项目和用户两个维度掌握标注处理进度。',
-  },
-  projects: {
-    eyebrow: '标注管理',
-    title: '标注项目',
-    description: '查看全部项目，并集中处理每个项目下的标注。',
-  },
-  users: {
-    eyebrow: '团队协作',
-    title: '用户管理',
-    description: '了解成员参与度、项目分类与标注质量。',
-  },
+const viewTitles: Record<AdminView, string> = {
+  overview: '统计总览',
+  projects: '标注项目',
+  users: '用户管理',
 };
 
 async function commercialRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -173,13 +161,13 @@ function EmptyState({
 }: {
   icon: typeof CircleDot;
   title: string;
-  description: string;
+  description?: string;
 }) {
   return (
     <div className="admin-empty">
       <Icon />
       <strong>{title}</strong>
-      <p>{description}</p>
+      {description && <p>{description}</p>}
     </div>
   );
 }
@@ -279,37 +267,58 @@ function AnnotationEditor({
         {readOnly ? (
           <div className="annotation-detail-grid">
             <div className="annotation-detail-title">
-              <StatusBadge status={state.annotation.status} />
+              <div className="annotation-detail-badges">
+                <StatusBadge status={state.annotation.status} />
+                <Badge variant="secondary">{kindText[state.annotation.kind]}</Badge>
+              </div>
               <h3>{state.annotation.title}</h3>
-              <p>{state.annotation.note}</p>
             </div>
-            <dl>
-              <div>
-                <dt>类型</dt>
-                <dd>{kindText[state.annotation.kind]}</dd>
-              </div>
-              <div>
-                <dt>提交人</dt>
-                <dd>{state.annotation.author?.displayName ?? '未知成员'}</dd>
-              </div>
-              <div>
-                <dt>更新时间</dt>
-                <dd>{formatDate(state.annotation.updatedAt)}</dd>
-              </div>
-              <div>
-                <dt>页面</dt>
-                <dd>
-                  <a href={state.annotation.pageUrl} target="_blank" rel="noreferrer">
-                    {state.annotation.pageUrl}
-                    <ExternalLink />
-                  </a>
-                </dd>
-              </div>
-            </dl>
+            <section className="annotation-detail-section">
+              <h4>标注内容</h4>
+              <p className="annotation-detail-note">{state.annotation.note}</p>
+            </section>
+            <section className="annotation-detail-section">
+              <h4>定位信息</h4>
+              <a href={state.annotation.pageUrl} target="_blank" rel="noreferrer">
+                {state.annotation.pageUrl}
+                <ExternalLink />
+              </a>
+            </section>
+            <section className="annotation-detail-section">
+              <h4>记录信息</h4>
+              <dl>
+                <div>
+                  <dt>项目</dt>
+                  <dd>{project.name}</dd>
+                </div>
+                <div>
+                  <dt>项目分类</dt>
+                  <dd>{project.category}</dd>
+                </div>
+                <div>
+                  <dt>提交人</dt>
+                  <dd>
+                    {state.annotation.author?.displayName ?? '未知成员'}
+                    {state.annotation.author?.email && (
+                      <small>{state.annotation.author.email}</small>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>创建时间</dt>
+                  <dd>{formatDate(state.annotation.createdAt)}</dd>
+                </div>
+                <div>
+                  <dt>更新时间</dt>
+                  <dd>{formatDate(state.annotation.updatedAt)}</dd>
+                </div>
+              </dl>
+            </section>
             {state.annotation.rejectionReason && (
-              <Alert variant="destructive">
-                <AlertDescription>驳回原因：{state.annotation.rejectionReason}</AlertDescription>
-              </Alert>
+              <section className="annotation-detail-section rejection-detail">
+                <h4>驳回原因</h4>
+                <p>{state.annotation.rejectionReason}</p>
+              </section>
             )}
             <Button variant="outline" onClick={onClose}>
               关闭
@@ -569,11 +578,7 @@ function ProjectDrawer({
                 </Alert>
               )}
               {!annotations.isPending && !visibleAnnotations.length && (
-                <EmptyState
-                  icon={MessageSquareText}
-                  title="没有符合条件的标注"
-                  description="调整筛选条件，或为项目新增第一条标注。"
-                />
+                <EmptyState icon={MessageSquareText} title="没有符合条件的标注" />
               )}
               {visibleAnnotations.map((annotation) => (
                 <Card className="annotation-row" key={annotation.id}>
@@ -591,20 +596,13 @@ function ProjectDrawer({
                       </span>
                     </div>
                     <strong>{annotation.title}</strong>
-                    <p>{annotation.note}</p>
                     <div className="annotation-row-bottom">
                       <span className="mini-avatar">
                         {annotation.author?.displayName.slice(0, 1) ?? '?'}
                       </span>
                       <span>{annotation.author?.displayName ?? '未知成员'}</span>
-                      <span className="annotation-url">{annotation.pageUrl}</span>
                       <ChevronRight />
                     </div>
-                    {annotation.rejectionReason && (
-                      <small className="reject-reason">
-                        驳回原因：{annotation.rejectionReason}
-                      </small>
-                    )}
                   </button>
                   {canManage && (
                     <div className="annotation-actions">
@@ -616,13 +614,15 @@ function ProjectDrawer({
                       >
                         <Pencil />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditor({ mode: 'reject', annotation })}
-                      >
-                        驳回
-                      </Button>
+                      {(annotation.status === 'OPEN' || annotation.status === 'IN_REVIEW') && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditor({ mode: 'reject', annotation })}
+                        >
+                          驳回
+                        </Button>
+                      )}
                       <Button
                         size="icon-sm"
                         variant="ghost"
@@ -657,13 +657,11 @@ function MetricCard({
   icon: Icon,
   label,
   value,
-  detail,
   tone,
 }: {
   icon: ComponentType;
   label: string;
   value: number;
-  detail: string;
   tone?: string;
 }) {
   return (
@@ -673,7 +671,6 @@ function MetricCard({
       </div>
       <span>{label}</span>
       <strong>{value}</strong>
-      <small>{detail}</small>
     </Card>
   );
 }
@@ -685,35 +682,125 @@ function OverviewView({
   overview: CommercialOverview;
   onProject: (project: OverviewProject) => void;
 }) {
+  const total = overview.metrics.annotations;
+  const resolved = overview.projects.reduce((sum, project) => sum + project.resolvedCount, 0);
+  const pendingShare = total ? (overview.metrics.pending / total) * 100 : 0;
+  const resolvedShare = total ? (resolved / total) * 100 : 0;
+  const pendingPercent = Math.round(pendingShare);
+  const resolvedPercent = Math.round(resolvedShare);
+  const rejectedPercent = total ? Math.round((overview.metrics.rejected / total) * 100) : 0;
+  const donutStyle = {
+    background: total
+      ? `conic-gradient(#e2a33b 0 ${pendingShare}%, #5b52e8 ${pendingShare}% ${
+          pendingShare + resolvedShare
+        }%, #d46055 ${pendingShare + resolvedShare}% 100%)`
+      : '#ececf1',
+  } satisfies CSSProperties;
+  const chartProjects = [...overview.projects]
+    .sort((left, right) => right.annotationCount - left.annotationCount)
+    .slice(0, 6);
+
   return (
     <>
       <section className="metrics-grid">
-        <MetricCard
-          icon={FolderKanban}
-          label="标注项目"
-          value={overview.metrics.projects}
-          detail="当前工作区全部项目"
-        />
+        <MetricCard icon={FolderKanban} label="标注项目" value={overview.metrics.projects} />
         <MetricCard
           icon={MessageSquareText}
           label="全部标注"
           value={overview.metrics.annotations}
-          detail="累计记录的反馈"
         />
-        <MetricCard
-          icon={Clock3}
-          label="待处理"
-          value={overview.metrics.pending}
-          detail="待处理与处理中"
-          tone="warning"
-        />
+        <MetricCard icon={Clock3} label="待处理" value={overview.metrics.pending} tone="warning" />
         <MetricCard
           icon={CircleDot}
           label="已驳回"
           value={overview.metrics.rejected}
-          detail="保留驳回原因"
           tone="danger"
         />
+      </section>
+
+      <section className="overview-charts">
+        <Card className="chart-card status-chart">
+          <div className="chart-card-header">
+            <strong>处理状态</strong>
+          </div>
+          <div className="status-chart-body">
+            <div className="status-donut" style={donutStyle}>
+              <span>
+                <strong>{total}</strong>
+                <small>全部标注</small>
+              </span>
+            </div>
+            <ul className="chart-legend">
+              <li>
+                <i className="pending" />
+                <span>待处理</span>
+                <strong>{overview.metrics.pending}</strong>
+                <small>{pendingPercent}%</small>
+              </li>
+              <li>
+                <i className="resolved" />
+                <span>已解决</span>
+                <strong>{resolved}</strong>
+                <small>{resolvedPercent}%</small>
+              </li>
+              <li>
+                <i className="rejected" />
+                <span>已驳回</span>
+                <strong>{overview.metrics.rejected}</strong>
+                <small>{rejectedPercent}%</small>
+              </li>
+            </ul>
+          </div>
+        </Card>
+
+        <Card className="chart-card project-chart-card">
+          <div className="chart-card-header">
+            <strong>项目标注量</strong>
+            <div className="compact-legend" aria-label="图表图例">
+              <span>
+                <i className="pending" />
+                待处理
+              </span>
+              <span>
+                <i className="resolved" />
+                已解决
+              </span>
+              <span>
+                <i className="rejected" />
+                已驳回
+              </span>
+            </div>
+          </div>
+          <div className="project-bars">
+            {chartProjects.map((project) => {
+              const divisor = project.annotationCount || 1;
+              return (
+                <button type="button" key={project.id} onClick={() => onProject(project)}>
+                  <span title={project.name}>{project.name}</span>
+                  <span
+                    className="stacked-bar"
+                    aria-label={`${project.name} ${project.annotationCount} 条标注`}
+                  >
+                    <i
+                      className="pending"
+                      style={{ width: `${(project.pendingCount / divisor) * 100}%` }}
+                    />
+                    <i
+                      className="resolved"
+                      style={{ width: `${(project.resolvedCount / divisor) * 100}%` }}
+                    />
+                    <i
+                      className="rejected"
+                      style={{ width: `${(project.rejectedCount / divisor) * 100}%` }}
+                    />
+                  </span>
+                  <strong>{project.annotationCount}</strong>
+                </button>
+              );
+            })}
+            {!chartProjects.length && <EmptyState icon={FolderKanban} title="暂无项目数据" />}
+          </div>
+        </Card>
       </section>
 
       <Card className="dimension-card">
@@ -721,7 +808,6 @@ function OverviewView({
           <div className="dimension-header">
             <div>
               <strong>标注分布</strong>
-              <span>切换维度查看团队进展</span>
             </div>
             <TabsList>
               <TabsTrigger value="project">按项目</TabsTrigger>
@@ -885,13 +971,7 @@ function ProjectsView({
           </button>
         ))}
       </section>
-      {!visible.length && (
-        <EmptyState
-          icon={FolderKanban}
-          title="没有找到项目"
-          description="调整搜索内容或项目分类后重试。"
-        />
-      )}
+      {!visible.length && <EmptyState icon={FolderKanban} title="没有找到项目" />}
     </>
   );
 }
@@ -970,7 +1050,7 @@ export function AdminApp() {
 
   const currentWorkspace = workspaces.data?.find((workspace) => workspace.id === workspaceId);
   const canManage = currentWorkspace?.role === 'OWNER' || currentWorkspace?.role === 'ADMIN';
-  const meta = viewMeta[view];
+  const pageTitle = viewTitles[view];
   const activeProject = selectedProject
     ? (overview.data?.projects.find((project) => project.id === selectedProject.id) ??
       selectedProject)
@@ -1035,7 +1115,6 @@ export function AdminApp() {
             <CheckCircle2 />
             桌面端已连接
           </span>
-          <p>标注数据将在本地工作区中管理。</p>
         </div>
         <div className="admin-profile">
           <span className="user-symbol">{currentUser.data?.displayName.slice(0, 1) ?? 'M'}</span>
@@ -1062,9 +1141,7 @@ export function AdminApp() {
       <main className="admin-main">
         <header className="admin-page-header">
           <div>
-            <span>{meta.eyebrow}</span>
-            <h1>{meta.title}</h1>
-            <p>{meta.description}</p>
+            <h1>{pageTitle}</h1>
           </div>
           <div className="admin-header-actions">
             <Badge variant={canManage ? 'default' : 'secondary'}>
