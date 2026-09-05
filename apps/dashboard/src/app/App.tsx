@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
+  ArrowLeft,
   CircleDot,
   Eye,
   EyeOff,
@@ -10,7 +11,18 @@ import {
   Settings2,
   Sparkles,
   Users,
-} from 'lucide-react';
+} from '@markfix/ui/icons';
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Card,
+  Input,
+  Label,
+  NativeSelect,
+  Textarea,
+} from '@markfix/ui';
 import { MarkFixApi } from '@markfix/api-client';
 import type {
   Annotation,
@@ -134,7 +146,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
 
   return (
     <main className="auth-shell">
-      <section className="auth-card">
+      <Card className="auth-card">
         <div className="auth-brand">
           <span>m</span>
           <strong>MarkFix</strong>
@@ -145,39 +157,39 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
         <form onSubmit={(event) => void submit(event)}>
           {mode === 'register' && (
             <>
-              <label>
+              <Label>
                 Your name
-                <input
+                <Input
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
                   required
                 />
-              </label>
-              <label>
+              </Label>
+              <Label>
                 Workspace name
-                <input
+                <Input
                   value={workspaceName}
                   onChange={(event) => setWorkspaceName(event.target.value)}
                 />
-              </label>
+              </Label>
             </>
           )}
           {mode !== 'reset' && (
-            <label>
+            <Label>
               {mode === 'login' ? 'Username or email' : 'Email'}
-              <input
+              <Input
                 type={mode === 'login' ? 'text' : 'email'}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
               />
-            </label>
+            </Label>
           )}
           {mode !== 'forgot' && (
-            <label>
+            <Label>
               {mode === 'reset' ? 'New password' : 'Password'}
               <span className="password-field">
-                <input
+                <Input
                   type={showPassword ? 'text' : 'password'}
                   minLength={mode === 'login' ? undefined : 10}
                   maxLength={200}
@@ -185,46 +197,54 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => Promise<void> 
                   onChange={(event) => setPassword(event.target.value)}
                   required
                 />
-                <button
+                <Button
                   className="password-toggle"
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   title={showPassword ? 'Hide password' : 'Show password'}
                   onClick={() => setShowPassword((visible) => !visible)}
                 >
                   {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                </button>
+                </Button>
               </span>
-            </label>
+            </Label>
           )}
-          {message && <div className="auth-message">{message}</div>}
-          <button className="primary" type="submit" disabled={busy}>
+          {message && (
+            <Alert className="auth-message">
+              <AlertDescription>{message}</AlertDescription>
+            </Alert>
+          )}
+          <Button className="primary" type="submit" disabled={busy}>
             {busy ? 'Please wait…' : submitLabel}
-          </button>
+          </Button>
         </form>
-        <button
+        <Button
           className="auth-switch"
           type="button"
+          variant="ghost"
           onClick={() => {
             setMessage('');
             setMode(mode === 'login' ? 'register' : 'login');
           }}
         >
           {mode === 'login' ? 'New to MarkFix? Create an account' : 'Back to sign in'}
-        </button>
+        </Button>
         {mode === 'login' && (
-          <button
+          <Button
             className="auth-switch"
             type="button"
+            variant="ghost"
             onClick={() => {
               setMessage('');
               setMode('forgot');
             }}
           >
             Forgot password?
-          </button>
+          </Button>
         )}
-      </section>
+      </Card>
     </main>
   );
 }
@@ -377,9 +397,9 @@ function ReportDetail({
 
   return (
     <main className="detail-shell">
-      <button className="back" onClick={onBack}>
-        ← Back to reports
-      </button>
+      <Button className="back" variant="ghost" onClick={onBack}>
+        <ArrowLeft /> Back to reports
+      </Button>
       <section className="detail-header">
         <div>
           <div className="eyebrow">MF-{report.id.slice(0, 6).toUpperCase()}</div>
@@ -387,33 +407,33 @@ function ReportDetail({
           <p>{report.description}</p>
         </div>
         {action && canTransition && (
-          <button
+          <Button
             className="primary"
             disabled={transitionMutation.isPending}
             onClick={() => transitionMutation.mutate({ report, action: action.action })}
           >
             {action.label} <ArrowRight size={16} />
-          </button>
+          </Button>
         )}
       </section>
       <div className="detail-grid">
-        <section className="capture-card">
+        <Card className="capture-card">
           <CaptureViewer report={report} />
           <span className="capture-pill">
             <CircleDot size={14} /> {report.captureBundle.annotations.length} annotations
           </span>
-        </section>
+        </Card>
         <aside className="discussion-card">
           <div className="status-row">
-            <span className={`status ${report.status.toLocaleLowerCase()}`}>
+            <Badge variant="outline" className={`status ${report.status.toLocaleLowerCase()}`}>
               {statusLabel[report.status]}
-            </span>
+            </Badge>
             <span className="priority">{report.priority}</span>
           </div>
           <div className="assignment-row">
-            <label>
+            <Label>
               <span>Assignee</span>
-              <select
+              <NativeSelect
                 value={report.assignee?.id ?? ''}
                 disabled={!canManage || updateMutation.isPending}
                 onChange={(event) =>
@@ -426,11 +446,11 @@ function ReportDetail({
                     {membership.user.displayName}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label>
+              </NativeSelect>
+            </Label>
+            <Label>
               <span>Priority</span>
-              <select
+              <NativeSelect
                 value={report.priority}
                 disabled={!canManage || updateMutation.isPending}
                 onChange={(event) => updateMutation.mutate({ priority: event.target.value })}
@@ -438,8 +458,8 @@ function ReportDetail({
                 {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => (
                   <option key={priority}>{priority}</option>
                 ))}
-              </select>
-            </label>
+              </NativeSelect>
+            </Label>
           </div>
           <h2>
             <MessageSquare size={18} /> Discussion
@@ -459,14 +479,14 @@ function ReportDetail({
               if (comment.trim()) commentMutation.mutate();
             }}
           >
-            <textarea
+            <Textarea
               value={comment}
               onChange={(event) => setComment(event.target.value)}
               placeholder="Write a comment…"
             />
-            <button className="primary" type="submit" disabled={!comment.trim()}>
+            <Button className="primary" type="submit" disabled={!comment.trim()}>
               Comment
-            </button>
+            </Button>
           </form>
         </aside>
       </div>
@@ -508,21 +528,21 @@ function TeamPanel({ workspaceId, canManage }: { workspaceId: string; canManage:
             if (email.trim()) invitation.mutate();
           }}
         >
-          <input
+          <Input
             type="email"
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="teammate@company.com"
           />
-          <select value={role} onChange={(event) => setRole(event.target.value)}>
+          <NativeSelect value={role} onChange={(event) => setRole(event.target.value)}>
             <option value="ADMIN">Admin</option>
             <option value="MEMBER">Member</option>
             <option value="REPORTER">Reporter</option>
-          </select>
-          <button className="primary" type="submit" disabled={invitation.isPending}>
+          </NativeSelect>
+          <Button className="primary" type="submit" disabled={invitation.isPending}>
             Send invite
-          </button>
+          </Button>
         </form>
       )}
       {inviteToken && (
@@ -572,19 +592,19 @@ function WorkspaceNavigation({
         <span>m</span> MarkFix
       </div>
       <nav>
-        <button className={view === 'reports' ? 'active' : ''} onClick={() => onView('reports')}>
+        <Button className={view === 'reports' ? 'active' : ''} onClick={() => onView('reports')}>
           <CircleDot size={17} /> Reports
-        </button>
-        <button className={view === 'team' ? 'active' : ''} onClick={() => onView('team')}>
+        </Button>
+        <Button className={view === 'team' ? 'active' : ''} onClick={() => onView('team')}>
           <Users size={17} /> Team
-        </button>
-        <button className={view === 'projects' ? 'active' : ''} onClick={() => onView('projects')}>
+        </Button>
+        <Button className={view === 'projects' ? 'active' : ''} onClick={() => onView('projects')}>
           <Settings2 size={17} /> Projects
-        </button>
+        </Button>
       </nav>
       <div className="workspace">
-        <label htmlFor="workspace-select">WORKSPACE</label>
-        <select
+        <Label htmlFor="workspace-select">WORKSPACE</Label>
+        <NativeSelect
           id="workspace-select"
           value={workspaceId ?? ''}
           onChange={(event) => onWorkspace(event.target.value)}
@@ -594,9 +614,9 @@ function WorkspaceNavigation({
               {candidate.name}
             </option>
           ))}
-        </select>
-        <label htmlFor="project-select">PROJECT</label>
-        <select
+        </NativeSelect>
+        <Label htmlFor="project-select">PROJECT</Label>
+        <NativeSelect
           id="project-select"
           value={projectId ?? ''}
           onChange={(event) => onProject(event.target.value)}
@@ -608,7 +628,7 @@ function WorkspaceNavigation({
               {project.name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
     </aside>
   );
@@ -644,29 +664,29 @@ function EnvironmentEditor({
         if (canManage && name.trim() && baseUrl) update.mutate();
       }}
     >
-      <label>
+      <Label>
         Name
-        <input
+        <Input
           required
           maxLength={120}
           value={name}
           onChange={(event) => setName(event.target.value)}
           disabled={!canManage}
         />
-      </label>
-      <label>
+      </Label>
+      <Label>
         Base URL
-        <input
+        <Input
           required
           type="url"
           value={baseUrl}
           onChange={(event) => setBaseUrl(event.target.value)}
           disabled={!canManage}
         />
-      </label>
-      <button className="primary" type="submit" disabled={!canManage || update.isPending}>
+      </Label>
+      <Button className="primary" type="submit" disabled={!canManage || update.isPending}>
         Save
-      </button>
+      </Button>
       {update.error instanceof Error && <small>{update.error.message}</small>}
     </form>
   );
@@ -752,9 +772,11 @@ function ProjectsPanel({
         </div>
       </header>
       {(message || mutationError) && (
-        <div className="settings-message">
-          {mutationError instanceof Error ? mutationError.message : message}
-        </div>
+        <Alert className="settings-message">
+          <AlertDescription>
+            {mutationError instanceof Error ? mutationError.message : message}
+          </AlertDescription>
+        </Alert>
       )}
       <section className="settings-grid">
         <form
@@ -766,18 +788,18 @@ function ProjectsPanel({
         >
           <span className="eyebrow">NEW WORKSPACE</span>
           <h2>Create a workspace</h2>
-          <label>
+          <Label>
             Workspace name
-            <input
+            <Input
               required
               maxLength={120}
               value={workspaceName}
               onChange={(event) => setWorkspaceName(event.target.value)}
             />
-          </label>
-          <button className="primary" type="submit" disabled={createWorkspace.isPending}>
+          </Label>
+          <Button className="primary" type="submit" disabled={createWorkspace.isPending}>
             Create workspace
-          </button>
+          </Button>
         </form>
         <form
           className="settings-card"
@@ -788,23 +810,23 @@ function ProjectsPanel({
         >
           <span className="eyebrow">CURRENT WORKSPACE</span>
           <h2>Add a project</h2>
-          <label>
+          <Label>
             Project name
-            <input
+            <Input
               required
               maxLength={120}
               value={projectName}
               onChange={(event) => setProjectName(event.target.value)}
               disabled={!canManage}
             />
-          </label>
-          <button
+          </Label>
+          <Button
             className="primary"
             type="submit"
             disabled={!canManage || createProject.isPending}
           >
             Create project
-          </button>
+          </Button>
           {!canManage && <small>Only workspace owners and admins can create projects.</small>}
         </form>
         {project && (
@@ -817,23 +839,23 @@ function ProjectsPanel({
           >
             <span className="eyebrow">SELECTED PROJECT</span>
             <h2>Project settings</h2>
-            <label>
+            <Label>
               Project name
-              <input
+              <Input
                 required
                 maxLength={120}
                 value={editName}
                 onChange={(event) => setEditName(event.target.value)}
                 disabled={!canManage}
               />
-            </label>
-            <button
+            </Label>
+            <Button
               className="primary"
               type="submit"
               disabled={!canManage || updateProject.isPending}
             >
               Save project
-            </button>
+            </Button>
           </form>
         )}
         {project && (
@@ -846,9 +868,9 @@ function ProjectsPanel({
           >
             <span className="eyebrow">SELECTED PROJECT</span>
             <h2>Add an environment</h2>
-            <label>
+            <Label>
               Environment name
-              <input
+              <Input
                 required
                 maxLength={120}
                 placeholder="Production"
@@ -856,10 +878,10 @@ function ProjectsPanel({
                 onChange={(event) => setEnvironmentName(event.target.value)}
                 disabled={!canManage}
               />
-            </label>
-            <label>
+            </Label>
+            <Label>
               Base URL
-              <input
+              <Input
                 required
                 type="url"
                 placeholder="https://example.com"
@@ -867,14 +889,14 @@ function ProjectsPanel({
                 onChange={(event) => setEnvironmentBaseUrl(event.target.value)}
                 disabled={!canManage}
               />
-            </label>
-            <button
+            </Label>
+            <Button
               className="primary"
               type="submit"
               disabled={!canManage || createEnvironment.isPending}
             >
               Add environment
-            </button>
+            </Button>
           </form>
         )}
       </section>
@@ -1049,7 +1071,7 @@ export function App() {
               <h1>Reports</h1>
               <p>See exactly what happened, where it happened.</p>
             </div>
-            <button
+            <Button
               className="avatar"
               title="Sign out"
               onClick={() =>
@@ -1060,26 +1082,29 @@ export function App() {
               }
             >
               {(currentUser.data?.displayName ?? 'User').slice(0, 2).toUpperCase()}
-            </button>
+            </Button>
           </header>
           <div className="toolbar">
-            <label>
+            <Label>
               <Search size={17} />
-              <input
+              <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search reports"
               />
-            </label>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            </Label>
+            <NativeSelect
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
               <option value="">All statuses</option>
               {Object.entries(statusLabel).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
-            <select
+            </NativeSelect>
+            <NativeSelect
               value={priorityFilter}
               onChange={(event) => setPriorityFilter(event.target.value)}
             >
@@ -1087,7 +1112,7 @@ export function App() {
               {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => (
                 <option key={priority}>{priority}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <section className="report-list">
             {!currentProject && (
@@ -1095,9 +1120,9 @@ export function App() {
                 <Settings2 />
                 <h2>No project selected</h2>
                 <p>Create a project before collecting website feedback.</p>
-                <button className="primary" onClick={() => setView('projects')}>
+                <Button className="primary" onClick={() => setView('projects')}>
                   Manage projects
-                </button>
+                </Button>
               </div>
             )}
             {currentProject && visibleReports.length === 0 && (
@@ -1109,7 +1134,7 @@ export function App() {
             )}
             {currentProject &&
               visibleReports.map((report) => (
-                <button
+                <Button
                   className="report-row"
                   key={report.id}
                   onClick={() => setSelectedReportId(report.id)}
@@ -1122,14 +1147,17 @@ export function App() {
                       {new Date(report.createdAt).toLocaleString()}
                     </small>
                   </span>
-                  <span className={`status ${report.status.toLocaleLowerCase()}`}>
+                  <Badge
+                    variant="outline"
+                    className={`status ${report.status.toLocaleLowerCase()}`}
+                  >
                     {statusLabel[report.status]}
-                  </span>
+                  </Badge>
                   <span className="annotation-count">
                     <MessageSquare size={15} /> {report.captureBundle.annotations.length}
                   </span>
                   <ArrowRight size={17} />
-                </button>
+                </Button>
               ))}
           </section>
         </main>

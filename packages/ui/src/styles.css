@@ -1,0 +1,54 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@source '.';
+@source '../../../apps/dashboard/src';
+@source '../../../apps/desktop/src/renderer/src';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent-color);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --background: #f4f5f7;
+  --foreground: #191a1d;
+  --card: #ffffff;
+  --card-foreground: #191a1d;
+  --primary: #5b52e8;
+  --primary-foreground: #ffffff;
+  --secondary: #eef0f4;
+  --secondary-foreground: #292b31;
+  --muted: #eef0f4;
+  --muted-foreground: #61656f;
+  --accent-color: #eeecff;
+  --accent-foreground: #4238d4;
+  --destructive: #b42318;
+  --border: #e2e4e9;
+  --input: #cfd2d9;
+  --ring: #5b52e8;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+}
