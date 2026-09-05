@@ -1,0 +1,234 @@
+.subscription-window {
+  min-height: 100vh;
+  background: #f6f7f9;
+  color: #18181b;
+}
+
+.subscription-titlebar {
+  display: flex;
+  height: 54px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 22px 0 76px;
+  border-bottom: 1px solid #e4e4e7;
+  background: rgb(255 255 255 / 92%);
+  -webkit-app-region: drag;
+}
+
+.subscription-titlebar > span:last-child {
+  color: #71717a;
+  font-size: 13px;
+}
+
+.subscription-logo {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 8px;
+  background: #5548d9;
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.subscription-content {
+  padding: 22px 24px 24px;
+}
+
+.subscription-heading {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.subscription-heading p,
+.subscription-heading h1,
+.subscription-plan-name h2,
+.subscription-plan-name p,
+.subscription-message,
+.subscription-error {
+  margin: 0;
+}
+
+.subscription-heading p {
+  margin-bottom: 2px;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.subscription-heading h1 {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.subscription-heading select {
+  width: 180px;
+  -webkit-app-region: no-drag;
+}
+
+.subscription-workspace {
+  max-width: 220px;
+  overflow: hidden;
+  color: #71717a;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subscription-plan-card {
+  overflow: hidden;
+  border-color: #ddd9fe;
+  background: white;
+  box-shadow: 0 12px 35px rgb(30 27 75 / 8%);
+}
+
+.subscription-plan-main {
+  padding: 18px;
+}
+
+.subscription-plan-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.subscription-plan-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 12px;
+  background: #ede9fe;
+  color: #5b4bdb;
+}
+
+.subscription-plan-icon svg {
+  width: 19px;
+}
+
+.subscription-plan-name > div > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.subscription-plan-name h2 {
+  font-size: 17px;
+}
+
+.subscription-plan-name p {
+  margin-top: 2px;
+  color: #71717a;
+  font-size: 12px;
+}
+
+.subscription-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  margin-top: 18px;
+}
+
+.subscription-usage > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+  font-size: 12px;
+}
+
+.subscription-usage > div:first-child span {
+  color: #71717a;
+}
+
+.subscription-progress,
+.subscription-unlimited {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ececf1;
+}
+
+.subscription-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #6558e8;
+}
+
+.subscription-unlimited {
+  height: auto;
+  background: #f0fdf4;
+  color: #15803d;
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.subscription-plan-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 18px;
+  border-top: 1px solid #ececf1;
+  background: #fafafa;
+}
+
+.subscription-benefits {
+  display: flex;
+  gap: 14px;
+  color: #52525b;
+  font-size: 11px;
+}
+
+.subscription-benefits span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.subscription-benefits svg {
+  width: 13px;
+  color: #16a34a;
+}
+
+.subscription-loading,
+.subscription-error,
+.subscription-message {
+  display: flex;
+  min-height: 150px;
+  align-items: center;
+  justify-content: center;
+  color: #71717a;
+  font-size: 13px;
+}
+
+.subscription-loading svg,
+.subscription-spin {
+  width: 16px;
+  animation: subscription-spin 0.8s linear infinite;
+}
+
+.subscription-error {
+  color: #b42318;
+}
+
+.subscription-message {
+  min-height: auto;
+  margin-top: 10px;
+  color: #15803d;
+}
+
+@keyframes subscription-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

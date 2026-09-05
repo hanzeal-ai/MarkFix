@@ -15,6 +15,7 @@ import {
   type SavedCapture,
   type SavedElementComment,
 } from '@markfix/contracts';
+import { subscriptionIpcChannels } from '../subscription.js';
 
 const subscribe = (channel: string, listener: (payload: unknown) => void): (() => void) => {
   const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => listener(payload);
@@ -28,6 +29,10 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(ipcChannels.authLogin, { email, password }),
   logout: () => ipcRenderer.invoke(ipcChannels.authLogout),
   listWorkspaces: () => ipcRenderer.invoke(ipcChannels.listWorkspaces),
+  getSubscription: (workspaceId: string) =>
+    ipcRenderer.invoke(subscriptionIpcChannels.get, workspaceId),
+  requestSubscriptionUpgrade: (workspaceId: string) =>
+    ipcRenderer.invoke(subscriptionIpcChannels.upgrade, workspaceId),
   listEnvironments: (projectId: string) =>
     ipcRenderer.invoke(ipcChannels.listEnvironments, projectId),
   navigate: (url: string) => ipcRenderer.invoke(ipcChannels.navigate, { url }),

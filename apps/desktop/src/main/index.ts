@@ -46,6 +46,7 @@ import { CaptureService } from './capture-service.js';
 import { DraftStore } from './draft-store.js';
 import type { OutboxEntry } from './draft-store.js';
 import { normalizeWebsiteUrl } from './url.js';
+import { subscriptionIpcChannels } from '../subscription.js';
 import { decodeScreenshotDataUrl, safeScreenshotFilename } from './image-export.js';
 import { modeForShortcut } from './mode-shortcuts.js';
 
@@ -134,6 +135,16 @@ const assertShellSender = (event: IpcMainInvokeEvent): void => {
     event.sender.id !== capturePreviewWebContentsId
   )
     throw new Error('Untrusted IPC sender');
+};
+
+const assertSubscriptionSender = (event: IpcMainInvokeEvent): void => {
+  if (event.sender.id === shellWebContentsId) return;
+  try {
+    if (new URL(event.sender.getURL()).searchParams.get('view') === 'settings') return;
+  } catch {
+    // Reject malformed renderer URLs below.
+  }
+  throw new Error('Untrusted subscription IPC sender');
 };
 
 const sendShell = (channel: string, payload: unknown): void => {
@@ -477,6 +488,18 @@ const registerIpc = (): void => {
     assertShellSender(event);
     if (!authenticatedUser) throw new Error('Sign in to load workspaces');
     return api.listWorkspaces();
+  });
+  ipcMain.handle(subscriptionIpcChannels.get, async (event, input: unknown) => {
+    assertSubscriptionSender(event);
+    if (!authenticatedUser) throw new Error('Sign in to load the subscription');
+    if (typeof input !== 'string') throw new Error('Invalid workspace ID');
+    return api.getSubscription(input);
+  });
+  ipcMain.handle(subscriptionIpcChannels.upgrade, async (event, input: unknown) => {
+    assertSubscriptionSender(event);
+    if (!authenticatedUser) throw new Error('Sign in to manage the subscription');
+    if (typeof input !== 'string') throw new Error('Invalid workspace ID');
+    return api.requestSubscriptionUpgrade(input);
   });
   ipcMain.handle(ipcChannels.listEnvironments, async (event, input: unknown) => {
     assertShellSender(event);

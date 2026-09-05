@@ -38,6 +38,20 @@ export type AuthUser = {
   displayName: string;
   emailVerified: boolean;
 };
+export type WorkspaceSubscription = {
+  plan: 'FREE' | 'TEAM';
+  planName: string;
+  projectLimit: number | null;
+  memberLimit: number | null;
+  usage: { projects: number; members: number };
+  upgradeRequestedAt: string | null;
+};
+export type SubscriptionUpgradeResult = WorkspaceSubscription & {
+  upgraded: boolean;
+  alreadyUpgraded: boolean;
+  upgradeRequested?: boolean;
+  upgradeUrl?: string;
+};
 
 const dataUrlBytes = (dataUrl: string): Uint8Array => {
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
@@ -183,6 +197,17 @@ export class MarkFixApi {
 
   async listWorkspaces(): Promise<WorkspaceSummary[]> {
     return workspaceSummarySchema.array().parse(await this.request('/v1/workspaces'));
+  }
+
+  getSubscription(workspaceId: string): Promise<WorkspaceSubscription> {
+    return this.request(`/v1/workspaces/${workspaceId}/subscription`);
+  }
+
+  requestSubscriptionUpgrade(workspaceId: string): Promise<SubscriptionUpgradeResult> {
+    return this.request(`/v1/workspaces/${workspaceId}/subscription/upgrade`, {
+      method: 'POST',
+      body: '{}',
+    });
   }
 
   async createWorkspace(name: string): Promise<WorkspaceSummary> {
