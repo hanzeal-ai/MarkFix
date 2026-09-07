@@ -1,7 +1,14 @@
 import { useState } from 'react';
-import { Button, MarkFixMark } from '@markfix/ui';
+import { Button } from '@markfix/ui';
 import { Settings2, Sparkles } from '@markfix/ui/icons';
+import type { ProjectStorageMode } from '@markfix/contracts';
 import { SubscriptionSettings } from './SubscriptionWindow';
+import {
+  desktopPreferenceKeys,
+  newAnnotationStorageModePreference,
+  startupViewPreference,
+  type StartupView,
+} from './desktop-preferences';
 
 type SettingsSection = 'general' | 'subscription';
 
@@ -16,14 +23,15 @@ const shortcuts = [
 
 export function SettingsWindow(): React.JSX.Element {
   const [section, setSection] = useState<SettingsSection>('general');
+  const [startupView, setStartupView] = useState<StartupView>(() =>
+    startupViewPreference(window.localStorage),
+  );
+  const [newAnnotationStorageMode, setNewAnnotationStorageMode] = useState<ProjectStorageMode>(() =>
+    newAnnotationStorageModePreference(window.localStorage),
+  );
 
   return (
     <main className="settings-window">
-      <header className="settings-window-titlebar">
-        <MarkFixMark className="subscription-logo" size={25} />
-        <strong>MarkFix</strong>
-        <i>设置</i>
-      </header>
       <div className="settings-window-body">
         <nav className="settings-sidebar" aria-label="设置项目">
           <p>设置</p>
@@ -51,10 +59,70 @@ export function SettingsWindow(): React.JSX.Element {
         <section className="settings-window-content">
           {section === 'general' ? (
             <div className="settings-general" aria-label="通用设置">
-              <header>
-                <p>桌面端</p>
-                <h1>通用</h1>
-              </header>
+              <h2>启动与新标注</h2>
+              <div className="settings-option-list">
+                <div className="settings-option-row">
+                  <span id="startup-view-label">启动时打开</span>
+                  <div
+                    className="settings-radio-group"
+                    role="radiogroup"
+                    aria-labelledby="startup-view-label"
+                  >
+                    {(
+                      [
+                        ['new', '新标注页面'],
+                        ['last-project', '上次项目'],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <label key={value}>
+                        <input
+                          type="radio"
+                          name="startup-view"
+                          value={value}
+                          checked={startupView === value}
+                          onChange={() => {
+                            setStartupView(value);
+                            window.localStorage.setItem(desktopPreferenceKeys.startupView, value);
+                          }}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="settings-option-row">
+                  <span id="new-annotation-storage-mode-label">新标注默认模式</span>
+                  <div
+                    className="settings-radio-group"
+                    role="radiogroup"
+                    aria-labelledby="new-annotation-storage-mode-label"
+                  >
+                    {(
+                      [
+                        ['CLOUD', '云端协作'],
+                        ['LOCAL', '仅本机'],
+                      ] as const satisfies readonly (readonly [ProjectStorageMode, string])[]
+                    ).map(([value, label]) => (
+                      <label key={value}>
+                        <input
+                          type="radio"
+                          name="new-annotation-storage-mode"
+                          value={value}
+                          checked={newAnnotationStorageMode === value}
+                          onChange={() => {
+                            setNewAnnotationStorageMode(value);
+                            window.localStorage.setItem(
+                              desktopPreferenceKeys.newAnnotationStorageMode,
+                              value,
+                            );
+                          }}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
               <h2>快捷操作</h2>
               <div className="settings-shortcut-list">
                 {shortcuts.map(([label, shortcut]) => (

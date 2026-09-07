@@ -32,6 +32,7 @@ import {
   MarkFixStackedLogo,
 } from '@markfix/ui';
 import type { ProjectStorageMode, WebsiteProject } from '@markfix/contracts';
+import { desktopPreferenceKeys, newAnnotationStorageModePreference } from './desktop-preferences';
 import { MarkFixGlyph, WebsiteLogo } from './project-navigation/WebsiteLogo';
 
 export { HistoryPage, ProjectHistoryDetail } from './project-navigation/HistoryPages';
@@ -41,10 +42,11 @@ export {
   type ProjectAnnotation,
 } from './project-navigation/model';
 
-type WebsiteShortcut = {
+export type WebsiteShortcut = {
   id: string;
   name: string;
   url: string;
+  storageMode: ProjectStorageMode;
 };
 
 const websiteShortcutsStorageKey = 'markfix.website-shortcuts.v1';
@@ -66,24 +68,38 @@ const defaultWebsiteShortcuts = (projects: readonly WebsiteProject[]): WebsiteSh
     id: project.id,
     name: project.title,
     url: project.entryUrl,
+    storageMode: project.storageMode,
   }));
+
+export const normalizeWebsiteShortcuts = (value: unknown): WebsiteShortcut[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (
+        shortcut,
+      ): shortcut is Omit<WebsiteShortcut, 'storageMode'> & {
+        storageMode?: unknown;
+      } =>
+        typeof shortcut === 'object' &&
+        shortcut !== null &&
+        typeof (shortcut as WebsiteShortcut).id === 'string' &&
+        typeof (shortcut as WebsiteShortcut).name === 'string' &&
+        typeof (shortcut as WebsiteShortcut).url === 'string',
+    )
+    .map((shortcut): WebsiteShortcut => ({
+      id: shortcut.id,
+      name: shortcut.name,
+      url: shortcut.url,
+      storageMode: shortcut.storageMode === 'LOCAL' ? 'LOCAL' : 'CLOUD',
+    }))
+    .slice(0, maximumWebsiteShortcuts);
+};
 
 const loadWebsiteShortcuts = (projects: readonly WebsiteProject[]): WebsiteShortcut[] => {
   try {
     const stored = window.localStorage.getItem(websiteShortcutsStorageKey);
     if (stored === null) return defaultWebsiteShortcuts(projects);
-    const parsed = JSON.parse(stored) as unknown;
-    if (!Array.isArray(parsed)) return defaultWebsiteShortcuts(projects);
-    return parsed
-      .filter(
-        (shortcut): shortcut is WebsiteShortcut =>
-          typeof shortcut === 'object' &&
-          shortcut !== null &&
-          typeof (shortcut as WebsiteShortcut).id === 'string' &&
-          typeof (shortcut as WebsiteShortcut).name === 'string' &&
-          typeof (shortcut as WebsiteShortcut).url === 'string',
-      )
-      .slice(0, maximumWebsiteShortcuts);
+    return normalizeWebsiteShortcuts(JSON.parse(stored) as unknown);
   } catch {
     return defaultWebsiteShortcuts(projects);
   }
@@ -305,7 +321,9 @@ export function NewProjectPage({
   onShortcut: (shortcutId: string, url: string, storageMode: ProjectStorageMode) => void;
 }): React.JSX.Element {
   const [value, setValue] = useState(initialValue);
-  const [storageMode, setStorageMode] = useState<ProjectStorageMode>('LOCAL');
+  const [storageMode, setStorageMode] = useState<ProjectStorageMode>(() =>
+    newAnnotationStorageModePreference(window.localStorage),
+  );
   const [shortcuts, setShortcuts] = useState<WebsiteShortcut[]>(() =>
     loadWebsiteShortcuts(projects),
   );
@@ -317,10 +335,19 @@ export function NewProjectPage({
   const [editingShortcutId, setEditingShortcutId] = useState<string>();
   const [shortcutName, setShortcutName] = useState('');
   const [shortcutUrl, setShortcutUrl] = useState('');
+  const [shortcutStorageMode, setShortcutStorageMode] = useState<ProjectStorageMode>('CLOUD');
   const [shortcutError, setShortcutError] = useState<string>();
   const [pendingDelete, setPendingDelete] = useState<WebsiteShortcut>();
 
   useEffect(() => setValue(initialValue), [initialValue]);
+  useEffect(() => {
+    const syncDefaultStorageMode = (event: StorageEvent): void => {
+      if (event.key === desktopPreferenceKeys.newAnnotationStorageMode)
+        setStorageMode(newAnnotationStorageModePreference(window.localStorage));
+    };
+    window.addEventListener('storage', syncDefaultStorageMode);
+    return () => window.removeEventListener('storage', syncDefaultStorageMode);
+  }, []);
   useEffect(() => {
     if (shortcutPreferenceExistsRef.current || shortcuts.length > 0 || projects.length === 0)
       return;
@@ -342,6 +369,7 @@ export function NewProjectPage({
     setEditingShortcutId(shortcut?.id);
     setShortcutName(shortcut?.name ?? '');
     setShortcutUrl(shortcut?.url ?? '');
+    setShortcutStorageMode(shortcut?.storageMode ?? 'CLOUD');
     setShortcutDialogMode(shortcut ? 'edit' : 'add');
   };
 
@@ -375,7 +403,12 @@ export function NewProjectPage({
       setShortcuts((current) =>
         current.map((shortcut) =>
           shortcut.id === editingShortcutId
-            ? { ...shortcut, name: name.slice(0, 120), url: normalizedUrl }
+            ? {
+                ...shortcut,
+                name: name.slice(0, 120),
+                url: normalizedUrl,
+                storageMode: shortcutStorageMode,
+              }
             : shortcut,
         ),
       );
@@ -390,6 +423,7 @@ export function NewProjectPage({
           id: crypto.randomUUID(),
           name: name.slice(0, 120),
           url: normalizedUrl,
+          storageMode: shortcutStorageMode,
         },
       ]);
     }
@@ -470,7 +504,7 @@ export function NewProjectPage({
                     type="button"
                     variant="ghost"
                     title={shortcut.name}
-                    onClick={() => onShortcut(shortcut.id, shortcut.url, storageMode)}
+                    onClick={() => onShortcut(shortcut.id, shortcut.url, shortcut.storageMode)}
                   >
                     <ShortcutLogo shortcut={shortcut} />
                     <strong>{shortcut.name}</strong>
@@ -558,6 +592,21 @@ export function NewProjectPage({
                 onChange={(event) => setShortcutUrl(event.target.value)}
               />
             </label>
+            <fieldset className="shortcut-storage-mode">
+              <legend>模式</legend>
+              {(['CLOUD', 'LOCAL'] as const).map((mode) => (
+                <label key={mode}>
+                  <input
+                    type="radio"
+                    name="shortcut-storage-mode"
+                    value={mode}
+                    checked={shortcutStorageMode === mode}
+                    onChange={() => setShortcutStorageMode(mode)}
+                  />
+                  <span>{mode === 'CLOUD' ? '云端协作' : '仅本机'}</span>
+                </label>
+              ))}
+            </fieldset>
             {shortcutError && <p role="alert">{shortcutError}</p>}
             <footer>
               <Button

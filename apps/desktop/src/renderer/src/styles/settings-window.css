@@ -6,25 +6,6 @@
   overflow: hidden;
   background: rgba(242, 242, 244, 0.96);
 }
-.settings-window-titlebar {
-  flex: 0 0 52px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 0 20px 0 78px;
-  border-bottom: 1px solid var(--line);
-  background: #fff;
-  -webkit-app-region: drag;
-}
-.settings-window-titlebar strong {
-  font-size: 14px;
-  font-weight: 600;
-}
-.settings-window-titlebar i {
-  color: var(--text-3);
-  font-size: 12px;
-  font-style: normal;
-}
 .settings-window-body {
   flex: 1;
   min-height: 0;
@@ -76,20 +57,8 @@
   padding: 28px 30px 30px;
   background: rgba(250, 250, 251, 0.88);
 }
-.settings-general > header p,
-.settings-general > header h1,
 .settings-general h2 {
   margin: 0;
-}
-.settings-general > header p {
-  margin-bottom: 3px;
-  color: var(--accent-strong);
-  font-size: 11px;
-  font-weight: 650;
-}
-.settings-general > header h1 {
-  font-size: 22px;
-  letter-spacing: -0.02em;
 }
 .settings-general h2 {
   margin-top: 28px;
@@ -98,11 +67,51 @@
   font-size: 12px;
   font-weight: 600;
 }
+.settings-general > h2:first-child {
+  margin-top: 0;
+}
 .settings-shortcut-list {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 11px;
   background: rgba(255, 255, 255, 0.86);
+}
+.settings-option-list {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.86);
+}
+.settings-option-row {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 13px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.settings-option-row:last-child {
+  border-bottom: 0;
+}
+.settings-radio-group {
+  width: 234px;
+  display: grid;
+  grid-template-columns: 128px 88px;
+  align-items: center;
+  gap: 18px;
+}
+.settings-radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.settings-radio-group input {
+  margin: 0;
+  accent-color: var(--accent-strong);
 }
 .settings-shortcut-list > div {
   min-height: 42px;

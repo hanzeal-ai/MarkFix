@@ -40,6 +40,7 @@ import {
   projectAnnotations,
   type ProjectAnnotation,
 } from '../ProjectNavigation';
+import { desktopPreferenceKeys, startupProjectPreference } from '../desktop-preferences';
 
 const firstAnnotationGuideKeys = {
   comment: 'markfix:first-annotation-guide:comment:v1',
@@ -453,11 +454,10 @@ export function AnnotationWorkspace({
     void window.markfix
       .desktopBootstrap()
       .then(async ({ workspaces: workspaceItems, websiteProjects: projects }) => {
-        if (!active) return;
+        if (!active || requestId !== projectSwitchRequestRef.current) return;
         setWorkspaces(workspaceItems);
         setWebsiteProjects(projects);
-        const selected =
-          projects.find(({ id }) => id === selectedProjectIdRef.current) ?? projects[0];
+        const selected = startupProjectPreference(window.localStorage, projects);
         if (!selected) return;
         selectedProjectIdRef.current = selected.id;
         setSelectedProjectId(selected.id);
@@ -749,6 +749,7 @@ export function AnnotationWorkspace({
       setWebsiteProjects((projects) =>
         projects.map((item) => (item.id === current.id ? current : item)),
       );
+      window.localStorage.setItem(desktopPreferenceKeys.lastProjectId, project.id);
       return true;
     } catch (error) {
       if (requestId === projectSwitchRequestRef.current) {
