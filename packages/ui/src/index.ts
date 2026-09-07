@@ -50,6 +50,18 @@ export { NativeSelect } from './components/native-select.js';
 export { PasswordInput } from './components/password-input.js';
 export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from './components/popover.js';
 export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from './components/select.js';
+export {
   Sheet,
   SheetClose,
   SheetContent,
