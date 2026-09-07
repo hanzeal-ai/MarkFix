@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="356" height="96" viewBox="0 0 356 96" role="img" aria-labelledby="title desc">
+  <title id="title">MarkFix logo</title>
+  <desc id="desc">A violet annotation bubble containing a completed check mark beside the MarkFix wordmark.</desc>
+  <defs>
+    <linearGradient id="markfix-gradient" x1="18" y1="14" x2="79" y2="82" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#756DF2"/>
+      <stop offset="1" stop-color="#4238D4"/>
+    </linearGradient>
+  </defs>
+  <g id="symbol">
+    <rect x="8" y="8" width="80" height="80" rx="23" fill="url(#markfix-gradient)"/>
+    <path fill="#fff" fill-rule="evenodd" d="M27 25h42a8 8 0 0 1 8 8v27a8 8 0 0 1-8 8H56l-9.7 8.1A3.2 3.2 0 0 1 41 73.6V68H27a8 8 0 0 1-8-8V33a8 8 0 0 1 8-8Zm34.8 12.7a4 4 0 0 0-5.6.5L43.7 53.1l-5.9-5a4 4 0 1 0-5.2 6.1l9 7.6a4 4 0 0 0 5.7-.5l15-18a4 4 0 0 0-.5-5.6Z"/>
+    <circle cx="76" cy="22" r="6" fill="#BDB8FF" stroke="#fff" stroke-width="3"/>
+  </g>
+  <g id="wordmark" fill="#191A1D">
+    <text x="111" y="61" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-size="43" font-weight="750" letter-spacing="-1.8">Mark</text>
+    <text x="205" y="61" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-size="43" font-weight="750" letter-spacing="-1.8" fill="#5B52E8">Fix</text>
+  </g>
+</svg>

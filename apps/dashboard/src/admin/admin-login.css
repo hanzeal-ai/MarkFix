@@ -38,24 +38,8 @@
 
 .admin-login-brand {
   align-items: center;
-  color: #15151a;
   display: inline-flex;
-  font-size: 18px;
-  font-weight: 750;
-  gap: 10px;
   text-decoration: none;
-}
-
-.admin-login-brand span {
-  align-items: center;
-  background: #15151a;
-  border-radius: 8px;
-  color: white;
-  display: flex;
-  font-size: 13px;
-  height: 31px;
-  justify-content: center;
-  width: 31px;
 }
 
 .admin-login-heading {

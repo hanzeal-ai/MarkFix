@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="112" viewBox="0 0 380 112" role="img" aria-labelledby="title desc">
+  <title id="title">MarkFix MF ligature logo</title>
+  <desc id="desc">A minimal MF monogram whose F crossbar becomes a repair check beside the MarkFix wordmark.</desc>
+  <defs>
+    <linearGradient id="mf-ligature-gradient" x1="26" y1="22" x2="87" y2="90" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#756df2" />
+      <stop offset="1" stop-color="#4238d4" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(8 8)">
+    <rect x="8" y="8" width="80" height="80" rx="23" fill="url(#mf-ligature-gradient)" />
+    <g fill="none" stroke="#fff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 65V32l14 17 14-17v33" />
+      <path d="M58 63V33h18M58 48h12" />
+    </g>
+    <path d="m62 61 5 5 11-13" fill="none" stroke="#bdb8ff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+  <text x="128" y="68" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-size="46" font-weight="750" letter-spacing="-2" fill="#191a1d">Mark<tspan fill="#5b52e8">Fix</tspan></text>
+</svg>

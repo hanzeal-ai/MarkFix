@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card } from '@markfix/ui';
+import { Card, MarkFixMark } from '@markfix/ui';
 import type { ClientPolicy } from '@markfix/contracts';
 import { DesktopLogin } from './auth/DesktopLogin';
 import { AnnotationWorkspace } from './annotation-workspace/AnnotationWorkspace';
@@ -26,7 +26,9 @@ export function App() {
     return (
       <main className="desktop-auth">
         <Card>
-          <div className="desktop-auth-brand"><span>m</span> MarkFix</div>
+          <div className="desktop-auth-brand">
+            <MarkFixMark /> MarkFix
+          </div>
           <p className="eyebrow">UPDATE REQUIRED</p>
           <h1>This version is no longer supported</h1>
           <p>

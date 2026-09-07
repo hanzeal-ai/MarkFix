@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, CheckCircle2 } from '@markfix/ui/icons';
-import { Alert, AlertDescription, Button, Card, Input, Label, PasswordInput } from '@markfix/ui';
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Card,
+  Input,
+  Label,
+  MarkFixMark,
+  PasswordInput,
+} from '@markfix/ui';
 import { MarkFixApi } from '@markfix/api-client';
 import './account-access.css';
 
@@ -132,7 +141,7 @@ export function AccountAccess() {
       </a>
       <Card className="account-card">
         <a className="account-brand" href="/" aria-label="MarkFix 首页">
-          <span>M</span>
+          <MarkFixMark size={30} />
           MarkFix
         </a>
         <header>

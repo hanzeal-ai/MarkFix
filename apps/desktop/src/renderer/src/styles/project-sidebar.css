@@ -88,7 +88,6 @@
 }
 .project-sidebar-brand {
   height: 42px;
-  gap: 10px;
   padding: 0 8px;
   margin-bottom: 16px;
   border-radius: 0 9px 9px 0;
@@ -112,24 +111,15 @@
 .project-sidebar-item:active {
   background: var(--surface-3);
 }
-.project-sidebar-brand strong {
-  font-size: 16px;
-  font-weight: 650;
+.project-sidebar-brand .markfix-logo-horizontal {
+  display: block;
+  flex: 0 0 auto;
 }
 .markfix-glyph {
   width: 30px;
   height: 30px;
   flex: 0 0 30px;
-  display: grid;
-  place-items: center;
-  border: 1px solid #c9c4ff;
-  border-radius: 8px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.markfix-glyph svg {
-  width: 17px;
-  height: 17px;
+  display: block;
 }
 .project-sidebar-action {
   height: 40px;

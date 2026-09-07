@@ -29,18 +29,7 @@
   font-size: 15px;
 }
 
-.legal-nav a:first-child span {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border-radius: 8px;
-  background: #5b52e8;
-  color: white;
-  font-size: 11px;
-}
-
-.legal-nav svg {
+.legal-nav a:last-child svg {
   width: 14px;
 }
 

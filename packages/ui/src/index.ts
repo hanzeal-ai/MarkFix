@@ -46,6 +46,14 @@ export {
 } from './components/dropdown-menu.js';
 export { Input } from './components/input.js';
 export { Label } from './components/label.js';
+export {
+  MarkFixLogo,
+  MarkFixMark,
+  MarkFixStackedLogo,
+  type MarkFixLogoProps,
+  type MarkFixMarkProps,
+  type MarkFixStackedLogoProps,
+} from './components/markfix-logo.js';
 export { NativeSelect } from './components/native-select.js';
 export { PasswordInput } from './components/password-input.js';
 export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from './components/popover.js';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@markfix/ui';
+import { Button, MarkFixMark } from '@markfix/ui';
 import { Settings2, Sparkles } from '@markfix/ui/icons';
 import { SubscriptionSettings } from './SubscriptionWindow';
 
@@ -20,7 +20,7 @@ export function SettingsWindow(): React.JSX.Element {
   return (
     <main className="settings-window">
       <header className="settings-window-titlebar">
-        <span className="subscription-logo">M</span>
+        <MarkFixMark className="subscription-logo" size={25} />
         <strong>MarkFix</strong>
         <i>设置</i>
       </header>

@@ -43,17 +43,6 @@
   text-decoration: none;
 }
 
-.account-brand > span {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  background: #5b52e8;
-  color: #fff;
-  font-size: 12px;
-}
-
 .account-card > header {
   display: grid;
   gap: 7px;

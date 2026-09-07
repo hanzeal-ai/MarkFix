@@ -287,15 +287,9 @@
 }
 
 .download-app-icon {
-  align-items: center;
-  background: #17171d;
-  border-radius: 15px;
-  color: white;
-  display: flex;
-  font-size: 22px;
-  font-weight: 750;
+  display: block;
+  flex: 0 0 62px;
   height: 62px;
-  justify-content: center;
   width: 62px;
 }
 

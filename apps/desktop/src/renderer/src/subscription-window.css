@@ -21,15 +21,10 @@
 }
 
 .subscription-logo {
-  display: grid;
+  display: block;
+  flex: 0 0 25px;
   width: 25px;
   height: 25px;
-  place-items: center;
-  border-radius: 8px;
-  background: #5548d9;
-  color: white;
-  font-size: 12px;
-  font-weight: 800;
 }
 
 .subscription-content {

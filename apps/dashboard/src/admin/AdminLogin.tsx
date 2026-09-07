@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight } from '@markfix/ui/icons';
-import { Button, Card, Input, Label, PasswordInput } from '@markfix/ui';
+import { Button, Card, Input, Label, MarkFixLogo, PasswordInput } from '@markfix/ui';
 import { MarkFixApi } from '@markfix/api-client';
 import './admin-login.css';
 
@@ -33,8 +33,7 @@ export function AdminLogin() {
       </a>
       <Card className="admin-login-card">
         <a className="admin-login-brand" href="/" aria-label="MarkFix 首页">
-          <span>M</span>
-          MarkFix
+          <MarkFixLogo height={31} width={115} />
         </a>
         <div className="admin-login-heading">
           <span>Management workspace</span>

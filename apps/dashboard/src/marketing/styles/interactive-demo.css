@@ -22,7 +22,6 @@
   padding: 18px 10px;
 }
 
-.mf-demo-app-mark,
 .mf-demo-projects button {
   align-items: center;
   border-radius: 11px;
@@ -35,8 +34,8 @@
 }
 
 .mf-demo-app-mark {
-  border: 1px solid var(--purple);
-  color: var(--purple);
+  display: block;
+  flex: 0 0 38px;
   margin-bottom: 22px;
 }
 .mf-demo-projects button {

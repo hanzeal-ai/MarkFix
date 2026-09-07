@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="112" viewBox="0 0 380 112" role="img" aria-labelledby="title desc">
+  <title id="title">MarkFix MF concept logo</title>
+  <desc id="desc">An MF monogram inside an annotation bubble beside the MarkFix wordmark.</desc>
+  <defs>
+    <linearGradient id="mf-gradient" x1="17" y1="12" x2="82" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#756df2" />
+      <stop offset="1" stop-color="#4238d4" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(8 8)">
+    <path
+      fill="url(#mf-gradient)"
+      d="M30 7h36c12.7 0 23 10.3 23 23v33c0 12.7-10.3 23-23 23H57l-8.7 6.7a4.8 4.8 0 0 1-7.7-3.8V86H30C17.3 86 7 75.7 7 63V30C7 17.3 17.3 7 30 7Z"
+    />
+    <g fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 63V33l14 17 14-17v30" />
+      <path d="M56 36h20M56 36v23M56 48h15" />
+      <path d="m56 59 7 7 14-16" />
+    </g>
+    <circle cx="77" cy="21" r="5.5" fill="#bdb8ff" stroke="#fff" stroke-width="3" />
+  </g>
+  <text x="128" y="68" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-size="46" font-weight="750" letter-spacing="-2" fill="#191a1d">Mark<tspan fill="#5b52e8">Fix</tspan></text>
+</svg>

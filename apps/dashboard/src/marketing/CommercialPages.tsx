@@ -8,7 +8,7 @@ import {
   MousePointer2,
   ShieldCheck,
 } from '@markfix/ui/icons';
-import { Badge, Button, Card } from '@markfix/ui';
+import { Badge, Button, Card, MarkFixMark } from '@markfix/ui';
 import { SiteFooter, SiteHeader } from './SiteChrome';
 import './premium-marketing.css';
 
@@ -202,7 +202,7 @@ export function DownloadPage() {
           <small>目标支持 macOS 13 及以上版本 · Apple silicon</small>
         </div>
         <div className="download-product-card">
-          <div className="download-app-icon">M</div>
+          <MarkFixMark className="download-app-icon" size={62} />
           <div>
             <span>MarkFix for macOS</span>
             <strong>Version 0.1.0</strong>

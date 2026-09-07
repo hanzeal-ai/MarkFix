@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { WebsiteProject } from '@markfix/contracts';
-import { MessageSquareText } from '@markfix/ui/icons';
+import { MarkFixMark } from '@markfix/ui';
 
 export function MarkFixGlyph(): React.JSX.Element {
-  return (
-    <span className="markfix-glyph" aria-hidden="true">
-      <MessageSquareText />
-    </span>
-  );
+  return <MarkFixMark className="markfix-glyph" size={30} />;
 }
 
 export function WebsiteLogo({ project }: { project: WebsiteProject }): React.JSX.Element {

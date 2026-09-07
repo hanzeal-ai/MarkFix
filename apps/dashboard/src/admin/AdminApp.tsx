@@ -4,6 +4,8 @@ import {
   Alert,
   AlertDescription,
   Button,
+  MarkFixLogo,
+  MarkFixMark,
   Select,
   SelectContent,
   SelectItem,
@@ -75,8 +77,8 @@ export function AdminApp() {
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <a className="admin-brand" href="/">
-          <span>M</span>
-          <strong>MarkFix</strong>
+          <MarkFixLogo className="admin-brand-logo-full" variant="reversed" />
+          <MarkFixMark className="admin-brand-logo-compact" />
         </a>
         <div className="admin-workspace-label">工作区</div>
         <Select

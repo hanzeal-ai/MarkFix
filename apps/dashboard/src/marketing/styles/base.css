@@ -40,26 +40,8 @@
 
 .premium-brand {
   align-items: center;
-  color: var(--ink);
   display: inline-flex;
-  font-size: 19px;
-  font-weight: 760;
-  gap: 10px;
-  letter-spacing: -0.03em;
   text-decoration: none;
-}
-
-.premium-brand span {
-  align-items: center;
-  background: var(--ink);
-  border-radius: 9px;
-  color: #fff;
-  display: inline-flex;
-  font-size: 14px;
-  height: 32px;
-  justify-content: center;
-  letter-spacing: -0.04em;
-  width: 32px;
 }
 
 .premium-nav {

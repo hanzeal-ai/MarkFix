@@ -1,6 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { AlertCircle } from '@markfix/ui/icons';
-import { Alert, AlertDescription, Button, Card, Input, Label, PasswordInput } from '@markfix/ui';
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Card,
+  Input,
+  Label,
+  MarkFixMark,
+  PasswordInput,
+} from '@markfix/ui';
 import type { DesktopUser } from '../annotation-workspace/model';
 import { defaultDesktopPassword } from './login-defaults';
 
@@ -48,7 +57,7 @@ export function DesktopLogin({
       )}
       <Card>
         <div className="desktop-auth-brand">
-          <span>m</span> MarkFix
+          <MarkFixMark /> MarkFix
         </div>
         <p className="eyebrow">DESKTOP ANNOTATION</p>
         <h1>Sign in to start marking</h1>

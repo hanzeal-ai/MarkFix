@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Menu } from '@markfix/ui/icons';
 import {
   Button,
+  MarkFixLogo,
   Sheet,
   SheetClose,
   SheetContent,
@@ -25,8 +26,7 @@ export function SiteHeader() {
   return (
     <header className="premium-header">
       <a className="premium-brand" href="/" aria-label="MarkFix 首页">
-        <span aria-hidden="true">M</span>
-        MarkFix
+        <MarkFixLogo />
       </a>
       <nav className="premium-nav" aria-label="主导航">
         {navigation.map((item) => (
@@ -68,8 +68,7 @@ export function SiteFooter() {
     <footer className="premium-footer">
       <div>
         <a className="premium-brand" href="/">
-          <span>M</span>
-          MarkFix
+          <MarkFixLogo />
         </a>
         <p>Mark It! Fix It!</p>
       </div>

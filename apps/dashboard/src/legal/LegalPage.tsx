@@ -1,4 +1,5 @@
 import { ArrowLeft } from '@markfix/ui/icons';
+import { MarkFixMark } from '@markfix/ui';
 import './legal-page.css';
 
 type LegalDocument = {
@@ -99,7 +100,7 @@ export function LegalPage(): React.JSX.Element {
     <main className="legal-shell">
       <nav className="legal-nav">
         <a href="/">
-          <span>M</span>
+          <MarkFixMark size={28} />
           <strong>MarkFix</strong>
         </a>
         <a href="/">

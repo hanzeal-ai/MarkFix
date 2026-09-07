@@ -8,7 +8,15 @@ import {
   RefreshCw,
   Trash2,
 } from '@markfix/ui/icons';
-import { Badge, Button, Textarea, ToggleGroup, ToggleGroupItem, toast } from '@markfix/ui';
+import {
+  Badge,
+  Button,
+  MarkFixMark,
+  Textarea,
+  ToggleGroup,
+  ToggleGroupItem,
+  toast,
+} from '@markfix/ui';
 import { CaptureDemo } from './CaptureDemo';
 
 type DemoMode = 'browse' | 'comment' | 'capture';
@@ -149,7 +157,7 @@ export function InteractiveDemo() {
   return (
     <div className="mf-demo-shell">
       <aside className="mf-demo-projects" aria-label="演示项目">
-        <span className="mf-demo-app-mark">M</span>
+        <MarkFixMark className="mf-demo-app-mark" size={38} />
         <button className="is-active" type="button" aria-label="Momentum 项目">
           M
         </button>

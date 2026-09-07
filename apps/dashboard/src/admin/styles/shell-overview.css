@@ -28,26 +28,12 @@
 .admin-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
   padding: 0 8px 30px;
-  color: #fff;
   text-decoration: none;
 }
 
-.admin-brand > span {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  background: var(--admin-purple);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.admin-brand strong {
-  font-size: 20px;
-  font-weight: 700;
+.admin-brand-logo-compact {
+  display: none;
 }
 
 .admin-workspace-label {

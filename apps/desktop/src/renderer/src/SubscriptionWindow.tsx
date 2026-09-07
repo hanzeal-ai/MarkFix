@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { WorkspaceSubscription } from '@markfix/api-client';
 import type { WorkspaceSummary } from '@markfix/contracts';
-import { Badge, Button, Card, NativeSelect } from '@markfix/ui';
+import { Badge, Button, Card, MarkFixMark, NativeSelect } from '@markfix/ui';
 import { Check, LoaderCircle, Sparkles } from '@markfix/ui/icons';
 import type { SubscriptionBridge } from '../../subscription.js';
 import './subscription-window.css';
@@ -183,7 +183,7 @@ export function SubscriptionWindow(): React.JSX.Element {
   return (
     <main className="subscription-window">
       <header className="subscription-titlebar">
-        <span className="subscription-logo">M</span>
+        <MarkFixMark className="subscription-logo" size={25} />
         <strong>MarkFix</strong>
         <span>订阅</span>
       </header>
