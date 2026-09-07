@@ -4,6 +4,7 @@ import {
   createProjectSchema,
   createReportSchema,
   elementAnchorSchema,
+  reportSchema,
   regionAnchorSchema,
   savedCaptureSchema,
   updateEnvironmentSchema,
@@ -142,5 +143,10 @@ describe('report destination schema', () => {
   it('accepts an omitted environment while rejecting invalid environment IDs', () => {
     expect(createReportSchema.shape.environmentId.safeParse(undefined).success).toBe(true);
     expect(createReportSchema.shape.environmentId.safeParse('not-a-uuid').success).toBe(false);
+  });
+
+  it('preserves a nullable rejection reason from server reports', () => {
+    expect(reportSchema.shape.rejectionReason.safeParse('请补充复现步骤').success).toBe(true);
+    expect(reportSchema.shape.rejectionReason.safeParse(null).success).toBe(true);
   });
 });

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { selectPageRecords, selectProjectPageRecords } from '../src/renderer/src/page-records';
+import {
+  selectEditableProjectPageRecords,
+  selectPageRecords,
+  selectProjectPageRecords,
+} from '../src/renderer/src/page-records';
 
 describe('page-scoped annotation records', () => {
   it('restores each page own element comments and screenshots', () => {
@@ -42,5 +46,20 @@ describe('page-scoped annotation records', () => {
     expect(selectProjectPageRecords(records, 'a', 'page-1')).toEqual([records[0]]);
     expect(selectProjectPageRecords(records, 'b', 'page-1')).toEqual([records[1]]);
     expect(selectProjectPageRecords(records, undefined, 'page-1')).toEqual([]);
+  });
+
+  it('shows draft and rejected records in the active annotation workspace', () => {
+    const records = [
+      { id: 'draft', projectId: 'a', pageSessionId: 'page-1', status: 'draft' },
+      { id: 'submitted', projectId: 'a', pageSessionId: 'page-1', status: 'submitted' },
+      { id: 'rejected', projectId: 'a', pageSessionId: 'page-1', status: 'rejected' },
+      { id: 'other-page', projectId: 'a', pageSessionId: 'page-2', status: 'draft' },
+      { id: 'other-project', projectId: 'b', pageSessionId: 'page-1', status: 'draft' },
+    ];
+
+    expect(selectEditableProjectPageRecords(records, 'a', 'page-1')).toEqual([
+      records[0],
+      records[2],
+    ]);
   });
 });

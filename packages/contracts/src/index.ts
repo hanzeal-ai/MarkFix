@@ -432,6 +432,7 @@ export const reportSchema = createReportSchema.omit({ screenshotDataUrl: true })
   environmentId: z.uuid().nullable(),
   environment: environmentSchema.nullable().optional(),
   status: z.enum(reportStatuses),
+  rejectionReason: z.string().max(2000).nullable().optional(),
   version: z.number().int().positive(),
   screenshotUrl: z.string().optional(),
   assignee: userSummarySchema.nullable().optional(),

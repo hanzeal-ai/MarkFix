@@ -48,6 +48,7 @@ export function ElementCommentPanel({
     pageElementComments,
     editingElementCommentId,
   );
+  const editingComment = pageElementComments.find(({ id }) => id === editingElementCommentId);
 
   return (
     <aside className="comment-panel capture-panel element-comment-panel">
@@ -62,6 +63,11 @@ export function ElementCommentPanel({
               <MousePointer2 />
               <strong>{editingElementCommentId ? '编辑已有批注' : '已选择元素'}</strong>
             </div>
+            {editingComment?.status === 'rejected' && (
+              <p className="annotation-rejection">
+                驳回原因：{editingComment.rejectionReason ?? '未提供'}
+              </p>
+            )}
             <code>{anchor.cssSelector}</code>
             {guideStep === 'describe' && (
               <FirstAnnotationGuide mode="comment" step="describe" onDismiss={dismissGuide} />
@@ -148,6 +154,11 @@ export function ElementCommentPanel({
                     </Button>
                   </span>
                 </div>
+                {item.status === 'rejected' && (
+                  <p className="annotation-rejection">
+                    驳回原因：{item.rejectionReason ?? '未提供'}
+                  </p>
+                )}
                 <div className={`diagnostic-annotation-content ${item.evidence.level}`}>
                   <span>
                     <Terminal />
@@ -184,6 +195,11 @@ export function ElementCommentPanel({
                     </Button>
                   </span>
                 </div>
+                {item.status === 'rejected' && (
+                  <p className="annotation-rejection">
+                    驳回原因：{item.rejectionReason ?? '未提供'}
+                  </p>
+                )}
                 <Button
                   type="button"
                   className="element-note-select"

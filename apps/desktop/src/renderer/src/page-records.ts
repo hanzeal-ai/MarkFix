@@ -13,3 +13,14 @@ export const selectProjectPageRecords = <T extends { projectId: string; pageSess
         (record) => record.projectId === projectId && record.pageSessionId === pageSessionId,
       )
     : [];
+
+export const selectEditableProjectPageRecords = <
+  T extends { projectId: string; pageSessionId: string; status: string },
+>(
+  records: readonly T[],
+  projectId: string | undefined,
+  pageSessionId: string | undefined,
+): T[] =>
+  selectProjectPageRecords(records, projectId, pageSessionId).filter(
+    (record) => record.status === 'draft' || record.status === 'rejected',
+  );

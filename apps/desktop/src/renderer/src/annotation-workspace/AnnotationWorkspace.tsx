@@ -13,8 +13,9 @@ import {
   type WebsiteProject,
   type WorkspaceSummary,
 } from '@markfix/contracts';
-import { selectProjectPageRecords } from '../page-records';
+import { selectEditableProjectPageRecords } from '../page-records';
 import { projectReportOverlays } from '../project-report-overlays';
+import { latestReportRejections, rejectedRecordUpdates } from '../report-reconciliation';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
 import { CapturePanel } from './CapturePanel';
 import { BrowserToolbar } from './BrowserToolbar';
@@ -107,6 +108,7 @@ export function AnnotationWorkspace({
     deleteSavedCapture,
     editingCaptureId,
     markSubmitted: markCapturesSubmitted,
+    syncReportRejections: syncCaptureReportRejections,
     resetAfterSubmission: resetCaptureAfterSubmission,
     restoreActiveCapture,
     saveCapture,
@@ -129,6 +131,7 @@ export function AnnotationWorkspace({
     elementCommentsRef,
     elementEvidence,
     markSubmitted: markElementCommentsSubmitted,
+    syncReportRejections: syncElementReportRejections,
     selectElementComment,
     setElementCommentNote,
     setElementEvidence,
@@ -219,15 +222,15 @@ export function AnnotationWorkspace({
   );
   const currentPageUrl = browserState.url ?? url;
   const pageCaptures = useMemo(
-    () => selectProjectPageRecords(savedCaptures, selectedProjectId, pageSessionId),
+    () => selectEditableProjectPageRecords(savedCaptures, selectedProjectId, pageSessionId),
     [pageSessionId, savedCaptures, selectedProjectId],
   );
   const pageElementComments = useMemo(
-    () => selectProjectPageRecords(elementComments, selectedProjectId, pageSessionId),
+    () => selectEditableProjectPageRecords(elementComments, selectedProjectId, pageSessionId),
     [elementComments, pageSessionId, selectedProjectId],
   );
   const pageDiagnosticAnnotations = useMemo(
-    () => selectProjectPageRecords(diagnosticAnnotations, selectedProjectId, pageSessionId),
+    () => selectEditableProjectPageRecords(diagnosticAnnotations, selectedProjectId, pageSessionId),
     [diagnosticAnnotations, pageSessionId, selectedProjectId],
   );
   const currentProjectAnnotations = useMemo(
@@ -246,6 +249,38 @@ export function AnnotationWorkspace({
     () => projectReportOverlays(projectReports, selectedProjectId, pageSessionId, currentPageUrl),
     [currentPageUrl, pageSessionId, projectReports, selectedProjectId],
   );
+  const reportRejections = useMemo(() => latestReportRejections(projectReports), [projectReports]);
+
+  useEffect(() => {
+    void syncElementReportRejections(reportRejections);
+    void syncCaptureReportRejections(reportRejections);
+    const updates = rejectedRecordUpdates(diagnosticAnnotationsRef.current, reportRejections);
+    if (updates.length === 0) return;
+    void Promise.all(
+      updates.map((annotation) => window.markfix.saveDiagnosticAnnotation(annotation)),
+    )
+      .then(() => {
+        const byId = new Map(updates.map((annotation) => [annotation.id, annotation]));
+        setDiagnosticAnnotations((annotations) =>
+          annotations.map((annotation) =>
+            annotation.status === 'submitted'
+              ? (byId.get(annotation.id) ?? annotation)
+              : annotation,
+          ),
+        );
+      })
+      .catch((error: unknown) =>
+        setNotice(error instanceof Error ? error.message : '无法同步调试标注的驳回状态。'),
+      );
+  }, [
+    diagnosticAnnotations,
+    elementComments,
+    reportRejections,
+    savedCaptures,
+    setNotice,
+    syncCaptureReportRejections,
+    syncElementReportRejections,
+  ]);
   const renderedElementComments = useMemo(
     () => [
       ...new Map(
@@ -451,29 +486,43 @@ export function AnnotationWorkspace({
   }, []);
 
   useEffect(() => {
-    const requestId = ++projectReportRequestRef.current;
+    let active = true;
     setProjectReports([]);
-    if (!selectedProjectId || !currentPageUrl) return;
-    void window.markfix
-      .listProjectAnnotationReports(selectedProjectId, currentPageUrl)
-      .then((reports) => {
-        if (
-          requestId === projectReportRequestRef.current &&
-          selectedProjectIdRef.current === selectedProjectId
-        )
-          setProjectReports(reports);
-      })
-      .catch((error: unknown) => {
-        if (
-          requestId === projectReportRequestRef.current &&
-          selectedProjectIdRef.current === selectedProjectId
-        )
-          setNotice(
-            error instanceof Error
-              ? `网站已开始加载，但服务端标注加载失败：${error.message}`
-              : '网站已开始加载，但服务端标注加载失败。',
-          );
-      });
+    if (!selectedProjectId || !currentPageUrl) return () => undefined;
+    const refresh = (): void => {
+      const requestId = ++projectReportRequestRef.current;
+      void window.markfix
+        .listProjectAnnotationReports(selectedProjectId, currentPageUrl)
+        .then((reports) => {
+          if (
+            active &&
+            requestId === projectReportRequestRef.current &&
+            selectedProjectIdRef.current === selectedProjectId
+          )
+            setProjectReports(reports);
+        })
+        .catch((error: unknown) => {
+          if (
+            active &&
+            requestId === projectReportRequestRef.current &&
+            selectedProjectIdRef.current === selectedProjectId
+          )
+            setNotice(
+              error instanceof Error
+                ? `网站已开始加载，但服务端标注加载失败：${error.message}`
+                : '网站已开始加载，但服务端标注加载失败。',
+            );
+        });
+    };
+    const refreshOnFocus = (): void => refresh();
+    refresh();
+    window.addEventListener('focus', refreshOnFocus);
+    const refreshTimer = window.setInterval(refresh, 30_000);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refreshOnFocus);
+      window.clearInterval(refreshTimer);
+    };
   }, [currentPageUrl, selectedProjectId]);
 
   useEffect(() => {

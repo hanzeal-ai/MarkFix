@@ -52,6 +52,7 @@ export function CapturePanel({
   const [copiedCaptureId, setCopiedCaptureId] = useState<string>();
   const copiedFeedbackTimerRef = useRef<number | undefined>(undefined);
   const visibleCaptures = numberedVisibleRecords(pageCaptures, editingCaptureId);
+  const editingCapture = pageCaptures.find(({ id }) => id === editingCaptureId);
 
   useEffect(
     () => () => {
@@ -81,6 +82,11 @@ export function CapturePanel({
             <div className="capture-selection-kicker">
               <Camera /> {captureLoading ? '正在生成截图…' : '实时截图预览'}
             </div>
+            {editingCapture?.status === 'rejected' && (
+              <p className="annotation-rejection">
+                驳回原因：{editingCapture.rejectionReason ?? '未提供'}
+              </p>
+            )}
             {screenshot && (
               <div className="capture-thumbnail">
                 <img src={screenshot} alt="截图选区预览" />
@@ -189,6 +195,11 @@ export function CapturePanel({
                     </Button>
                   </span>
                 </div>
+                {item.status === 'rejected' && (
+                  <p className="annotation-rejection">
+                    驳回原因：{item.rejectionReason ?? '未提供'}
+                  </p>
+                )}
                 <Button
                   type="button"
                   className="capture-history-select"

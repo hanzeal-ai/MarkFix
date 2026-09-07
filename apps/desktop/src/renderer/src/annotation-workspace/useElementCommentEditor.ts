@@ -9,6 +9,7 @@ import {
 } from '@markfix/contracts';
 import { anchorRecoveryNotice } from './anchor-recovery';
 import { elementAnchorsEqual } from './model';
+import { rejectedRecordUpdates, type ReportRejection } from '../report-reconciliation';
 
 export function useElementCommentEditor({
   mode,
@@ -207,6 +208,25 @@ export function useElementCommentEditor({
     );
   }, []);
 
+  const syncReportRejections = useCallback(
+    async (rejections: ReadonlyMap<string, ReportRejection>): Promise<void> => {
+      const updates = rejectedRecordUpdates(elementCommentsRef.current, rejections);
+      if (updates.length === 0) return;
+      try {
+        await Promise.all(updates.map((comment) => window.markfix.saveElementComment(comment)));
+        const byId = new Map(updates.map((comment) => [comment.id, comment]));
+        setElementComments((comments) =>
+          comments.map((comment) =>
+            comment.status === 'submitted' ? (byId.get(comment.id) ?? comment) : comment,
+          ),
+        );
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : '无法同步元素批注的驳回状态。');
+      }
+    },
+    [setNotice],
+  );
+
   return {
     anchor,
     clearElementSelection,
@@ -218,6 +238,7 @@ export function useElementCommentEditor({
     elementCommentsRef,
     elementEvidence,
     markSubmitted,
+    syncReportRejections,
     selectElementComment,
     setElementCommentNote,
     setElementEvidence,

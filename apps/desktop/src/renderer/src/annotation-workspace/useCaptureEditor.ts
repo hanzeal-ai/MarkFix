@@ -7,6 +7,7 @@ import {
   type ScreenshotMark,
 } from '@markfix/contracts';
 import { composeCaptureExport, composeScreenshot } from '../screenshot-compositor';
+import { rejectedRecordUpdates, type ReportRejection } from '../report-reconciliation';
 import type { CaptureSelection, CaptureSource } from './model';
 
 type CaptureEditorOptions = {
@@ -373,6 +374,25 @@ export function useCaptureEditor({
     );
   }, []);
 
+  const syncReportRejections = useCallback(
+    async (rejections: ReadonlyMap<string, ReportRejection>): Promise<void> => {
+      const updates = rejectedRecordUpdates(savedCapturesRef.current, rejections);
+      if (updates.length === 0) return;
+      try {
+        await Promise.all(updates.map((capture) => window.markfix.saveCaptureRecord(capture)));
+        const byId = new Map(updates.map((capture) => [capture.id, capture]));
+        setSavedCaptures((captures) =>
+          captures.map((capture) =>
+            capture.status === 'submitted' ? (byId.get(capture.id) ?? capture) : capture,
+          ),
+        );
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : '无法同步截图批注的驳回状态。');
+      }
+    },
+    [setNotice],
+  );
+
   const resetAfterSubmission = useCallback((): void => {
     resetLocal();
     void window.markfix.clearCaptureSelection();
@@ -393,6 +413,7 @@ export function useCaptureEditor({
     deleteSavedCapture,
     editingCaptureId,
     markSubmitted,
+    syncReportRejections,
     resetAfterSubmission,
     restoreActiveCapture,
     saveCapture,

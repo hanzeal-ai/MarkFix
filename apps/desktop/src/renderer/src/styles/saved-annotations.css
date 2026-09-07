@@ -144,6 +144,16 @@
   font-size: 13px;
   line-height: 1.55;
 }
+p.annotation-rejection {
+  margin: 0 0 10px;
+  border-radius: 8px;
+  background: #fde9e7;
+  padding: 8px 10px;
+  color: #ad4038;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
 .capture-history-select {
   display: block;
   width: 100%;

@@ -113,6 +113,42 @@ describe('projectReportOverlays', () => {
     });
   });
 
+  it('replays a rejected element with its rejection reason', () => {
+    const item = report({
+      id: '86c28bc3-a8a0-40df-a4b6-c7f71823d41a',
+      rejectionReason: '请补充复现步骤',
+      captureBundle: {
+        schemaVersion: 1,
+        sourceAnnotationId: '49bbad52-952f-4c45-96e9-5020106f9324',
+        page: {
+          url: 'https://example.com/',
+          title: 'Example',
+          viewportWidthCssPx: 1440,
+          viewportHeightCssPx: 900,
+          deviceScaleFactor: 2,
+          capturedAt: createdAt,
+        },
+        anchor: {
+          kind: 'element',
+          cssSelector: '[id="headline"]',
+          textQuote: 'A headline',
+          tagName: 'h1',
+          attributes: { id: 'headline' },
+          documentUrl: 'https://example.com/',
+          framePath: [],
+          quadsCssPx: [[10, 20, 210, 20, 210, 80, 10, 80]],
+        },
+        annotations: [],
+        reproduction: [],
+      },
+    });
+
+    expect(
+      projectReportOverlays([item], projectId, pageSessionId, 'https://example.com')
+        .elementComments[0],
+    ).toMatchObject({ status: 'rejected', rejectionReason: '请补充复现步骤' });
+  });
+
   it('draws the selected region when a server report has no drawing annotations', () => {
     const item = report({
       id: 'ac1bdf61-542e-4609-93fb-f4fa28b0544c',

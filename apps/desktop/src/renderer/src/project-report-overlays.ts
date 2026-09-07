@@ -1,4 +1,5 @@
 import type { Annotation, Report, SavedElementComment } from '@markfix/contracts';
+import { latestAnnotationReports } from './report-reconciliation';
 
 export type ProjectReportOverlays = {
   annotations: Annotation[];
@@ -18,7 +19,7 @@ export const projectReportOverlays = (
 
   const annotations = new Map<string, Annotation>();
   const elementComments: SavedElementComment[] = [];
-  for (const report of reports) {
+  for (const report of latestAnnotationReports(reports)) {
     const bundle = report.captureBundle;
     if (report.projectId !== projectId || !samePage(bundle.page.url, pageUrl)) continue;
 
@@ -29,7 +30,8 @@ export const projectReportOverlays = (
         pageSessionId,
         pageTitle: bundle.page.title,
         pageUrl: bundle.page.url,
-        status: 'submitted',
+        status: report.rejectionReason ? 'rejected' : 'submitted',
+        ...(report.rejectionReason ? { rejectionReason: report.rejectionReason } : {}),
         submittedAt: report.createdAt,
         anchor: bundle.anchor,
         note: report.description,
