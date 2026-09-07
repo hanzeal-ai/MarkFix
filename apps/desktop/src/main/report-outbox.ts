@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { ipcMain, nativeImage, type IpcMainInvokeEvent } from 'electron';
 import {
   captureBundleSchema,
   createReportSchema,
@@ -9,6 +9,7 @@ import {
 } from '@markfix/contracts';
 import type { MarkFixApi } from '@markfix/api-client';
 import type { DraftStore, OutboxEntry } from './draft-store.js';
+import { optimizeReportScreenshot } from './report-screenshot-optimizer.js';
 
 export class ReportOutbox {
   private syncing = false;
@@ -32,7 +33,10 @@ export class ReportOutbox {
       assertSender(event);
       await this.assertSupportedClient();
       const payload = input as { report?: unknown; idempotencyKey?: unknown };
-      const candidate = createReportSchema.parse(payload.report) as CreateReport;
+      const parsed = createReportSchema.parse(payload.report) as CreateReport;
+      const candidate = optimizeReportScreenshot(parsed, (dataUrl) =>
+        nativeImage.createFromDataURL(dataUrl),
+      );
       captureBundleSchema.parse(candidate.captureBundle);
       const store = this.store();
       if (!store) throw new Error('Local outbox is unavailable');
