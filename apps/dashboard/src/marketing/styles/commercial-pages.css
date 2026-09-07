@@ -1,0 +1,340 @@
+/* Documentation, pricing and download pages */
+.commercial-page-hero {
+  margin: 0 auto;
+  max-width: 1320px;
+  padding: 130px 48px 100px;
+}
+
+.commercial-page-hero.is-centered {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.commercial-page-hero h1,
+.download-copy h1 {
+  font-size: clamp(52px, 7vw, 86px);
+  font-weight: 640;
+  letter-spacing: -0.07em;
+  line-height: 1;
+  margin: 0;
+  max-width: 980px;
+}
+
+.commercial-page-hero p,
+.download-copy > p {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.75;
+  margin: 24px 0 0;
+  max-width: 700px;
+}
+
+.docs-layout {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 70px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 1224px;
+  padding: 70px 0 130px;
+}
+
+.docs-layout > aside {
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  position: sticky;
+  top: 108px;
+}
+
+.docs-layout > aside strong {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.docs-layout > aside a {
+  color: #7b7b85;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.docs-content {
+  max-width: 760px;
+}
+
+.docs-content article {
+  border-bottom: 1px solid var(--line);
+  padding: 0 0 76px;
+  scroll-margin-top: 100px;
+}
+
+.docs-content article + article {
+  padding-top: 76px;
+}
+
+.docs-content article > span {
+  color: var(--purple);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.docs-content h2 {
+  font-size: 36px;
+  letter-spacing: -0.05em;
+  margin: 12px 0 18px;
+}
+
+.docs-content article > p,
+.docs-content li {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.docs-content ol {
+  background: #f2f1f5;
+  border: 1px solid #e2e0e7;
+  margin: 28px 0 0;
+  padding: 22px 22px 22px 48px;
+}
+
+.docs-callout {
+  align-items: flex-start;
+  background: #efedff;
+  border-left: 3px solid var(--purple);
+  display: flex;
+  gap: 14px;
+  margin-top: 27px;
+  padding: 20px;
+}
+
+.docs-callout svg {
+  color: var(--purple);
+  height: 20px;
+  width: 20px;
+}
+
+.docs-callout span {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.docs-callout strong {
+  font-size: 13px;
+}
+
+.docs-callout small {
+  color: #6e6b82;
+  font-size: 12px;
+}
+
+.docs-tool-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 26px;
+}
+
+.docs-tool-list span {
+  border: 1px solid var(--line);
+  color: #65656f;
+  font-size: 12px;
+  padding: 9px 12px;
+}
+
+.docs-content article > button {
+  margin-top: 24px;
+}
+
+.commercial-pricing-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0 auto;
+  max-width: 980px;
+  padding: 0 0 120px;
+}
+
+.commercial-price-card {
+  border-color: var(--line);
+  border-radius: 22px;
+  box-shadow: none;
+  padding: 38px;
+}
+
+.commercial-price-card.is-featured {
+  background: #efedff;
+  border-color: #c8c1ff;
+}
+
+.commercial-price-card > div {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.commercial-price-card > div > span {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.commercial-price-card > strong {
+  display: block;
+  font-size: 36px;
+  letter-spacing: -0.05em;
+  margin-top: 38px;
+}
+
+.commercial-price-card > p {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.commercial-comparison {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 90px;
+  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr);
+  margin: 0 auto;
+  max-width: 1224px;
+  padding: 110px 0 140px;
+}
+
+.commercial-comparison h2 {
+  font-size: 44px;
+}
+
+.commercial-comparison-table {
+  border-top: 1px solid var(--line);
+}
+
+.commercial-comparison-table > div {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  font-size: 13px;
+  grid-template-columns: 1.4fr 0.8fr 0.8fr;
+  min-height: 58px;
+}
+
+.commercial-comparison-table > div > span {
+  color: #60606a;
+}
+
+.commercial-comparison-table b,
+.commercial-comparison-table strong {
+  font-weight: 600;
+  text-align: center;
+}
+
+.commercial-comparison-table .is-heading {
+  color: #8a8993;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.download-layout {
+  align-items: center;
+  display: grid;
+  gap: 100px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+  margin: 0 auto;
+  max-width: 1224px;
+  min-height: calc(100vh - 76px);
+  padding: 100px 0 130px;
+}
+
+.download-actions {
+  align-items: center;
+  display: flex;
+  gap: 22px;
+  margin-top: 38px;
+}
+
+.download-actions > a {
+  align-items: center;
+  color: #55545f;
+  display: flex;
+  font-size: 13px;
+  gap: 7px;
+  text-decoration: none;
+}
+
+.download-actions svg {
+  height: 15px;
+  width: 15px;
+}
+
+.download-copy > small {
+  color: #91909a;
+  display: block;
+  font-size: 11px;
+  margin-top: 22px;
+}
+
+.download-product-card {
+  background: #efedff;
+  border: 1px solid #cbc5ff;
+  border-radius: 30px;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: auto 1fr auto;
+  padding: 44px;
+}
+
+.download-app-icon {
+  align-items: center;
+  background: #17171d;
+  border-radius: 15px;
+  color: white;
+  display: flex;
+  font-size: 22px;
+  font-weight: 750;
+  height: 62px;
+  justify-content: center;
+  width: 62px;
+}
+
+.download-product-card > div:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.download-product-card > div:nth-child(2) span {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.download-product-card > div:nth-child(2) strong {
+  color: #777386;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.download-capability-list {
+  border-top: 1px solid #d4cff2;
+  grid-column: 1 / -1;
+  margin-top: 14px;
+  padding-top: 24px;
+}
+
+.download-capability-list p {
+  align-items: center;
+  color: #555261;
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.download-capability-list svg {
+  color: var(--purple);
+  height: 17px;
+  width: 17px;
+}

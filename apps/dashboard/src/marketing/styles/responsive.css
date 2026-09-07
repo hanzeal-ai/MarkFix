@@ -1,0 +1,409 @@
+@media (max-width: 1160px) {
+  .premium-header {
+    padding: 0 28px;
+  }
+  .premium-nav > a {
+    display: inline-flex;
+  }
+  .premium-management {
+    gap: 54px;
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  }
+  .mf-demo-toolbar {
+    grid-template-columns: minmax(160px, 1fr) auto auto;
+  }
+  .mf-demo-browser-controls {
+    display: none;
+  }
+  .mf-demo-site-home {
+    gap: 34px;
+    padding: 48px 34px;
+  }
+  .mf-demo-body {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+}
+
+@media (max-width: 900px) {
+  .premium-hero {
+    min-height: 690px;
+    padding: 90px 28px;
+  }
+  .experience-section {
+    padding: 84px 18px;
+  }
+  .premium-capability-section,
+  .premium-pricing-home {
+    padding: 104px 28px;
+  }
+  .premium-download-home {
+    gap: 40px;
+    grid-template-columns: 1fr;
+    margin: 70px 28px;
+    padding: 56px;
+  }
+  .premium-download-home h2 {
+    white-space: normal;
+  }
+  .docs-layout,
+  .commercial-comparison,
+  .download-layout {
+    gap: 52px;
+    margin-left: 28px;
+    margin-right: 28px;
+  }
+  .docs-layout {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+  .commercial-comparison,
+  .download-layout {
+    grid-template-columns: 1fr;
+  }
+  .download-layout {
+    min-height: auto;
+  }
+  .premium-continuation {
+    align-items: start;
+    gap: 34px;
+    grid-template-columns: 1fr;
+    padding: 104px 28px;
+  }
+  .premium-section,
+  .premium-management,
+  .premium-closing {
+    padding: 105px 28px;
+  }
+  .premium-section-heading.is-wide {
+    align-items: start;
+    gap: 25px;
+    grid-template-columns: 1fr;
+  }
+  .premium-section-heading.is-wide p {
+    max-width: 640px;
+  }
+  .premium-workflow {
+    grid-template-columns: 1fr;
+  }
+  .premium-workflow article {
+    min-height: 230px;
+  }
+  .premium-workflow article + article {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .premium-workflow article > div {
+    margin-bottom: 48px;
+  }
+  .premium-management {
+    grid-template-columns: 1fr;
+  }
+  .premium-admin-preview {
+    min-height: 520px;
+  }
+  .mf-demo-shell {
+    grid-template-columns: 1fr;
+  }
+  .mf-demo-projects {
+    display: none;
+  }
+  .mf-demo-body {
+    grid-template-columns: 1fr;
+  }
+  .mf-demo-page {
+    min-height: 610px;
+  }
+  .mf-demo-comments {
+    border-left: 0;
+    border-top: 1px solid #e1e0e6;
+    min-height: 350px;
+  }
+  .mf-demo-comment-list {
+    max-height: 320px;
+  }
+  .premium-footer {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  .premium-footer .premium-brand {
+    justify-self: center;
+  }
+  .premium-footer small {
+    justify-self: center;
+  }
+}
+
+@media (max-width: 680px) {
+  .premium-header {
+    height: 66px;
+    padding: 0 18px;
+  }
+  .premium-nav {
+    display: none;
+  }
+  .premium-menu-button {
+    display: inline-flex !important;
+  }
+  .premium-hero {
+    min-height: 650px;
+    padding: 74px 20px 82px;
+  }
+  .premium-hero-kicker {
+    display: none;
+  }
+  .premium-hero h1 {
+    font-size: clamp(40px, 11.5vw, 54px);
+    margin-top: 24px;
+  }
+  .premium-hero > p {
+    font-size: 16px;
+  }
+  .premium-hero-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+  .premium-hero-actions button {
+    width: 100%;
+  }
+  .premium-hero-proof {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .premium-product-note {
+    flex-wrap: wrap;
+    gap: 22px;
+    justify-content: center;
+  }
+  .premium-product-note span + span::before {
+    left: -12px;
+  }
+  .premium-demo-heading h2,
+  .premium-continuation h2 {
+    font-size: 40px;
+  }
+  .premium-capability-section,
+  .premium-pricing-home {
+    padding: 82px 20px;
+  }
+  .premium-editorial-heading h2,
+  .premium-download-home h2,
+  .commercial-page-hero h1,
+  .download-copy h1 {
+    font-size: 40px;
+  }
+  .premium-capability-grid,
+  .premium-plan-row,
+  .commercial-pricing-grid {
+    grid-template-columns: 1fr;
+  }
+  .premium-capability-grid article {
+    min-height: 0;
+    padding: 24px 20px 30px;
+  }
+  .premium-capability-grid .premium-capability-meta {
+    margin-bottom: 20px;
+  }
+  .premium-capability-visual {
+    border-radius: 10px;
+    margin-bottom: 22px;
+  }
+  .premium-capability-copy {
+    min-height: 0;
+  }
+  .premium-download-home {
+    margin: 52px 12px;
+    padding: 42px 26px;
+  }
+  .commercial-page-hero {
+    padding: 88px 20px 70px;
+  }
+  .commercial-page-hero p,
+  .download-copy > p {
+    font-size: 16px;
+  }
+  .docs-layout {
+    display: block;
+    margin: 0 20px;
+    padding: 46px 0 90px;
+  }
+  .docs-layout > aside {
+    display: none;
+  }
+  .docs-content article,
+  .docs-content article + article {
+    padding: 58px 0;
+  }
+  .commercial-pricing-grid {
+    margin: 0 20px;
+    padding-bottom: 82px;
+  }
+  .commercial-comparison {
+    display: block;
+    margin: 0 20px;
+    padding: 82px 0;
+  }
+  .commercial-comparison > div:first-child {
+    margin-bottom: 46px;
+  }
+  .commercial-comparison-table > div {
+    font-size: 11px;
+  }
+  .download-layout {
+    display: block;
+    margin: 0 20px;
+    padding: 82px 0;
+  }
+  .download-product-card {
+    margin-top: 64px;
+    padding: 28px;
+  }
+  .download-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .premium-continuation {
+    padding: 82px 20px;
+  }
+  .premium-section,
+  .premium-management,
+  .premium-closing {
+    padding: 82px 20px;
+  }
+  .premium-section-heading h2,
+  .premium-management-copy h2,
+  .premium-closing h2 {
+    font-size: 40px;
+  }
+  .premium-section-heading {
+    margin-bottom: 44px;
+  }
+  .premium-workflow article {
+    padding: 28px 24px 34px;
+  }
+  .premium-pricing-grid {
+    grid-template-columns: 1fr;
+  }
+  .premium-admin-preview {
+    grid-template-columns: 44px minmax(0, 1fr);
+    min-height: 470px;
+    padding: 10px;
+  }
+  .premium-admin-main {
+    padding: 0 12px 14px;
+  }
+  .premium-admin-metrics > div {
+    padding: 10px;
+  }
+  .premium-admin-metrics strong {
+    font-size: 20px;
+  }
+  .premium-admin-lower {
+    grid-template-columns: 1fr;
+  }
+  .premium-admin-activity {
+    display: none;
+  }
+  .premium-closing > div {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+  .experience-section {
+    padding: 72px 10px;
+  }
+  .experience-section .premium-section-heading {
+    padding: 0 10px;
+  }
+  .mf-demo-shell {
+    border-radius: 16px;
+  }
+  .mf-demo-toolbar {
+    gap: 8px;
+    grid-template-columns: minmax(90px, 1fr) auto;
+    padding: 8px;
+  }
+  .mf-demo-address {
+    font-size: 10px;
+  }
+  .mf-demo-toolbar > button {
+    display: none;
+  }
+  .mf-demo-modes button {
+    font-size: 0;
+    padding: 9px;
+  }
+  .mf-demo-modes button svg {
+    height: 17px;
+    width: 17px;
+  }
+  .mf-demo-page {
+    min-height: 600px;
+  }
+  .mf-demo-site-header {
+    padding: 0 16px;
+  }
+  .mf-demo-site-header nav button {
+    display: none;
+  }
+  .mf-demo-site-header nav button.mf-demo-site-cta {
+    display: block;
+  }
+  .mf-demo-site-home {
+    align-items: start;
+    grid-template-columns: 1fr;
+    min-height: 526px;
+    padding: 56px 26px 36px;
+  }
+  .mf-demo-site-copy h3 {
+    font-size: 40px;
+  }
+  .mf-demo-visual-target {
+    display: none;
+  }
+  .mf-demo-hint {
+    max-width: calc(100% - 28px);
+    top: 84px;
+    white-space: nowrap;
+  }
+  .mf-demo-pricing-page {
+    padding: 40px 20px;
+  }
+  .mf-demo-plan-row {
+    grid-template-columns: 1fr;
+  }
+  .mf-demo-plan-row > .mf-demo-annotatable:nth-child(3) {
+    display: none;
+  }
+  .mf-demo-plan {
+    min-height: 120px;
+  }
+  .mf-demo-plan strong {
+    margin-top: 20px;
+  }
+  .mf-demo-comments {
+    min-height: 360px;
+  }
+  .mf-demo-capture-layer {
+    cursor: default;
+  }
+  .premium-footer {
+    padding: 38px 20px;
+  }
+  .premium-footer-links {
+    gap: 28px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    text-align: left;
+  }
+  .premium-footer-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-site {
+    scroll-behavior: auto;
+  }
+}
