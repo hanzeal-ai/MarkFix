@@ -1,0 +1,287 @@
+.project-sheet {
+  background: #f7f7f9;
+}
+
+.project-sheet > header {
+  display: grid;
+  align-items: stretch;
+  margin-bottom: 0;
+  background: #fff;
+}
+
+.sheet-heading-line {
+  gap: 9px;
+  color: #91929b;
+  font-size: 10px;
+}
+
+.category-editor {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.sheet-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 126px auto;
+  gap: 8px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--admin-border);
+  background: #fff;
+}
+
+.sheet-content-list {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 16px 18px 30px;
+}
+
+.sheet-content-list .admin-empty {
+  margin-top: 16px;
+}
+
+.sheet-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--admin-border);
+  background: #fff;
+  color: #777985;
+  font-size: 11px;
+}
+
+.annotation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  box-shadow: none;
+}
+
+.annotation-summary {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 17px 18px;
+  color: inherit;
+  text-align: left;
+}
+
+.annotation-summary:hover {
+  background: #fafaff;
+}
+
+.annotation-row-top {
+  gap: 10px;
+  color: #90919a;
+  font-size: 9px;
+}
+
+.annotation-row-top > span:last-child {
+  margin-left: auto;
+}
+
+.annotation-row-top svg {
+  width: 11px;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
+.annotation-row strong {
+  display: block;
+  margin: 13px 0 6px;
+  font-size: 14px;
+}
+
+.annotation-row-bottom {
+  min-width: 0;
+  gap: 7px;
+  margin-top: 13px;
+  color: #858690;
+  font-size: 9px;
+}
+
+.mini-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 8px;
+}
+
+.annotation-row-bottom > svg {
+  width: 14px;
+  margin-left: auto;
+}
+
+.annotation-actions {
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  border-left: 1px solid #eeeef1;
+  padding: 10px;
+}
+
+.annotation-actions .delete-action {
+  color: #b64b42;
+}
+
+.annotation-status {
+  border: 0;
+}
+
+.status-open {
+  background: #f0eff4;
+  color: #666872;
+}
+
+.status-in_review {
+  background: #fff2da;
+  color: #9d6317;
+}
+
+.status-resolved {
+  background: #e9f6ee;
+  color: #277344;
+}
+
+.status-rejected {
+  background: #fff0ed;
+  color: #a8453c;
+}
+
+.annotation-dialog {
+  max-width: 620px;
+}
+
+.annotation-form,
+.annotation-detail-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.annotation-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.annotation-form textarea {
+  min-height: 106px;
+}
+
+.annotation-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.annotation-detail-title {
+  display: grid;
+  gap: 10px;
+}
+
+.annotation-detail-badges {
+  display: flex;
+  gap: 7px;
+}
+
+.annotation-detail-title h3 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.annotation-detail-section {
+  display: grid;
+  gap: 9px;
+  border: 1px solid var(--admin-border);
+  border-radius: 11px;
+  background: #fafafb;
+  padding: 14px;
+}
+
+.annotation-detail-section h4 {
+  margin: 0;
+  color: #858690;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.annotation-detail-note,
+.rejection-detail p {
+  margin: 0;
+  color: #3d3f47;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.annotation-detail-grid dl {
+  margin: 0;
+  display: grid;
+}
+
+.annotation-detail-grid dl > div {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 12px;
+  border-bottom: 1px solid #e7e7eb;
+  padding: 9px 0;
+  font-size: 11px;
+}
+
+.annotation-detail-grid dl > div:last-child {
+  border-bottom: 0;
+}
+
+.annotation-detail-grid dt {
+  color: #93949d;
+}
+
+.annotation-detail-grid dd {
+  min-width: 0;
+  margin: 0;
+  display: grid;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+
+.annotation-detail-grid dd small {
+  color: #94959e;
+  font-size: 9px;
+}
+
+.annotation-detail-grid a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--admin-purple);
+}
+
+.annotation-detail-grid a svg {
+  width: 12px;
+}
+
+.rejection-detail {
+  border-color: #f2d2cd;
+  background: #fff3f1;
+}
+
+.rejection-detail h4,
+.rejection-detail p {
+  color: #a8453c;
+}

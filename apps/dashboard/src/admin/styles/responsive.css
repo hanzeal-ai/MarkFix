@@ -1,0 +1,211 @@
+@media (max-width: 1120px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .projects-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overview-charts {
+    grid-template-columns: 1fr;
+  }
+
+  .dimension-row {
+    grid-template-columns: 40px minmax(150px, 1fr) 60px 60px 60px 100px 18px;
+    gap: 10px;
+    padding-inline: 18px;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-shell {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .admin-sidebar {
+    padding-inline: 12px;
+  }
+
+  .admin-brand {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .admin-brand strong,
+  .admin-workspace-label,
+  .admin-sidebar > select,
+  .admin-nav button:not(.active) > span,
+  .admin-nav button {
+    font-size: 0;
+  }
+
+  .admin-nav button {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .admin-nav button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .admin-profile {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .admin-profile > span:nth-child(2) {
+    display: none;
+  }
+
+  .admin-profile-settings {
+    display: none;
+  }
+
+  .admin-main {
+    padding-inline: 22px;
+  }
+
+  .dimension-card {
+    overflow-x: auto;
+  }
+
+  .dimension-header,
+  .dimension-list {
+    min-width: 720px;
+  }
+
+  .users-card {
+    overflow-x: auto;
+  }
+
+  .users-table-head,
+  .users-table-row {
+    min-width: 660px;
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-shell {
+    display: block;
+  }
+
+  .admin-sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .admin-brand {
+    padding: 0;
+  }
+
+  .admin-nav {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .admin-nav button {
+    width: 38px;
+  }
+
+  .admin-profile {
+    margin: 0;
+    display: flex;
+    border: 0;
+    padding: 0;
+  }
+
+  .admin-profile .user-symbol {
+    display: none;
+  }
+
+  .admin-profile-settings {
+    display: inline;
+  }
+
+  .admin-main {
+    padding: 28px 16px 60px;
+  }
+
+  .admin-page-header {
+    display: grid;
+  }
+
+  .admin-header-actions {
+    justify-content: space-between;
+  }
+
+  .metrics-grid,
+  .projects-grid,
+  .overview-charts {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-card {
+    min-height: 126px;
+  }
+
+  .status-chart-body {
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .status-donut {
+    width: 124px;
+  }
+
+  .project-bars > button {
+    grid-template-columns: minmax(70px, 100px) minmax(100px, 1fr) 24px;
+  }
+
+  .project-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .users-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .users-toolbar > form input {
+    width: 100%;
+  }
+
+  .admin-search {
+    width: 100%;
+  }
+
+  .filter-control select {
+    width: 100%;
+  }
+
+  .dimension-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .project-sheet {
+    max-width: 100%;
+  }
+
+  .sheet-toolbar {
+    grid-template-columns: 1fr 118px;
+  }
+
+  .sheet-toolbar > button {
+    grid-column: 1 / -1;
+  }
+
+  .annotation-form-row {
+    grid-template-columns: 1fr;
+  }
+}

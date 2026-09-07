@@ -2,9 +2,8 @@ export type AdminView = 'overview' | 'projects' | 'users';
 export type AnnotationStatus = 'OPEN' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED';
 export type AnnotationKind = 'ELEMENT' | 'SCREENSHOT' | 'COMMENT';
 
-export type ManagedAnnotation = {
+export type CommercialAnnotation = {
   id: string;
-  sourceReportId: string | null;
   projectId: string;
   authorId: string | null;
   author: { id: string; displayName: string; email: string } | null;
@@ -69,7 +68,7 @@ export type CommercialBootstrap = {
 };
 
 export type PaginatedAnnotations = {
-  items: ManagedAnnotation[];
+  items: CommercialAnnotation[];
   total: number;
   page: number;
   pageSize: number;
@@ -77,23 +76,33 @@ export type PaginatedAnnotations = {
 
 export type EditorState =
   | { mode: 'create'; annotation?: undefined }
-  | { mode: 'view' | 'edit' | 'reject'; annotation: ManagedAnnotation };
+  | { mode: 'view' | 'edit' | 'reject'; annotation: CommercialAnnotation };
 
 export const statusText: Record<AnnotationStatus, string> = {
-  OPEN: '待处理', IN_REVIEW: '处理中', RESOLVED: '已解决', REJECTED: '已驳回',
+  OPEN: '待处理',
+  IN_REVIEW: '处理中',
+  RESOLVED: '已解决',
+  REJECTED: '已驳回',
 };
 
 export const kindText: Record<AnnotationKind, string> = {
-  ELEMENT: '元素标注', SCREENSHOT: '截图标注', COMMENT: '文字批注',
+  ELEMENT: '元素标注',
+  SCREENSHOT: '截图标注',
+  COMMENT: '文字批注',
 };
 
 export const viewTitles: Record<AdminView, string> = {
-  overview: '统计总览', projects: '标注项目', users: '用户管理',
+  overview: '统计总览',
+  projects: '标注项目',
+  users: '用户管理',
 };
 
 export const formatDate = (value: string) =>
   new Intl.DateTimeFormat('zh-CN', {
-    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(new Date(value));
 
 export const projectProgress = (project: OverviewProject) =>
