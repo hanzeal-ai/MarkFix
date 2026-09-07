@@ -18,7 +18,6 @@
     "@markfix/anchor-core": "workspace:*",
     "@markfix/api-client": "workspace:*",
     "@markfix/contracts": "workspace:*",
-    "@markfix/reproduction-model": "workspace:*",
     "@markfix/ui": "workspace:*",
     "better-sqlite3": "13.0.3",
     "react": "19.2.8",

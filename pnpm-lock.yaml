@@ -128,9 +128,6 @@ importers:
       '@markfix/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@markfix/reproduction-model':
-        specifier: workspace:*
-        version: link:../../packages/reproduction-model
       '@markfix/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -223,12 +220,6 @@ importers:
       prisma:
         specifier: 6.19.3
         version: 6.19.3(typescript@5.9.3)
-
-  packages/reproduction-model:
-    dependencies:
-      '@markfix/contracts':
-        specifier: workspace:*
-        version: link:../contracts
 
   packages/testkit:
     devDependencies:
