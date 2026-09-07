@@ -32,6 +32,7 @@ RUN mkdir -p /opt/markfix-api/prisma \
   && node node_modules/prisma/build/index.js generate --schema prisma/schema.prisma
 
 FROM base AS runtime
+ENV NODE_ENV=production
 COPY --from=build /opt/markfix-api ./
 EXPOSE 4310
 STOPSIGNAL SIGTERM

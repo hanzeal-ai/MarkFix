@@ -31,6 +31,7 @@ services:
       - node node_modules/prisma/build/index.js db push --skip-generate --schema prisma/schema.prisma && exec node dist/main.js
     environment:
       <<: *api-environment
+      NODE_ENV: development
       PORT: 4310
       MARKFIX_AUTH_SECRET: change-this-before-production
       MARKFIX_DASHBOARD_ORIGIN: http://localhost:4311

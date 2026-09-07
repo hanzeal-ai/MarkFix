@@ -4,6 +4,9 @@ packages:
 
 injectWorkspacePackages: true
 
+overrides:
+  deepmerge-ts: 8.0.0
+
 allowBuilds:
   '@electron/rebuild': true
   '@prisma/client': true
