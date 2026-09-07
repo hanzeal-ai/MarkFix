@@ -44,7 +44,8 @@ declare global {
       listWebsiteProjects(): Promise<WebsiteProject[]>;
       listProjectAnnotationReports(projectId: string, pageUrl: string): Promise<Report[]>;
       createWebsiteProject(
-        workspaceId: string,
+        storageMode: 'LOCAL' | 'CLOUD',
+        workspaceId: string | undefined,
         url: string,
       ): Promise<{ project: WebsiteProject; created: boolean }>;
       switchWebsiteProject(projectId: string): Promise<WebsiteProject>;
@@ -53,12 +54,6 @@ declare global {
       setWorkspaceLayout(sidebarWidth: 0 | 228, visible: boolean): Promise<void>;
       openMoreMenu(x: number, y: number): Promise<void>;
       openSettings(): Promise<void>;
-      submitProjectAnnotations(projectId: string): Promise<{
-        elementCommentIds: string[];
-        captureIds: string[];
-        diagnosticAnnotationIds: string[];
-        submittedAt: string;
-      }>;
       navigate(url: string): Promise<string>;
       back(): Promise<void>;
       forward(): Promise<void>;
@@ -96,8 +91,8 @@ declare global {
       openAnnotationHistory(): Promise<void>;
       openProjectAnnotationHistory(projectId: string): Promise<void>;
       selectHistoricalAnnotation(reference: HistoryAnnotationReference): Promise<void>;
-      openCapturePreview(captureId: string): Promise<void>;
-      loadCapturePreview(captureId: string): Promise<SavedCapture>;
+      openCapturePreview(projectId: string, captureId: string): Promise<void>;
+      loadCapturePreview(projectId: string, captureId: string): Promise<SavedCapture>;
       syncAnchor(anchor: Anchor | null): Promise<void>;
       capture(request: CaptureRequest): Promise<
         CaptureContext & {

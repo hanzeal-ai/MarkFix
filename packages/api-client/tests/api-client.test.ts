@@ -197,4 +197,87 @@ describe('MarkFixApi request coordination', () => {
     expect(new Headers(requests[2]?.headers).get('content-type')).toBe('image/png');
     expect(Array.from(requests[2]?.body as Uint8Array)).toEqual([97]);
   });
+
+  it('stores cloud capture metadata separately from its PNG binaries', async () => {
+    const projectId = '90e2a0c5-0755-49b9-9d5d-41534ed41b41';
+    const captureId = '1d04602d-c0cb-4aac-bf5b-066b33273a03';
+    const requests: Array<{ url: string; init: RequestInit }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        requests.push({ url: String(input), init: init ?? {} });
+        return Response.json({ saved: true });
+      }),
+    );
+    const api = new MarkFixApi('https://api.example.test');
+    const now = new Date().toISOString();
+
+    await api.saveCloudCapture({
+      id: captureId,
+      projectId,
+      pageSessionId: crypto.randomUUID(),
+      pageUrl: 'https://example.test/page',
+      pageTitle: 'Example',
+      status: 'draft',
+      note: 'Capture',
+      dataUrl: 'data:image/png;base64,YQ==',
+      sourceDataUrl: 'data:image/png;base64,Yg==',
+      widthCssPx: 100,
+      heightCssPx: 80,
+      marks: [],
+      selection: {
+        kind: 'region',
+        xCssPx: 0,
+        yCssPx: 0,
+        widthCssPx: 100,
+        heightCssPx: 80,
+        documentUrl: 'https://example.test/page',
+        scrollXCssPx: 0,
+        scrollYCssPx: 0,
+      },
+      captureScale: 1,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    expect(requests).toHaveLength(3);
+    expect(JSON.parse(String(requests[0]?.init.body))).not.toHaveProperty('dataUrl');
+    expect(new Headers(requests[1]?.init.headers).get('content-type')).toBe('image/png');
+    expect(new Headers(requests[2]?.init.headers).get('content-type')).toBe('image/png');
+    expect(requests.slice(1).map(({ init }) => Array.from(init.body as Uint8Array))).toEqual([
+      [97],
+      [98],
+    ]);
+  });
+
+  it('returns the validated diagnostic after the cloud acknowledgement', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ saved: true })),
+    );
+    const api = new MarkFixApi('https://api.example.test');
+    const now = new Date().toISOString();
+    const annotation = {
+      id: crypto.randomUUID(),
+      projectId: '90e2a0c5-0755-49b9-9d5d-41534ed41b41',
+      pageSessionId: crypto.randomUUID(),
+      pageUrl: 'https://example.test/page',
+      pageTitle: 'Example',
+      status: 'draft' as const,
+      evidence: {
+        id: crypto.randomUUID(),
+        kind: 'console' as const,
+        level: 'error' as const,
+        timestamp: now,
+        pageUrl: 'https://example.test/page',
+        title: 'Error',
+        message: 'Failure',
+        redactions: [],
+      },
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await expect(api.saveCloudDiagnostic(annotation)).resolves.toEqual(annotation);
+  });
 });

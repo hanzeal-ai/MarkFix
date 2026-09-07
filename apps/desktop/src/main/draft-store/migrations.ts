@@ -3,7 +3,6 @@ import {
   annotationSubmissionSchema,
   savedCaptureSchema,
   type AnnotationSubmission,
-  type WebsiteProject,
 } from '@markfix/contracts';
 import { captureStorage, type StoredCapture } from './capture-codec.js';
 import { draftStoreSchema } from './schema.js';
@@ -149,101 +148,70 @@ const migrateSubmissionRows = (database: Database.Database): void => {
   }
 };
 
-const replaceProjectId = (value: unknown, previousId: string, projectId: string): unknown => {
-  if (Array.isArray(value))
-    return value.map((item) => replaceProjectId(item, previousId, projectId));
-  if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [
-      key,
-      key === 'projectId' && item === previousId
-        ? projectId
-        : replaceProjectId(item, previousId, projectId),
-    ]),
-  );
-};
-
-export const migrateWebsiteProjectState = (
-  database: Database.Database,
-  previousId: string,
-  project: WebsiteProject,
-): void => {
-  const migrate = database.transaction(() => {
-    for (const table of [
-      'outbox',
-      'capture_annotations',
-      'element_comments',
-      'diagnostic_annotations',
-      'annotation_submissions',
-    ] as const) {
-      const rows = database.prepare(`SELECT rowid, payload FROM ${table}`).all() as Array<{
-        rowid: number;
-        payload: string;
-      }>;
-      const update = database.prepare(`UPDATE ${table} SET payload = ? WHERE rowid = ?`);
-      for (const row of rows) {
-        const migrated = replaceProjectId(JSON.parse(row.payload), previousId, project.id);
-        const serialized = JSON.stringify(migrated);
-        if (serialized !== row.payload) update.run(serialized, row.rowid);
-      }
-    }
-    for (const table of [
-      'capture_annotations',
-      'element_comments',
-      'diagnostic_annotations',
-      'annotation_submissions',
-    ] as const) {
-      database
-        .prepare(`UPDATE ${table} SET project_id = ? WHERE project_id = ?`)
-        .run(project.id, previousId);
-    }
-    database
-      .prepare('UPDATE page_sessions SET project_id = ? WHERE project_id = ?')
-      .run(project.id, previousId);
-    database
-      .prepare('UPDATE project_navigation SET project_id = ? WHERE project_id = ?')
-      .run(project.id, previousId);
-    database.prepare('DELETE FROM website_projects WHERE id = ?').run(previousId);
-    database
-      .prepare('INSERT INTO website_projects (id, origin, payload, updated_at) VALUES (?, ?, ?, ?)')
-      .run(project.id, project.origin, JSON.stringify(project), project.updatedAt);
-  });
-  migrate();
-};
-
 export const initializeDraftStore = (database: Database.Database): void => {
   const version = database.pragma('user_version', { simple: true }) as number;
-  if (version >= 1) {
+  if (version >= 2) {
     database.exec(draftStoreSchema);
     return;
   }
-  const migrate = database.transaction(() => {
-    const captureColumns = columns(database, 'capture_annotations');
-    if (captureColumns.size > 0) {
-      addMissingColumn(database, 'capture_annotations', captureColumns, 'updated_at', 'TEXT');
-      addMissingColumn(database, 'capture_annotations', captureColumns, 'project_id', 'TEXT');
-      addMissingColumn(database, 'capture_annotations', captureColumns, 'status', 'TEXT');
-      addMissingColumn(database, 'capture_annotations', captureColumns, 'rendered_png', 'BLOB');
-      addMissingColumn(database, 'capture_annotations', captureColumns, 'source_png', 'BLOB');
+  if (version < 1) {
+    const migrate = database.transaction(() => {
+      const captureColumns = columns(database, 'capture_annotations');
+      if (captureColumns.size > 0) {
+        addMissingColumn(database, 'capture_annotations', captureColumns, 'updated_at', 'TEXT');
+        addMissingColumn(database, 'capture_annotations', captureColumns, 'project_id', 'TEXT');
+        addMissingColumn(database, 'capture_annotations', captureColumns, 'status', 'TEXT');
+        addMissingColumn(database, 'capture_annotations', captureColumns, 'rendered_png', 'BLOB');
+        addMissingColumn(database, 'capture_annotations', captureColumns, 'source_png', 'BLOB');
+      }
+
+      for (const table of ['element_comments', 'diagnostic_annotations'] as const) {
+        const recordColumns = columns(database, table);
+        if (recordColumns.size === 0) continue;
+        addMissingColumn(database, table, recordColumns, 'project_id', 'TEXT');
+        addMissingColumn(database, table, recordColumns, 'status', 'TEXT');
+      }
+
+      const submissionColumns = columns(database, 'annotation_submissions');
+      if (submissionColumns.size > 0)
+        addMissingColumn(
+          database,
+          'annotation_submissions',
+          submissionColumns,
+          'project_id',
+          'TEXT',
+        );
+
+      database.exec(draftStoreSchema);
+      migrateCaptureRows(database);
+      migrateJsonRecordColumns(database, 'element_comments');
+      migrateJsonRecordColumns(database, 'diagnostic_annotations');
+      migrateSubmissionRows(database);
+      database.pragma('user_version = 1');
+    });
+    migrate();
+  }
+
+  const storageModeMigration = database.transaction(() => {
+    const projectColumns = columns(database, 'website_projects');
+    if (!projectColumns.has('storage_mode')) {
+      database.exec(`
+        ALTER TABLE website_projects RENAME TO website_projects_legacy;
+        CREATE TABLE website_projects (
+          id TEXT PRIMARY KEY,
+          storage_mode TEXT NOT NULL,
+          origin TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        INSERT INTO website_projects (id, storage_mode, origin, payload, updated_at)
+        SELECT id, 'CLOUD', origin, json_set(payload, '$.storageMode', 'CLOUD'), updated_at
+        FROM website_projects_legacy;
+        DROP TABLE website_projects_legacy;
+      `);
     }
-
-    for (const table of ['element_comments', 'diagnostic_annotations'] as const) {
-      const recordColumns = columns(database, table);
-      if (recordColumns.size === 0) continue;
-      addMissingColumn(database, table, recordColumns, 'project_id', 'TEXT');
-      addMissingColumn(database, table, recordColumns, 'status', 'TEXT');
-    }
-
-    const submissionColumns = columns(database, 'annotation_submissions');
-    if (submissionColumns.size > 0)
-      addMissingColumn(database, 'annotation_submissions', submissionColumns, 'project_id', 'TEXT');
-
     database.exec(draftStoreSchema);
-    migrateCaptureRows(database);
-    migrateJsonRecordColumns(database, 'element_comments');
-    migrateJsonRecordColumns(database, 'diagnostic_annotations');
-    migrateSubmissionRows(database);
-    database.pragma('user_version = 1');
+    database.pragma('user_version = 2');
   });
-  migrate();
+  storageModeMigration();
 };

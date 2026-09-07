@@ -8,6 +8,7 @@ import {
   type ClientPolicy,
   type DiagnosticEvidence,
   type HistoryAnnotationReference,
+  type ProjectStorageMode,
   type Report,
   type SavedDiagnosticAnnotation,
   type WebsiteProject,
@@ -460,7 +461,7 @@ export function AnnotationWorkspace({
         if (!selected) return;
         selectedProjectIdRef.current = selected.id;
         setSelectedProjectId(selected.id);
-        setSelectedWorkspaceId(selected.workspaceId);
+        if (selected.storageMode === 'CLOUD') setSelectedWorkspaceId(selected.workspaceId);
         setActiveView('workspace');
         setUrl(selected.currentUrl);
         setPageSessionId(selected.currentPageSessionId);
@@ -722,7 +723,7 @@ export function AnnotationWorkspace({
     if (changingProject) {
       selectedProjectIdRef.current = project.id;
       setSelectedProjectId(project.id);
-      setSelectedWorkspaceId(project.workspaceId);
+      if (project.storageMode === 'CLOUD') setSelectedWorkspaceId(project.workspaceId);
       setActiveView('workspace');
       setUrl(project.currentUrl);
       setPageSessionId(project.currentPageSessionId);
@@ -741,7 +742,7 @@ export function AnnotationWorkspace({
       if (requestId !== projectSwitchRequestRef.current) return false;
       setSelectedProjectId(project.id);
       selectedProjectIdRef.current = project.id;
-      setSelectedWorkspaceId(project.workspaceId);
+      if (project.storageMode === 'CLOUD') setSelectedWorkspaceId(project.workspaceId);
       setActiveView('workspace');
       setUrl(current.currentUrl);
       setPageSessionId(current.currentPageSessionId);
@@ -781,55 +782,63 @@ export function AnnotationWorkspace({
         setActiveView('new');
         await resetTransientDraft();
       }
-      void window.markfix
-        .listWorkspaces()
-        .then(setWorkspaces)
-        .catch(() => undefined);
+      if (project.storageMode === 'CLOUD')
+        void window.markfix
+          .listWorkspaces()
+          .then(setWorkspaces)
+          .catch(() => undefined);
       setNotice(`已删除项目：${project.title}`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '项目删除失败。');
     }
   };
 
-  const createWebsiteProject = async (input: string): Promise<void> => {
+  const createWebsiteProject = async (
+    input: string,
+    storageMode: ProjectStorageMode,
+    prefillInput = true,
+  ): Promise<void> => {
     const hadUnsavedDraft = hasUnsavedDraft();
     if (hadUnsavedDraft && !(await window.markfix.confirmDiscardDraft('new-annotation'))) return;
     if (hadUnsavedDraft) await resetTransientDraft();
     const workspaceId = selectedWorkspaceId ?? workspaces[0]?.id;
-    if (!workspaceId) {
+    if (storageMode === 'CLOUD' && !workspaceId) {
       setNewProjectError('当前账号没有可用工作区，请先在管理端创建工作区。');
       return;
     }
     setCreatingProject(true);
     setNewProjectError(undefined);
-    setNewProjectInput(input);
+    if (prefillInput) setNewProjectInput(input);
     try {
-      const result = await window.markfix.createWebsiteProject(workspaceId, input);
+      const result = await window.markfix.createWebsiteProject(storageMode, workspaceId, input);
       setWebsiteProjects((projects) => [
         result.project,
         ...projects.filter(({ id }) => id !== result.project.id),
       ]);
-      setWorkspaces((items) =>
-        items.map((workspace) =>
-          workspace.id !== result.project.workspaceId ||
-          workspace.projects.some(({ id }) => id === result.project.id)
-            ? workspace
-            : {
-                ...workspace,
-                projects: [
-                  ...workspace.projects,
-                  {
-                    id: result.project.id,
-                    workspaceId: result.project.workspaceId,
-                    name: result.project.title,
-                    baseUrl: result.project.origin,
-                    createdAt: result.project.createdAt,
-                    updatedAt: result.project.updatedAt,
-                  },
-                ],
-              },
-        ),
-      );
+      if (result.project.storageMode === 'CLOUD') {
+        const cloudProject = result.project;
+        setWorkspaces((items) =>
+          items.map((workspace) =>
+            workspace.id !== cloudProject.workspaceId ||
+            workspace.projects.some(({ id }) => id === cloudProject.id)
+              ? workspace
+              : {
+                  ...workspace,
+                  projects: [
+                    ...workspace.projects,
+                    {
+                      id: cloudProject.id,
+                      workspaceId: cloudProject.workspaceId,
+                      name: cloudProject.title,
+                      baseUrl: cloudProject.origin,
+                      createdAt: cloudProject.createdAt,
+                      updatedAt: cloudProject.updatedAt,
+                    },
+                  ],
+                },
+          ),
+        );
+      }
       if (!(await switchProject(result.project))) return;
       if (result.created) setNotice(`已创建项目：${result.project.title}`);
     } catch (error) {
@@ -841,7 +850,16 @@ export function AnnotationWorkspace({
     }
   };
 
-  const openWebsiteShortcut = async (shortcutUrl: string): Promise<void> => {
+  const openWebsiteShortcut = async (
+    shortcutId: string,
+    shortcutUrl: string,
+    storageMode: ProjectStorageMode,
+  ): Promise<void> => {
+    const linkedProject = websiteProjects.find(({ id }) => id === shortcutId);
+    if (linkedProject) {
+      await switchProject(linkedProject);
+      return;
+    }
     let shortcutOrigin: string;
     try {
       shortcutOrigin = new URL(shortcutUrl).origin;
@@ -849,18 +867,15 @@ export function AnnotationWorkspace({
       setNewProjectError('快捷方式的网址无效，请修改后重试。');
       return;
     }
-    const project = websiteProjects.find(({ origin }) => origin === shortcutOrigin);
+    const matchingProjects = websiteProjects.filter(({ origin }) => origin === shortcutOrigin);
+    const project =
+      matchingProjects.find(({ storageMode: projectMode }) => projectMode === storageMode) ??
+      matchingProjects[0];
     if (!project) {
-      await createWebsiteProject(shortcutUrl);
+      await createWebsiteProject(shortcutUrl, storageMode, false);
       return;
     }
-    if (!(await switchProject(project))) return;
-    try {
-      const normalized = await window.markfix.navigate(shortcutUrl);
-      setUrl(normalized);
-    } catch (shortcutError) {
-      setNotice(shortcutError instanceof Error ? shortcutError.message : '快捷方式打开失败。');
-    }
+    await switchProject(project);
   };
 
   const openCurrentProjectAnnotationReview = async (): Promise<void> => {
@@ -1012,8 +1027,10 @@ export function AnnotationWorkspace({
           busy={creatingProject}
           error={newProjectError}
           projects={websiteProjects}
-          onSubmit={(input) => void createWebsiteProject(input)}
-          onShortcut={(shortcutUrl) => void openWebsiteShortcut(shortcutUrl)}
+          onSubmit={(input, storageMode) => void createWebsiteProject(input, storageMode)}
+          onShortcut={(shortcutId, shortcutUrl, storageMode) =>
+            void openWebsiteShortcut(shortcutId, shortcutUrl, storageMode)
+          }
         />
       </div>
     );

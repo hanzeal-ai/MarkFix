@@ -18,6 +18,7 @@ export class ReportOutbox {
     private readonly api: MarkFixApi,
     private readonly store: () => DraftStore | undefined,
     private readonly canSync: () => boolean,
+    private readonly canSubmitProject: (projectId: string) => boolean,
     private readonly assertSupportedClient: () => Promise<void>,
     private readonly afterAttempt: () => Promise<void>,
     private readonly sendShell: (channel: string, payload: unknown) => void,
@@ -34,6 +35,7 @@ export class ReportOutbox {
       await this.assertSupportedClient();
       const payload = input as { report?: unknown; idempotencyKey?: unknown };
       const parsed = createReportSchema.parse(payload.report) as CreateReport;
+      if (!this.canSubmitProject(parsed.projectId)) throw new Error('本地项目不能进入云端报告队列');
       const candidate = optimizeReportScreenshot(parsed, (dataUrl) =>
         nativeImage.createFromDataURL(dataUrl),
       );
@@ -74,6 +76,10 @@ export class ReportOutbox {
     if (!store) return undefined;
     try {
       const candidate = createReportSchema.parse(entry.payload);
+      if (!this.canSubmitProject(candidate.projectId)) {
+        store.markFailed(entry.id, entry.attempts + 1, '本地项目不能同步到云端');
+        return undefined;
+      }
       const report = await this.api.submitReport(candidate, entry.idempotencyKey);
       store.markCompleted(entry.id, report.id);
       this.sendShell(ipcChannels.syncStatus, {

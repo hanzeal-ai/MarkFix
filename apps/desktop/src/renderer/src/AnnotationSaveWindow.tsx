@@ -15,6 +15,7 @@ import {
 
 export function AnnotationSaveWindow(): React.JSX.Element {
   const projectId = new URLSearchParams(window.location.search).get('projectId');
+  const storageMode = new URLSearchParams(window.location.search).get('storageMode');
   const [captures, setCaptures] = useState<SavedCapture[]>([]);
   const [diagnostics, setDiagnostics] = useState<SavedDiagnosticAnnotation[]>([]);
   const [elementComments, setElementComments] = useState<SavedElementComment[]>([]);
@@ -24,7 +25,7 @@ export function AnnotationSaveWindow(): React.JSX.Element {
 
   useEffect(() => {
     let active = true;
-    if (!projectId) {
+    if (!projectId || (storageMode !== 'LOCAL' && storageMode !== 'CLOUD')) {
       setError('缺少标注项目。');
       setLoading(false);
       return () => {
@@ -51,7 +52,7 @@ export function AnnotationSaveWindow(): React.JSX.Element {
     return () => {
       active = false;
     };
-  }, [projectId]);
+  }, [projectId, storageMode]);
 
   const cancel = useCallback((): void => {
     void window.markfix.closeAnnotationReview();
@@ -60,7 +61,7 @@ export function AnnotationSaveWindow(): React.JSX.Element {
   const previewCapture = useCallback((capture: SavedCapture): void => {
     setError(undefined);
     void window.markfix
-      .openCapturePreview(capture.id)
+      .openCapturePreview(projectId ?? '', capture.id)
       .catch((cause: unknown) =>
         setError(cause instanceof Error ? cause.message : '无法打开截图预览。'),
       );
@@ -84,12 +85,14 @@ export function AnnotationSaveWindow(): React.JSX.Element {
         )
       )
         throw new Error('一次只能提交同一项目的标注。');
-      const reports = annotationSelectionReportInputs(projectId, selection);
-      await Promise.all(
-        reports.map(({ report, idempotencyKey }) =>
-          window.markfix.submitReport(report, idempotencyKey),
-        ),
-      );
+      if (storageMode === 'CLOUD') {
+        const reports = annotationSelectionReportInputs(projectId, selection);
+        await Promise.all(
+          reports.map(({ report, idempotencyKey }) =>
+            window.markfix.submitReport(report, idempotencyKey),
+          ),
+        );
+      }
       const submission = {
         id: crypto.randomUUID(),
         projectId,

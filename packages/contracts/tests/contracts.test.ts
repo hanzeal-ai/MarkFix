@@ -9,6 +9,7 @@ import {
   savedCaptureSchema,
   updateEnvironmentSchema,
   updateProjectSchema,
+  websiteProjectSchema,
 } from '../src/index.js';
 
 describe('regionAnchorSchema', () => {
@@ -118,6 +119,45 @@ describe('project input schemas', () => {
   it('rejects empty project updates and invalid URLs', () => {
     expect(() => updateProjectSchema.parse({})).toThrow();
     expect(() => createProjectSchema.parse({ name: 'Storefront', baseUrl: 'not-a-url' })).toThrow();
+  });
+});
+
+describe('website project storage ownership', () => {
+  const base = {
+    id: crypto.randomUUID(),
+    title: 'Example',
+    origin: 'https://example.test',
+    entryUrl: 'https://example.test/start',
+    faviconUrl: null,
+    faviconSource: 'markfix' as const,
+    currentPageSessionId: crypto.randomUUID(),
+    currentUrl: 'https://example.test/start',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  it('keeps local projects independent from cloud workspaces', () => {
+    expect(websiteProjectSchema.parse({ ...base, storageMode: 'LOCAL' })).not.toHaveProperty(
+      'workspaceId',
+    );
+    expect(
+      websiteProjectSchema.safeParse({
+        ...base,
+        storageMode: 'LOCAL',
+        workspaceId: crypto.randomUUID(),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('requires every cloud project to belong to a workspace', () => {
+    expect(websiteProjectSchema.safeParse({ ...base, storageMode: 'CLOUD' }).success).toBe(false);
+    expect(
+      websiteProjectSchema.safeParse({
+        ...base,
+        storageMode: 'CLOUD',
+        workspaceId: crypto.randomUUID(),
+      }).success,
+    ).toBe(true);
   });
 });
 

@@ -20,6 +20,8 @@ import {
   websiteProjectSchema,
   type Anchor,
   type BrowserMode,
+  type CloudProjectState,
+  type ProjectStorageMode,
   type SavedElementComment,
   type WebsiteProject,
 } from '@markfix/contracts';
@@ -40,6 +42,7 @@ import { ChildWindowManager } from './child-window-manager.js';
 import { registerCaptureIpc } from './ipc/register-capture-ipc.js';
 import { registerDiagnosticsIpc } from './ipc/register-diagnostics-ipc.js';
 import { ReportOutbox } from './report-outbox.js';
+import { ProjectDataRouter } from './project-data-router.js';
 
 const toolbarHeight = 56;
 const panelWidth = 360;
@@ -76,6 +79,10 @@ let websiteProjectSwitchGeneration = 0;
 let currentPageTitle = '';
 let currentPageFaviconUrl: string | null = null;
 const overlayVisibilityWaiters = new Map<string, () => void>();
+const websiteProjectsById = new Map<string, WebsiteProject>();
+const cloudProjectStates = new Map<string, CloudProjectState>();
+const cloudStateSaveQueues = new Map<string, Promise<void>>();
+let cloudSessionGeneration = 0;
 
 const loadClientPolicy = (force = false) => desktopSession.loadPolicy(force);
 const assertSupportedClient = (policy: Awaited<ReturnType<typeof loadClientPolicy>>) =>
@@ -118,12 +125,19 @@ const reportOutbox = new ReportOutbox(
   api,
   () => draftStore,
   () => Boolean(authenticatedUser),
+  (projectId) => websiteProjectsById.get(projectId)?.storageMode === 'CLOUD',
   async () => assertSupportedClient(await loadClientPolicy()),
   async () => {
     const refreshToken = api.currentRefreshToken();
     if (refreshToken) await saveRefreshToken(refreshToken);
   },
   sendShell,
+);
+
+const projectDataRouter = new ProjectDataRouter(
+  api,
+  () => draftStore,
+  (projectId) => websiteProjectsById.get(projectId),
 );
 
 const sendBrowserState = (payload: Record<string, unknown> = {}): void => {
@@ -179,7 +193,8 @@ const registerChildShortcuts = (browserWindow: BrowserWindow): void => {
 
 const childWindows = new ChildWindowManager({
   mainWindow: () => mainWindow,
-  draftStore: () => draftStore,
+  captureExists: async (projectId, captureId) =>
+    (await projectDataRouter.listCaptures(projectId)).some(({ id }) => id === captureId),
   registerShortcuts: registerChildShortcuts,
 });
 
@@ -255,60 +270,193 @@ const resolveWebsiteMetadata = async (
   };
 };
 
+const queueCloudStateSave = (projectId: string): void => {
+  const generation = cloudSessionGeneration;
+  const previous = cloudStateSaveQueues.get(projectId) ?? Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(async () => {
+      if (generation !== cloudSessionGeneration) return;
+      const snapshot = cloudProjectStates.get(projectId);
+      if (!snapshot) return;
+      let saved: CloudProjectState;
+      try {
+        saved = await api.saveCloudProjectState(snapshot);
+      } catch (error) {
+        if (!(error instanceof MarkFixApiError) || error.status !== 409) throw error;
+        const remote = await api.getCloudProjectState(projectId);
+        if (!remote) throw error;
+        if (generation !== cloudSessionGeneration) return;
+        const desired = cloudProjectStates.get(projectId) ?? snapshot;
+        if (remote.project.updatedAt > desired.project.updatedAt) {
+          cloudProjectStates.set(projectId, remote);
+          websiteProjectsById.set(projectId, remote.project);
+          return;
+        }
+        saved = await api.saveCloudProjectState({ ...desired, revision: remote.revision });
+      }
+      if (generation !== cloudSessionGeneration) return;
+      const desired = cloudProjectStates.get(projectId);
+      if (!desired || desired === snapshot) {
+        cloudProjectStates.set(projectId, saved);
+        websiteProjectsById.set(projectId, saved.project);
+      } else {
+        cloudProjectStates.set(projectId, { ...desired, revision: saved.revision });
+      }
+    })
+    .catch((error: unknown) => {
+      sendShell(ipcChannels.syncStatus, {
+        status: 'pending',
+        projectId,
+        message: error instanceof Error ? error.message : '云端项目状态保存失败',
+      });
+    });
+  cloudStateSaveQueues.set(projectId, next);
+};
+
+const recordProjectPage = (
+  projectId: string,
+  pageUrl: string,
+  pageTitle: string,
+): WebsiteProject | undefined => {
+  const project = websiteProjectsById.get(projectId);
+  if (!project) return undefined;
+  if (project.storageMode === 'LOCAL') {
+    const updated = draftStore?.recordProjectPage(projectId, pageUrl, pageTitle);
+    if (updated) websiteProjectsById.set(projectId, updated);
+    return updated;
+  }
+  const state = cloudProjectStates.get(projectId);
+  if (!state) return undefined;
+  const existing = state.navigation.entries.find(({ url }) => url === pageUrl);
+  const pageSessionId = existing?.pageSessionId ?? randomUUID();
+  const entry = { pageSessionId, url: pageUrl, title: pageTitle };
+  const current = state.navigation.entries[state.navigation.currentIndex];
+  const entries =
+    current?.url === pageUrl
+      ? state.navigation.entries.map((item, index) =>
+          index === state.navigation.currentIndex ? entry : item,
+        )
+      : [...state.navigation.entries.slice(0, state.navigation.currentIndex + 1), entry].slice(
+          -200,
+        );
+  const currentIndex =
+    current?.url === pageUrl ? state.navigation.currentIndex : entries.length - 1;
+  const updatedProject: WebsiteProject = {
+    ...project,
+    currentPageSessionId: pageSessionId,
+    currentUrl: pageUrl,
+    updatedAt: new Date().toISOString(),
+  };
+  cloudProjectStates.set(projectId, {
+    ...state,
+    project: updatedProject,
+    navigation: { entries, currentIndex },
+  });
+  websiteProjectsById.set(projectId, updatedProject);
+  queueCloudStateSave(projectId);
+  return updatedProject;
+};
+
+const stepProjectHistory = (
+  projectId: string,
+  offset: -1 | 1,
+): { pageSessionId: string; url: string; title: string } | undefined => {
+  const project = websiteProjectsById.get(projectId);
+  if (!project) return undefined;
+  if (project.storageMode === 'LOCAL') return draftStore?.stepProjectHistory(projectId, offset);
+  const state = cloudProjectStates.get(projectId);
+  if (!state) return undefined;
+  const currentIndex = state.navigation.currentIndex + offset;
+  const entry = state.navigation.entries[currentIndex];
+  if (!entry) return undefined;
+  const updatedProject: WebsiteProject = {
+    ...project,
+    currentPageSessionId: entry.pageSessionId,
+    currentUrl: entry.url,
+    updatedAt: new Date().toISOString(),
+  };
+  cloudProjectStates.set(projectId, {
+    ...state,
+    project: updatedProject,
+    navigation: { ...state.navigation, currentIndex },
+  });
+  websiteProjectsById.set(projectId, updatedProject);
+  queueCloudStateSave(projectId);
+  return entry;
+};
+
 const ensureWebsiteProjects = async (
   availableWorkspaces?: Awaited<ReturnType<MarkFixApi['listWorkspaces']>>,
 ): Promise<WebsiteProject[]> => {
-  if (!draftStore || !authenticatedUser) return [];
+  if (!draftStore) return [];
+  const localProjects = draftStore.listWebsiteProjects('LOCAL');
+  for (const project of localProjects) websiteProjectsById.set(project.id, project);
+  if (!authenticatedUser) return localProjects;
+  for (const [id, project] of websiteProjectsById) {
+    if (project.storageMode === 'CLOUD') websiteProjectsById.delete(id);
+  }
+  cloudProjectStates.clear();
   const workspaces = availableWorkspaces ?? (await api.listWorkspaces());
-  const accessibleProjectIds = new Set<string>();
+  const cloudProjects: WebsiteProject[] = [];
   for (const workspace of workspaces) {
     for (const project of workspace.projects) {
       if (!project.baseUrl) continue;
+      let entryUrl: string;
       try {
-        const entryUrl = normalizeWebsiteUrl(
-          project.baseUrl,
-          process.env.MARKFIX_ALLOW_HTTP === 'true',
-        );
-        const origin = new URL(entryUrl).origin;
-        const now = new Date().toISOString();
-        const existingById = draftStore.getWebsiteProject(project.id);
-        const existingByOrigin = draftStore.findWebsiteProjectByOrigin(origin);
-        const existing = existingById ?? existingByOrigin;
-        const preservedProject = existing?.origin === origin ? existing : undefined;
-        const websiteProject = websiteProjectSchema.parse({
-          id: project.id,
-          workspaceId: workspace.id,
-          title: preservedProject?.title ?? project.name,
-          origin,
-          entryUrl: preservedProject?.entryUrl ?? entryUrl,
-          faviconUrl: preservedProject?.faviconUrl ?? new URL('/favicon.ico', entryUrl).href,
-          faviconSource: preservedProject?.faviconSource ?? 'root',
-          currentPageSessionId: preservedProject?.currentPageSessionId ?? randomUUID(),
-          currentUrl: preservedProject?.currentUrl ?? entryUrl,
-          createdAt: project.createdAt,
-          updatedAt: preservedProject?.updatedAt ?? project.updatedAt ?? now,
-        });
-        if (existing && existing.id !== project.id) {
-          draftStore.migrateWebsiteProject(existing.id, websiteProject);
-          if (activeWebsiteProjectId === existing.id) activeWebsiteProjectId = project.id;
-          if (navigationWebsiteProjectId === existing.id) navigationWebsiteProjectId = project.id;
-        } else {
-          draftStore.saveWebsiteProject(websiteProject);
-        }
-        if (!preservedProject) draftStore.recordProjectPage(project.id, entryUrl, project.name);
-        accessibleProjectIds.add(project.id);
+        entryUrl = normalizeWebsiteUrl(project.baseUrl, process.env.MARKFIX_ALLOW_HTTP === 'true');
       } catch {
         // Projects without a usable HTTP(S) URL are not website annotation projects.
+        continue;
       }
+      const origin = new URL(entryUrl).origin;
+      const now = new Date().toISOString();
+      const remoteState = await api.getCloudProjectState(project.id);
+      const initialProject = websiteProjectSchema.parse({
+        id: project.id,
+        storageMode: 'CLOUD',
+        workspaceId: workspace.id,
+        title: project.name,
+        origin,
+        entryUrl,
+        faviconUrl: new URL('/favicon.ico', entryUrl).href,
+        faviconSource: 'root',
+        currentPageSessionId: randomUUID(),
+        currentUrl: entryUrl,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt ?? now,
+      });
+      if (initialProject.storageMode !== 'CLOUD') throw new Error('Invalid cloud project state');
+      const state =
+        remoteState ??
+        (await api.saveCloudProjectState({
+          project: initialProject,
+          navigation: {
+            entries: [
+              {
+                pageSessionId: initialProject.currentPageSessionId,
+                url: entryUrl,
+                title: project.name,
+              },
+            ],
+            currentIndex: 0,
+          },
+          revision: 0,
+        }));
+      cloudProjectStates.set(project.id, state);
+      websiteProjectsById.set(project.id, state.project);
+      cloudProjects.push(state.project);
     }
   }
-  return draftStore.listWebsiteProjects().filter(({ id }) => accessibleProjectIds.has(id));
+  return [...localProjects, ...cloudProjects].sort((left, right) =>
+    right.updatedAt.localeCompare(left.updatedAt),
+  );
 };
 
 const activateWebsiteProject = (projectId: string, switchGeneration: number): WebsiteProject => {
   if (!draftStore) throw new Error('本地项目存储不可用');
   if (!websiteView) throw new Error('网站视图不可用');
-  const project = draftStore.getWebsiteProject(projectId);
+  const project = websiteProjectsById.get(projectId);
   if (!project) throw new Error('项目不存在或已被移除');
   const targetUrl = project.currentUrl || project.entryUrl;
   if (
@@ -409,11 +557,7 @@ const createWindow = async (): Promise<void> => {
   websiteView.webContents.on('did-navigate', (_event, url) => {
     const navigationProjectId = navigationWebsiteProjectId ?? activeWebsiteProjectId;
     const project = navigationProjectId
-      ? draftStore?.recordProjectPage(
-          navigationProjectId,
-          url,
-          websiteView?.webContents.getTitle() ?? '',
-        )
+      ? recordProjectPage(navigationProjectId, url, websiteView?.webContents.getTitle() ?? '')
       : undefined;
     sendBrowserState({
       url,
@@ -424,11 +568,7 @@ const createWindow = async (): Promise<void> => {
   websiteView.webContents.on('did-navigate-in-page', (_event, url) => {
     const navigationProjectId = navigationWebsiteProjectId ?? activeWebsiteProjectId;
     const project = navigationProjectId
-      ? draftStore?.recordProjectPage(
-          navigationProjectId,
-          url,
-          websiteView?.webContents.getTitle() ?? '',
-        )
+      ? recordProjectPage(navigationProjectId, url, websiteView?.webContents.getTitle() ?? '')
       : undefined;
     sendBrowserState({
       url,
@@ -442,7 +582,7 @@ const createWindow = async (): Promise<void> => {
     const navigationProjectId = navigationWebsiteProjectId ?? activeWebsiteProjectId;
     const project =
       navigationProjectId && url
-        ? draftStore?.recordProjectPage(navigationProjectId, url, currentPageTitle)
+        ? recordProjectPage(navigationProjectId, url, currentPageTitle)
         : undefined;
     sendBrowserState({
       pageTitle: currentPageTitle,
@@ -461,15 +601,24 @@ const createWindow = async (): Promise<void> => {
     if (!faviconUrl) return;
     currentPageFaviconUrl = faviconUrl;
     const navigationProjectId = navigationWebsiteProjectId ?? activeWebsiteProjectId;
-    if (navigationProjectId && draftStore) {
-      const project = draftStore.getWebsiteProject(navigationProjectId);
+    if (navigationProjectId) {
+      const project = websiteProjectsById.get(navigationProjectId);
       if (project && project.faviconUrl !== faviconUrl) {
-        draftStore.saveWebsiteProject({
+        const updated: WebsiteProject = {
           ...project,
           faviconUrl,
           faviconSource: 'page',
           updatedAt: new Date().toISOString(),
-        });
+        };
+        websiteProjectsById.set(navigationProjectId, updated);
+        if (updated.storageMode === 'LOCAL') draftStore?.saveWebsiteProject(updated);
+        else {
+          const state = cloudProjectStates.get(navigationProjectId);
+          if (state) {
+            cloudProjectStates.set(navigationProjectId, { ...state, project: updated });
+            queueCloudStateSave(navigationProjectId);
+          }
+        }
       }
     }
     sendBrowserState({ faviconUrl });
@@ -480,7 +629,7 @@ const createWindow = async (): Promise<void> => {
     const navigationProjectId = navigationWebsiteProjectId ?? activeWebsiteProjectId;
     const project =
       navigationProjectId && url
-        ? draftStore?.recordProjectPage(navigationProjectId, url, pageTitle)
+        ? recordProjectPage(navigationProjectId, url, pageTitle)
         : undefined;
     if (url)
       sendBrowserState({
@@ -548,7 +697,9 @@ const createWindow = async (): Promise<void> => {
 const registerIpc = (): void => {
   registerAnnotationStoreIpc({
     assertSender: assertShellSender,
-    draftStore: () => draftStore,
+    dataRouter: () => projectDataRouter,
+    projects: () => [...websiteProjectsById.values()],
+    activeProjectId: () => activeWebsiteProjectId,
     websiteView: () => websiteView,
     elementComments: () => currentElementComments,
     setElementComments: (comments) => {
@@ -621,6 +772,12 @@ const registerIpc = (): void => {
       // A remote logout failure must not retain local credentials.
     } finally {
       authenticatedUser = undefined;
+      cloudSessionGeneration += 1;
+      for (const [id, project] of websiteProjectsById) {
+        if (project.storageMode === 'CLOUD') websiteProjectsById.delete(id);
+      }
+      cloudProjectStates.clear();
+      cloudStateSaveQueues.clear();
       api.setTokens();
       websiteView?.setVisible(false);
       childWindows.closeSettings();
@@ -636,7 +793,7 @@ const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.desktopBootstrap, async (event) => {
     assertShellSender(event);
     if (!authenticatedUser) throw new Error('Sign in to load the workspace');
-    const workspaces = await api.listWorkspaces();
+    const workspaces = await api.listWorkspaces().catch(() => []);
     const websiteProjects = await ensureWebsiteProjects(workspaces);
     return { workspaces, websiteProjects };
   });
@@ -658,39 +815,54 @@ const registerIpc = (): void => {
     if (typeof input !== 'string') throw new Error('Invalid project ID');
     return api.listEnvironments(input);
   });
-  ipcMain.handle(ipcChannels.listWebsiteProjects, async (event) => {
+  ipcMain.handle(ipcChannels.listWebsiteProjects, (event) => {
     assertShellSender(event);
-    return ensureWebsiteProjects();
+    return [...websiteProjectsById.values()].sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
+    );
   });
   ipcMain.handle(ipcChannels.createWebsiteProject, async (event, input: unknown) => {
     assertShellSender(event);
-    if (!authenticatedUser) throw new Error('请先登录后再新建标注项目');
     if (!draftStore) throw new Error('本地项目存储不可用');
-    const payload = input as { workspaceId?: unknown; url?: unknown };
-    if (typeof payload.workspaceId !== 'string' || typeof payload.url !== 'string')
-      throw new Error('请选择工作区并输入网站地址');
+    const payload = input as { workspaceId?: unknown; url?: unknown; storageMode?: unknown };
+    if (
+      typeof payload.url !== 'string' ||
+      (payload.storageMode !== 'LOCAL' && payload.storageMode !== 'CLOUD')
+    )
+      throw new Error('请选择项目存储方式并输入网站地址');
+    const storageMode = payload.storageMode satisfies ProjectStorageMode;
+    if (storageMode === 'CLOUD' && !authenticatedUser) throw new Error('请先登录后再新建云端项目');
+    if (storageMode === 'CLOUD' && typeof payload.workspaceId !== 'string')
+      throw new Error('请选择云端项目所属工作区');
     const normalized = normalizeWebsiteUrl(payload.url, process.env.MARKFIX_ALLOW_HTTP === 'true');
     const origin = new URL(normalized).origin;
-    const existing = draftStore.findWebsiteProjectByOrigin(origin);
+    const existing =
+      storageMode === 'LOCAL'
+        ? draftStore.findWebsiteProjectByOrigin(origin, 'LOCAL')
+        : [...websiteProjectsById.values()].find(
+            (project) =>
+              project.storageMode === 'CLOUD' &&
+              project.origin === origin &&
+              project.workspaceId === payload.workspaceId,
+          );
     if (existing) {
-      try {
-        await api.getProject(existing.id);
-        return { project: existing, created: false };
-      } catch (error) {
-        if (!(error instanceof MarkFixApiError) || error.status !== 404) throw error;
-      }
+      return { project: existing, created: false };
     }
 
     activeWebsiteProjectId = undefined;
     const metadata = await resolveWebsiteMetadata(normalized);
-    const project = await api.createProject(payload.workspaceId, {
-      name: metadata.title.slice(0, 120),
-      baseUrl: origin,
-    });
     const now = new Date().toISOString();
+    const remoteProject =
+      storageMode === 'CLOUD'
+        ? await api.createProject(payload.workspaceId as string, {
+            name: metadata.title.slice(0, 120),
+            baseUrl: origin,
+          })
+        : undefined;
     const websiteProject = websiteProjectSchema.parse({
-      id: project.id,
-      workspaceId: project.workspaceId,
+      id: remoteProject?.id ?? randomUUID(),
+      storageMode,
+      ...(remoteProject ? { workspaceId: remoteProject.workspaceId } : {}),
       title: (currentPageTitle || metadata.title).slice(0, 120),
       origin,
       entryUrl: metadata.url,
@@ -698,17 +870,39 @@ const registerIpc = (): void => {
       faviconSource: currentPageFaviconUrl ? 'page' : metadata.faviconSource,
       currentPageSessionId: randomUUID(),
       currentUrl: metadata.url,
-      createdAt: project.createdAt || now,
+      createdAt: remoteProject?.createdAt ?? now,
       updatedAt: now,
     });
-    if (existing) draftStore.migrateWebsiteProject(existing.id, websiteProject);
-    else draftStore.saveWebsiteProject(websiteProject);
+    let current: WebsiteProject;
+    if (websiteProject.storageMode === 'LOCAL') {
+      draftStore.saveWebsiteProject(websiteProject);
+      current =
+        draftStore.recordProjectPage(websiteProject.id, metadata.url, metadata.title) ??
+        websiteProject;
+    } else {
+      const state = await api.saveCloudProjectState({
+        project: websiteProject,
+        navigation: {
+          entries: [
+            {
+              pageSessionId: websiteProject.currentPageSessionId,
+              url: metadata.url,
+              title: metadata.title,
+            },
+          ],
+          currentIndex: 0,
+        },
+        revision: 0,
+      });
+      cloudProjectStates.set(websiteProject.id, state);
+      current = state.project;
+    }
+    websiteProjectsById.set(current.id, current);
     activeWebsiteProjectId = websiteProject.id;
-    const current = draftStore.recordProjectPage(websiteProject.id, metadata.url, metadata.title);
     workspaceViewVisible = true;
     websiteContentReady = true;
     layoutWebsite();
-    return { project: current ?? websiteProject, created: true };
+    return { project: current, created: true };
   });
   ipcMain.handle(ipcChannels.listProjectAnnotationReports, async (event, input: unknown) => {
     assertShellSender(event);
@@ -716,7 +910,11 @@ const registerIpc = (): void => {
     const payload = input as { projectId?: unknown; pageUrl?: unknown };
     if (typeof payload.projectId !== 'string' || typeof payload.pageUrl !== 'string')
       throw new Error('无效的项目或页面地址');
-    return api.listAllReports(payload.projectId, { pageUrl: payload.pageUrl });
+    const project = websiteProjectsById.get(payload.projectId);
+    if (!project) throw new Error('项目不存在或已被移除');
+    return project.storageMode === 'CLOUD'
+      ? api.listAllReports(payload.projectId, { pageUrl: payload.pageUrl })
+      : [];
   });
   ipcMain.handle(ipcChannels.switchWebsiteProject, (event, input: unknown) => {
     assertShellSender(event);
@@ -729,21 +927,26 @@ const registerIpc = (): void => {
     if (typeof input !== 'string') throw new Error('无效的项目 ID');
     if (!draftStore) throw new Error('本地项目存储不可用');
     if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Desktop window is unavailable');
-    const project = draftStore.getWebsiteProject(input);
+    const project = websiteProjectsById.get(input);
     if (!project) throw new Error('项目不存在或已被移除');
     const { response } = await dialog.showMessageBox(mainWindow, {
       type: 'warning',
       title: '删除项目',
       message: `确定删除“${project.title}”吗？`,
-      detail: '该项目及其服务端报告、本地标注和浏览历史将被永久删除，无法撤销。',
+      detail:
+        project.storageMode === 'CLOUD'
+          ? '该云端项目及报告、标注和浏览历史将被永久删除，无法撤销。'
+          : '该本地项目及标注和浏览历史将从本机永久删除，无法撤销。',
       buttons: ['取消', '删除项目'],
       defaultId: 0,
       cancelId: 0,
       noLink: true,
     });
     if (response !== 1) return { deleted: false };
-    await api.deleteProject(project.id);
-    draftStore.deleteWebsiteProject(project.id);
+    if (project.storageMode === 'CLOUD') await api.deleteProject(project.id);
+    else draftStore.deleteWebsiteProject(project.id);
+    websiteProjectsById.delete(project.id);
+    cloudProjectStates.delete(project.id);
     if (activeWebsiteProjectId === project.id) {
       activeWebsiteProjectId = undefined;
       navigationWebsiteProjectId = undefined;
@@ -817,13 +1020,6 @@ const registerIpc = (): void => {
     assertShellSender(event);
     await childWindows.openSettings();
   });
-  ipcMain.handle(ipcChannels.submitProjectAnnotations, async (event, input: unknown) => {
-    assertShellSender(event);
-    if (typeof input !== 'string') throw new Error('无效的项目 ID');
-    if (!draftStore) throw new Error('本地批注存储不可用');
-    await api.getProject(input);
-    return draftStore.submitProjectAnnotations(input);
-  });
   ipcMain.handle(ipcChannels.navigate, async (event, input: unknown) => {
     assertShellSender(event);
     const { url } = navigateInputSchema.parse(input);
@@ -836,8 +1032,8 @@ const registerIpc = (): void => {
   });
   ipcMain.handle(ipcChannels.goBack, async (event) => {
     assertShellSender(event);
-    if (!activeWebsiteProjectId || !draftStore) return;
-    const entry = draftStore.stepProjectHistory(activeWebsiteProjectId, -1);
+    if (!activeWebsiteProjectId) return;
+    const entry = stepProjectHistory(activeWebsiteProjectId, -1);
     if (entry) {
       navigationWebsiteProjectId = activeWebsiteProjectId;
       websiteContentReady = false;
@@ -847,8 +1043,8 @@ const registerIpc = (): void => {
   });
   ipcMain.handle(ipcChannels.goForward, async (event) => {
     assertShellSender(event);
-    if (!activeWebsiteProjectId || !draftStore) return;
-    const entry = draftStore.stepProjectHistory(activeWebsiteProjectId, 1);
+    if (!activeWebsiteProjectId) return;
+    const entry = stepProjectHistory(activeWebsiteProjectId, 1);
     if (entry) {
       navigationWebsiteProjectId = activeWebsiteProjectId;
       websiteContentReady = false;
@@ -875,8 +1071,9 @@ const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.openAnnotationReview, async (event, input: unknown) => {
     assertShellSender(event);
     if (typeof input !== 'string') throw new Error('无效的项目 ID');
-    if (!draftStore?.getWebsiteProject(input)) throw new Error('项目不存在或已被移除');
-    await childWindows.openAnnotationReview(input);
+    const project = websiteProjectsById.get(input);
+    if (!project) throw new Error('项目不存在或已被移除');
+    await childWindows.openAnnotationReview(input, project.storageMode);
   });
   ipcMain.handle(ipcChannels.closeAnnotationReview, (event) => {
     assertShellSender(event);
@@ -889,31 +1086,43 @@ const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.openProjectAnnotationHistory, async (event, input: unknown) => {
     assertShellSender(event);
     if (typeof input !== 'string') throw new Error('无效的项目 ID');
-    if (!draftStore?.getWebsiteProject(input)) throw new Error('项目不存在或已被移除');
+    if (!websiteProjectsById.has(input)) throw new Error('项目不存在或已被移除');
     await childWindows.openProjectAnnotationHistory(input);
   });
-  ipcMain.handle(ipcChannels.selectAnnotationHistory, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.selectAnnotationHistory, async (event, input: unknown) => {
     assertShellSender(event);
     const reference = historyAnnotationReferenceSchema.parse(input);
     const exists =
       reference.type === 'element'
-        ? draftStore?.listElementComments().some(({ id }) => id === reference.id)
+        ? (await projectDataRouter.listElementComments(reference.projectId)).some(
+            ({ id }) => id === reference.id,
+          )
         : reference.type === 'capture'
-          ? draftStore?.listCaptures().some(({ id }) => id === reference.id)
-          : draftStore?.listDiagnosticAnnotations().some(({ id }) => id === reference.id);
+          ? (await projectDataRouter.listCaptures(reference.projectId)).some(
+              ({ id }) => id === reference.id,
+            )
+          : (await projectDataRouter.listDiagnostics(reference.projectId)).some(
+              ({ id }) => id === reference.id,
+            );
     if (!exists) throw new Error('标注不存在或已被删除');
     sendShell(ipcChannels.annotationHistorySelected, reference);
     childWindows.focusMainFromHistory();
   });
   ipcMain.handle(ipcChannels.openCapturePreview, async (event, input: unknown) => {
     assertShellSender(event);
-    if (typeof input !== 'string') throw new Error('Invalid capture ID');
-    await childWindows.openCapturePreview(input);
+    const payload = input as { projectId?: unknown; captureId?: unknown };
+    if (typeof payload.projectId !== 'string' || typeof payload.captureId !== 'string')
+      throw new Error('Invalid project or capture ID');
+    await childWindows.openCapturePreview(payload.projectId, payload.captureId);
   });
-  ipcMain.handle(ipcChannels.loadCapturePreview, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.loadCapturePreview, async (event, input: unknown) => {
     assertShellSender(event);
-    if (typeof input !== 'string') throw new Error('Invalid capture ID');
-    const capture = draftStore?.getCapture(input);
+    const payload = input as { projectId?: unknown; captureId?: unknown };
+    if (typeof payload.projectId !== 'string' || typeof payload.captureId !== 'string')
+      throw new Error('Invalid project or capture ID');
+    const capture = (await projectDataRouter.listCaptures(payload.projectId)).find(
+      ({ id }) => id === payload.captureId,
+    );
     if (!capture) throw new Error('截图不存在或已被删除');
     return capture;
   });

@@ -5,17 +5,18 @@ import type { SavedCapture } from '@markfix/contracts';
 
 export function CapturePreviewWindow(): React.JSX.Element {
   const captureId = new URLSearchParams(window.location.search).get('captureId');
+  const projectId = new URLSearchParams(window.location.search).get('projectId');
   const [capture, setCapture] = useState<SavedCapture>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
-    if (!captureId) {
+    if (!projectId || !captureId) {
       setError('缺少截图信息');
       return;
     }
     let active = true;
     void window.markfix
-      .loadCapturePreview(captureId)
+      .loadCapturePreview(projectId, captureId)
       .then((savedCapture) => {
         if (active) setCapture(savedCapture);
       })
@@ -25,7 +26,7 @@ export function CapturePreviewWindow(): React.JSX.Element {
     return () => {
       active = false;
     };
-  }, [captureId]);
+  }, [captureId, projectId]);
 
   return (
     <main className="capture-preview-window">

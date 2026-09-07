@@ -65,8 +65,10 @@ export function ProjectHistoryWindow(): React.JSX.Element {
   const selectAnnotation = async (annotation: ProjectAnnotation): Promise<void> => {
     setError(undefined);
     try {
+      if (!projectId) throw new Error('缺少项目信息。');
       await window.markfix.selectHistoricalAnnotation({
         type: annotation.type,
+        projectId,
         id: annotation.record.id,
       });
     } catch (cause) {

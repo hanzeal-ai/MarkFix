@@ -43,16 +43,60 @@
 .history-page > header > span svg {
   width: 20px;
 }
-.new-project-hero h1 {
-  margin: 0;
-  color: var(--text);
-  font-size: clamp(42px, 5vw, 58px);
-  font-weight: 720;
-  letter-spacing: -0.05em;
+.new-project-hero .markfix-logo-stacked {
+  display: block;
+  width: clamp(154px, 18vw, 190px);
+  height: auto;
 }
 .new-project-form {
   width: 100%;
   margin-top: 34px;
+}
+
+.new-project-storage-mode {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.new-project-storage-mode legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.new-project-storage-mode label {
+  cursor: pointer;
+}
+
+.new-project-storage-mode input {
+  position: absolute;
+  opacity: 0;
+}
+
+.new-project-storage-mode span {
+  display: block;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.new-project-storage-mode input:checked + span {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.new-project-storage-mode input:focus-visible + span {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 .new-project-visually-hidden {
   position: absolute;

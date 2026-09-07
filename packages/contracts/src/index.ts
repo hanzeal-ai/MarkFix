@@ -277,6 +277,7 @@ export const savedDiagnosticAnnotationSchema = annotationRecordContextSchema.ext
 
 export const historyAnnotationReferenceSchema = z.object({
   type: z.enum(['element', 'capture', 'diagnostic']),
+  projectId: z.uuid(),
   id: z.uuid(),
 });
 
@@ -371,9 +372,8 @@ export const webUrlSchema = z.url().refine((value) => {
   return protocol === 'http:' || protocol === 'https:';
 }, 'Only HTTP and HTTPS URLs are supported');
 
-export const websiteProjectSchema = z.object({
+const websiteProjectBaseSchema = z.object({
   id: z.uuid(),
-  workspaceId: z.uuid(),
   title: z.string().min(1).max(120),
   origin: webUrlSchema,
   entryUrl: webUrlSchema,
@@ -383,6 +383,42 @@ export const websiteProjectSchema = z.object({
   currentUrl: webUrlSchema,
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
+});
+
+export const projectStorageModeSchema = z.enum(['LOCAL', 'CLOUD']);
+
+export const websiteProjectSchema = z.discriminatedUnion('storageMode', [
+  websiteProjectBaseSchema
+    .extend({
+      storageMode: z.literal('LOCAL'),
+    })
+    .strict(),
+  websiteProjectBaseSchema
+    .extend({
+      storageMode: z.literal('CLOUD'),
+      workspaceId: z.uuid(),
+    })
+    .strict(),
+]);
+
+export const cloudProjectStateSchema = z.object({
+  project: websiteProjectBaseSchema.extend({
+    storageMode: z.literal('CLOUD'),
+    workspaceId: z.uuid(),
+  }),
+  navigation: z.object({
+    entries: z
+      .array(
+        z.object({
+          pageSessionId: z.uuid(),
+          url: webUrlSchema,
+          title: z.string().max(500),
+        }),
+      )
+      .max(200),
+    currentIndex: z.number().int().min(-1),
+  }),
+  revision: z.number().int().nonnegative(),
 });
 
 export const environmentSchema = z.object({
@@ -489,7 +525,6 @@ export const ipcChannels = {
   setWorkspaceLayout: 'workspace-layout:set',
   openMoreMenu: 'desktop-menu:open-more',
   openSettings: 'settings:open',
-  submitProjectAnnotations: 'project-annotations:submit',
   navigate: 'browser:navigate',
   goBack: 'browser:back',
   goForward: 'browser:forward',
@@ -562,6 +597,7 @@ export type BrowserMode = z.infer<typeof browserModeSchema>;
 export type CaptureBundle = z.infer<typeof captureBundleSchema>;
 export type CaptureContext = z.infer<typeof captureContextSchema>;
 export type CaptureRequest = z.infer<typeof captureRequestSchema>;
+export type CloudProjectState = z.infer<typeof cloudProjectStateSchema>;
 export type Comment = z.infer<typeof commentSchema>;
 export type ClientPolicy = z.infer<typeof clientPolicySchema>;
 export type CreateEnvironment = z.infer<typeof createEnvironmentSchema>;
@@ -574,6 +610,7 @@ export type Environment = z.infer<typeof environmentSchema>;
 export type Membership = z.infer<typeof membershipSchema>;
 export type PageSnapshot = z.infer<typeof pageSnapshotSchema>;
 export type Project = z.infer<typeof projectSchema>;
+export type ProjectStorageMode = z.infer<typeof projectStorageModeSchema>;
 export type RegionAnchor = z.infer<typeof regionAnchorSchema>;
 export type Report = z.infer<typeof reportSchema>;
 export type ReportStatus = (typeof reportStatuses)[number];

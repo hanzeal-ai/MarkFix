@@ -1,5 +1,6 @@
 import {
   clientPolicySchema,
+  cloudProjectStateSchema,
   createEnvironmentSchema,
   createProjectSchema,
   createReportSchema,
@@ -7,11 +8,15 @@ import {
   environmentSchema,
   projectSchema,
   reportSchema,
+  savedCaptureSchema,
+  savedDiagnosticAnnotationSchema,
+  savedElementCommentSchema,
   updateEnvironmentSchema,
   updateProjectSchema,
   workspaceSummarySchema,
   type Comment,
   type ClientPolicy,
+  type CloudProjectState,
   type CreateEnvironment,
   type CreateProject,
   type CreateReport,
@@ -19,6 +24,10 @@ import {
   type Membership,
   type Project,
   type Report,
+  type SavedCapture,
+  type SavedDiagnosticAnnotation,
+  type SavedElementComment,
+  type AnnotationSubmission,
   type UpdateEnvironment,
   type UpdateProject,
   type WorkspaceSummary,
@@ -314,6 +323,108 @@ export class MarkFixApi {
 
   async deleteProject(projectId: string): Promise<{ deleted: boolean }> {
     return this.request(`/v1/projects/${projectId}`, { method: 'DELETE' });
+  }
+
+  async getCloudProjectState(projectId: string): Promise<CloudProjectState | undefined> {
+    const state = await this.request<unknown>(`/v1/projects/${projectId}/data/state`);
+    return state === undefined || state === null ? undefined : cloudProjectStateSchema.parse(state);
+  }
+
+  async saveCloudProjectState(state: CloudProjectState): Promise<CloudProjectState> {
+    const parsed = cloudProjectStateSchema.parse(state);
+    return cloudProjectStateSchema.parse(
+      await this.request(`/v1/projects/${parsed.project.id}/data/state`, {
+        method: 'PUT',
+        body: JSON.stringify(parsed),
+      }),
+    );
+  }
+
+  async listCloudCaptures(projectId: string): Promise<SavedCapture[]> {
+    return savedCaptureSchema
+      .array()
+      .parse(await this.request(`/v1/projects/${projectId}/data/captures`));
+  }
+
+  async saveCloudCapture(capture: SavedCapture): Promise<SavedCapture> {
+    const parsed = savedCaptureSchema.parse(capture);
+    const { dataUrl, sourceDataUrl, ...metadata } = parsed;
+    const basePath = `/v1/projects/${parsed.projectId}/data/captures/${parsed.id}`;
+    const imageRevision = `?updatedAt=${encodeURIComponent(parsed.updatedAt)}`;
+    await this.request(basePath, { method: 'PUT', body: JSON.stringify(metadata) });
+    await Promise.all([
+      this.request(`${basePath}/images/rendered${imageRevision}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'image/png' },
+        body: dataUrlBytes(dataUrl) as BodyInit,
+      }),
+      this.request(`${basePath}/images/source${imageRevision}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'image/png' },
+        body: dataUrlBytes(sourceDataUrl) as BodyInit,
+      }),
+    ]);
+    return parsed;
+  }
+
+  async listCloudElementComments(projectId: string): Promise<SavedElementComment[]> {
+    return savedElementCommentSchema
+      .array()
+      .parse(await this.request(`/v1/projects/${projectId}/data/element-comments`));
+  }
+
+  async saveCloudElementComment(comment: SavedElementComment): Promise<SavedElementComment> {
+    const parsed = savedElementCommentSchema.parse(comment);
+    const { screenshotDataUrl, ...metadata } = parsed;
+    const basePath = `/v1/projects/${parsed.projectId}/data/element-comments/${parsed.id}`;
+    await this.request(basePath, {
+      method: 'PUT',
+      body: JSON.stringify({ ...metadata, hasScreenshot: Boolean(screenshotDataUrl) }),
+    });
+    if (screenshotDataUrl)
+      await this.request(
+        `${basePath}/images/rendered?updatedAt=${encodeURIComponent(parsed.updatedAt)}`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'image/png' },
+          body: dataUrlBytes(screenshotDataUrl) as BodyInit,
+        },
+      );
+    return parsed;
+  }
+
+  async listCloudDiagnostics(projectId: string): Promise<SavedDiagnosticAnnotation[]> {
+    return savedDiagnosticAnnotationSchema
+      .array()
+      .parse(await this.request(`/v1/projects/${projectId}/data/diagnostics`));
+  }
+
+  async saveCloudDiagnostic(
+    annotation: SavedDiagnosticAnnotation,
+  ): Promise<SavedDiagnosticAnnotation> {
+    const parsed = savedDiagnosticAnnotationSchema.parse(annotation);
+    await this.request(`/v1/projects/${parsed.projectId}/data/diagnostics/${parsed.id}`, {
+      method: 'PUT',
+      body: JSON.stringify(parsed),
+    });
+    return parsed;
+  }
+
+  deleteCloudRecord(
+    projectId: string,
+    kind: 'captures' | 'element-comments' | 'diagnostics',
+    recordId: string,
+  ): Promise<{ deleted: true }> {
+    return this.request(`/v1/projects/${projectId}/data/${kind}/${recordId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  saveCloudAnnotationSubmission(submission: AnnotationSubmission): Promise<{ saved: true }> {
+    return this.request(`/v1/projects/${submission.projectId}/data/submission`, {
+      method: 'PUT',
+      body: JSON.stringify(submission),
+    });
   }
 
   async listEnvironments(projectId: string): Promise<Environment[]> {

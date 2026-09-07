@@ -6,13 +6,16 @@ import {
   savedDiagnosticAnnotationSchema,
   savedElementCommentSchema,
   type SavedElementComment,
+  type WebsiteProject,
 } from '@markfix/contracts';
-import type { DraftStore } from '../draft-store.js';
+import type { ProjectDataRouter } from '../project-data-router.js';
 import { decodeScreenshotDataUrl } from '../image-export.js';
 
 type Dependencies = {
   assertSender: (event: IpcMainInvokeEvent) => void;
-  draftStore: () => DraftStore | undefined;
+  dataRouter: () => ProjectDataRouter;
+  projects: () => WebsiteProject[];
+  activeProjectId: () => string | undefined;
   websiteView: () => WebContentsView | undefined;
   elementComments: () => SavedElementComment[];
   setElementComments: (comments: SavedElementComment[]) => void;
@@ -20,54 +23,62 @@ type Dependencies = {
 };
 
 export const registerAnnotationStoreIpc = (dependencies: Dependencies): void => {
-  const store = dependencies.draftStore;
-  ipcMain.handle(ipcChannels.listCaptureRecords, (event, input: unknown) => {
+  const router = dependencies.dataRouter;
+  const projectIdForDelete = (): string => {
+    const projectId = dependencies.activeProjectId();
+    if (!projectId) throw new Error('请先打开一个标注项目');
+    return projectId;
+  };
+  ipcMain.handle(ipcChannels.listCaptureRecords, async (event, input: unknown) => {
     dependencies.assertSender(event);
     if (input !== undefined && typeof input !== 'string') throw new Error('Invalid project ID');
-    return store()?.listCaptures(input) ?? [];
+    if (typeof input !== 'string') return [];
+    return router().listCaptures(input);
   });
-  ipcMain.handle(ipcChannels.listAnnotationHistorySummaries, (event) => {
+  ipcMain.handle(ipcChannels.listAnnotationHistorySummaries, async (event) => {
     dependencies.assertSender(event);
-    return store()?.listAnnotationHistorySummaries() ?? [];
+    return router().listHistorySummaries(dependencies.projects());
   });
-  ipcMain.handle(ipcChannels.saveCaptureRecord, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.saveCaptureRecord, async (event, input: unknown) => {
     dependencies.assertSender(event);
     const capture = savedCaptureSchema.parse(input);
     decodeScreenshotDataUrl(capture.dataUrl);
-    store()?.saveCapture(capture);
+    await router().saveCapture(capture);
   });
-  ipcMain.handle(ipcChannels.deleteCaptureRecord, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.deleteCaptureRecord, async (event, input: unknown) => {
     dependencies.assertSender(event);
     if (typeof input !== 'string') throw new Error('Invalid capture ID');
-    store()?.deleteCapture(input);
+    await router().deleteCapture(projectIdForDelete(), input);
   });
-  ipcMain.handle(ipcChannels.listElementComments, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.listElementComments, async (event, input: unknown) => {
     dependencies.assertSender(event);
     if (input !== undefined && typeof input !== 'string') throw new Error('Invalid project ID');
-    return store()?.listElementComments(input) ?? [];
+    if (typeof input !== 'string') return [];
+    return router().listElementComments(input);
   });
-  ipcMain.handle(ipcChannels.saveElementComment, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.saveElementComment, async (event, input: unknown) => {
     dependencies.assertSender(event);
-    store()?.saveElementComment(savedElementCommentSchema.parse(input));
+    await router().saveElementComment(savedElementCommentSchema.parse(input));
   });
-  ipcMain.handle(ipcChannels.deleteElementComment, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.deleteElementComment, async (event, input: unknown) => {
     dependencies.assertSender(event);
     if (typeof input !== 'string') throw new Error('Invalid element comment ID');
-    store()?.deleteElementComment(input);
+    await router().deleteElementComment(projectIdForDelete(), input);
   });
-  ipcMain.handle(ipcChannels.listDiagnosticAnnotations, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.listDiagnosticAnnotations, async (event, input: unknown) => {
     dependencies.assertSender(event);
     if (input !== undefined && typeof input !== 'string') throw new Error('Invalid project ID');
-    return store()?.listDiagnosticAnnotations(input) ?? [];
+    if (typeof input !== 'string') return [];
+    return router().listDiagnostics(input);
   });
-  ipcMain.handle(ipcChannels.saveDiagnosticAnnotation, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.saveDiagnosticAnnotation, async (event, input: unknown) => {
     dependencies.assertSender(event);
-    store()?.saveDiagnosticAnnotation(savedDiagnosticAnnotationSchema.parse(input));
+    await router().saveDiagnostic(savedDiagnosticAnnotationSchema.parse(input));
   });
-  ipcMain.handle(ipcChannels.deleteDiagnosticAnnotation, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.deleteDiagnosticAnnotation, async (event, input: unknown) => {
     dependencies.assertSender(event);
     if (typeof input !== 'string') throw new Error('Invalid diagnostic annotation ID');
-    store()?.deleteDiagnosticAnnotation(input);
+    await router().deleteDiagnostic(projectIdForDelete(), input);
   });
   ipcMain.handle(ipcChannels.syncElementComments, (event, input: unknown) => {
     dependencies.assertSender(event);
@@ -75,15 +86,15 @@ export const registerAnnotationStoreIpc = (dependencies: Dependencies): void => 
     dependencies.setElementComments(comments);
     dependencies.websiteView()?.webContents.send('markfix:render-element-comments', comments);
   });
-  ipcMain.handle(ipcChannels.saveAnnotationSubmission, (event, input: unknown) => {
+  ipcMain.handle(ipcChannels.saveAnnotationSubmission, async (event, input: unknown) => {
     dependencies.assertSender(event);
     const submission = annotationSubmissionSchema.parse(input);
     for (const capture of submission.captures) decodeScreenshotDataUrl(capture.dataUrl);
-    store()?.saveAnnotationSubmission(submission);
+    await router().saveSubmission(submission);
     const submittedElementCommentIds = submission.elementComments.map(({ id }) => id);
-    const comments = dependencies.elementComments().filter(
-      ({ id }) => !submittedElementCommentIds.includes(id),
-    );
+    const comments = dependencies
+      .elementComments()
+      .filter(({ id }) => !submittedElementCommentIds.includes(id));
     dependencies.setElementComments(comments);
     dependencies.websiteView()?.webContents.send('markfix:render-element-comments', comments);
     dependencies.sendShell(ipcChannels.annotationSubmissionSaved, {

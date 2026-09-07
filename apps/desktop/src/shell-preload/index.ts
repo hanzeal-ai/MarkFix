@@ -40,8 +40,11 @@ contextBridge.exposeInMainWorld('markfix', {
   listWebsiteProjects: () => ipcRenderer.invoke(ipcChannels.listWebsiteProjects),
   listProjectAnnotationReports: (projectId: string, pageUrl: string) =>
     ipcRenderer.invoke(ipcChannels.listProjectAnnotationReports, { projectId, pageUrl }),
-  createWebsiteProject: (workspaceId: string, url: string) =>
-    ipcRenderer.invoke(ipcChannels.createWebsiteProject, { workspaceId, url }),
+  createWebsiteProject: (
+    storageMode: 'LOCAL' | 'CLOUD',
+    workspaceId: string | undefined,
+    url: string,
+  ) => ipcRenderer.invoke(ipcChannels.createWebsiteProject, { storageMode, workspaceId, url }),
   switchWebsiteProject: (projectId: string) =>
     ipcRenderer.invoke(ipcChannels.switchWebsiteProject, projectId),
   deleteWebsiteProject: (projectId: string) =>
@@ -52,8 +55,6 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(ipcChannels.setWorkspaceLayout, { sidebarWidth, visible }),
   openMoreMenu: (x: number, y: number) => ipcRenderer.invoke(ipcChannels.openMoreMenu, { x, y }),
   openSettings: () => ipcRenderer.invoke(ipcChannels.openSettings),
-  submitProjectAnnotations: (projectId: string) =>
-    ipcRenderer.invoke(ipcChannels.submitProjectAnnotations, projectId),
   navigate: (url: string) => ipcRenderer.invoke(ipcChannels.navigate, { url }),
   back: () => ipcRenderer.invoke(ipcChannels.goBack),
   forward: () => ipcRenderer.invoke(ipcChannels.goForward),
@@ -107,10 +108,10 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(ipcChannels.openProjectAnnotationHistory, projectId),
   selectHistoricalAnnotation: (reference: HistoryAnnotationReference) =>
     ipcRenderer.invoke(ipcChannels.selectAnnotationHistory, reference),
-  openCapturePreview: (captureId: string) =>
-    ipcRenderer.invoke(ipcChannels.openCapturePreview, captureId),
-  loadCapturePreview: (captureId: string) =>
-    ipcRenderer.invoke(ipcChannels.loadCapturePreview, captureId),
+  openCapturePreview: (projectId: string, captureId: string) =>
+    ipcRenderer.invoke(ipcChannels.openCapturePreview, { projectId, captureId }),
+  loadCapturePreview: (projectId: string, captureId: string) =>
+    ipcRenderer.invoke(ipcChannels.loadCapturePreview, { projectId, captureId }),
   syncAnchor: (anchor: Anchor | null) => ipcRenderer.invoke(ipcChannels.syncAnchor, anchor),
   capture: (request: CaptureRequest) => ipcRenderer.invoke(ipcChannels.capture, request),
   loadSyncStatus: (outboxId: string) => ipcRenderer.invoke(ipcChannels.loadSyncStatus, outboxId),

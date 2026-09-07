@@ -28,12 +28,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
+  MarkFixLogo,
+  MarkFixStackedLogo,
 } from '@markfix/ui';
-import type { WebsiteProject } from '@markfix/contracts';
+import type { ProjectStorageMode, WebsiteProject } from '@markfix/contracts';
 import { MarkFixGlyph, WebsiteLogo } from './project-navigation/WebsiteLogo';
 
 export { HistoryPage, ProjectHistoryDetail } from './project-navigation/HistoryPages';
-export { annotationCounts, projectAnnotations, type ProjectAnnotation } from './project-navigation/model';
+export {
+  annotationCounts,
+  projectAnnotations,
+  type ProjectAnnotation,
+} from './project-navigation/model';
 
 type WebsiteShortcut = {
   id: string;
@@ -169,8 +175,7 @@ export function ProjectSidebar({
   return (
     <nav className="project-sidebar expanded" aria-label="项目导航">
       <div className="project-sidebar-brand">
-        <MarkFixGlyph />
-        <strong>MarkFix</strong>
+        <MarkFixLogo />
       </div>
 
       <Button
@@ -200,7 +205,10 @@ export function ProjectSidebar({
                 <WebsiteLogo project={project} />
                 <span className="project-sidebar-copy">
                   <strong>{project.title}</strong>
-                  <small>{new URL(project.origin).hostname}</small>
+                  <small>
+                    {new URL(project.origin).hostname} ·{' '}
+                    {project.storageMode === 'LOCAL' ? '本地' : '云端'}
+                  </small>
                 </span>
                 <i>{annotationCount(project.id)}</i>
               </Button>
@@ -293,10 +301,11 @@ export function NewProjectPage({
   busy: boolean;
   error: string | undefined;
   projects: WebsiteProject[];
-  onSubmit: (url: string) => void;
-  onShortcut: (url: string) => void;
+  onSubmit: (url: string, storageMode: ProjectStorageMode) => void;
+  onShortcut: (shortcutId: string, url: string, storageMode: ProjectStorageMode) => void;
 }): React.JSX.Element {
   const [value, setValue] = useState(initialValue);
+  const [storageMode, setStorageMode] = useState<ProjectStorageMode>('LOCAL');
   const [shortcuts, setShortcuts] = useState<WebsiteShortcut[]>(() =>
     loadWebsiteShortcuts(projects),
   );
@@ -324,7 +333,7 @@ export function NewProjectPage({
   }, [shortcuts]);
   const submit = (event: FormEvent): void => {
     event.preventDefault();
-    if (value.trim() && !busy) onSubmit(value.trim());
+    if (value.trim() && !busy) onSubmit(value.trim(), storageMode);
   };
 
   const openShortcutDialog = (shortcut?: WebsiteShortcut): void => {
@@ -398,7 +407,7 @@ export function NewProjectPage({
     <main className="navigation-page new-project-page">
       <section className="new-project-home">
         <header className="new-project-hero">
-          <h1>MarkFix</h1>
+          <MarkFixStackedLogo />
         </header>
 
         <form className="new-project-form" aria-label="新建标注" onSubmit={submit}>
@@ -425,6 +434,21 @@ export function NewProjectPage({
               <CornerDownLeft aria-hidden="true" />
             </Button>
           </div>
+          <fieldset className="new-project-storage-mode">
+            <legend>项目数据存储</legend>
+            {(['LOCAL', 'CLOUD'] as const).map((mode) => (
+              <label key={mode}>
+                <input
+                  type="radio"
+                  name="project-storage-mode"
+                  value={mode}
+                  checked={storageMode === mode}
+                  onChange={() => setStorageMode(mode)}
+                />
+                <span>{mode === 'LOCAL' ? '仅本机' : '云端协作'}</span>
+              </label>
+            ))}
+          </fieldset>
           {error && (
             <p id="new-project-error" role="alert">
               {error}
@@ -446,7 +470,7 @@ export function NewProjectPage({
                     type="button"
                     variant="ghost"
                     title={shortcut.name}
-                    onClick={() => onShortcut(shortcut.url)}
+                    onClick={() => onShortcut(shortcut.id, shortcut.url, storageMode)}
                   >
                     <ShortcutLogo shortcut={shortcut} />
                     <strong>{shortcut.name}</strong>

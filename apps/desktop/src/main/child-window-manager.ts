@@ -1,10 +1,9 @@
 import { join } from 'node:path';
 import { BrowserWindow } from 'electron';
-import type { DraftStore } from './draft-store.js';
 
 type ChildWindowManagerOptions = {
   mainWindow: () => BrowserWindow | undefined;
-  draftStore: () => DraftStore | undefined;
+  captureExists: (projectId: string, captureId: string) => Promise<boolean>;
   registerShortcuts: (window: BrowserWindow) => void;
 };
 
@@ -108,7 +107,7 @@ export class ChildWindowManager {
     await this.showWhenReady(settings, 'settings');
   }
 
-  async openAnnotationReview(projectId: string): Promise<void> {
+  async openAnnotationReview(projectId: string, storageMode: 'LOCAL' | 'CLOUD'): Promise<void> {
     const mainWindow = this.requireMainWindow();
     if (this.annotationReviewWindow && !this.annotationReviewWindow.isDestroyed()) {
       if (this.annotationReviewProjectId === projectId) {
@@ -136,11 +135,12 @@ export class ChildWindowManager {
       this.annotationReviewWindow = undefined;
       this.annotationReviewProjectId = undefined;
     });
-    await this.showWhenReady(reviewWindow, 'annotation-save', { projectId });
+    await this.showWhenReady(reviewWindow, 'annotation-save', { projectId, storageMode });
   }
 
-  async openCapturePreview(captureId: string): Promise<void> {
-    if (!this.options.draftStore()?.getCapture(captureId)) throw new Error('截图不存在或已被删除');
+  async openCapturePreview(projectId: string, captureId: string): Promise<void> {
+    if (!(await this.options.captureExists(projectId, captureId)))
+      throw new Error('截图不存在或已被删除');
     if (this.capturePreviewWindow && !this.capturePreviewWindow.isDestroyed())
       this.capturePreviewWindow.close();
     const parent =
@@ -161,7 +161,7 @@ export class ChildWindowManager {
     previewWindow.on('closed', () => {
       if (this.capturePreviewWindow === previewWindow) this.capturePreviewWindow = undefined;
     });
-    await this.showWhenReady(previewWindow, 'capture-preview', { captureId });
+    await this.showWhenReady(previewWindow, 'capture-preview', { projectId, captureId });
   }
 
   async openAnnotationHistory(): Promise<void> {

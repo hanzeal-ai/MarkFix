@@ -15,7 +15,7 @@ import {
 } from '@markfix/contracts';
 import { retryDelayMs } from './sync-policy.js';
 import { captureStorage, hydrateCapture, type StoredCapture } from './draft-store/capture-codec.js';
-import { initializeDraftStore, migrateWebsiteProjectState } from './draft-store/migrations.js';
+import { initializeDraftStore } from './draft-store/migrations.js';
 
 export type OutboxEntry = {
   id: string;
@@ -33,10 +33,14 @@ export class DraftStore {
     initializeDraftStore(this.database);
   }
 
-  listWebsiteProjects(): WebsiteProject[] {
+  listWebsiteProjects(storageMode?: WebsiteProject['storageMode']): WebsiteProject[] {
     const rows = this.database
-      .prepare('SELECT payload FROM website_projects ORDER BY updated_at DESC')
-      .all() as Array<{ payload: string }>;
+      .prepare(
+        `SELECT payload FROM website_projects
+         ${storageMode ? 'WHERE storage_mode = ?' : ''}
+         ORDER BY updated_at DESC`,
+      )
+      .all(...(storageMode ? [storageMode] : [])) as Array<{ payload: string }>;
     return rows.map(({ payload }) => websiteProjectSchema.parse(JSON.parse(payload)));
   }
 
@@ -47,10 +51,17 @@ export class DraftStore {
     return row ? websiteProjectSchema.parse(JSON.parse(row.payload)) : undefined;
   }
 
-  findWebsiteProjectByOrigin(origin: string): WebsiteProject | undefined {
+  findWebsiteProjectByOrigin(
+    origin: string,
+    storageMode?: WebsiteProject['storageMode'],
+  ): WebsiteProject | undefined {
     const row = this.database
-      .prepare('SELECT payload FROM website_projects WHERE origin = ?')
-      .get(origin) as { payload: string } | undefined;
+      .prepare(
+        `SELECT payload FROM website_projects WHERE origin = ?
+         ${storageMode ? 'AND storage_mode = ?' : ''}
+         ORDER BY updated_at DESC LIMIT 1`,
+      )
+      .get(...(storageMode ? [origin, storageMode] : [origin])) as { payload: string } | undefined;
     return row ? websiteProjectSchema.parse(JSON.parse(row.payload)) : undefined;
   }
 
@@ -58,35 +69,21 @@ export class DraftStore {
     const currentProject = websiteProjectSchema.parse(project);
     this.database
       .prepare(
-        `INSERT INTO website_projects (id, origin, payload, updated_at) VALUES (?, ?, ?, ?)
+        `INSERT INTO website_projects (id, storage_mode, origin, payload, updated_at)
+         VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
+           storage_mode = excluded.storage_mode,
            origin = excluded.origin,
            payload = excluded.payload,
            updated_at = excluded.updated_at`,
       )
       .run(
         currentProject.id,
+        currentProject.storageMode,
         currentProject.origin,
         JSON.stringify(currentProject),
         currentProject.updatedAt,
       );
-  }
-
-  migrateWebsiteProject(previousId: string, project: WebsiteProject): WebsiteProject {
-    const currentProject = websiteProjectSchema.parse(project);
-    if (previousId === currentProject.id) {
-      this.saveWebsiteProject(currentProject);
-      return currentProject;
-    }
-    const previousProject = this.getWebsiteProject(previousId);
-    if (!previousProject) throw new Error('Local website project to migrate was not found');
-    if (previousProject.origin !== currentProject.origin)
-      throw new Error('Website project origin changed during migration');
-    if (this.getWebsiteProject(currentProject.id))
-      throw new Error('Website project migration target already exists');
-
-    migrateWebsiteProjectState(this.database, previousId, currentProject);
-    return currentProject;
   }
 
   deleteWebsiteProject(projectId: string): void {
@@ -259,8 +256,12 @@ export class DraftStore {
       );
   }
 
-  deleteCapture(id: string): void {
-    this.database.prepare('DELETE FROM capture_annotations WHERE id = ?').run(id);
+  deleteCapture(id: string, projectId?: string): void {
+    this.database
+      .prepare(
+        `DELETE FROM capture_annotations WHERE id = ?${projectId ? ' AND project_id = ?' : ''}`,
+      )
+      .run(...(projectId ? [id, projectId] : [id]));
   }
 
   listElementComments(projectId?: string): SavedElementComment[] {
@@ -299,8 +300,10 @@ export class DraftStore {
       );
   }
 
-  deleteElementComment(id: string): void {
-    this.database.prepare('DELETE FROM element_comments WHERE id = ?').run(id);
+  deleteElementComment(id: string, projectId?: string): void {
+    this.database
+      .prepare(`DELETE FROM element_comments WHERE id = ?${projectId ? ' AND project_id = ?' : ''}`)
+      .run(...(projectId ? [id, projectId] : [id]));
   }
 
   listDiagnosticAnnotations(projectId?: string): SavedDiagnosticAnnotation[] {
@@ -339,8 +342,12 @@ export class DraftStore {
       );
   }
 
-  deleteDiagnosticAnnotation(id: string): void {
-    this.database.prepare('DELETE FROM diagnostic_annotations WHERE id = ?').run(id);
+  deleteDiagnosticAnnotation(id: string, projectId?: string): void {
+    this.database
+      .prepare(
+        `DELETE FROM diagnostic_annotations WHERE id = ?${projectId ? ' AND project_id = ?' : ''}`,
+      )
+      .run(...(projectId ? [id, projectId] : [id]));
   }
 
   listAnnotationHistorySummaries(): AnnotationHistorySummary[] {

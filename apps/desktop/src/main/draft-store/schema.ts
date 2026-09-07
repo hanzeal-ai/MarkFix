@@ -66,10 +66,13 @@ export const draftStoreSchema = `
   );
   CREATE TABLE IF NOT EXISTS website_projects (
     id TEXT PRIMARY KEY,
-    origin TEXT NOT NULL UNIQUE,
+    storage_mode TEXT NOT NULL,
+    origin TEXT NOT NULL,
     payload TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
+  CREATE INDEX IF NOT EXISTS website_projects_mode_origin_idx
+    ON website_projects(storage_mode, origin);
   CREATE INDEX IF NOT EXISTS website_projects_updated_idx
     ON website_projects(updated_at);
   CREATE TABLE IF NOT EXISTS page_sessions (

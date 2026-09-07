@@ -468,7 +468,7 @@ describe('DraftStore website projects', () => {
     const store = createStore();
     const project: WebsiteProject = {
       id: '90e2a0c5-0755-49b9-9d5d-41534ed41b41',
-      workspaceId: 'bb0ee545-59c0-427f-ad9c-fb976ef266d5',
+      storageMode: 'LOCAL',
       title: 'Example',
       origin: 'https://example.com',
       entryUrl: 'https://example.com/start',
@@ -493,33 +493,80 @@ describe('DraftStore website projects', () => {
     store.close();
   });
 
-  it('moves cached state to the server project id for the same website origin', () => {
+  it('allows local and cloud projects for the same website without mixing ownership', () => {
     const store = createStore();
-    const localId = '90e2a0c5-0755-49b9-9d5d-41534ed41b41';
-    const serverId = 'aa6ba68a-60ad-4116-acd8-bc42c496fa1c';
-    const project: WebsiteProject = {
-      id: localId,
-      workspaceId: 'bb0ee545-59c0-427f-ad9c-fb976ef266d5',
+    const common = {
       title: 'Example',
       origin: 'https://example.com',
       entryUrl: 'https://example.com/start',
-      faviconUrl: 'https://example.com/favicon.ico',
-      faviconSource: 'root',
-      currentPageSessionId: '60bba625-07f2-40f6-8eef-1ddb681f8513',
+      faviconUrl: null,
+      faviconSource: 'markfix' as const,
+      currentPageSessionId: crypto.randomUUID(),
       currentUrl: 'https://example.com/start',
-      createdAt: '2026-09-04T08:00:00.000Z',
-      updatedAt: '2026-09-04T08:00:00.000Z',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
-    store.saveWebsiteProject(project);
-    const migrated = store.migrateWebsiteProject(localId, {
-      ...project,
-      id: serverId,
-      workspaceId: 'cf3f22df-a04d-4ff2-839d-39d032f263a2',
-    });
+    const local: WebsiteProject = { ...common, id: crypto.randomUUID(), storageMode: 'LOCAL' };
+    const cloud: WebsiteProject = {
+      ...common,
+      id: crypto.randomUUID(),
+      storageMode: 'CLOUD',
+      workspaceId: crypto.randomUUID(),
+    };
 
-    expect(store.findWebsiteProjectByOrigin(project.origin)?.id).toBe(serverId);
-    expect(store.getWebsiteProject(localId)).toBeUndefined();
-    expect(store.getWebsiteProject(serverId)).toEqual(migrated);
+    store.saveWebsiteProject(local);
+    store.saveWebsiteProject(cloud);
+
+    expect(store.findWebsiteProjectByOrigin(common.origin, 'LOCAL')).toEqual(local);
+    expect(store.findWebsiteProjectByOrigin(common.origin, 'CLOUD')).toEqual(cloud);
+    expect(store.listWebsiteProjects('LOCAL')).toEqual([local]);
+    expect(store.listWebsiteProjects('CLOUD')).toEqual([cloud]);
+    store.close();
+  });
+
+  it('upgrades the development v1 project table to explicit cloud ownership', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'markfix-project-v1-'));
+    temporaryDirectories.push(directory);
+    const path = join(directory, 'drafts.sqlite');
+    const legacyProject = {
+      id: crypto.randomUUID(),
+      workspaceId: crypto.randomUUID(),
+      title: 'Legacy cloud project',
+      origin: 'https://legacy.example.test',
+      entryUrl: 'https://legacy.example.test/start',
+      faviconUrl: null,
+      faviconSource: 'markfix',
+      currentPageSessionId: crypto.randomUUID(),
+      currentUrl: 'https://legacy.example.test/start',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const database = new Database(path);
+    database.exec(`
+      CREATE TABLE website_projects (
+        id TEXT PRIMARY KEY,
+        origin TEXT NOT NULL UNIQUE,
+        payload TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      PRAGMA user_version = 1;
+    `);
+    database
+      .prepare('INSERT INTO website_projects (id, origin, payload, updated_at) VALUES (?, ?, ?, ?)')
+      .run(
+        legacyProject.id,
+        legacyProject.origin,
+        JSON.stringify(legacyProject),
+        legacyProject.updatedAt,
+      );
+    database.close();
+
+    const store = new DraftStore(path);
+
+    expect(store.getWebsiteProject(legacyProject.id)).toEqual({
+      ...legacyProject,
+      storageMode: 'CLOUD',
+    });
     store.close();
   });
 });
