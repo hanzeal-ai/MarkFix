@@ -31,14 +31,22 @@ export function ProjectHistoryDetail({
           <WebsiteLogo project={project} />
           <span>
             <h1>{project.title}</h1>
-            <p>{new URL(project.origin).hostname} · {counts.total} 条标注</p>
+            <p>
+              {new URL(project.origin).hostname} · {counts.total} 条标注
+            </p>
           </span>
         </div>
       </header>
       <div className="project-history-stats">
-        <span className="draft"><b>{counts.draft}</b>未提交</span>
-        <span className="submitted"><b>{counts.submitted}</b>已提交</span>
-        <span className="rejected"><b>{counts.rejected}</b>驳回</span>
+        <span className="draft">
+          <b>{counts.draft}</b>未提交
+        </span>
+        <span className="submitted">
+          <b>{counts.submitted}</b>已提交
+        </span>
+        <span className="rejected">
+          <b>{counts.rejected}</b>驳回
+        </span>
       </div>
       <div className="project-history-list">
         {annotations.map((annotation) => (
@@ -48,19 +56,31 @@ export function ProjectHistoryDetail({
             onClick={() => onSelect(annotation)}
           >
             <span className="history-record-icon">
-              {annotation.type === 'capture' ? <Camera /> :
-                annotation.type === 'diagnostic' ? <Terminal /> : <MessageSquareText />}
+              {annotation.type === 'capture' ? (
+                <Camera />
+              ) : annotation.type === 'diagnostic' ? (
+                <Terminal />
+              ) : (
+                <MessageSquareText />
+              )}
             </span>
             <span className="history-record-copy">
               <span>
                 <strong>
-                  {annotation.type === 'capture' ? '截图批注' :
-                    annotation.type === 'diagnostic' ? '调试标注' : '元素批注'}
+                  {annotation.type === 'capture'
+                    ? '截图批注'
+                    : annotation.type === 'diagnostic'
+                      ? '调试标注'
+                      : '元素批注'}
                 </strong>
                 <StatusBadge status={annotation.record.status} />
               </span>
               <small>{annotation.record.pageTitle || annotation.record.pageUrl}</small>
-              <p>{annotation.type === 'diagnostic' ? annotation.record.evidence.title : annotation.record.note}</p>
+              <p>
+                {annotation.type === 'diagnostic'
+                  ? annotation.record.evidence.title
+                  : annotation.record.note}
+              </p>
             </span>
             <time>{new Date(annotation.record.updatedAt).toLocaleString()}</time>
           </Button>
@@ -80,22 +100,28 @@ export function HistoryPage({
   onSelectProject: (project: WebsiteProject) => void;
 }): React.JSX.Element {
   const entries = useMemo(
-    () => projects
-      .map((project) => ({
-        project,
-        summary: summaries.find(({ projectId }) => projectId === project.id),
-      }))
-      .filter((entry): entry is { project: WebsiteProject; summary: AnnotationHistorySummary } =>
-        Boolean(entry.summary),
-      )
-      .sort((left, right) => right.summary.updatedAt.localeCompare(left.summary.updatedAt)),
+    () =>
+      projects
+        .map((project) => ({
+          project,
+          summary: summaries.find(({ projectId }) => projectId === project.id),
+        }))
+        .filter((entry): entry is { project: WebsiteProject; summary: AnnotationHistorySummary } =>
+          Boolean(entry.summary),
+        )
+        .sort((left, right) => right.summary.updatedAt.localeCompare(left.summary.updatedAt)),
     [projects, summaries],
   );
   return (
     <main className="navigation-page history-page">
       <header>
-        <span><History /></span>
-        <div><h1>历史标注</h1><p>按项目查看已保存的元素、截图和调试标注。</p></div>
+        <span>
+          <History />
+        </span>
+        <div>
+          <h1>历史标注</h1>
+          <p>按项目查看已保存的元素、截图和调试标注。</p>
+        </div>
       </header>
       {entries.length === 0 ? (
         <div className="history-empty">

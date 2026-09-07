@@ -47,30 +47,24 @@ export function AnnotationSaveDialog({
   const items = useMemo<ReviewItem[]>(
     () =>
       [
-        ...elementComments.map(
-          (record): ReviewItem => ({
-            key: commentKey(record.id),
-            kind: 'comment',
-            record,
-            createdAt: record.createdAt,
-          }),
-        ),
-        ...captures.map(
-          (record): ReviewItem => ({
-            key: captureKey(record.id),
-            kind: 'capture',
-            record,
-            createdAt: record.createdAt,
-          }),
-        ),
-        ...diagnostics.map(
-          (record): ReviewItem => ({
-            key: diagnosticKey(record.id),
-            kind: 'diagnostic',
-            record,
-            createdAt: record.createdAt,
-          }),
-        ),
+        ...elementComments.map((record): ReviewItem => ({
+          key: commentKey(record.id),
+          kind: 'comment',
+          record,
+          createdAt: record.createdAt,
+        })),
+        ...captures.map((record): ReviewItem => ({
+          key: captureKey(record.id),
+          kind: 'capture',
+          record,
+          createdAt: record.createdAt,
+        })),
+        ...diagnostics.map((record): ReviewItem => ({
+          key: diagnosticKey(record.id),
+          kind: 'diagnostic',
+          record,
+          createdAt: record.createdAt,
+        })),
       ].sort((left, right) => left.createdAt.localeCompare(right.createdAt)),
     [captures, diagnostics, elementComments],
   );

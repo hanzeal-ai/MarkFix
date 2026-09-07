@@ -30,7 +30,9 @@ export class DesktopSessionManager {
     if (!safeStorage.isEncryptionAvailable()) {
       throw new Error('The operating system credential vault is unavailable');
     }
-    await writeFile(this.credentialPath(), safeStorage.encryptString(refreshToken), { mode: 0o600 });
+    await writeFile(this.credentialPath(), safeStorage.encryptString(refreshToken), {
+      mode: 0o600,
+    });
   }
 
   async clearRefreshToken(): Promise<void> {

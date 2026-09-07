@@ -1,11 +1,7 @@
 import type { ShortcutInput } from './shortcut-input.js';
 
 export type DesktopShortcut =
-  | 'capture'
-  | 'comment'
-  | 'diagnostics'
-  | 'toggle-sidebar'
-  | 'new-annotation';
+  'capture' | 'comment' | 'diagnostics' | 'toggle-sidebar' | 'new-annotation';
 
 export const modeForShortcut = (input: ShortcutInput): DesktopShortcut | undefined => {
   if (

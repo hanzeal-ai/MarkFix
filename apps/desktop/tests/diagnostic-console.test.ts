@@ -11,8 +11,7 @@ import {
 describe('diagnostic console', () => {
   it('enables CDP domains and normalizes console and failed network events', async () => {
     let messageListener:
-      | ((_event: unknown, method: string, parameters: Record<string, unknown>) => void)
-      | undefined;
+      ((_event: unknown, method: string, parameters: Record<string, unknown>) => void) | undefined;
     const sendCommand = vi.fn(async (method: string, parameters?: Record<string, unknown>) => {
       void method;
       void parameters;

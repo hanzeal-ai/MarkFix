@@ -1,12 +1,7 @@
 import type { ReportStatus } from '@markfix/contracts';
 
 export type TransitionAction =
-  | 'start'
-  | 'submit_for_verification'
-  | 'verify'
-  | 'reject'
-  | 'close'
-  | 'reopen';
+  'start' | 'submit_for_verification' | 'verify' | 'reject' | 'close' | 'reopen';
 
 const transitions: Record<ReportStatus, Partial<Record<TransitionAction, ReportStatus>>> = {
   OPEN: { start: 'IN_PROGRESS' },

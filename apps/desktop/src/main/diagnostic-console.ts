@@ -369,8 +369,7 @@ export class DiagnosticConsole {
 
     if (method === 'Runtime.exceptionThrown') {
       const details = parameters.exceptionDetails as
-        | { text?: string; exception?: RemoteObject; stackTrace?: unknown; url?: string }
-        | undefined;
+        { text?: string; exception?: RemoteObject; stackTrace?: unknown; url?: string } | undefined;
       this.add({
         kind: 'exception',
         level: 'error',
@@ -422,8 +421,7 @@ export class DiagnosticConsole {
       const requestId = String(parameters.requestId ?? '');
       const tracked = this.requests.get(requestId);
       const response = parameters.response as
-        | { url?: string; status?: number; statusText?: string }
-        | undefined;
+        { url?: string; status?: number; statusText?: string } | undefined;
       if (!response?.url) return;
       const status = Math.round(response.status ?? 0);
       const durationMs = tracked
