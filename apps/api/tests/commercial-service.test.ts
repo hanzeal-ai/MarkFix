@@ -11,6 +11,7 @@ const report = (overrides: Record<string, unknown> = {}) => ({
   description: 'The issue appears below 768px.',
   status: 'OPEN',
   rejectionReason: null,
+  screenshotPath: null,
   captureBundle: {
     page: { url: 'https://example.test/pricing' },
     anchor: { kind: 'element' },
@@ -115,6 +116,23 @@ describe('commercial annotation management', () => {
       pageSize: 1,
     });
     await expect(service.annotations('admin-1', projectId, { pageSize: '101' })).rejects.toThrow();
+  });
+
+  it('exposes an authenticated artifact URL for screenshot reports', async () => {
+    const workspaceId = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+    const screenshotPath = crypto.randomUUID();
+    const source = report({ projectId, screenshotPath });
+    const service = new CommercialService({
+      ...managerDatabase(workspaceId, projectId),
+      report: { findMany: vi.fn().mockResolvedValue([source]) },
+    } as never);
+
+    const result = await service.annotations('admin-1', projectId);
+
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({ screenshotUrl: `/v1/artifacts/${screenshotPath}` }),
+    );
   });
 
   it('creates admin annotations as Report records', async () => {

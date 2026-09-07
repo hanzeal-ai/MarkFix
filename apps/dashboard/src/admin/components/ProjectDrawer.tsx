@@ -1,22 +1,39 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Clock3, MessageSquareText, Pencil, Plus, Search } from '@markfix/ui/icons';
+import {
+  ChevronRight,
+  Clock3,
+  ExternalLink,
+  MessageSquareText,
+  Pencil,
+  Plus,
+  Search,
+} from '@markfix/ui/icons';
 import {
   Alert,
   AlertDescription,
   Badge,
   Button,
   Card,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   Input,
   Label,
-  NativeSelect,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@markfix/ui';
-import { commercialRequest } from '../api';
+import { commercialRequest, resolveAdminAssetUrl } from '../api';
 import { EmptyState, StatusBadge } from './AdminState';
 import { AnnotationEditor } from './AnnotationEditor';
 import {
@@ -48,6 +65,10 @@ export function ProjectDrawer({
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState(project?.category ?? '');
+  const [previewScreenshot, setPreviewScreenshot] = useState<{
+    title: string;
+    url: string;
+  } | null>(null);
   const annotations = useQuery({
     queryKey: ['commercial-reports', project?.id, filter, debouncedQuery, page],
     queryFn: () => {
@@ -74,6 +95,7 @@ export function ProjectDrawer({
     setQuery('');
     setDebouncedQuery('');
     setPage(1);
+    setPreviewScreenshot(null);
   }, [project?.id]);
 
   useEffect(() => {
@@ -131,7 +153,18 @@ export function ProjectDrawer({
                   <span>{annotations.data?.total ?? project.annotationCount} 条标注</span>
                 </div>
                 <SheetTitle>{project.name}</SheetTitle>
-                <SheetDescription>{project.baseUrl ?? '尚未设置项目地址'}</SheetDescription>
+                <SheetDescription className="project-url-line">
+                  {project.baseUrl ? (
+                    <Button asChild variant="link" className="project-url-button">
+                      <a href={project.baseUrl} target="_blank" rel="noreferrer">
+                        <span>{project.baseUrl}</span>
+                        <ExternalLink />
+                      </a>
+                    </Button>
+                  ) : (
+                    '尚未设置项目地址'
+                  )}
+                </SheetDescription>
                 {canManage && (
                   <form
                     className="category-editor"
@@ -164,18 +197,19 @@ export function ProjectDrawer({
                     placeholder="搜索标注"
                   />
                 </Label>
-                <NativeSelect
-                  aria-label="标注状态"
-                  value={filter}
-                  onChange={(event) => setFilter(event.target.value as typeof filter)}
-                >
-                  <option value="ALL">全部状态</option>
-                  {Object.entries(statusText).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </NativeSelect>
+                <Select value={filter} onValueChange={(value) => setFilter(value as typeof filter)}>
+                  <SelectTrigger aria-label="标注状态">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">全部状态</SelectItem>
+                    {Object.entries(statusText).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {canManage && (
                   <Button onClick={() => setEditor({ mode: 'create' })}>
                     <Plus />
@@ -195,28 +229,58 @@ export function ProjectDrawer({
                 )}
                 {visibleAnnotations.map((annotation) => (
                   <Card className="annotation-row" key={annotation.id}>
-                    <button
-                      className="annotation-summary"
-                      type="button"
-                      onClick={() => setEditor({ mode: 'view', annotation })}
-                    >
+                    <div className="annotation-summary">
                       <div className="annotation-row-top">
                         <StatusBadge status={annotation.status} />
                         <span>{kindText[annotation.kind]}</span>
-                        <span>
-                          <Clock3 />
-                          {formatDate(annotation.updatedAt)}
-                        </span>
                       </div>
-                      <strong>{annotation.title}</strong>
-                      <div className="annotation-row-bottom">
-                        <span className="mini-avatar">
-                          {annotation.author?.displayName.slice(0, 1) ?? '?'}
-                        </span>
-                        <span>{annotation.author?.displayName ?? '未知成员'}</span>
-                        <ChevronRight />
+                      <div className="annotation-summary-body">
+                        {annotation.screenshotUrl && (
+                          <Button
+                            className="annotation-thumbnail-button"
+                            variant="ghost"
+                            type="button"
+                            aria-label={`预览${annotation.title}截图`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              const screenshotUrl = annotation.screenshotUrl;
+                              if (!screenshotUrl) return;
+                              setPreviewScreenshot({
+                                title: annotation.title,
+                                url: screenshotUrl,
+                              });
+                            }}
+                          >
+                            <img
+                              className="annotation-thumbnail"
+                              src={resolveAdminAssetUrl(annotation.screenshotUrl)}
+                              alt={`${annotation.title}截图缩略图`}
+                              loading="lazy"
+                            />
+                            <span>预览</span>
+                          </Button>
+                        )}
+                        <Button
+                          className="annotation-summary-copy"
+                          variant="ghost"
+                          type="button"
+                          onClick={() => setEditor({ mode: 'view', annotation })}
+                        >
+                          <p className="annotation-row-note">{annotation.note}</p>
+                          <div className="annotation-row-bottom">
+                            <span className="mini-avatar">
+                              {annotation.author?.displayName.slice(0, 1) ?? '?'}
+                            </span>
+                            <span>{annotation.author?.displayName ?? '未知成员'}</span>
+                            <span className="annotation-submitted-at">
+                              <Clock3 />
+                              {formatDate(annotation.createdAt)}
+                            </span>
+                            <ChevronRight />
+                          </div>
+                        </Button>
                       </div>
-                    </button>
+                    </div>
                     {canManage && (
                       <div className="annotation-actions">
                         <Button
@@ -274,6 +338,25 @@ export function ProjectDrawer({
           )}
         </SheetContent>
       </Sheet>
+      {previewScreenshot && (
+        <Dialog open onOpenChange={(open) => !open && setPreviewScreenshot(null)}>
+          <DialogContent className="annotation-image-preview-dialog">
+            <DialogHeader>
+              <DialogTitle>截图预览</DialogTitle>
+              <DialogDescription>{previewScreenshot.title}</DialogDescription>
+            </DialogHeader>
+            <div className="annotation-image-preview-canvas">
+              <img
+                src={resolveAdminAssetUrl(previewScreenshot.url)}
+                alt={`${previewScreenshot.title}完整截图`}
+              />
+            </div>
+            <Button variant="outline" onClick={() => setPreviewScreenshot(null)}>
+              关闭预览
+            </Button>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

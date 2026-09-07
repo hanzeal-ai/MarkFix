@@ -13,6 +13,7 @@ export type ReportAnnotationSource = {
   status: 'OPEN' | 'IN_PROGRESS' | 'READY_FOR_VERIFY' | 'RESOLVED' | 'CLOSED';
   rejectionReason: string | null;
   captureBundle: unknown;
+  screenshotPath?: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -67,6 +68,9 @@ export const reportToCommercialAnnotation = (report: ReportAnnotationSource) => 
   note: report.description,
   kind: reportAnnotationKind(report),
   pageUrl: reportAnnotationPageUrl(report),
+  screenshotUrl: report.screenshotPath
+    ? `/v1/artifacts/${encodeURIComponent(report.screenshotPath)}`
+    : null,
   status: reportAnnotationStatus(report),
   rejectionReason: report.rejectionReason,
   createdAt: report.createdAt,

@@ -11,6 +11,7 @@ export type CommercialAnnotation = {
   note: string;
   kind: AnnotationKind;
   pageUrl: string;
+  screenshotUrl: string | null;
   status: AnnotationStatus;
   rejectionReason: string | null;
   createdAt: string;
@@ -89,12 +90,6 @@ export const kindText: Record<AnnotationKind, string> = {
   ELEMENT: '元素标注',
   SCREENSHOT: '截图标注',
   COMMENT: '文字批注',
-};
-
-export const viewTitles: Record<AdminView, string> = {
-  overview: '统计总览',
-  projects: '标注项目',
-  users: '用户管理',
 };
 
 export const formatDate = (value: string) =>

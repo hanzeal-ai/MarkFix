@@ -1,30 +1,43 @@
 import { useState, type ComponentType, type CSSProperties } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronRight,
   CircleDot,
   Clock3,
   Copy,
-  Filter,
   FolderKanban,
   MessageSquareText,
   Plus,
   Search,
+  Trash2,
   Users,
 } from '@markfix/ui/icons';
 import {
   Alert,
   AlertDescription,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   Card,
   Input,
   Label,
-  NativeSelect,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
+  toast,
 } from '@markfix/ui';
 import './admin.css';
 import { adminApi as api } from './api';
@@ -37,6 +50,22 @@ import {
 } from './model';
 
 export { ProjectDrawer } from './components/ProjectDrawer';
+
+function ProjectLogo({ project }: { project: OverviewProject }) {
+  const faviconUrl = project.baseUrl ? new URL('/favicon.ico', project.baseUrl).href : null;
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const showFavicon = faviconUrl && faviconUrl !== failedUrl;
+
+  return (
+    <span className="project-symbol" aria-hidden="true">
+      {showFavicon ? (
+        <img src={faviconUrl} alt="" onError={() => setFailedUrl(faviconUrl)} />
+      ) : (
+        <MessageSquareText />
+      )}
+    </span>
+  );
+}
 
 function MetricCard({
   icon: Icon,
@@ -160,7 +189,12 @@ export function OverviewView({
             {chartProjects.map((project) => {
               const divisor = project.annotationCount || 1;
               return (
-                <button type="button" key={project.id} onClick={() => onProject(project)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  key={project.id}
+                  onClick={() => onProject(project)}
+                >
                   <span title={project.name}>{project.name}</span>
                   <span
                     className="stacked-bar"
@@ -180,7 +214,7 @@ export function OverviewView({
                     />
                   </span>
                   <strong>{project.annotationCount}</strong>
-                </button>
+                </Button>
               );
             })}
             {!chartProjects.length && <EmptyState icon={FolderKanban} title="暂无项目数据" />}
@@ -201,13 +235,14 @@ export function OverviewView({
           </div>
           <TabsContent value="project" className="dimension-list">
             {overview.projects.map((project) => (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 className="dimension-row"
                 key={project.id}
                 onClick={() => onProject(project)}
               >
-                <span className="project-symbol">{project.name.slice(0, 1)}</span>
+                <ProjectLogo project={project} />
                 <span className="dimension-main">
                   <strong>{project.name}</strong>
                   <small>{project.category}</small>
@@ -231,7 +266,7 @@ export function OverviewView({
                   <small>{projectProgress(project)}%</small>
                 </span>
                 <ChevronRight />
-              </button>
+              </Button>
             ))}
           </TabsContent>
           <TabsContent value="user" className="dimension-list">
@@ -273,14 +308,32 @@ export function OverviewView({
 export function ProjectsView({
   projects,
   memberCount,
+  canManage,
   onProject,
 }: {
   projects: OverviewProject[];
   memberCount: number;
+  canManage: boolean;
   onProject: (project: OverviewProject) => void;
 }) {
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('ALL');
+  const [deleteTarget, setDeleteTarget] = useState<OverviewProject | null>(null);
+  const deletion = useMutation({
+    mutationFn: (projectId: string) => api.deleteProject(projectId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['commercial-bootstrap'] }),
+        queryClient.invalidateQueries({ queryKey: ['commercial-overview'] }),
+      ]);
+      setDeleteTarget(null);
+      toast.success('项目已删除');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : '删除项目失败');
+    },
+  });
   const categories = [...new Set(projects.map((project) => project.category))];
   const visible = projects.filter(
     (project) =>
@@ -302,61 +355,104 @@ export function ProjectsView({
           />
         </Label>
         <div className="filter-control">
-          <Filter />
-          <NativeSelect
-            aria-label="项目分类筛选"
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-          >
-            <option value="ALL">全部分类</option>
-            {categories.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </NativeSelect>
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger aria-label="项目分类筛选">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">全部分类</SelectItem>
+              {categories.map((item) => (
+                <SelectItem key={item} value={item}>
+                  {item}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <section className="projects-grid">
         {visible.map((project) => (
-          <button
-            type="button"
-            className="project-card"
-            key={project.id}
-            onClick={() => onProject(project)}
-          >
-            <div className="project-card-top">
-              <span className="project-symbol">{project.name.slice(0, 1)}</span>
-              <Badge variant="secondary">{project.category}</Badge>
-              <ChevronRight />
-            </div>
-            <h3>{project.name}</h3>
-            <p>{project.baseUrl ?? '尚未设置项目地址'}</p>
-            <div className="project-card-stats">
-              <span>
-                <strong>{project.annotationCount}</strong>全部标注
-              </span>
-              <span>
-                <strong>{project.pendingCount}</strong>待处理
-              </span>
-              <span className="rejected">
-                <strong>{project.rejectedCount}</strong>已驳回
-              </span>
-              <span>
-                <strong>{memberCount}</strong>协作成员
-              </span>
-            </div>
-            <div className="project-progress">
-              <div>
-                <span>解决进度</span>
-                <strong>{projectProgress(project)}%</strong>
+          <Card className="project-card" key={project.id}>
+            <Button
+              type="button"
+              variant="ghost"
+              className="project-card-open"
+              onClick={() => onProject(project)}
+            >
+              <div className="project-card-top">
+                <ProjectLogo project={project} />
+                <Badge variant="secondary">{project.category}</Badge>
+                <ChevronRight className="project-card-chevron" />
               </div>
-              <span>
-                <i style={{ width: `${projectProgress(project)}%` }} />
-              </span>
-            </div>
-          </button>
+              <h3>{project.name}</h3>
+              <p>{project.baseUrl ?? '尚未设置项目地址'}</p>
+              <div className="project-card-stats">
+                <span>
+                  <strong>{project.annotationCount}</strong>全部标注
+                </span>
+                <span>
+                  <strong>{project.pendingCount}</strong>待处理
+                </span>
+                <span className="rejected">
+                  <strong>{project.rejectedCount}</strong>已驳回
+                </span>
+                <span>
+                  <strong>{memberCount}</strong>协作成员
+                </span>
+              </div>
+              <div className="project-progress">
+                <div>
+                  <span>解决进度</span>
+                  <strong>{projectProgress(project)}%</strong>
+                </div>
+                <span>
+                  <i style={{ width: `${projectProgress(project)}%` }} />
+                </span>
+              </div>
+            </Button>
+            {canManage && (
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                className="project-delete-trigger"
+                title={`删除${project.name}`}
+                aria-label={`删除${project.name}`}
+                onClick={() => setDeleteTarget(project)}
+              >
+                <Trash2 />
+              </Button>
+            )}
+          </Card>
         ))}
       </section>
       {!visible.length && <EmptyState icon={FolderKanban} title="没有找到项目" />}
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && !deletion.isPending && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除“{deleteTarget?.name}”？</AlertDialogTitle>
+            <AlertDialogDescription>
+              项目、标注记录和截图将被永久删除，此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletion.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="project-delete-confirm"
+              disabled={deletion.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deleteTarget) deletion.mutate(deleteTarget.id);
+              }}
+            >
+              {deletion.isPending ? '正在删除…' : '确认删除'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

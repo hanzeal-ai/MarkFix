@@ -58,7 +58,7 @@
   letter-spacing: 0.1em;
 }
 
-.admin-sidebar > select {
+.admin-workspace-select {
   border-color: #3a3843;
   background: #27262e;
   color: #f1f0f5;
@@ -154,28 +154,6 @@
 .admin-main {
   min-width: 0;
   padding: 42px clamp(28px, 4vw, 64px) 72px;
-}
-
-.admin-page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 34px;
-}
-
-.admin-page-header h1 {
-  margin: 0;
-  font-size: 34px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.035em;
-}
-
-.admin-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .metrics-grid {
@@ -472,6 +450,17 @@ button.dimension-row:hover {
   width: 38px;
   height: 38px;
   font-size: 13px;
+}
+
+.project-symbol img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.project-symbol svg {
+  width: 18px;
+  height: 18px;
 }
 
 .user-symbol {

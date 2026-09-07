@@ -34,7 +34,7 @@
 
   .admin-brand strong,
   .admin-workspace-label,
-  .admin-sidebar > select,
+  .admin-workspace-select,
   .admin-nav button:not(.active) > span,
   .admin-nav button {
     font-size: 0;
@@ -135,14 +135,6 @@
     padding: 28px 16px 60px;
   }
 
-  .admin-page-header {
-    display: grid;
-  }
-
-  .admin-header-actions {
-    justify-content: space-between;
-  }
-
   .metrics-grid,
   .projects-grid,
   .overview-charts {
@@ -184,7 +176,7 @@
     width: 100%;
   }
 
-  .filter-control select {
+  .filter-control [data-slot='select-trigger'] {
     width: 100%;
   }
 

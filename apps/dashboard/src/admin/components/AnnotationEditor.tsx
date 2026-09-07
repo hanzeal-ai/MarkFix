@@ -13,10 +13,14 @@ import {
   DialogTitle,
   Input,
   Label,
-  NativeSelect,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
 } from '@markfix/ui';
-import { commercialRequest } from '../api';
+import { commercialRequest, resolveAdminAssetUrl } from '../api';
 import { StatusBadge } from './AdminState';
 import {
   formatDate,
@@ -27,6 +31,8 @@ import {
   type OverviewProject,
   type OverviewUser,
 } from '../model';
+
+const currentUserOption = '__CURRENT_USER__';
 
 export function AnnotationEditor({
   state,
@@ -48,6 +54,7 @@ export function AnnotationEditor({
   const [authorId, setAuthorId] = useState('');
   const [status, setStatus] = useState<Exclude<AnnotationStatus, 'REJECTED'>>('OPEN');
   const [reason, setReason] = useState('');
+  const [screenshotPreviewOpen, setScreenshotPreviewOpen] = useState(false);
 
   useEffect(() => {
     setTitle(annotation?.title ?? '');
@@ -57,6 +64,7 @@ export function AnnotationEditor({
     setAuthorId(annotation?.authorId ?? '');
     setStatus(annotation?.status === 'REJECTED' ? 'OPEN' : (annotation?.status ?? 'OPEN'));
     setReason(annotation?.rejectionReason ?? '');
+    setScreenshotPreviewOpen(false);
   }, [annotation, project.baseUrl, state?.mode]);
 
   const save = useMutation({
@@ -128,10 +136,32 @@ export function AnnotationEditor({
               </div>
               <h3>{state.annotation.title}</h3>
             </div>
-            <section className="annotation-detail-section">
-              <h4>标注内容</h4>
-              <p className="annotation-detail-note">{state.annotation.note}</p>
-            </section>
+            {state.annotation.screenshotUrl && (
+              <section className="annotation-detail-section annotation-screenshot-section">
+                <Button
+                  className="annotation-screenshot-button"
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setScreenshotPreviewOpen(true)}
+                  aria-label="预览完整截图"
+                >
+                  <img
+                    src={resolveAdminAssetUrl(state.annotation.screenshotUrl)}
+                    alt={`${state.annotation.title}截图`}
+                  />
+                  <span>点击查看大图</span>
+                </Button>
+                <div className="annotation-screenshot-note">
+                  <p className="annotation-detail-note">{state.annotation.note}</p>
+                </div>
+              </section>
+            )}
+            {!state.annotation.screenshotUrl && (
+              <section className="annotation-detail-section">
+                <h4>标注内容</h4>
+                <p className="annotation-detail-note">{state.annotation.note}</p>
+              </section>
+            )}
             <section className="annotation-detail-section">
               <h4>定位信息</h4>
               <a href={state.annotation.pageUrl} target="_blank" rel="noreferrer">
@@ -187,6 +217,23 @@ export function AnnotationEditor({
               save.mutate();
             }}
           >
+            {annotation?.screenshotUrl && (
+              <section className="annotation-form-screenshot">
+                <Button
+                  className="annotation-screenshot-button annotation-screenshot-button-compact"
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setScreenshotPreviewOpen(true)}
+                  aria-label="预览完整截图"
+                >
+                  <img
+                    src={resolveAdminAssetUrl(annotation.screenshotUrl)}
+                    alt={`${annotation.title}截图`}
+                  />
+                  <span>点击查看大图</span>
+                </Button>
+              </section>
+            )}
             {rejecting ? (
               <Label>
                 驳回原因
@@ -224,45 +271,62 @@ export function AnnotationEditor({
                 <div className="annotation-form-row">
                   <Label>
                     标注类型
-                    <NativeSelect
+                    <Select
                       value={kind}
-                      onChange={(event) => setKind(event.target.value as AnnotationKind)}
+                      onValueChange={(value) => setKind(value as AnnotationKind)}
                     >
-                      {Object.entries(kindText).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </NativeSelect>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(kindText).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </Label>
                   <Label>
                     提交人
-                    <NativeSelect
-                      value={authorId}
-                      onChange={(event) => setAuthorId(event.target.value)}
+                    <Select
+                      value={authorId || currentUserOption}
+                      onValueChange={(value) =>
+                        setAuthorId(value === currentUserOption ? '' : value)
+                      }
                     >
-                      <option value="">当前用户</option>
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.displayName}
-                        </option>
-                      ))}
-                    </NativeSelect>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={currentUserOption}>当前用户</SelectItem>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.displayName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </Label>
                 </div>
                 {state.mode === 'edit' && (
                   <Label>
                     处理状态
-                    <NativeSelect
+                    <Select
                       value={status}
-                      onChange={(event) =>
-                        setStatus(event.target.value as Exclude<AnnotationStatus, 'REJECTED'>)
+                      onValueChange={(value) =>
+                        setStatus(value as Exclude<AnnotationStatus, 'REJECTED'>)
                       }
                     >
-                      <option value="OPEN">待处理</option>
-                      <option value="IN_REVIEW">处理中</option>
-                      <option value="RESOLVED">已解决</option>
-                    </NativeSelect>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OPEN">待处理</SelectItem>
+                        <SelectItem value="IN_REVIEW">处理中</SelectItem>
+                        <SelectItem value="RESOLVED">已解决</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </Label>
                 )}
                 <Label>
@@ -294,6 +358,25 @@ export function AnnotationEditor({
               </Button>
             </div>
           </form>
+        )}
+        {annotation?.screenshotUrl && (
+          <Dialog open={screenshotPreviewOpen} onOpenChange={setScreenshotPreviewOpen}>
+            <DialogContent className="annotation-image-preview-dialog">
+              <DialogHeader>
+                <DialogTitle>截图预览</DialogTitle>
+                <DialogDescription>{annotation.title}</DialogDescription>
+              </DialogHeader>
+              <div className="annotation-image-preview-canvas">
+                <img
+                  src={resolveAdminAssetUrl(annotation.screenshotUrl)}
+                  alt={`${annotation.title}完整截图`}
+                />
+              </div>
+              <Button variant="outline" onClick={() => setScreenshotPreviewOpen(false)}>
+                关闭预览
+              </Button>
+            </DialogContent>
+          </Dialog>
         )}
       </DialogContent>
     </Dialog>

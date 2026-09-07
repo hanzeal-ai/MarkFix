@@ -33,15 +33,10 @@
 .filter-control {
   display: flex;
   align-items: center;
-  gap: 8px;
   color: #858791;
 }
 
-.filter-control > svg {
-  width: 15px;
-}
-
-.filter-control select {
+.filter-control [data-slot='select-trigger'] {
   min-width: 140px;
   background: #fff;
 }
@@ -53,16 +48,14 @@
 }
 
 .project-card {
+  position: relative;
   min-width: 0;
   min-height: 260px;
-  display: flex;
-  flex-direction: column;
+  overflow: hidden;
   border: 1px solid var(--admin-border);
   border-radius: 14px;
   background: #fff;
-  padding: 20px;
   color: inherit;
-  text-align: left;
   transition:
     border-color 160ms ease,
     transform 160ms ease;
@@ -71,6 +64,26 @@
 .project-card:hover {
   border-color: #bbb6f3;
   transform: translateY(-2px);
+}
+
+.project-card-open {
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  border-radius: inherit;
+  background: transparent;
+  padding: 20px;
+  color: inherit;
+  white-space: normal;
+  text-align: left;
+}
+
+.project-card-open:hover {
+  background: #fafaff;
 }
 
 .project-card-top {
@@ -85,12 +98,12 @@
   color: #a1a2aa;
 }
 
-.project-card h3 {
+.project-card-open h3 {
   margin: 22px 0 7px;
   font-size: 17px;
 }
 
-.project-card > p {
+.project-card-open > p {
   max-width: 100%;
   margin: 0;
   overflow: hidden;
@@ -98,6 +111,39 @@
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.project-delete-trigger {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+  color: #b4433a;
+  opacity: 0;
+  transform: translateY(-3px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.project-card:hover .project-delete-trigger,
+.project-card:focus-within .project-delete-trigger {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.project-card:hover .project-card-chevron,
+.project-card:focus-within .project-card-chevron {
+  opacity: 0;
+}
+
+.project-delete-confirm {
+  background: #c7463b;
+  color: #fff;
+}
+
+.project-delete-confirm:hover {
+  background: #ac382f;
 }
 
 .project-card-stats {
