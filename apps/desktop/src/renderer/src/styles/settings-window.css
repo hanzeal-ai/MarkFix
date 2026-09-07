@@ -1,0 +1,139 @@
+.settings-window {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(242, 242, 244, 0.96);
+}
+.settings-window-titlebar {
+  flex: 0 0 52px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 20px 0 78px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  -webkit-app-region: drag;
+}
+.settings-window-titlebar strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.settings-window-titlebar i {
+  color: var(--text-3);
+  font-size: 12px;
+  font-style: normal;
+}
+.settings-window-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.settings-sidebar {
+  flex: 0 0 168px;
+  padding: 18px 10px;
+  border-right: 1px solid var(--line);
+  background: rgba(232, 232, 235, 0.72);
+}
+.settings-sidebar > p {
+  margin: 0 9px 9px;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 600;
+}
+.settings-sidebar button {
+  width: 100%;
+  height: 34px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 9px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--text);
+  font-size: 12px;
+}
+.settings-sidebar button:hover {
+  background: rgba(120, 120, 128, 0.11);
+}
+.settings-sidebar button.active {
+  background: rgba(101, 88, 232, 0.14);
+  color: #3f35bc;
+}
+.settings-sidebar button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.24);
+}
+.settings-sidebar button svg {
+  width: 15px;
+  height: 15px;
+}
+.settings-window-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 28px 30px 30px;
+  background: rgba(250, 250, 251, 0.88);
+}
+.settings-general > header p,
+.settings-general > header h1,
+.settings-general h2 {
+  margin: 0;
+}
+.settings-general > header p {
+  margin-bottom: 3px;
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 650;
+}
+.settings-general > header h1 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.settings-general h2 {
+  margin-top: 28px;
+  margin-bottom: 9px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.settings-shortcut-list {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.86);
+}
+.settings-shortcut-list > div {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 13px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.settings-shortcut-list > div:last-child {
+  border-bottom: 0;
+}
+.settings-shortcut-list kbd {
+  min-width: 34px;
+  padding: 3px 7px;
+  border: 1px solid var(--line-strong);
+  border-bottom-color: rgba(60, 60, 67, 0.34);
+  border-radius: 6px;
+  background: rgba(250, 250, 250, 0.96);
+  color: var(--text-2);
+  font:
+    11px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  text-align: center;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+}
+.settings-window-content .settings-subscription {
+  padding: 0;
+}

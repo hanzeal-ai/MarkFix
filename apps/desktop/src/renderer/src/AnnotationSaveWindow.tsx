@@ -87,7 +87,7 @@ export function AnnotationSaveWindow(): React.JSX.Element {
       const reports = annotationSelectionReportInputs(projectId, selection);
       await Promise.all(
         reports.map(({ report, idempotencyKey }) =>
-          window.markfix.submitReport(report, idempotencyKey, false),
+          window.markfix.submitReport(report, idempotencyKey),
         ),
       );
       const submission = {

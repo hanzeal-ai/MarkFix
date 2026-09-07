@@ -1,14 +1,10 @@
 import { ipcRenderer } from 'electron';
 import type {
-  Annotation,
-  AnnotationTool,
   ElementAnchor,
-  RecorderEvent,
+  SavedElementComment,
   ScreenshotMark,
   ScreenshotTool,
-  SavedElementComment,
 } from '@markfix/contracts';
-import { pickBestAnchorCandidate } from '@markfix/anchor-core';
 import {
   createCaptureBounds,
   moveCaptureBounds,
@@ -16,37 +12,19 @@ import {
   type CaptureBounds,
   type CaptureHandle,
 } from './capture-selection.js';
+import { AnchorTracker } from './anchor-tracker.js';
+import { ElementCommentOverlay } from './element-comment-overlay.js';
 
-type Mode = 'browse' | 'comment' | 'capture' | 'inspect' | 'region' | 'draw';
+type Mode = 'browse' | 'comment' | 'capture';
 type Point = { x: number; y: number };
-type AnchorPayload = { kind?: unknown; quadsCssPx?: unknown; cssSelector?: unknown };
 
 const hostAttribute = 'data-markfix-overlay-host';
-const annotationGroupId = 'markfix-annotations';
 const captureGroupId = 'markfix-capture-selection';
-const elementCommentGroupId = 'markfix-element-comments';
 let mode: Mode = 'browse';
-let tool: AnnotationTool = 'pin';
 let root: ShadowRoot | undefined;
 let surface: SVGSVGElement | undefined;
 let captureToolbar: HTMLDivElement | undefined;
-let selectionShape: SVGPolygonElement | SVGRectElement | undefined;
-let selectionLabel: SVGGElement | undefined;
-let dragStart: Point | undefined;
-let penPoints: Point[] = [];
 let restoreCount = 0;
-let recorderEnabled = false;
-let pageRevision: string | undefined;
-const runtimeId = crypto.randomUUID();
-const pendingInputTimers = new Map<Element, number>();
-let pendingScrollTimer: number | undefined;
-let lastRecordedScroll = { x: window.scrollX, y: window.scrollY };
-let dragOrigin: { target: Element; x: number; y: number } | undefined;
-let suppressClickUntil = 0;
-let trackedAnchor: ElementAnchor | undefined;
-let recoveryTimer: number | undefined;
-let renderedAnnotations: Annotation[] = [];
-let selectedAnnotationId: string | undefined;
 let captureBounds: CaptureBounds | undefined;
 let captureGesture:
   | { kind: 'create'; start: Point }
@@ -58,10 +36,6 @@ let screenshotColor = '#ef4444';
 let screenshotStrokeWidth: 2 | 4 | 6 = 4;
 let screenshotMarks: ScreenshotMark[] = [];
 let screenshotRedoMarks: ScreenshotMark[] = [];
-let elementComments: SavedElementComment[] = [];
-let elementCommentRenderFrame: number | undefined;
-let elementCommentLayout = '';
-const elementCommentScrollTargets = new WeakSet<EventTarget>();
 let screenshotGesture:
   | {
       tool: Exclude<ScreenshotTool, 'select'>;
@@ -78,14 +52,20 @@ const setAttributes = (element: Element, values: Record<string, string>): void =
   Object.entries(values).forEach(([name, value]) => element.setAttribute(name, value));
 };
 
+const anchorTracker = new AnchorTracker(
+  () => surface,
+  (payload) => ipcRenderer.send('markfix:anchor-recovery', payload),
+);
+const elementCommentOverlay = new ElementCommentOverlay(
+  () => surface,
+  () => mode === 'comment',
+);
+
 const updatePointerMode = (): void => {
   if (!surface) return;
-  const capturesPointer = mode === 'capture' || mode === 'region' || mode === 'draw';
+  const capturesPointer = mode === 'capture';
   surface.style.pointerEvents = capturesPointer ? 'auto' : 'none';
   surface.style.cursor = capturesPointer ? 'crosshair' : 'default';
-  surface.querySelectorAll<SVGGElement>('[data-markfix-annotation-id]').forEach((item) => {
-    item.style.pointerEvents = mode === 'browse' ? 'visiblePainted' : 'none';
-  });
 };
 
 const captureViewport = (): { width: number; height: number } => ({
@@ -483,21 +463,13 @@ const renderCaptureToolbar = (): void => {
     false,
     () => ipcRenderer.send('markfix:capture-action', 'save'),
   );
-  const finish = toolbarButton(
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>',
-    '完成截图',
-    false,
-    () => ipcRenderer.send('markfix:capture-action', 'finish'),
-  );
-  finish.style.color = 'white';
-  finish.style.background = '#5b52e8';
-  captureToolbar.append(copy, save, finish);
+  captureToolbar.append(copy, save);
 
   const viewport = captureViewport();
   const toolbarHeight = captureToolbar.offsetHeight || 42;
   const placeBelow = captureBounds.y + captureBounds.height + toolbarHeight + 12 <= viewport.height;
   const preferredLeft = captureBounds.x;
-  const toolbarWidth = captureToolbar.scrollWidth || 690;
+  const toolbarWidth = captureToolbar.scrollWidth || 650;
   Object.assign(captureToolbar.style, {
     left: `${Math.max(12, Math.min(preferredLeft, viewport.width - toolbarWidth - 12))}px`,
     top: `${placeBelow ? captureBounds.y + captureBounds.height + 10 : Math.max(8, captureBounds.y - toolbarHeight - 10)}px`,
@@ -631,212 +603,6 @@ const emitCaptureSelection = (): void => {
 const pointsAttribute = (points: readonly Point[]): string =>
   points.map(({ x, y }) => `${x},${y}`).join(' ');
 
-const renderAnnotation = (annotation: Annotation, group: SVGGElement): void => {
-  if (annotation.type === 'pin') {
-    const circle = svgElement('circle');
-    setAttributes(circle, {
-      cx: String(annotation.position.x),
-      cy: String(annotation.position.y),
-      r: '13',
-      fill: annotation.color,
-      stroke: 'white',
-      'stroke-width': '2',
-    });
-    const label = svgElement('text');
-    setAttributes(label, {
-      x: String(annotation.position.x),
-      y: String(annotation.position.y + 4),
-      fill: 'white',
-      'font-size': '11',
-      'font-family': 'system-ui',
-      'font-weight': '700',
-      'text-anchor': 'middle',
-    });
-    label.textContent = String(annotation.label);
-    group.append(circle, label);
-  } else if (annotation.type === 'rectangle') {
-    const rectangle = svgElement('rect');
-    setAttributes(rectangle, {
-      x: String(Math.min(annotation.start.x, annotation.end.x)),
-      y: String(Math.min(annotation.start.y, annotation.end.y)),
-      width: String(Math.abs(annotation.end.x - annotation.start.x)),
-      height: String(Math.abs(annotation.end.y - annotation.start.y)),
-      rx: '4',
-      fill: `${annotation.color}20`,
-      stroke: annotation.color,
-      'stroke-width': '3',
-    });
-    group.append(rectangle);
-  } else if (annotation.type === 'arrow') {
-    const line = svgElement('line');
-    setAttributes(line, {
-      x1: String(annotation.start.x),
-      y1: String(annotation.start.y),
-      x2: String(annotation.end.x),
-      y2: String(annotation.end.y),
-      stroke: annotation.color,
-      'stroke-width': '4',
-      'stroke-linecap': 'round',
-      'marker-end': 'url(#markfix-arrowhead)',
-    });
-    group.append(line);
-  } else if (annotation.type === 'pen') {
-    const polyline = svgElement('polyline');
-    setAttributes(polyline, {
-      points: pointsAttribute(annotation.points),
-      fill: 'none',
-      stroke: annotation.color,
-      'stroke-width': '3',
-      'stroke-linecap': 'round',
-      'stroke-linejoin': 'round',
-    });
-    group.append(polyline);
-  } else {
-    const text = svgElement('text');
-    setAttributes(text, {
-      x: String(annotation.position.x),
-      y: String(annotation.position.y),
-      fill: annotation.color,
-      'font-size': '16',
-      'font-family': 'system-ui',
-      'font-weight': '700',
-      stroke: 'white',
-      'stroke-width': '3',
-      'paint-order': 'stroke',
-    });
-    text.textContent = annotation.text.slice(0, 120);
-    group.append(text);
-  }
-};
-
-const renderAnnotations = (annotations: Annotation[]): void => {
-  if (!surface) return;
-  renderedAnnotations = annotations;
-  surface.querySelector(`#${annotationGroupId}`)?.remove();
-  const group = svgElement('g');
-  group.id = annotationGroupId;
-  annotations.forEach((annotation) => {
-    const item = svgElement('g');
-    item.setAttribute('data-markfix-annotation-id', annotation.id);
-    item.style.cursor = 'pointer';
-    item.style.pointerEvents = mode === 'browse' ? 'visiblePainted' : 'none';
-    if (annotation.id === selectedAnnotationId) {
-      item.style.filter = `drop-shadow(0 0 3px white) drop-shadow(0 0 6px ${annotation.color})`;
-    }
-    item.addEventListener('click', (event) => {
-      if (mode !== 'browse') return;
-      event.preventDefault();
-      event.stopPropagation();
-      selectedAnnotationId = annotation.id;
-      renderAnnotations(renderedAnnotations);
-      ipcRenderer.send('markfix:target-annotation-selected', annotation.id);
-    });
-    renderAnnotation(annotation, item);
-    group.append(item);
-  });
-  surface.prepend(group);
-};
-
-const findElementForComment = (comment: SavedElementComment): Element | undefined => {
-  try {
-    const candidates = [...document.querySelectorAll(comment.anchor.cssSelector)];
-    if (candidates.length === 1) return candidates[0];
-    return candidates.find(
-      (element) =>
-        element.tagName.toLocaleLowerCase() === comment.anchor.tagName &&
-        (element.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 500) ===
-          comment.anchor.textQuote,
-    );
-  } catch {
-    return undefined;
-  }
-};
-
-const scheduleElementCommentRender = (): void => {
-  if (elementCommentRenderFrame) return;
-  elementCommentRenderFrame = window.requestAnimationFrame(() => {
-    elementCommentRenderFrame = undefined;
-    renderElementComments();
-  });
-};
-
-const bindElementCommentScrollTargets = (parent: ParentNode): void => {
-  const elements = [
-    ...(parent instanceof Element ? [parent] : []),
-    ...parent.querySelectorAll('*'),
-  ];
-  elements.forEach((element) => {
-    if (elementCommentScrollTargets.has(element)) return;
-    elementCommentScrollTargets.add(element);
-    element.addEventListener('scroll', scheduleElementCommentRender, { passive: true });
-  });
-};
-
-const renderElementComments = (): void => {
-  if (!surface) return;
-  if (mode !== 'comment') {
-    elementCommentLayout = '';
-    surface.querySelector(`#${elementCommentGroupId}`)?.remove();
-    return;
-  }
-  const pins = elementComments
-    .filter(({ pageUrl }) => pageUrl === location.href)
-    .map((comment, index) => {
-      const element = findElementForComment(comment);
-      const rect = element?.getBoundingClientRect();
-      if (
-        !rect ||
-        rect.width <= 0 ||
-        rect.height <= 0 ||
-        rect.right < 0 ||
-        rect.bottom < 0 ||
-        rect.left > window.innerWidth ||
-        rect.top > window.innerHeight
-      )
-        return undefined;
-      return {
-        id: comment.id,
-        index,
-        x: rect.left + Math.min(Math.max(rect.width - 4, 0), 20),
-        y: rect.top + Math.min(Math.max(rect.height - 4, 0), 18),
-      };
-    })
-    .filter((pin): pin is NonNullable<typeof pin> => Boolean(pin));
-  const nextLayout = JSON.stringify(pins);
-  if (nextLayout === elementCommentLayout) return;
-  elementCommentLayout = nextLayout;
-  surface.querySelector(`#${elementCommentGroupId}`)?.remove();
-  const group = svgElement('g');
-  group.id = elementCommentGroupId;
-  pins.forEach(({ index, x: pinX, y: pinY }) => {
-    const pin = svgElement('g');
-    pin.style.pointerEvents = 'none';
-    const circle = svgElement('circle');
-    setAttributes(circle, {
-      cx: String(pinX),
-      cy: String(pinY),
-      r: '11',
-      fill: '#5b52e8',
-      stroke: '#fff',
-      'stroke-width': '2',
-    });
-    const label = svgElement('text');
-    setAttributes(label, {
-      x: String(pinX),
-      y: String(pinY + 4),
-      fill: '#fff',
-      'font-size': '11',
-      'font-family': 'system-ui',
-      'font-weight': '600',
-      'text-anchor': 'middle',
-    });
-    label.textContent = String(index + 1);
-    pin.append(circle, label);
-    group.append(pin);
-  });
-  surface.prepend(group);
-};
-
 const mount = (): void => {
   if (document.documentElement.querySelector(`[${hostAttribute}]`)) return;
   const host = document.createElement('div');
@@ -854,21 +620,6 @@ const mount = (): void => {
   surface.setAttribute('height', '100%');
   surface.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
   Object.assign(surface.style, { position: 'fixed', inset: '0', overflow: 'visible' });
-  const definitions = svgElement('defs');
-  const marker = svgElement('marker');
-  setAttributes(marker, {
-    id: 'markfix-arrowhead',
-    markerWidth: '10',
-    markerHeight: '7',
-    refX: '9',
-    refY: '3.5',
-    orient: 'auto',
-  });
-  const arrow = svgElement('polygon');
-  setAttributes(arrow, { points: '0 0, 10 3.5, 0 7', fill: 'context-stroke' });
-  marker.append(arrow);
-  definitions.append(marker);
-  surface.append(definitions);
   root.append(surface);
   captureToolbar = document.createElement('div');
   Object.assign(captureToolbar.style, {
@@ -888,24 +639,7 @@ const mount = (): void => {
   });
   root.append(captureToolbar);
   document.documentElement.append(host);
-  if (document.body) {
-    bindElementCommentScrollTargets(document.body);
-    new MutationObserver((records) => {
-      records.forEach(({ addedNodes }) =>
-        addedNodes.forEach((node) => {
-          if (node instanceof Element) bindElementCommentScrollTargets(node);
-        }),
-      );
-      scheduleElementCommentRender();
-    }).observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
-  }
-  window.setInterval(() => {
-    if (mode === 'comment') renderElementComments();
-  }, 50);
+  if (document.body) elementCommentOverlay.mount(document.body);
   updatePointerMode();
   renderCaptureSelection();
 
@@ -957,27 +691,6 @@ const mount = (): void => {
       surface?.setPointerCapture(event.pointerId);
       return;
     }
-    if (!event.isTrusted || (mode !== 'region' && mode !== 'draw')) return;
-    dragStart = { x: event.clientX, y: event.clientY };
-    penPoints = [dragStart];
-    if (mode === 'region' || tool === 'rectangle') {
-      selectionShape?.remove();
-      const rectangle = svgElement('rect');
-      setAttributes(rectangle, {
-        x: String(event.clientX),
-        y: String(event.clientY),
-        width: '1',
-        height: '1',
-        rx: '4',
-        fill: 'rgba(91,82,232,.08)',
-        stroke: '#5b52e8',
-        'stroke-width': '2',
-        'stroke-dasharray': '7 5',
-      });
-      surface?.append(rectangle);
-      selectionShape = rectangle;
-    }
-    surface?.setPointerCapture(event.pointerId);
   });
   surface.addEventListener('pointermove', (event) => {
     if (event.isTrusted && mode === 'capture' && screenshotGesture) {
@@ -1007,13 +720,6 @@ const mount = (): void => {
       renderCaptureSelection();
       return;
     }
-    if (!event.isTrusted || !dragStart) return;
-    if (tool === 'pen') penPoints.push({ x: event.clientX, y: event.clientY });
-    if (!(selectionShape instanceof SVGRectElement)) return;
-    selectionShape.setAttribute('x', String(Math.min(dragStart.x, event.clientX)));
-    selectionShape.setAttribute('y', String(Math.min(dragStart.y, event.clientY)));
-    selectionShape.setAttribute('width', String(Math.abs(event.clientX - dragStart.x)));
-    selectionShape.setAttribute('height', String(Math.abs(event.clientY - dragStart.y)));
   });
   surface.addEventListener('pointerup', (event) => {
     if (event.isTrusted && mode === 'capture' && screenshotGesture) {
@@ -1046,430 +752,10 @@ const mount = (): void => {
         surface.releasePointerCapture(event.pointerId);
       return;
     }
-    if (!event.isTrusted || !dragStart) return;
-    const start = dragStart;
-    const end = { x: event.clientX, y: event.clientY };
-    dragStart = undefined;
-    const width = Math.abs(end.x - start.x);
-    const height = Math.abs(end.y - start.y);
-    if (mode === 'region') {
-      if (width >= 5 && height >= 5)
-        ipcRenderer.send('markfix:target-region', {
-          kind: 'region',
-          xCssPx: Math.min(start.x, end.x),
-          yCssPx: Math.min(start.y, end.y),
-          widthCssPx: width,
-          heightCssPx: height,
-          documentUrl: location.href,
-          scrollXCssPx: window.scrollX,
-          scrollYCssPx: window.scrollY,
-        });
-      mode = 'browse';
-      updatePointerMode();
-      return;
-    }
-    const base = { id: crypto.randomUUID(), color: '#5b52e8', createdAt: new Date().toISOString() };
-    const annotation: Annotation | undefined =
-      tool === 'pin'
-        ? { ...base, type: 'pin', position: end, label: 1 }
-        : tool === 'rectangle' && width >= 5 && height >= 5
-          ? { ...base, type: 'rectangle', start, end }
-          : tool === 'arrow' && (width >= 5 || height >= 5)
-            ? { ...base, type: 'arrow', start, end }
-            : tool === 'pen' && penPoints.length >= 2
-              ? { ...base, type: 'pen', points: penPoints }
-              : tool === 'text'
-                ? { ...base, type: 'text', position: end, text: 'Comment' }
-                : undefined;
-    if (annotation) ipcRenderer.send('markfix:target-annotation', annotation);
-    mode = 'browse';
-    updatePointerMode();
-  });
-};
-
-const showAnchor = (payload: AnchorPayload): void => {
-  if (payload.kind !== 'element' || !Array.isArray(payload.quadsCssPx)) return;
-  const firstQuad = payload.quadsCssPx[0];
-  if (
-    !Array.isArray(firstQuad) ||
-    firstQuad.length !== 8 ||
-    !firstQuad.every((value) => typeof value === 'number')
-  )
-    return;
-  selectionShape?.remove();
-  selectionLabel?.remove();
-  const [x1, y1, x2, y2, x3, y3, x4, y4] = firstQuad as [
-    number,
-    number,
-    number,
-    number,
-    number,
-    number,
-    number,
-    number,
-  ];
-  const xValues = [x1, x2, x3, x4];
-  const yValues = [y1, y2, y3, y4];
-  const minX = Math.min(...xValues);
-  const maxX = Math.max(...xValues);
-  const minY = Math.min(...yValues);
-  const maxY = Math.max(...yValues);
-  const isAxisAligned =
-    Math.abs(y1 - y2) < 0.5 &&
-    Math.abs(x2 - x3) < 0.5 &&
-    Math.abs(y3 - y4) < 0.5 &&
-    Math.abs(x4 - x1) < 0.5;
-  const shape = isAxisAligned ? svgElement('rect') : svgElement('polygon');
-  if (shape instanceof SVGRectElement) {
-    setAttributes(shape, {
-      x: String(minX),
-      y: String(minY),
-      width: String(maxX - minX),
-      height: String(maxY - minY),
-      rx: '4',
-    });
-  } else {
-    setAttributes(shape, {
-      points: `${x1},${y1} ${x2},${y2} ${x3},${y3} ${x4},${y4}`,
-      'stroke-linejoin': 'round',
-    });
-  }
-  setAttributes(shape, {
-    fill: 'rgba(91,82,232,.08)',
-    stroke: '#5b52e8',
-    'stroke-width': '2',
-    'vector-effect': 'non-scaling-stroke',
-  });
-  surface?.append(shape);
-  selectionShape = shape;
-  if (typeof payload.cssSelector === 'string' && payload.cssSelector) {
-    const selector = payload.cssSelector.slice(0, 80);
-    const x = Math.max(4, minX);
-    const y = minY >= 20 ? minY - 20 : minY + 2;
-    const width = Math.min(260, Math.max(54, selector.length * 6.5 + 12));
-    const group = svgElement('g');
-    group.style.pointerEvents = 'none';
-    const background = svgElement('rect');
-    setAttributes(background, {
-      x: String(Math.min(x, Math.max(4, window.innerWidth - width - 4))),
-      y: String(y),
-      width: String(width),
-      height: '20',
-      rx: '4',
-      fill: '#5b52e8',
-    });
-    const text = svgElement('text');
-    setAttributes(text, {
-      x: String(Math.min(x, Math.max(4, window.innerWidth - width - 4)) + 6),
-      y: String(y + 14),
-      fill: '#fff',
-      'font-size': '11',
-      'font-family': 'ui-monospace, SFMono-Regular, Menlo, monospace',
-    });
-    text.textContent = selector;
-    group.append(background, text);
-    surface?.append(group);
-    selectionLabel = group;
-  }
-};
-
-const isOverlayElement = (target: Element): boolean =>
-  target.hasAttribute(hostAttribute) || Boolean(target.closest(`[${hostAttribute}]`));
-
-const elementName = (element: Element): string => {
-  const label =
-    element.getAttribute('aria-label') ||
-    element.getAttribute('placeholder') ||
-    element.textContent?.trim().replace(/\s+/g, ' ').slice(0, 120);
-  return (label || element.tagName.toLocaleLowerCase()).slice(0, 120);
-};
-
-const cssSelector = (element: Element): string => {
-  if (element.id) {
-    const candidate = `#${CSS.escape(element.id)}`;
-    if (document.querySelectorAll(candidate).length === 1) return candidate;
-  }
-  const segments: string[] = [];
-  let current: Element | null = element;
-  while (current && current !== document.documentElement && segments.length < 5) {
-    let segment = current.tagName.toLocaleLowerCase();
-    const parent: Element | null = current.parentElement;
-    if (parent) {
-      const siblings = [...parent.children].filter(
-        (sibling) => sibling.tagName === current?.tagName,
-      );
-      if (siblings.length > 1) segment += `:nth-of-type(${siblings.indexOf(current) + 1})`;
-    }
-    segments.unshift(segment);
-    current = parent;
-  }
-  return segments.join(' > ') || element.tagName.toLocaleLowerCase();
-};
-
-const elementAnchor = (element: Element): ElementAnchor | undefined => {
-  const quadsCssPx = [...element.getClientRects()]
-    .filter(({ width, height }) => width > 0 && height > 0)
-    .slice(0, 8)
-    .map(({ left, top, right, bottom }) => [left, top, right, top, right, bottom, left, bottom]);
-  if (quadsCssPx.length === 0) return undefined;
-  const attributes: Record<string, string> = {};
-  for (const name of ['id', 'name', 'role', 'type', 'aria-label', 'data-testid']) {
-    const value = element.getAttribute(name);
-    if (value) attributes[name] = value.slice(0, 200);
-  }
-  return {
-    kind: 'element',
-    cssSelector: cssSelector(element),
-    textQuote: element.textContent?.trim().replace(/\s+/g, ' ').slice(0, 500) ?? '',
-    tagName: element.tagName.toLocaleLowerCase(),
-    attributes,
-    documentUrl: location.href,
-    framePath: [],
-    quadsCssPx,
-  };
-};
-
-const anchorCenter = (anchor: ElementAnchor): Point => {
-  const quad = anchor.quadsCssPx[0] ?? [];
-  const xValues = quad.filter((_value, index) => index % 2 === 0);
-  const yValues = quad.filter((_value, index) => index % 2 === 1);
-  return {
-    x: xValues.reduce((sum, value) => sum + value, 0) / Math.max(1, xValues.length),
-    y: yValues.reduce((sum, value) => sum + value, 0) / Math.max(1, yValues.length),
-  };
-};
-
-const anchorIdentity = (anchor: ElementAnchor): string =>
-  JSON.stringify({
-    cssSelector: anchor.cssSelector,
-    textQuote: anchor.textQuote,
-    tagName: anchor.tagName,
-    attributes: anchor.attributes,
-    documentUrl: anchor.documentUrl,
-    framePath: anchor.framePath,
-  });
-
-const clearAnchorVisual = (): void => {
-  selectionShape?.remove();
-  selectionShape = undefined;
-  selectionLabel?.remove();
-  selectionLabel = undefined;
-};
-
-const recoverAnchor = (): void => {
-  const original = trackedAnchor;
-  if (!original || location.href !== original.documentUrl) {
-    if (original) {
-      clearAnchorVisual();
-      ipcRenderer.send('markfix:anchor-recovery', { status: 'lost' });
-    }
-    return;
-  }
-  const elements = new Set<Element>();
-  const selectorMatches = new Set<Element>();
-  try {
-    document.querySelectorAll(original.cssSelector).forEach((element) => {
-      if (elements.size >= 120) return;
-      selectorMatches.add(element);
-      elements.add(element);
-    });
-  } catch {
-    // Obsolete selectors fall through to semantic candidates.
-  }
-  const semanticSelector = [
-    original.attributes.id ? `[id="${CSS.escape(original.attributes.id)}"]` : '',
-    original.attributes['data-testid']
-      ? `[data-testid="${CSS.escape(original.attributes['data-testid'])}"]`
-      : '',
-    original.attributes.name ? `[name="${CSS.escape(original.attributes.name)}"]` : '',
-    original.tagName,
-  ]
-    .filter(Boolean)
-    .join(',');
-  try {
-    document.querySelectorAll(semanticSelector).forEach((element) => {
-      if (elements.size < 120) elements.add(element);
-    });
-  } catch {
-    // Target pages can contain custom tag names that are not valid selectors.
-  }
-  const originalCenter = anchorCenter(original);
-  const entries = [...elements]
-    .map((element) => ({ element, anchor: elementAnchor(element) }))
-    .filter((item): item is { element: Element; anchor: ElementAnchor } => Boolean(item.anchor))
-    .map(({ element, anchor }) => {
-      const center = anchorCenter(anchor);
-      return {
-        element,
-        anchor,
-        candidate: {
-          cssSelectorMatched: selectorMatches.has(element),
-          textQuote: anchor.textQuote,
-          tagName: anchor.tagName,
-          attributes: anchor.attributes,
-          centerDistanceCssPx: Math.hypot(center.x - originalCenter.x, center.y - originalCenter.y),
-        },
-      };
-    });
-  const best = pickBestAnchorCandidate(
-    original,
-    entries.map(({ candidate }) => candidate),
-  );
-  if (!best || best.match.confidence === 'low') {
-    clearAnchorVisual();
-    ipcRenderer.send('markfix:anchor-recovery', {
-      status: 'lost',
-      score: best?.match.score ?? 0,
-    });
-    return;
-  }
-  const recoveredEntry = entries.find(({ candidate }) => candidate === best.candidate);
-  if (!recoveredEntry) return;
-  recoveredEntry.element.scrollIntoView({ block: 'center', inline: 'center' });
-  const recovered = elementAnchor(recoveredEntry.element) ?? recoveredEntry.anchor;
-  trackedAnchor = recovered;
-  showAnchor(recovered);
-  ipcRenderer.send('markfix:anchor-recovery', {
-    status: 'resolved',
-    anchor: recovered,
-    confidence: best.match.confidence,
-    score: best.match.score,
-  });
-};
-
-const scheduleAnchorRecovery = (): void => {
-  if (!trackedAnchor) return;
-  if (recoveryTimer) window.clearTimeout(recoveryTimer);
-  recoveryTimer = window.setTimeout(() => {
-    recoveryTimer = undefined;
-    recoverAnchor();
-  }, 180);
-};
-
-type RecorderPayload = Omit<RecorderEvent, 'protocolVersion' | 'runtimeId' | 'pageRevision'>;
-
-const emitRecorderEvent = (payload: RecorderPayload, revision = pageRevision): void => {
-  if (!recorderEnabled || !revision || revision !== pageRevision) return;
-  ipcRenderer.send('markfix:recorder-event', {
-    protocolVersion: 1,
-    runtimeId,
-    pageRevision: revision,
-    ...payload,
-  } satisfies RecorderEvent);
-};
-
-const recorderTarget = (event: Event): Element | undefined => {
-  const target = event.target instanceof Element ? event.target : undefined;
-  return target && !isOverlayElement(target) ? target : undefined;
-};
-
-const recordClick = (event: MouseEvent): void => {
-  if (!event.isTrusted || event.detail > 1 || Date.now() <= suppressClickUntil) return;
-  const target = recorderTarget(event);
-  if (!target) return;
-  emitRecorderEvent({
-    type: 'click',
-    elementName: elementName(target),
-    mouseButton: event.button,
-    timestampMs: Date.now(),
-    anchor: elementAnchor(target),
-  });
-};
-
-const recordInput = (event: Event): void => {
-  if (!event.isTrusted) return;
-  const target = recorderTarget(event);
-  if (
-    !target ||
-    (!(target instanceof HTMLInputElement) &&
-      !(target instanceof HTMLTextAreaElement) &&
-      !target.hasAttribute('contenteditable'))
-  )
-    return;
-  const revision = pageRevision;
-  const previousTimer = pendingInputTimers.get(target);
-  if (previousTimer) window.clearTimeout(previousTimer);
-  const valueLength =
-    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
-      ? target.value.length
-      : target.textContent?.length;
-  const inputKind = target instanceof HTMLInputElement ? target.type : target.tagName.toLowerCase();
-  const timer = window.setTimeout(() => {
-    pendingInputTimers.delete(target);
-    emitRecorderEvent(
-      {
-        type: 'input',
-        elementName: elementName(target),
-        valueLength,
-        inputKind,
-        timestampMs: Date.now(),
-        anchor: elementAnchor(target),
-      },
-      revision,
-    );
-  }, 500);
-  pendingInputTimers.set(target, timer);
-};
-
-const recordChange = (event: Event): void => {
-  if (!event.isTrusted) return;
-  const target = recorderTarget(event);
-  if (!(target instanceof HTMLSelectElement)) return;
-  emitRecorderEvent({
-    type: 'select',
-    elementName: elementName(target),
-    selectedCount: target.selectedOptions.length,
-    timestampMs: Date.now(),
-    anchor: elementAnchor(target),
-  });
-};
-
-const recordScroll = (event: Event): void => {
-  if (!event.isTrusted || !recorderEnabled) return;
-  if (pendingScrollTimer) window.clearTimeout(pendingScrollTimer);
-  const revision = pageRevision;
-  pendingScrollTimer = window.setTimeout(() => {
-    pendingScrollTimer = undefined;
-    const x = window.scrollX;
-    const y = window.scrollY;
-    if (Math.hypot(x - lastRecordedScroll.x, y - lastRecordedScroll.y) < 80) return;
-    lastRecordedScroll = { x, y };
-    emitRecorderEvent(
-      { type: 'scroll', scrollXCssPx: x, scrollYCssPx: y, timestampMs: Date.now() },
-      revision,
-    );
-  }, 300);
-};
-
-const recordPointerDown = (event: PointerEvent): void => {
-  if (!event.isTrusted || event.button !== 0) return;
-  const target = recorderTarget(event);
-  if (target) dragOrigin = { target, x: event.clientX, y: event.clientY };
-};
-
-const recordPointerUp = (event: PointerEvent): void => {
-  if (!event.isTrusted || !dragOrigin) return;
-  const origin = dragOrigin;
-  dragOrigin = undefined;
-  if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) < 12) return;
-  const target = recorderTarget(event);
-  suppressClickUntil = Date.now() + 100;
-  emitRecorderEvent({
-    type: 'drag',
-    elementName: elementName(origin.target),
-    timestampMs: Date.now(),
-    anchor: elementAnchor(origin.target),
-    endAnchor: target ? elementAnchor(target) : undefined,
   });
 };
 
 window.addEventListener('DOMContentLoaded', mount, { once: true });
-window.addEventListener('click', recordClick, true);
-window.addEventListener('input', recordInput, true);
-window.addEventListener('change', recordChange, true);
-window.addEventListener('scroll', recordScroll, true);
-window.addEventListener('pointerdown', recordPointerDown, true);
-window.addEventListener('pointerup', recordPointerUp, true);
 window.addEventListener('resize', () => {
   surface?.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
   if (captureBounds)
@@ -1479,27 +765,27 @@ window.addEventListener('resize', () => {
       captureViewport(),
     );
   renderCaptureSelection();
-  renderElementComments();
-  scheduleAnchorRecovery();
+  elementCommentOverlay.render();
+  anchorTracker.schedule();
 });
 document.addEventListener(
   'scroll',
   () => {
-    scheduleAnchorRecovery();
-    scheduleElementCommentRender();
+    anchorTracker.schedule();
+    elementCommentOverlay.schedule();
   },
   true,
 );
-window.addEventListener('wheel', scheduleElementCommentRender, { capture: true, passive: true });
-window.addEventListener('touchmove', scheduleElementCommentRender, {
+window.addEventListener('wheel', () => elementCommentOverlay.schedule(), {
+  capture: true,
+  passive: true,
+});
+window.addEventListener('touchmove', () => elementCommentOverlay.schedule(), {
   capture: true,
   passive: true,
 });
 ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
-  if (
-    !['browse', 'comment', 'capture', 'inspect', 'region', 'draw'].includes(String(requestedMode))
-  )
-    return;
+  if (!['browse', 'comment', 'capture'].includes(String(requestedMode))) return;
   const leavingCapture = mode === 'capture' && requestedMode !== 'capture';
   mode = requestedMode as Mode;
   if (leavingCapture) {
@@ -1509,11 +795,7 @@ ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
   }
   updatePointerMode();
   renderCaptureSelection();
-  renderElementComments();
-});
-ipcRenderer.on('markfix:set-tool', (_event, requestedTool: unknown) => {
-  if (['pin', 'rectangle', 'arrow', 'text', 'pen'].includes(String(requestedTool)))
-    tool = requestedTool as AnnotationTool;
+  elementCommentOverlay.render();
 });
 ipcRenderer.on('markfix:set-capture-tool', (_event, requestedTool: unknown) => {
   if (
@@ -1541,8 +823,7 @@ ipcRenderer.on('markfix:sync-capture-marks', (_event, payload: unknown) => {
 });
 ipcRenderer.on('markfix:render-element-comments', (_event, payload: unknown) => {
   if (!Array.isArray(payload)) return;
-  elementComments = payload as SavedElementComment[];
-  renderElementComments();
+  elementCommentOverlay.setComments(payload as SavedElementComment[]);
 });
 ipcRenderer.on('markfix:clear-capture-selection', () => {
   captureBounds = undefined;
@@ -1594,20 +875,6 @@ ipcRenderer.on('markfix:restore-capture-selection', (_event, payload: unknown) =
   emitCaptureSelection();
   emitScreenshotMarks();
 });
-ipcRenderer.on('markfix:set-recorder', (_event, payload: unknown) => {
-  const candidate = payload as { enabled?: unknown; pageRevision?: unknown };
-  if (typeof candidate.enabled !== 'boolean' || typeof candidate.pageRevision !== 'string') return;
-  recorderEnabled = candidate.enabled;
-  pageRevision = candidate.pageRevision;
-  lastRecordedScroll = { x: window.scrollX, y: window.scrollY };
-  if (!recorderEnabled) {
-    for (const timer of pendingInputTimers.values()) window.clearTimeout(timer);
-    pendingInputTimers.clear();
-    if (pendingScrollTimer) window.clearTimeout(pendingScrollTimer);
-    pendingScrollTimer = undefined;
-    dragOrigin = undefined;
-  }
-});
 ipcRenderer.on('markfix:set-overlay-hidden', (_event, payload: unknown) => {
   const candidate = payload as { requestId?: unknown; hidden?: unknown };
   if (typeof candidate.requestId !== 'string' || typeof candidate.hidden !== 'boolean') return;
@@ -1627,41 +894,19 @@ ipcRenderer.on('markfix:resolve-anchor', (_event, payload: unknown) => {
   const candidate = payload as { anchor?: unknown; force?: unknown };
   const anchor = candidate.anchor as ElementAnchor | undefined;
   if (!anchor || anchor.kind !== 'element') return;
-  if (
-    !candidate.force &&
-    trackedAnchor &&
-    anchorIdentity(anchor) === anchorIdentity(trackedAnchor)
-  ) {
-    trackedAnchor = anchor;
-    showAnchor(anchor);
-    return;
-  }
-  trackedAnchor = anchor;
-  recoverAnchor();
+  anchorTracker.resolve(anchor, candidate.force === true);
 });
-ipcRenderer.on('markfix:clear-anchor', () => {
-  trackedAnchor = undefined;
-  clearAnchorVisual();
+ipcRenderer.on('markfix:clear-anchor', () => anchorTracker.clear());
+ipcRenderer.on('markfix:show-anchor', (_event, payload: unknown) => {
+  const anchor = payload as ElementAnchor;
+  if (anchor.kind === 'element') anchorTracker.show(anchor);
 });
-ipcRenderer.on('markfix:show-anchor', (_event, payload: AnchorPayload) => {
-  if (payload.kind === 'element') trackedAnchor = payload as ElementAnchor;
-  showAnchor(payload);
-});
-ipcRenderer.on('markfix:render-annotations', (_event, payload: unknown) => {
-  if (Array.isArray(payload)) renderAnnotations(payload as Annotation[]);
-});
-ipcRenderer.on('markfix:focus-annotation', (_event, payload: unknown) => {
-  if (typeof payload !== 'string' || !renderedAnnotations.some(({ id }) => id === payload)) return;
-  selectedAnnotationId = payload;
-  renderAnnotations(renderedAnnotations);
-});
-
 const observer = new MutationObserver(() => {
   if (!document.documentElement.querySelector(`[${hostAttribute}]`) && restoreCount < 3) {
     restoreCount += 1;
     mount();
   }
-  scheduleAnchorRecovery();
+  anchorTracker.schedule();
 });
 window.addEventListener(
   'DOMContentLoaded',

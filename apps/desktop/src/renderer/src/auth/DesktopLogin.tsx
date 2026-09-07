@@ -1,19 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { AlertCircle } from '@markfix/ui/icons';
-import {
-  Alert,
-  AlertDescription,
-  Button,
-  Card,
-  Input,
-  Label,
-  PasswordInput,
-} from '@markfix/ui';
+import { Alert, AlertDescription, Button, Card, Input, Label, PasswordInput } from '@markfix/ui';
 import type { DesktopUser } from '../annotation-workspace/model';
+import { defaultDesktopPassword } from './login-defaults';
 
-export function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: DesktopUser) => void }) {
+export function DesktopLogin({
+  onAuthenticated,
+}: {
+  onAuthenticated: (user: DesktopUser) => void;
+}) {
   const [email, setEmail] = useState('admin@markfix.local');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(() => defaultDesktopPassword(import.meta.env.DEV));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -50,12 +47,22 @@ export function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: Desk
         </Alert>
       )}
       <Card>
-        <div className="desktop-auth-brand"><span>m</span> MarkFix</div>
+        <div className="desktop-auth-brand">
+          <span>m</span> MarkFix
+        </div>
         <p className="eyebrow">DESKTOP ANNOTATION</p>
         <h1>Sign in to start marking</h1>
         <p>Your refresh credential stays encrypted in the operating system vault.</p>
         <form onSubmit={(event) => void submit(event)}>
-          <Label>Email<Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></Label>
+          <Label>
+            Email
+            <Input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </Label>
           <Label>
             Password
             <PasswordInput
@@ -66,7 +73,9 @@ export function DesktopLogin({ onAuthenticated }: { onAuthenticated: (user: Desk
               required
             />
           </Label>
-          <Button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Button>
+          <Button type="submit" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </Button>
         </form>
       </Card>
     </main>

@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { WebContents } from 'electron';
-import { CdpInspector } from '../src/main/cdp-inspector.js';
+import { CdpInspector, sanitizeRuntimeText } from '../src/main/cdp-inspector.js';
 
 describe('CdpInspector', () => {
   it('re-arms element inspection after every selection without a page tint', async () => {
     let messageListener:
-      | ((_event: unknown, method: string, parameters: { backendNodeId?: unknown }) => void)
-      | undefined;
+      ((_event: unknown, method: string, parameters: Record<string, unknown>) => void) | undefined;
     const sendCommand = vi.fn(async (method: string, parameters?: Record<string, unknown>) => {
       if (method === 'Overlay.setInspectMode' && !parameters?.highlightConfig) {
         throw new Error('Internal error: highlight configuration parameter is missing');
@@ -31,6 +30,40 @@ describe('CdpInspector', () => {
               cssSelector: 'main > button:nth-of-type(2)',
               textQuote: 'Submit',
               attributes: { id: 'submit' },
+              documentUrl: 'https://example.com/form',
+              framePath: ['iframe#checkout'],
+              runtimeEvidence: {
+                schemaVersion: 1,
+                selectorCandidates: ['main > button:nth-of-type(2)', '#submit'],
+                classNames: ['primary-action'],
+                accessibleName: 'Submit order',
+                sanitizedOuterHtml: '<button id="submit">Submit</button>',
+                ancestorPath: [
+                  { tagName: 'main', selectorSegment: 'main', attributes: {} },
+                  {
+                    tagName: 'button',
+                    selectorSegment: 'button:nth-of-type(2)',
+                    attributes: { id: 'submit' },
+                  },
+                ],
+                nearbyText: ['Cancel'],
+                componentHint: {
+                  framework: 'react',
+                  name: 'CheckoutButton',
+                  sourceFile: 'src/CheckoutButton.tsx',
+                  line: 18,
+                  column: 4,
+                  confidence: 'high',
+                },
+                pageBuild: {
+                  scripts: [{ url: 'https://example.com/app.js' }],
+                  stylesheets: ['https://example.com/app.css'],
+                  sourceMapHints: [],
+                  metadata: { version: '2026.09.07' },
+                  frameworkHints: ['react'],
+                  buildId: 'build-7',
+                },
+              },
             },
           },
         };
@@ -53,6 +86,12 @@ describe('CdpInspector', () => {
     const inspector = new CdpInspector(webContents, onSelection, onFailure);
 
     await inspector.start();
+    messageListener?.(undefined, 'Debugger.scriptParsed', {
+      scriptId: 'script-1',
+      url: 'https://example.com/chunk.js',
+      sourceMapURL: 'https://example.com/chunk.js.map',
+      hash: 'abc123',
+    });
     messageListener?.(undefined, 'Overlay.inspectNodeRequested', { backendNodeId: 7 });
     await vi.waitFor(() => expect(onSelection).toHaveBeenCalledOnce());
     messageListener?.(undefined, 'Overlay.inspectNodeRequested', { backendNodeId: 8 });
@@ -60,7 +99,27 @@ describe('CdpInspector', () => {
 
     expect(onFailure).not.toHaveBeenCalled();
     expect(onSelection).toHaveBeenLastCalledWith(
-      expect.objectContaining({ cssSelector: 'main > button:nth-of-type(2)', textQuote: 'Submit' }),
+      expect.objectContaining({
+        cssSelector: 'main > button:nth-of-type(2)',
+        textQuote: 'Submit',
+        documentUrl: 'https://example.com/form',
+        framePath: ['iframe#checkout'],
+        runtimeEvidence: expect.objectContaining({
+          selectorCandidates: ['main > button:nth-of-type(2)', '#submit'],
+          componentHint: expect.objectContaining({ name: 'CheckoutButton' }),
+          pageBuild: expect.objectContaining({
+            scripts: [
+              { url: 'https://example.com/app.js' },
+              {
+                url: 'https://example.com/chunk.js',
+                sourceMapUrl: 'https://example.com/chunk.js.map',
+                hash: 'abc123',
+              },
+            ],
+            sourceMapHints: ['https://example.com/chunk.js.map'],
+          }),
+        }),
+      }),
     );
     expect(sendCommand).toHaveBeenCalledWith('Overlay.setInspectMode', {
       mode: 'none',
@@ -75,5 +134,15 @@ describe('CdpInspector', () => {
     expect(inspectCalls[0]?.[1]).toMatchObject({
       highlightConfig: { contentColor: { r: 91, g: 82, b: 232, a: 0 } },
     });
+  });
+
+  it('redacts common secrets and personal identifiers from runtime text', () => {
+    expect(
+      sanitizeRuntimeText(
+        '联系 dev@example.com，手机 13812345678，Authorization: abcdef token=super-secret',
+      ),
+    ).toBe(
+      '联系 [redacted-email]，手机 [redacted-phone]，Authorization=[redacted] token=[redacted]',
+    );
   });
 });

@@ -1,0 +1,258 @@
+.comment-panel {
+  position: fixed;
+  z-index: 9;
+  right: 0;
+  top: 56px;
+  bottom: 0;
+  width: 360px;
+  background: #fff;
+  border: 1px solid #e2e4e9;
+  border-left: 0;
+  border-radius: 0;
+  box-shadow:
+    -12px 0 28px rgb(25 27 34 / 10%),
+    inset 10px 0 16px -16px rgb(25 27 34 / 32%);
+  padding: 24px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 19px;
+  overflow-y: auto;
+}
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.panel-heading svg {
+  width: 22px;
+  color: var(--accent);
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #849087;
+}
+.panel-heading h1 {
+  font-family: Georgia, serif;
+  font-size: 27px;
+  letter-spacing: -0.03em;
+  margin: 5px 0 0;
+  font-weight: 600;
+}
+.capture-panel {
+  padding: 0;
+  gap: 0;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+.capture-panel-header {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  border-bottom: 1px solid #e2e4e9;
+}
+.capture-panel-header > span {
+  font-size: 15px;
+  font-weight: 500;
+}
+.capture-panel-header small {
+  color: #90949d;
+  font-size: 12px;
+}
+.capture-panel-body {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 14px;
+}
+.capture-selection-card {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #d6d2ff;
+  border-radius: 12px;
+  background: #eeecff;
+}
+.capture-selection-kicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 9px;
+  color: #5b52e8;
+  font-size: 12px;
+  font-weight: 500;
+}
+.capture-selection-kicker svg {
+  width: 14px;
+  height: 14px;
+}
+.capture-thumbnail {
+  position: relative;
+  width: 100%;
+  min-height: 72px;
+  max-height: 210px;
+  margin: 10px 0;
+  border: 1px solid #e2e4e9;
+  border-radius: 9px;
+  background: #eef0f4;
+  overflow: hidden;
+  pointer-events: none;
+}
+.capture-thumbnail img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 210px;
+  object-fit: contain;
+}
+.capture-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -2px 0 9px;
+  color: #90949d;
+  font-size: 11px;
+}
+.capture-empty {
+  height: 100%;
+  min-height: 330px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+.capture-empty-icon {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  color: #5b52e8;
+  background: #eeecff;
+}
+.capture-empty-icon svg {
+  width: 23px;
+  height: 23px;
+}
+.capture-empty strong {
+  margin: 0 0 7px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.capture-empty p {
+  max-width: 250px;
+  margin: 0;
+  color: #90949d;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.capture-text-list {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 9px;
+}
+.capture-text-list label {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  align-items: center;
+  gap: 8px;
+  color: #777184;
+  font-size: 11px;
+}
+.capture-text-list input {
+  min-width: 0;
+  height: 30px;
+  border: 1px solid #ded9eb;
+  border-radius: 7px;
+  padding: 0 8px;
+  outline: none;
+}
+.capture-text-list input:focus {
+  border-color: #5b52e8;
+}
+.capture-note-input {
+  width: 100%;
+  min-height: 82px;
+  resize: vertical;
+  padding: 11px;
+  border: 1px solid #cfd2d9;
+  border-radius: 9px;
+  outline: none;
+  background: #fff;
+  color: #191a1d;
+  line-height: 1.55;
+}
+.capture-note-input:focus {
+  border-color: #5b52e8;
+}
+.evidence-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.evidence-references > span {
+  max-width: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px 0 8px;
+  border: 1px solid #d8d5f6;
+  border-radius: 7px;
+  background: #f5f3ff;
+  color: #5149b8;
+  font-size: 10px;
+}
+.evidence-references > span.error {
+  border-color: #efc8c4;
+  background: #fff1ef;
+  color: #a33d35;
+}
+.evidence-references > span > svg {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+}
+.evidence-references b {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.evidence-references button {
+  width: 21px;
+  height: 21px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.evidence-references button:hover {
+  background: rgba(91, 82, 232, 0.1);
+}
+.evidence-references button svg {
+  width: 12px;
+  height: 12px;
+}
+.saved-evidence-count {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #655dc0;
+  font-size: 10px;
+}
+.saved-evidence-count svg {
+  width: 12px;
+  height: 12px;
+}

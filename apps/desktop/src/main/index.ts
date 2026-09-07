@@ -1,11 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import {
   app,
   BrowserWindow,
-  clipboard,
-  ClipboardItem,
   dialog,
   ipcMain,
   Menu,
@@ -16,45 +13,33 @@ import {
 } from 'electron';
 import {
   anchorSchema,
-  annotationSchema,
-  annotationToolSchema,
   browserModeSchema,
-  captureRequestSchema,
-  desktopDraftSchema,
-  captureBundleSchema,
-  createReportSchema,
   historyAnnotationReferenceSchema,
   ipcChannels,
   navigateInputSchema,
-  recorderEventSchema,
-  regionAnchorSchema,
-  screenshotMarkSchema,
-  screenshotStyleSchema,
-  screenshotToolSchema,
   websiteProjectSchema,
   type Anchor,
-  type Annotation,
-  type CreateReport,
-  type Report,
   type BrowserMode,
   type SavedElementComment,
   type WebsiteProject,
 } from '@markfix/contracts';
-import { MarkFixApi } from '@markfix/api-client';
+import { MarkFixApi, MarkFixApiError } from '@markfix/api-client';
 import { anchorsEqual } from './anchor-state.js';
 import { CdpInspector } from './cdp-inspector.js';
 import { CaptureService } from './capture-service.js';
 import { DraftStore } from './draft-store.js';
-import type { OutboxEntry } from './draft-store.js';
 import { DiagnosticConsole } from './diagnostic-console.js';
 import { normalizeWebsiteUrl } from './url.js';
 import { subscriptionIpcChannels } from '../subscription.js';
-import { decodeScreenshotDataUrl, safeScreenshotFilename } from './image-export.js';
 import { modeForShortcut } from './mode-shortcuts.js';
 import { windowActionForShortcut, type WindowShortcutAction } from './window-shortcuts.js';
 import { DesktopSessionManager } from './session-manager.js';
 import { websiteLoadFailure } from './website-load-error.js';
 import { registerAnnotationStoreIpc } from './ipc/register-annotation-store-ipc.js';
+import { ChildWindowManager } from './child-window-manager.js';
+import { registerCaptureIpc } from './ipc/register-capture-ipc.js';
+import { registerDiagnosticsIpc } from './ipc/register-diagnostics-ipc.js';
+import { ReportOutbox } from './report-outbox.js';
 
 const toolbarHeight = 56;
 const panelWidth = 360;
@@ -69,25 +54,15 @@ const macWindowMaterial =
 const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? 'http://localhost:4310');
 const desktopSession = new DesktopSessionManager(api);
 let mainWindow: BrowserWindow | undefined;
-let annotationReviewWindow: BrowserWindow | undefined;
-let annotationReviewProjectId: string | undefined;
-let annotationHistoryWindow: BrowserWindow | undefined;
-let projectAnnotationHistoryWindow: BrowserWindow | undefined;
-let projectAnnotationHistoryProjectId: string | undefined;
-let capturePreviewWindow: BrowserWindow | undefined;
-let settingsWindow: BrowserWindow | undefined;
 let websiteView: WebContentsView | undefined;
 let inspector: CdpInspector | undefined;
 let captureService: CaptureService | undefined;
 let diagnosticConsole: DiagnosticConsole | undefined;
 let draftStore: DraftStore | undefined;
 let shellWebContentsId: number | undefined;
-let currentAnnotations: Annotation[] = [];
 let currentElementComments: SavedElementComment[] = [];
 let currentAnchor: Anchor | undefined;
-let isSyncing = false;
 let syncTimer: ReturnType<typeof setInterval> | undefined;
-let recording = false;
 let pageRevision = randomUUID();
 let authenticatedUser: { id: string; email: string; displayName: string } | undefined;
 let currentBrowserMode: BrowserMode = 'browse';
@@ -100,7 +75,6 @@ let navigationWebsiteProjectId: string | undefined;
 let websiteProjectSwitchGeneration = 0;
 let currentPageTitle = '';
 let currentPageFaviconUrl: string | null = null;
-const mainRecorderRuntimeId = randomUUID();
 const overlayVisibilityWaiters = new Map<string, () => void>();
 
 const loadClientPolicy = (force = false) => desktopSession.loadPolicy(force);
@@ -121,34 +95,36 @@ const restoreSession = async () => {
 };
 
 const assertShellSender = (event: IpcMainInvokeEvent): void => {
-  const annotationReviewWebContentsId = annotationReviewWindow?.webContents.id;
-  const annotationHistoryWebContentsId = annotationHistoryWindow?.webContents.id;
-  const projectAnnotationHistoryWebContentsId = projectAnnotationHistoryWindow?.webContents.id;
-  const capturePreviewWebContentsId = capturePreviewWindow?.webContents.id;
-  if (
-    event.sender.id !== shellWebContentsId &&
-    event.sender.id !== annotationReviewWebContentsId &&
-    event.sender.id !== annotationHistoryWebContentsId &&
-    event.sender.id !== projectAnnotationHistoryWebContentsId &&
-    event.sender.id !== capturePreviewWebContentsId
-  )
+  if (event.sender.id !== shellWebContentsId && !childWindows.isTrustedSender(event.sender.id))
     throw new Error('Untrusted IPC sender');
 };
 
 const assertSubscriptionSender = (event: IpcMainInvokeEvent): void => {
-  if (event.sender.id === shellWebContentsId || event.sender.id === settingsWindow?.webContents.id)
+  if (event.sender.id === shellWebContentsId || childWindows.isSettingsSender(event.sender.id))
     return;
   throw new Error('Untrusted subscription IPC sender');
 };
 
 const assertWorkspaceListSender = (event: IpcMainInvokeEvent): void => {
-  if (event.sender.id === settingsWindow?.webContents.id) return;
+  if (childWindows.isSettingsSender(event.sender.id)) return;
   assertShellSender(event);
 };
 
 const sendShell = (channel: string, payload: unknown): void => {
   if (!mainWindow?.isDestroyed()) mainWindow?.webContents.send(channel, payload);
 };
+
+const reportOutbox = new ReportOutbox(
+  api,
+  () => draftStore,
+  () => Boolean(authenticatedUser),
+  async () => assertSupportedClient(await loadClientPolicy()),
+  async () => {
+    const refreshToken = api.currentRefreshToken();
+    if (refreshToken) await saveRefreshToken(refreshToken);
+  },
+  sendShell,
+);
 
 const sendBrowserState = (payload: Record<string, unknown> = {}): void => {
   const contents = websiteView?.webContents;
@@ -169,7 +145,7 @@ const performWindowShortcut = (
     return;
   }
   if (action === 'settings') {
-    void openSettingsWindow();
+    void childWindows.openSettings();
     return;
   }
   if (browserWindow.isDestroyed()) return;
@@ -201,19 +177,14 @@ const registerChildShortcuts = (browserWindow: BrowserWindow): void => {
   });
 };
 
-const updatePageRevision = (url: string): void => {
+const childWindows = new ChildWindowManager({
+  mainWindow: () => mainWindow,
+  draftStore: () => draftStore,
+  registerShortcuts: registerChildShortcuts,
+});
+
+const updatePageRevision = (): void => {
   pageRevision = randomUUID();
-  websiteView?.webContents.send('markfix:set-recorder', { enabled: recording, pageRevision });
-  if (recording) {
-    sendShell(ipcChannels.recorderEvent, {
-      protocolVersion: 1,
-      runtimeId: mainRecorderRuntimeId,
-      pageRevision,
-      type: 'navigation',
-      timestampMs: Date.now(),
-      url,
-    });
-  }
 };
 
 const setOverlayHidden = async (hidden: boolean): Promise<void> => {
@@ -243,45 +214,6 @@ const setOverlayHidden = async (hidden: boolean): Promise<void> => {
     )) as boolean;
     if (!applied && hidden) throw new Error('Screenshot overlay is unavailable');
   }
-};
-
-const syncEntry = async (entry: OutboxEntry): Promise<Report | undefined> => {
-  if (!draftStore) return;
-  try {
-    assertSupportedClient(await loadClientPolicy());
-    const candidate = createReportSchema.parse(entry.payload);
-    const report = await api.submitReport(candidate, entry.idempotencyKey);
-    draftStore.markCompleted(entry.id, report.id);
-    sendShell(ipcChannels.syncStatus, {
-      status: 'completed',
-      outboxId: entry.id,
-      reportId: report.id,
-      report,
-    });
-    return report;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown synchronization failure';
-    draftStore.markFailed(entry.id, entry.attempts + 1, message);
-    sendShell(ipcChannels.syncStatus, { status: 'pending', outboxId: entry.id, message });
-  } finally {
-    const refreshToken = api.currentRefreshToken();
-    if (refreshToken) await saveRefreshToken(refreshToken);
-  }
-};
-
-const flushOutbox = async (): Promise<Map<string, Report>> => {
-  const reports = new Map<string, Report>();
-  if (isSyncing || !draftStore || !authenticatedUser) return reports;
-  isSyncing = true;
-  try {
-    for (const entry of draftStore.claimDue()) {
-      const report = await syncEntry(entry);
-      if (report) reports.set(entry.id, report);
-    }
-  } finally {
-    isSyncing = false;
-  }
-  return reports;
 };
 
 const layoutWebsite = (): void => {
@@ -340,7 +272,9 @@ const ensureWebsiteProjects = async (
         const origin = new URL(entryUrl).origin;
         const now = new Date().toISOString();
         const existingById = draftStore.getWebsiteProject(project.id);
-        const preservedProject = existingById?.origin === origin ? existingById : undefined;
+        const existingByOrigin = draftStore.findWebsiteProjectByOrigin(origin);
+        const existing = existingById ?? existingByOrigin;
+        const preservedProject = existing?.origin === origin ? existing : undefined;
         const websiteProject = websiteProjectSchema.parse({
           id: project.id,
           workspaceId: workspace.id,
@@ -354,7 +288,13 @@ const ensureWebsiteProjects = async (
           createdAt: project.createdAt,
           updatedAt: preservedProject?.updatedAt ?? project.updatedAt ?? now,
         });
-        draftStore.saveWebsiteProject(websiteProject);
+        if (existing && existing.id !== project.id) {
+          draftStore.migrateWebsiteProject(existing.id, websiteProject);
+          if (activeWebsiteProjectId === existing.id) activeWebsiteProjectId = project.id;
+          if (navigationWebsiteProjectId === existing.id) navigationWebsiteProjectId = project.id;
+        } else {
+          draftStore.saveWebsiteProject(websiteProject);
+        }
         if (!preservedProject) draftStore.recordProjectPage(project.id, entryUrl, project.name);
         accessibleProjectIds.add(project.id);
       } catch {
@@ -403,249 +343,6 @@ const activateWebsiteProject = (projectId: string, switchGeneration: number): We
         navigationWebsiteProjectId = undefined;
     });
   return project;
-};
-
-const loadRendererView = async (
-  browserWindow: BrowserWindow,
-  view: string,
-  query: Record<string, string> = {},
-): Promise<void> => {
-  if (process.env.ELECTRON_RENDERER_URL) {
-    const rendererUrl = new URL(process.env.ELECTRON_RENDERER_URL);
-    rendererUrl.searchParams.set('view', view);
-    for (const [name, value] of Object.entries(query)) rendererUrl.searchParams.set(name, value);
-    await browserWindow.loadURL(rendererUrl.toString());
-    return;
-  }
-  await browserWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-    query: { view, ...query },
-  });
-};
-
-async function openSettingsWindow(): Promise<void> {
-  if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Main window is unavailable');
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.show();
-    settingsWindow.focus();
-    return;
-  }
-  const settings = new BrowserWindow({
-    ...macWindowMaterial,
-    parent: mainWindow,
-    show: false,
-    width: 760,
-    height: 520,
-    minWidth: 680,
-    minHeight: 460,
-    title: '设置 - MarkFix',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: process.platform === 'darwin' ? '#00000000' : '#f4f5f7',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/shell.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  registerChildShortcuts(settings);
-  settingsWindow = settings;
-  settings.on('closed', () => {
-    if (settingsWindow === settings) settingsWindow = undefined;
-  });
-  settings.once('ready-to-show', () => settings.show());
-  try {
-    await loadRendererView(settings, 'settings');
-  } catch (error) {
-    if (!settings.isDestroyed()) throw error;
-  }
-}
-
-const openAnnotationReviewWindow = async (projectId: string): Promise<void> => {
-  if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Main window is unavailable');
-  if (annotationReviewWindow && !annotationReviewWindow.isDestroyed()) {
-    if (annotationReviewProjectId === projectId) {
-      annotationReviewWindow.show();
-      annotationReviewWindow.focus();
-      return;
-    }
-    annotationReviewWindow.close();
-  }
-  const parentBounds = mainWindow.getBounds();
-  const reviewWindow = new BrowserWindow({
-    ...macWindowMaterial,
-    parent: mainWindow,
-    show: false,
-    width: Math.max(760, Math.min(1040, parentBounds.width - 80)),
-    height: Math.max(620, Math.min(780, parentBounds.height - 80)),
-    minWidth: 760,
-    minHeight: 620,
-    title: '保存标注 - MarkFix',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: process.platform === 'darwin' ? '#00000000' : '#f4f5f7',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/shell.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  registerChildShortcuts(reviewWindow);
-  annotationReviewWindow = reviewWindow;
-  annotationReviewProjectId = projectId;
-  reviewWindow.on('closed', () => {
-    if (annotationReviewWindow !== reviewWindow) return;
-    annotationReviewWindow = undefined;
-    annotationReviewProjectId = undefined;
-  });
-  reviewWindow.once('ready-to-show', () => reviewWindow.show());
-  try {
-    await loadRendererView(reviewWindow, 'annotation-save', { projectId });
-  } catch (error) {
-    if (!reviewWindow.isDestroyed()) throw error;
-  }
-};
-
-const openCapturePreviewWindow = async (captureId: string): Promise<void> => {
-  const capture = draftStore?.getCapture(captureId);
-  if (!capture) throw new Error('截图不存在或已被删除');
-  if (capturePreviewWindow && !capturePreviewWindow.isDestroyed()) capturePreviewWindow.close();
-  const parent =
-    annotationReviewWindow && !annotationReviewWindow.isDestroyed()
-      ? annotationReviewWindow
-      : mainWindow;
-  if (!parent || parent.isDestroyed()) throw new Error('Parent window is unavailable');
-  const parentBounds = parent.getBounds();
-  const previewWindow = new BrowserWindow({
-    parent,
-    show: false,
-    width: Math.max(720, Math.min(1180, parentBounds.width - 40)),
-    height: Math.max(560, Math.min(820, parentBounds.height - 40)),
-    minWidth: 640,
-    minHeight: 480,
-    title: '截图预览 - MarkFix',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: '#202127',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/shell.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  registerChildShortcuts(previewWindow);
-  capturePreviewWindow = previewWindow;
-  previewWindow.on('closed', () => {
-    if (capturePreviewWindow === previewWindow) capturePreviewWindow = undefined;
-  });
-  previewWindow.once('ready-to-show', () => previewWindow.show());
-  try {
-    await loadRendererView(previewWindow, 'capture-preview', { captureId });
-  } catch (error) {
-    if (!previewWindow.isDestroyed()) throw error;
-  }
-};
-
-const openAnnotationHistoryWindow = async (): Promise<void> => {
-  if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Main window is unavailable');
-  if (annotationHistoryWindow && !annotationHistoryWindow.isDestroyed()) {
-    annotationHistoryWindow.setParentWindow(mainWindow);
-    annotationHistoryWindow.reload();
-    annotationHistoryWindow.show();
-    annotationHistoryWindow.focus();
-    return;
-  }
-  const parentBounds = mainWindow.getBounds();
-  const historyWindow = new BrowserWindow({
-    ...macWindowMaterial,
-    parent: mainWindow,
-    show: false,
-    width: Math.max(760, Math.min(1040, parentBounds.width - 80)),
-    height: Math.max(560, Math.min(780, parentBounds.height - 80)),
-    minWidth: 720,
-    minHeight: 520,
-    title: '历史标注 - MarkFix',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: process.platform === 'darwin' ? '#00000000' : '#f4f5f7',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/shell.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  registerChildShortcuts(historyWindow);
-  annotationHistoryWindow = historyWindow;
-  historyWindow.on('closed', () => {
-    if (annotationHistoryWindow === historyWindow) annotationHistoryWindow = undefined;
-  });
-  historyWindow.once('ready-to-show', () => historyWindow.show());
-  try {
-    await loadRendererView(historyWindow, 'annotation-history');
-  } catch (error) {
-    if (!historyWindow.isDestroyed()) throw error;
-  }
-};
-
-const openProjectAnnotationHistoryWindow = async (projectId: string): Promise<void> => {
-  const parent =
-    annotationHistoryWindow && !annotationHistoryWindow.isDestroyed()
-      ? annotationHistoryWindow
-      : mainWindow;
-  if (!parent || parent.isDestroyed()) throw new Error('Parent window is unavailable');
-  if (projectAnnotationHistoryWindow && !projectAnnotationHistoryWindow.isDestroyed()) {
-    if (projectAnnotationHistoryProjectId === projectId) {
-      projectAnnotationHistoryWindow.setParentWindow(parent);
-      projectAnnotationHistoryWindow.show();
-      projectAnnotationHistoryWindow.focus();
-      return;
-    }
-    projectAnnotationHistoryWindow.close();
-  }
-  const parentBounds = parent.getBounds();
-  const projectHistoryWindow = new BrowserWindow({
-    ...macWindowMaterial,
-    parent,
-    show: false,
-    x: parentBounds.x,
-    y: parentBounds.y,
-    width: parentBounds.width,
-    height: parentBounds.height,
-    minWidth: 720,
-    minHeight: 520,
-    title: '项目历史 - MarkFix',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: process.platform === 'darwin' ? '#00000000' : '#f4f5f7',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/shell.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  registerChildShortcuts(projectHistoryWindow);
-  projectAnnotationHistoryWindow = projectHistoryWindow;
-  projectAnnotationHistoryProjectId = projectId;
-  projectHistoryWindow.on('closed', () => {
-    if (projectAnnotationHistoryWindow !== projectHistoryWindow) return;
-    projectAnnotationHistoryWindow = undefined;
-    projectAnnotationHistoryProjectId = undefined;
-  });
-  projectHistoryWindow.once('ready-to-show', () => projectHistoryWindow.show());
-  try {
-    await loadRendererView(projectHistoryWindow, 'project-annotation-history', { projectId });
-  } catch (error) {
-    if (!projectHistoryWindow.isDestroyed()) throw error;
-  }
 };
 
 const createWindow = async (): Promise<void> => {
@@ -722,7 +419,7 @@ const createWindow = async (): Promise<void> => {
       url,
       ...(project ? { pageSessionId: project.currentPageSessionId } : {}),
     });
-    updatePageRevision(url);
+    updatePageRevision();
   });
   websiteView.webContents.on('did-navigate-in-page', (_event, url) => {
     const navigationProjectId = navigationWebsiteProjectId ?? activeWebsiteProjectId;
@@ -737,7 +434,7 @@ const createWindow = async (): Promise<void> => {
       url,
       ...(project ? { pageSessionId: project.currentPageSessionId } : {}),
     });
-    updatePageRevision(url);
+    updatePageRevision();
   });
   websiteView.webContents.on('page-title-updated', (_event, title) => {
     currentPageTitle = title.trim();
@@ -792,14 +489,12 @@ const createWindow = async (): Promise<void> => {
         ...(project ? { pageSessionId: project.currentPageSessionId } : {}),
       });
     websiteView?.webContents.send('markfix:set-mode', currentBrowserMode);
-    websiteView?.webContents.send('markfix:render-annotations', currentAnnotations);
     websiteView?.webContents.send('markfix:render-element-comments', currentElementComments);
     if (currentAnchor?.kind === 'element')
       websiteView?.webContents.send('markfix:resolve-anchor', {
         anchor: currentAnchor,
         force: true,
       });
-    websiteView?.webContents.send('markfix:set-recorder', { enabled: recording, pageRevision });
     navigationWebsiteProjectId = undefined;
   });
   websiteView.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
@@ -822,8 +517,10 @@ const createWindow = async (): Promise<void> => {
       websiteView?.webContents.send('markfix:show-anchor', anchor);
     },
     (message) => {
-      sendBrowserState({ error: `${message}. Switched to region selection.` });
-      websiteView?.webContents.send('markfix:set-mode', 'region');
+      currentBrowserMode = 'browse';
+      sendBrowserState({ error: `${message}. Element annotation is unavailable.` });
+      websiteView?.webContents.send('markfix:set-mode', 'browse');
+      void inspector?.stop();
     },
   );
   captureService = new CaptureService(
@@ -859,6 +556,22 @@ const registerIpc = (): void => {
     },
     sendShell,
   });
+  registerCaptureIpc({
+    assertSender: assertShellSender,
+    captureService: () => captureService,
+    mainWindow: () => mainWindow,
+    sendShell,
+    websiteView: () => websiteView,
+  });
+  registerDiagnosticsIpc({
+    assertSender: assertShellSender,
+    console: () => diagnosticConsole,
+    setOpen: (open) => {
+      diagnosticsOpen = open;
+      layoutWebsite();
+    },
+  });
+  reportOutbox.registerIpc(assertShellSender);
   ipcMain.handle(ipcChannels.authStatus, async (event) => {
     assertShellSender(event);
     const policy = await loadClientPolicy(true).catch(() => undefined);
@@ -885,7 +598,7 @@ const registerIpc = (): void => {
     await saveRefreshToken(tokens.refreshToken);
     authenticatedUser = await api.me();
     layoutWebsite();
-    void flushOutbox();
+    void reportOutbox.flush();
     return authenticatedUser;
   });
   ipcMain.handle(ipcChannels.authLogout, async (event) => {
@@ -910,7 +623,7 @@ const registerIpc = (): void => {
       authenticatedUser = undefined;
       api.setTokens();
       websiteView?.setVisible(false);
-      settingsWindow?.close();
+      childWindows.closeSettings();
       await clearRefreshToken();
     }
     return true;
@@ -925,13 +638,7 @@ const registerIpc = (): void => {
     if (!authenticatedUser) throw new Error('Sign in to load the workspace');
     const workspaces = await api.listWorkspaces();
     const websiteProjects = await ensureWebsiteProjects(workspaces);
-    const storedDraft = draftStore?.load();
-    const syncStatus = storedDraft?.pendingOutboxId
-      ? draftStore?.outboxStatus(storedDraft.pendingOutboxId)
-      : undefined;
-    const draft = syncStatus?.status === 'COMPLETED' ? undefined : storedDraft;
-    if (!draft && storedDraft) draftStore?.clear();
-    return { workspaces, websiteProjects, draft };
+    return { workspaces, websiteProjects };
   });
   ipcMain.handle(subscriptionIpcChannels.get, async (event, input: unknown) => {
     assertSubscriptionSender(event);
@@ -964,8 +671,15 @@ const registerIpc = (): void => {
       throw new Error('请选择工作区并输入网站地址');
     const normalized = normalizeWebsiteUrl(payload.url, process.env.MARKFIX_ALLOW_HTTP === 'true');
     const origin = new URL(normalized).origin;
-    const existing = draftStore.listWebsiteProjects().find((project) => project.origin === origin);
-    if (existing) return { project: existing, created: false };
+    const existing = draftStore.findWebsiteProjectByOrigin(origin);
+    if (existing) {
+      try {
+        await api.getProject(existing.id);
+        return { project: existing, created: false };
+      } catch (error) {
+        if (!(error instanceof MarkFixApiError) || error.status !== 404) throw error;
+      }
+    }
 
     activeWebsiteProjectId = undefined;
     const metadata = await resolveWebsiteMetadata(normalized);
@@ -987,7 +701,8 @@ const registerIpc = (): void => {
       createdAt: project.createdAt || now,
       updatedAt: now,
     });
-    draftStore.saveWebsiteProject(websiteProject);
+    if (existing) draftStore.migrateWebsiteProject(existing.id, websiteProject);
+    else draftStore.saveWebsiteProject(websiteProject);
     activeWebsiteProjectId = websiteProject.id;
     const current = draftStore.recordProjectPage(websiteProject.id, metadata.url, metadata.title);
     workspaceViewVisible = true;
@@ -998,8 +713,10 @@ const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.listProjectAnnotationReports, async (event, input: unknown) => {
     assertShellSender(event);
     if (!authenticatedUser) throw new Error('请先登录后再加载标注');
-    if (typeof input !== 'string') throw new Error('无效的项目 ID');
-    return api.listAllReports(input);
+    const payload = input as { projectId?: unknown; pageUrl?: unknown };
+    if (typeof payload.projectId !== 'string' || typeof payload.pageUrl !== 'string')
+      throw new Error('无效的项目或页面地址');
+    return api.listAllReports(payload.projectId, { pageUrl: payload.pageUrl });
   });
   ipcMain.handle(ipcChannels.switchWebsiteProject, (event, input: unknown) => {
     assertShellSender(event);
@@ -1032,14 +749,12 @@ const registerIpc = (): void => {
       navigationWebsiteProjectId = undefined;
       workspaceViewVisible = false;
       websiteContentReady = false;
-      currentAnnotations = [];
       currentElementComments = [];
       currentAnchor = undefined;
       layoutWebsite();
       void websiteView?.webContents.loadURL('about:blank');
     }
-    if (annotationReviewProjectId === project.id) annotationReviewWindow?.close();
-    if (projectAnnotationHistoryProjectId === project.id) projectAnnotationHistoryWindow?.close();
+    childWindows.closeProjectWindows(project.id);
     return { deleted: true };
   });
   ipcMain.handle(ipcChannels.confirmDiscardDraft, async (event, input: unknown) => {
@@ -1100,7 +815,7 @@ const registerIpc = (): void => {
   });
   ipcMain.handle(ipcChannels.openSettings, async (event) => {
     assertShellSender(event);
-    await openSettingsWindow();
+    await childWindows.openSettings();
   });
   ipcMain.handle(ipcChannels.submitProjectAnnotations, async (event, input: unknown) => {
     assertShellSender(event);
@@ -1148,119 +863,34 @@ const registerIpc = (): void => {
     layoutWebsite();
     websiteView?.webContents.reload();
   });
-  ipcMain.handle(ipcChannels.diagnosticsSetOpen, (event, input: unknown) => {
-    assertShellSender(event);
-    if (typeof input !== 'boolean') throw new Error('Invalid diagnostics panel state');
-    diagnosticsOpen = input;
-    layoutWebsite();
-  });
-  ipcMain.handle(ipcChannels.diagnosticsList, (event) => {
-    assertShellSender(event);
-    return diagnosticConsole?.list() ?? [];
-  });
-  ipcMain.handle(ipcChannels.diagnosticsClear, (event, input: unknown) => {
-    assertShellSender(event);
-    if (input !== 'console' && input !== 'network' && input !== 'all')
-      throw new Error('Invalid diagnostics clear scope');
-    diagnosticConsole?.clear(input);
-  });
-  ipcMain.handle(ipcChannels.diagnosticsEvaluate, async (event, input: unknown) => {
-    assertShellSender(event);
-    if (typeof input !== 'string' || input.length > 20_000) throw new Error('Invalid JavaScript');
-    if (!diagnosticConsole) throw new Error('Website diagnostics are unavailable');
-    return diagnosticConsole.evaluate(input);
-  });
-  ipcMain.handle(ipcChannels.diagnosticsRunCurl, async (event, input: unknown) => {
-    assertShellSender(event);
-    if (typeof input !== 'string' || input.length > 20_000) throw new Error('Invalid cURL command');
-    if (!diagnosticConsole) throw new Error('Website diagnostics are unavailable');
-    return diagnosticConsole.runCurl(input);
-  });
   ipcMain.handle(ipcChannels.setMode, async (event, input: unknown) => {
     assertShellSender(event);
     const mode = browserModeSchema.parse(input);
-    if (currentBrowserMode === 'comment' || currentBrowserMode === 'inspect') {
-      await inspector?.stop();
-    }
+    if (currentBrowserMode === 'comment') await inspector?.stop();
     currentBrowserMode = mode;
     layoutWebsite();
     websiteView?.webContents.send('markfix:set-mode', mode);
-    if (mode === 'comment' || mode === 'inspect') await inspector?.start();
-  });
-  ipcMain.handle(ipcChannels.setAnnotationTool, (event, input: unknown) => {
-    assertShellSender(event);
-    const tool = annotationToolSchema.parse(input);
-    websiteView?.webContents.send('markfix:set-tool', tool);
-  });
-  ipcMain.handle(ipcChannels.setCaptureTool, (event, input: unknown) => {
-    assertShellSender(event);
-    websiteView?.webContents.send('markfix:set-capture-tool', screenshotToolSchema.parse(input));
-  });
-  ipcMain.handle(ipcChannels.setCaptureStyle, (event, input: unknown) => {
-    assertShellSender(event);
-    websiteView?.webContents.send('markfix:set-capture-style', screenshotStyleSchema.parse(input));
-  });
-  ipcMain.handle(ipcChannels.syncCaptureMarks, (event, input: unknown) => {
-    assertShellSender(event);
-    websiteView?.webContents.send(
-      'markfix:sync-capture-marks',
-      screenshotMarkSchema.array().max(500).parse(input),
-    );
-  });
-  ipcMain.handle(ipcChannels.clearCaptureSelection, (event) => {
-    assertShellSender(event);
-    websiteView?.webContents.send('markfix:clear-capture-selection');
-  });
-  ipcMain.handle(ipcChannels.restoreCaptureSelection, (event, input: unknown) => {
-    assertShellSender(event);
-    const payload = input as { selection?: unknown; marks?: unknown };
-    websiteView?.webContents.send('markfix:restore-capture-selection', {
-      selection: regionAnchorSchema.parse(payload.selection),
-      marks: screenshotMarkSchema.array().max(500).parse(payload.marks),
-    });
-  });
-  ipcMain.handle(ipcChannels.copyCaptureImage, async (event, input: unknown) => {
-    assertShellSender(event);
-    const image = decodeScreenshotDataUrl(input);
-    await clipboard.write([
-      new ClipboardItem({
-        'image/png': new Blob([new Uint8Array(image)], { type: 'image/png' }),
-      }),
-    ]);
-  });
-  ipcMain.handle(ipcChannels.saveCaptureImage, async (event, input: unknown) => {
-    assertShellSender(event);
-    if (!mainWindow) throw new Error('Desktop window is unavailable');
-    const payload = input as { dataUrl?: unknown; suggestedName?: unknown };
-    const image = decodeScreenshotDataUrl(payload.dataUrl);
-    const result = await dialog.showSaveDialog(mainWindow, {
-      title: '保存 MarkFix 截图',
-      defaultPath: safeScreenshotFilename(payload.suggestedName),
-      filters: [{ name: 'PNG image', extensions: ['png'] }],
-    });
-    if (result.canceled || !result.filePath) return { canceled: true };
-    await writeFile(result.filePath, image);
-    return { canceled: false, filePath: result.filePath };
+    if (mode === 'comment') await inspector?.start();
   });
   ipcMain.handle(ipcChannels.openAnnotationReview, async (event, input: unknown) => {
     assertShellSender(event);
     if (typeof input !== 'string') throw new Error('无效的项目 ID');
     if (!draftStore?.getWebsiteProject(input)) throw new Error('项目不存在或已被移除');
-    await openAnnotationReviewWindow(input);
+    await childWindows.openAnnotationReview(input);
   });
   ipcMain.handle(ipcChannels.closeAnnotationReview, (event) => {
     assertShellSender(event);
-    annotationReviewWindow?.close();
+    childWindows.closeAnnotationReview();
   });
   ipcMain.handle(ipcChannels.openAnnotationHistory, async (event) => {
     assertShellSender(event);
-    await openAnnotationHistoryWindow();
+    await childWindows.openAnnotationHistory();
   });
   ipcMain.handle(ipcChannels.openProjectAnnotationHistory, async (event, input: unknown) => {
     assertShellSender(event);
     if (typeof input !== 'string') throw new Error('无效的项目 ID');
     if (!draftStore?.getWebsiteProject(input)) throw new Error('项目不存在或已被移除');
-    await openProjectAnnotationHistoryWindow(input);
+    await childWindows.openProjectAnnotationHistory(input);
   });
   ipcMain.handle(ipcChannels.selectAnnotationHistory, (event, input: unknown) => {
     assertShellSender(event);
@@ -1273,16 +903,12 @@ const registerIpc = (): void => {
           : draftStore?.listDiagnosticAnnotations().some(({ id }) => id === reference.id);
     if (!exists) throw new Error('标注不存在或已被删除');
     sendShell(ipcChannels.annotationHistorySelected, reference);
-    projectAnnotationHistoryWindow?.setParentWindow(null);
-    annotationHistoryWindow?.setParentWindow(null);
-    mainWindow?.show();
-    mainWindow?.focus();
-    mainWindow?.moveTop();
+    childWindows.focusMainFromHistory();
   });
   ipcMain.handle(ipcChannels.openCapturePreview, async (event, input: unknown) => {
     assertShellSender(event);
     if (typeof input !== 'string') throw new Error('Invalid capture ID');
-    await openCapturePreviewWindow(input);
+    await childWindows.openCapturePreview(input);
   });
   ipcMain.handle(ipcChannels.loadCapturePreview, (event, input: unknown) => {
     assertShellSender(event);
@@ -1290,31 +916,6 @@ const registerIpc = (): void => {
     const capture = draftStore?.getCapture(input);
     if (!capture) throw new Error('截图不存在或已被删除');
     return capture;
-  });
-  ipcMain.handle(ipcChannels.setRecording, (event, input: unknown) => {
-    assertShellSender(event);
-    if (typeof input !== 'boolean') throw new Error('Invalid recorder state');
-    recording = input;
-    websiteView?.webContents.send('markfix:set-recorder', { enabled: recording, pageRevision });
-    if (recording) {
-      const url = websiteView?.webContents.getURL();
-      if (url) {
-        sendShell(ipcChannels.recorderEvent, {
-          protocolVersion: 1,
-          runtimeId: mainRecorderRuntimeId,
-          pageRevision,
-          type: 'navigation',
-          timestampMs: Date.now(),
-          url,
-        });
-      }
-    }
-  });
-  ipcMain.handle(ipcChannels.syncAnnotations, (event, input: unknown) => {
-    assertShellSender(event);
-    const annotations = annotationSchema.array().max(500).parse(input);
-    currentAnnotations = annotations;
-    websiteView?.webContents.send('markfix:render-annotations', annotations);
   });
   ipcMain.handle(ipcChannels.syncAnchor, (event, input: unknown) => {
     assertShellSender(event);
@@ -1332,113 +933,6 @@ const registerIpc = (): void => {
         force: false,
       });
   });
-  ipcMain.handle(ipcChannels.focusAnnotation, (event, input: unknown) => {
-    assertShellSender(event);
-    if (typeof input !== 'string' || !currentAnnotations.some(({ id }) => id === input)) {
-      throw new Error('Unknown annotation');
-    }
-    websiteView?.webContents.send('markfix:focus-annotation', input);
-  });
-  ipcMain.handle(ipcChannels.capture, async (event, input: unknown) => {
-    assertShellSender(event);
-    if (!captureService) throw new Error('Capture service is unavailable');
-    return captureService.capture(captureRequestSchema.parse(input));
-  });
-  ipcMain.handle(ipcChannels.saveDraft, (event, input: unknown) => {
-    assertShellSender(event);
-    draftStore?.save(desktopDraftSchema.parse(input));
-  });
-  ipcMain.handle(ipcChannels.loadDraft, (event) => {
-    assertShellSender(event);
-    const draft = draftStore?.load();
-    if (draft?.pendingOutboxId) {
-      const status = draftStore?.outboxStatus(draft.pendingOutboxId);
-      if (status?.status === 'COMPLETED') {
-        draftStore?.clear();
-        return undefined;
-      }
-    }
-    return draft;
-  });
-  ipcMain.handle(ipcChannels.clearDraft, (event) => {
-    assertShellSender(event);
-    draftStore?.clear();
-  });
-  ipcMain.handle(ipcChannels.loadSyncStatus, (event, input: unknown) => {
-    assertShellSender(event);
-    if (typeof input !== 'string') throw new Error('Invalid outbox ID');
-    return draftStore?.outboxStatus(input);
-  });
-  ipcMain.handle(ipcChannels.submitReport, async (event, input: unknown) => {
-    assertShellSender(event);
-    assertSupportedClient(await loadClientPolicy(true));
-    const payload = input as {
-      report?: unknown;
-      idempotencyKey?: unknown;
-      clearDraft?: unknown;
-    };
-    const candidate = createReportSchema.parse(payload.report) as CreateReport;
-    captureBundleSchema.parse(candidate.captureBundle);
-    if (!draftStore) throw new Error('Local outbox is unavailable');
-    const requestHash = createHash('sha256').update(JSON.stringify(candidate)).digest('hex');
-    const idempotencyKey =
-      typeof payload.idempotencyKey === 'string' ? payload.idempotencyKey : randomUUID();
-    const entry = draftStore.enqueue(candidate, requestHash, idempotencyKey);
-    const synchronized = await flushOutbox();
-    const status = draftStore.outboxStatus(entry.id);
-    const report = synchronized.get(entry.id);
-    if (status?.status === 'COMPLETED' && payload.clearDraft !== false) draftStore.clear();
-    return status?.status === 'COMPLETED'
-      ? { disposition: 'submitted', reportId: status.reportId, report }
-      : { disposition: 'queued', outboxId: entry.id };
-  });
-  ipcMain.on('markfix:target-region', (event, input: unknown) => {
-    if (event.sender.id !== websiteView?.webContents.id) return;
-    const parsed = anchorSchema.safeParse(input);
-    if (!parsed.success || parsed.data.kind !== 'region') return;
-    currentAnchor = parsed.data;
-    sendShell(ipcChannels.region, parsed.data);
-  });
-  ipcMain.on('markfix:capture-selection', (event, input: unknown) => {
-    if (event.sender.id !== websiteView?.webContents.id) return;
-    if (input === null) {
-      sendShell(ipcChannels.captureSelection, null);
-      return;
-    }
-    const parsed = anchorSchema.safeParse(input);
-    if (!parsed.success || parsed.data.kind !== 'region') return;
-    sendShell(ipcChannels.captureSelection, parsed.data);
-  });
-  ipcMain.on('markfix:capture-marks-changed', (event, input: unknown) => {
-    if (event.sender.id !== websiteView?.webContents.id) return;
-    const parsed = screenshotMarkSchema.array().max(500).safeParse(input);
-    if (!parsed.success) return;
-    sendShell(ipcChannels.captureMarksChanged, parsed.data);
-  });
-  ipcMain.on('markfix:capture-action', (event, input: unknown) => {
-    if (event.sender.id !== websiteView?.webContents.id) return;
-    if (!['copy', 'save', 'finish'].includes(String(input))) return;
-    sendShell(ipcChannels.captureAction, input);
-  });
-  ipcMain.on('markfix:recorder-event', (event, input: unknown) => {
-    if (event.sender.id !== websiteView?.webContents.id) return;
-    const parsed = recorderEventSchema.safeParse(input);
-    if (!recording || !parsed.success || parsed.data.pageRevision !== pageRevision) return;
-    sendShell(ipcChannels.recorderEvent, parsed.data);
-  });
-  ipcMain.on('markfix:target-annotation', (event, input: unknown) => {
-    if (event.sender.id !== websiteView?.webContents.id) return;
-    const parsed = annotationSchema.safeParse(input);
-    if (!parsed.success || currentAnnotations.some(({ id }) => id === parsed.data.id)) return;
-    currentAnnotations = [...currentAnnotations, parsed.data];
-    sendShell(ipcChannels.annotationCreated, parsed.data);
-    websiteView?.webContents.send('markfix:render-annotations', currentAnnotations);
-  });
-  ipcMain.on('markfix:target-annotation-selected', (event, input: unknown) => {
-    if (event.sender.id !== websiteView?.webContents.id || typeof input !== 'string') return;
-    if (!currentAnnotations.some(({ id }) => id === input)) return;
-    sendShell(ipcChannels.annotationSelected, input);
-  });
   ipcMain.on('markfix:overlay-visibility-changed', (event, input: unknown) => {
     if (event.sender.id !== websiteView?.webContents.id) return;
     const requestId = (input as { requestId?: unknown }).requestId;
@@ -1455,6 +949,7 @@ const registerIpc = (): void => {
       anchor?: unknown;
       confidence?: unknown;
       score?: unknown;
+      silent?: unknown;
     };
     if (payload.status === 'lost') {
       sendShell(ipcChannels.anchorRecovery, { status: 'lost' });
@@ -1476,6 +971,7 @@ const registerIpc = (): void => {
       anchor: parsed.data,
       confidence: payload.confidence,
       score: payload.score,
+      silent: payload.silent === true,
     });
   });
 };
@@ -1489,8 +985,8 @@ app.whenReady().then(async () => {
   draftStore.recoverInterrupted();
   registerIpc();
   await createWindow();
-  void flushOutbox();
-  syncTimer = setInterval(() => void flushOutbox(), 15_000);
+  void reportOutbox.flush();
+  syncTimer = setInterval(() => void reportOutbox.flush(), 15_000);
 });
 
 app.on('before-quit', () => {

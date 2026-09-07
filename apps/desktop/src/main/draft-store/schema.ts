@@ -1,7 +1,4 @@
 export const draftStoreSchema = `
-  CREATE TABLE IF NOT EXISTS drafts (
-    id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL
-  );
   CREATE TABLE IF NOT EXISTS outbox (
     id TEXT PRIMARY KEY,
     idempotency_key TEXT NOT NULL UNIQUE,
@@ -21,6 +18,7 @@ export const draftStoreSchema = `
     page_url TEXT NOT NULL,
     payload TEXT NOT NULL,
     created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
     project_id TEXT NOT NULL,
     status TEXT NOT NULL,
     rendered_png BLOB NOT NULL,

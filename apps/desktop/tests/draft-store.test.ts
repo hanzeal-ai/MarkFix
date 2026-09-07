@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   AnnotationSubmission,
@@ -41,17 +42,20 @@ describe('DraftStore outbox', () => {
     store.close();
   });
 
-  it('uses the local annotation id as a stable idempotency key across retries', () => {
+  it('reuses an idempotency key only for the same payload', () => {
     const store = createStore();
     const localAnnotationId = '49bbad52-952f-4c45-96e9-5020106f9324';
     const first = store.enqueue({ title: 'Element note' }, 'request-v1', localAnnotationId);
     store.markCompleted(first.id, 'report-1');
 
-    const retried = store.enqueue({ title: 'Element note updated' }, 'request-v2', localAnnotationId);
+    const retried = store.enqueue({ title: 'Element note' }, 'request-v1', localAnnotationId);
 
     expect(retried.id).toBe(first.id);
     expect(retried.idempotencyKey).toBe(localAnnotationId);
     expect(store.claimDue()).toEqual([]);
+    expect(() =>
+      store.enqueue({ title: 'Element note updated' }, 'request-v2', localAnnotationId),
+    ).toThrow('Idempotency key already used with another payload');
     store.close();
   });
 
@@ -100,6 +104,24 @@ describe('DraftStore screenshot annotations', () => {
       },
       sourceDataUrl: 'data:image/png;base64,AA==',
       captureScale: 1,
+      page: {
+        url: 'https://example.com/page',
+        title: 'Example page',
+        viewportWidthCssPx: 1440,
+        viewportHeightCssPx: 900,
+        deviceScaleFactor: 2,
+        capturedAt: '2026-09-04T08:00:00.000Z',
+      },
+      capture: {
+        mode: 'region',
+        imageWidthPx: 320,
+        imageHeightPx: 180,
+        widthCssPx: 320,
+        heightCssPx: 180,
+        originCssPx: { x: 24, y: 32 },
+        captureScale: 1,
+        truncated: false,
+      },
       evidence: [
         {
           id: '10d361f8-1164-4f93-b95d-bdf84e05968a',
@@ -133,6 +155,69 @@ describe('DraftStore screenshot annotations', () => {
     expect(store.getCapture(capture.id)).toBeUndefined();
     store.close();
   });
+
+  it('upgrades legacy screenshot rows to the latest schema without losing image data', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'markfix-legacy-store-'));
+    temporaryDirectories.push(directory);
+    const path = join(directory, 'drafts.sqlite');
+    const capture: SavedCapture = {
+      id: '1d04602d-c0cb-4aac-bf5b-066b33273a03',
+      projectId: '90e2a0c5-0755-49b9-9d5d-41534ed41b41',
+      pageSessionId: '60bba625-07f2-40f6-8eef-1ddb681f8513',
+      pageTitle: 'Legacy page',
+      status: 'draft',
+      pageUrl: 'https://example.com/legacy',
+      note: 'Legacy screenshot',
+      dataUrl: 'data:image/png;base64,YQ==',
+      widthCssPx: 100,
+      heightCssPx: 80,
+      marks: [],
+      selection: {
+        kind: 'region',
+        xCssPx: 10,
+        yCssPx: 20,
+        widthCssPx: 100,
+        heightCssPx: 80,
+        documentUrl: 'https://example.com/legacy',
+        scrollXCssPx: 0,
+        scrollYCssPx: 0,
+      },
+      sourceDataUrl: 'data:image/png;base64,YQ==',
+      captureScale: 1,
+      createdAt: '2026-09-04T08:00:00.000Z',
+      updatedAt: '2026-09-05T08:00:00.000Z',
+    };
+    const legacy = new Database(path);
+    legacy.exec(`
+      CREATE TABLE capture_annotations (
+        id TEXT PRIMARY KEY,
+        page_url TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+    legacy
+      .prepare(
+        'INSERT INTO capture_annotations (id, page_url, payload, created_at) VALUES (?, ?, ?, ?)',
+      )
+      .run(capture.id, capture.pageUrl, JSON.stringify(capture), capture.createdAt);
+    legacy.close();
+
+    const store = new DraftStore(path);
+
+    expect(store.listCaptures()).toEqual([capture]);
+    expect(store.listAnnotationHistorySummaries()).toEqual([
+      {
+        projectId: capture.projectId,
+        total: 1,
+        draft: 1,
+        submitted: 0,
+        rejected: 0,
+        updatedAt: capture.updatedAt,
+      },
+    ]);
+    store.close();
+  });
 });
 
 describe('DraftStore element comments', () => {
@@ -154,8 +239,42 @@ describe('DraftStore element comments', () => {
         documentUrl: 'https://example.com/page',
         framePath: [],
         quadsCssPx: [[10, 20, 210, 20, 210, 80, 10, 80]],
+        runtimeEvidence: {
+          schemaVersion: 1,
+          selectorCandidates: ['[id="headline"]', '#headline'],
+          classNames: ['page-title'],
+          accessibleName: 'Headline',
+          sanitizedOuterHtml: '<h1 id="headline">A headline</h1>',
+          ancestorPath: [
+            { tagName: 'h1', selectorSegment: 'h1#headline', attributes: { id: 'headline' } },
+          ],
+          nearbyText: ['Welcome'],
+          pageBuild: {
+            scripts: [
+              {
+                url: 'https://example.com/app.js',
+                sourceMapUrl: 'https://example.com/app.js.map',
+              },
+            ],
+            stylesheets: ['https://example.com/app.css'],
+            sourceMapHints: ['https://example.com/app.js.map'],
+            metadata: { build: 'build-1' },
+            frameworkHints: ['react'],
+          },
+        },
       },
       note: '标题需要修改',
+      screenshotDataUrl: 'data:image/png;base64,YQ==',
+      capture: {
+        mode: 'element',
+        imageWidthPx: 400,
+        imageHeightPx: 120,
+        widthCssPx: 200,
+        heightCssPx: 60,
+        originCssPx: { x: 10, y: 20 },
+        captureScale: 2,
+        truncated: false,
+      },
       createdAt: '2026-09-04T08:00:00.000Z',
       updatedAt: '2026-09-04T08:00:00.000Z',
     };
@@ -368,18 +487,39 @@ describe('DraftStore website projects', () => {
     expect(first?.currentPageSessionId).toBe(second?.currentPageSessionId);
     expect(store.stepProjectHistory(project.id, -1)?.url).toBe('https://example.com/page');
     expect(store.stepProjectHistory(project.id, 1)?.url).toBe('https://example.com/other');
-    store.save({
-      title: '',
-      description: '',
-      url: project.currentUrl,
-      annotations: [],
-      reproduction: [],
-      projectId: project.id,
-    });
     store.deleteWebsiteProject(project.id);
     expect(store.getWebsiteProject(project.id)).toBeUndefined();
     expect(store.stepProjectHistory(project.id, -1)).toBeUndefined();
-    expect(store.load()).toBeUndefined();
+    store.close();
+  });
+
+  it('moves cached state to the server project id for the same website origin', () => {
+    const store = createStore();
+    const localId = '90e2a0c5-0755-49b9-9d5d-41534ed41b41';
+    const serverId = 'aa6ba68a-60ad-4116-acd8-bc42c496fa1c';
+    const project: WebsiteProject = {
+      id: localId,
+      workspaceId: 'bb0ee545-59c0-427f-ad9c-fb976ef266d5',
+      title: 'Example',
+      origin: 'https://example.com',
+      entryUrl: 'https://example.com/start',
+      faviconUrl: 'https://example.com/favicon.ico',
+      faviconSource: 'root',
+      currentPageSessionId: '60bba625-07f2-40f6-8eef-1ddb681f8513',
+      currentUrl: 'https://example.com/start',
+      createdAt: '2026-09-04T08:00:00.000Z',
+      updatedAt: '2026-09-04T08:00:00.000Z',
+    };
+    store.saveWebsiteProject(project);
+    const migrated = store.migrateWebsiteProject(localId, {
+      ...project,
+      id: serverId,
+      workspaceId: 'cf3f22df-a04d-4ff2-839d-39d032f263a2',
+    });
+
+    expect(store.findWebsiteProjectByOrigin(project.origin)?.id).toBe(serverId);
+    expect(store.getWebsiteProject(localId)).toBeUndefined();
+    expect(store.getWebsiteProject(serverId)).toEqual(migrated);
     store.close();
   });
 });

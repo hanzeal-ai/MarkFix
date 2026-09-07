@@ -1,0 +1,305 @@
+.diagnostics-panel {
+  position: fixed;
+  z-index: 9;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  height: 300px;
+  display: grid;
+  grid-template-rows: 42px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid #30343c;
+  border-radius: 12px;
+  background: #17191e;
+  color: #e7e9ee;
+  box-shadow: 0 14px 38px rgba(15, 17, 22, 0.3);
+}
+.diagnostics-panel.with-sidebar {
+  right: 374px;
+}
+.sidebar-expanded .diagnostics-panel {
+  left: 242px;
+}
+.sidebar-collapsed .diagnostics-panel {
+  left: 14px;
+}
+.diagnostics-content {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 36px minmax(0, 1fr) auto;
+}
+.diagnostics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #30343c;
+  background: #202329;
+}
+.diagnostics-header nav,
+.diagnostics-header > div {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+.diagnostics-header button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 13px;
+  background: transparent;
+  color: #aeb3bd;
+  font-size: 12px;
+  cursor: pointer;
+}
+.diagnostics-header nav button {
+  border-right: 1px solid #30343c;
+}
+.diagnostics-header nav button[data-state='active'] {
+  background: #17191e;
+  color: #fff;
+  box-shadow: inset 0 -2px #776df2;
+}
+.diagnostics-header button:hover {
+  background: #2a2e35;
+  color: #fff;
+}
+.diagnostics-header button svg {
+  width: 14px;
+  height: 14px;
+}
+.diagnostics-header button i {
+  min-width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #9c3f3f;
+  color: #fff;
+  font-size: 9px;
+  font-style: normal;
+}
+.diagnostics-filterbar {
+  display: grid;
+  grid-template-columns: 34px minmax(120px, 1fr) 126px;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #30343c;
+  background: #1b1e23;
+}
+.diagnostics-filterbar button,
+.diagnostics-filterbar input,
+.diagnostics-filterbar select {
+  height: 27px;
+  border: 1px solid #383d46;
+  border-radius: 5px;
+  background: #17191e;
+  color: #c9cdd5;
+  font-size: 11px;
+}
+.diagnostics-filterbar button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+.diagnostics-filterbar button:hover {
+  border-color: #555c68;
+  color: #fff;
+}
+.diagnostics-filterbar button svg {
+  width: 13px;
+  height: 13px;
+}
+.diagnostics-filterbar input {
+  min-width: 0;
+  padding: 0 8px;
+  outline: none;
+}
+.diagnostics-filterbar input:focus,
+.diagnostics-filterbar select:focus {
+  border-color: #776df2;
+}
+.diagnostics-filterbar select {
+  padding: 0 7px;
+}
+.diagnostics-list {
+  min-height: 0;
+  overflow: auto;
+}
+.diagnostics-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #737985;
+  font-size: 12px;
+}
+.diagnostics-empty svg {
+  width: 16px;
+  height: 16px;
+}
+.diagnostic-entry {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 7px;
+  padding: 7px 10px;
+  border-bottom: 1px solid #292c33;
+  font:
+    11px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+}
+.diagnostic-entry.warning {
+  background: rgba(171, 123, 34, 0.08);
+}
+.diagnostic-entry.error {
+  background: rgba(179, 59, 59, 0.11);
+}
+.diagnostic-level {
+  padding-top: 2px;
+  color: #78808d;
+}
+.diagnostic-entry.warning .diagnostic-level {
+  color: #d5a54e;
+}
+.diagnostic-entry.error .diagnostic-level {
+  color: #e26a62;
+}
+.diagnostic-level svg {
+  width: 13px;
+  height: 13px;
+}
+.diagnostic-content {
+  min-width: 0;
+}
+.diagnostic-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.diagnostic-title strong {
+  color: #edf0f5;
+  font-weight: 600;
+}
+.diagnostic-title time {
+  color: #737985;
+  font-size: 9px;
+}
+.diagnostic-content pre {
+  max-height: 88px;
+  overflow: auto;
+  margin: 3px 0;
+  color: #c9cdd5;
+  font: inherit;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.diagnostic-content > code,
+.diagnostic-content > small {
+  display: block;
+  overflow: hidden;
+  color: #7f8795;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.diagnostic-content details summary {
+  color: #969da9;
+  cursor: pointer;
+}
+.diagnostic-quote {
+  align-self: start;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #414650;
+  border-radius: 6px;
+  padding: 4px 7px;
+  background: #25282f;
+  color: #c8ccd4;
+  font-size: 10px;
+  cursor: pointer;
+}
+.diagnostic-quote:hover:not(:disabled) {
+  border-color: #776df2;
+  color: #fff;
+}
+.diagnostic-quote:disabled {
+  opacity: 0.48;
+  cursor: default;
+}
+.diagnostic-quote svg {
+  width: 11px;
+  height: 11px;
+}
+.diagnostics-command {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: 94px minmax(180px, 1fr) 76px;
+  gap: 7px;
+  padding: 7px 9px;
+  border-top: 1px solid #30343c;
+  background: #202329;
+}
+.diagnostics-command select,
+.diagnostics-command textarea,
+.diagnostics-command button.run {
+  height: 32px;
+  border: 1px solid #3b404a;
+  border-radius: 6px;
+  background: #17191e;
+  color: #e7e9ee;
+  font:
+    11px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+}
+.diagnostics-command select {
+  padding: 0 7px;
+}
+.diagnostics-command textarea {
+  min-width: 0;
+  resize: none;
+  padding: 7px 9px;
+  outline: none;
+}
+.diagnostics-command textarea:focus {
+  border-color: #776df2;
+}
+.diagnostics-command button.run {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-color: #655bd8;
+  background: #5b52c9;
+  cursor: pointer;
+}
+.diagnostics-command button.run:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.diagnostics-command button.run svg {
+  width: 12px;
+  height: 12px;
+}
+.diagnostics-command > small,
+.diagnostics-command-error {
+  grid-column: 2 / -1;
+  color: #818895;
+  font-size: 9px;
+}
+.diagnostics-command-error {
+  color: #f08b82;
+}

@@ -21,62 +21,122 @@ describe('annotationSelectionReportInputs', () => {
     const diagnosticId = '17ce2cf1-692b-4c46-84fb-9384fb025381';
 
     const inputs = annotationSelectionReportInputs(projectId, {
-      elementComments: [{
-        ...context,
-        id: elementId,
-        note: 'Element note',
-        anchor: {
-          kind: 'element',
-          cssSelector: '#headline',
-          textQuote: 'Headline',
-          tagName: 'h1',
-          attributes: { id: 'headline' },
-          documentUrl: context.pageUrl,
-          framePath: [],
-          quadsCssPx: [[10, 20, 210, 20, 210, 80, 10, 80]],
+      elementComments: [
+        {
+          ...context,
+          id: elementId,
+          note: 'Element note',
+          screenshotDataUrl: 'data:image/png;base64,YQ==',
+          capture: {
+            mode: 'element',
+            imageWidthPx: 400,
+            imageHeightPx: 120,
+            widthCssPx: 200,
+            heightCssPx: 60,
+            originCssPx: { x: 10, y: 20 },
+            captureScale: 2,
+            truncated: false,
+          },
+          anchor: {
+            kind: 'element',
+            cssSelector: '#headline',
+            textQuote: 'Headline',
+            tagName: 'h1',
+            attributes: { id: 'headline' },
+            documentUrl: context.pageUrl,
+            framePath: [],
+            quadsCssPx: [[10, 20, 210, 20, 210, 80, 10, 80]],
+            runtimeEvidence: {
+              schemaVersion: 1,
+              selectorCandidates: ['#headline'],
+              classNames: ['headline'],
+              ancestorPath: [
+                {
+                  tagName: 'h1',
+                  selectorSegment: 'h1#headline',
+                  attributes: { id: 'headline' },
+                },
+              ],
+              nearbyText: ['Welcome'],
+              pageBuild: {
+                scripts: [
+                  {
+                    url: 'https://example.test/app.js',
+                    sourceMapUrl: 'https://example.test/app.js.map',
+                  },
+                ],
+                stylesheets: [],
+                sourceMapHints: ['https://example.test/app.js.map'],
+                metadata: {},
+                frameworkHints: ['react'],
+              },
+            },
+          },
         },
-      }],
-      captures: [{
-        ...context,
-        id: captureId,
-        note: 'Screenshot note',
-        dataUrl: 'data:image/png;base64,YQ==',
-        sourceDataUrl: 'data:image/png;base64,YQ==',
-        widthCssPx: 100,
-        heightCssPx: 80,
-        captureScale: 2,
-        marks: [],
-        selection: {
-          kind: 'region',
-          xCssPx: 10,
-          yCssPx: 20,
+      ],
+      captures: [
+        {
+          ...context,
+          id: captureId,
+          note: 'Screenshot note',
+          dataUrl: 'data:image/png;base64,YQ==',
+          sourceDataUrl: 'data:image/png;base64,YQ==',
           widthCssPx: 100,
           heightCssPx: 80,
-          documentUrl: context.pageUrl,
-          scrollXCssPx: 0,
-          scrollYCssPx: 0,
+          captureScale: 2,
+          page: {
+            url: context.pageUrl,
+            title: context.pageTitle,
+            viewportWidthCssPx: 1440,
+            viewportHeightCssPx: 900,
+            deviceScaleFactor: 1.25,
+            capturedAt: createdAt,
+          },
+          capture: {
+            mode: 'region',
+            imageWidthPx: 200,
+            imageHeightPx: 160,
+            widthCssPx: 100,
+            heightCssPx: 80,
+            originCssPx: { x: 10, y: 20 },
+            captureScale: 2,
+            truncated: false,
+          },
+          marks: [],
+          selection: {
+            kind: 'region',
+            xCssPx: 10,
+            yCssPx: 20,
+            widthCssPx: 100,
+            heightCssPx: 80,
+            documentUrl: context.pageUrl,
+            scrollXCssPx: 0,
+            scrollYCssPx: 0,
+          },
         },
-      }],
-      diagnostics: [{
-        ...context,
-        id: diagnosticId,
-        evidence: {
+      ],
+      diagnostics: [
+        {
+          ...context,
           id: diagnosticId,
-          kind: 'console',
-          level: 'error',
-          title: 'Console error',
-          message: 'Something failed',
-          timestamp: createdAt,
-          pageUrl: context.pageUrl,
-          redactions: [],
+          evidence: {
+            id: diagnosticId,
+            kind: 'console',
+            level: 'error',
+            title: 'Console error',
+            message: 'Something failed',
+            timestamp: createdAt,
+            pageUrl: context.pageUrl,
+            redactions: [],
+          },
         },
-      }],
+      ],
     });
 
     expect(inputs.map(({ idempotencyKey }) => idempotencyKey)).toEqual([
-      elementId,
-      captureId,
-      diagnosticId,
+      `${elementId}@${createdAt}`,
+      `${captureId}@${createdAt}`,
+      `${diagnosticId}@${createdAt}`,
     ]);
     expect(inputs.map(({ report }) => report.captureBundle.annotationKind)).toEqual([
       'ELEMENT',
@@ -88,8 +148,67 @@ describe('annotationSelectionReportInputs', () => {
       captureId,
       diagnosticId,
     ]);
-    expect(inputs[0]?.report.screenshotDataUrl).toBeUndefined();
+    expect(inputs[0]?.report.screenshotDataUrl).toBe('data:image/png;base64,YQ==');
+    expect(
+      inputs[0]?.report.captureBundle.anchor?.kind === 'element'
+        ? inputs[0].report.captureBundle.anchor.runtimeEvidence?.pageBuild.sourceMapHints
+        : undefined,
+    ).toEqual(['https://example.test/app.js.map']);
+    expect(inputs[0]?.report.captureBundle.capture?.mode).toBe('element');
     expect(inputs[1]?.report.screenshotDataUrl).toBe('data:image/png;base64,YQ==');
+    expect(inputs[1]?.report.captureBundle.page).toEqual({
+      url: context.pageUrl,
+      title: context.pageTitle,
+      viewportWidthCssPx: 1440,
+      viewportHeightCssPx: 900,
+      deviceScaleFactor: 1.25,
+      capturedAt: createdAt,
+    });
+    expect(inputs[1]?.report.captureBundle.capture).toEqual({
+      mode: 'region',
+      imageWidthPx: 200,
+      imageHeightPx: 160,
+      widthCssPx: 100,
+      heightCssPx: 80,
+      originCssPx: { x: 10, y: 20 },
+      captureScale: 2,
+      truncated: false,
+    });
     expect(inputs[2]?.report.captureBundle.anchor).toBeUndefined();
+  });
+
+  it('does not report a legacy screenshot crop as the page viewport or device scale', () => {
+    const [input] = annotationSelectionReportInputs(projectId, {
+      elementComments: [],
+      captures: [
+        {
+          ...context,
+          id: '86c28bc3-a8a0-40df-a4b6-c7f71823d41a',
+          note: 'Legacy screenshot',
+          dataUrl: 'data:image/png;base64,YQ==',
+          sourceDataUrl: 'data:image/png;base64,YQ==',
+          widthCssPx: 100,
+          heightCssPx: 80,
+          captureScale: 2,
+          marks: [],
+          selection: {
+            kind: 'region',
+            xCssPx: 10,
+            yCssPx: 20,
+            widthCssPx: 100,
+            heightCssPx: 80,
+            documentUrl: context.pageUrl,
+            scrollXCssPx: 0,
+            scrollYCssPx: 0,
+          },
+        },
+      ],
+      diagnostics: [],
+    });
+
+    expect(input?.report.captureBundle.page.viewportWidthCssPx).toBe(1);
+    expect(input?.report.captureBundle.page.viewportHeightCssPx).toBe(1);
+    expect(input?.report.captureBundle.page.deviceScaleFactor).toBe(1);
+    expect(input?.report.captureBundle.capture).toBeUndefined();
   });
 });

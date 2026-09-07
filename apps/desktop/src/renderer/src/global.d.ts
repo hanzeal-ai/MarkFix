@@ -1,8 +1,6 @@
 import type {
-  Annotation,
   AnnotationHistorySummary,
   AnnotationSubmission,
-  AnnotationTool,
   Anchor,
   BrowserMode,
   CaptureContext,
@@ -40,12 +38,11 @@ declare global {
       desktopBootstrap(): Promise<{
         workspaces: WorkspaceSummary[];
         websiteProjects: WebsiteProject[];
-        draft: unknown;
       }>;
       listWorkspaces(): Promise<WorkspaceSummary[]>;
       listEnvironments(projectId: string): Promise<Environment[]>;
       listWebsiteProjects(): Promise<WebsiteProject[]>;
-      listProjectAnnotationReports(projectId: string): Promise<Report[]>;
+      listProjectAnnotationReports(projectId: string, pageUrl: string): Promise<Report[]>;
       createWebsiteProject(
         workspaceId: string,
         url: string,
@@ -72,13 +69,12 @@ declare global {
       evaluateJavaScript(input: string): Promise<DiagnosticEvidence>;
       runCurl(input: string): Promise<DiagnosticEvidence>;
       setMode(mode: BrowserMode): Promise<void>;
-      setAnnotationTool(tool: AnnotationTool): Promise<void>;
       setCaptureTool(tool: ScreenshotTool): Promise<void>;
       setCaptureStyle(style: ScreenshotStyle): Promise<void>;
       syncCaptureMarks(marks: ScreenshotMark[]): Promise<void>;
       clearCaptureSelection(): Promise<void>;
       restoreCaptureSelection(selection: RegionAnchor, marks: ScreenshotMark[]): Promise<void>;
-      copyCaptureImage(dataUrl: string): Promise<void>;
+      copyCaptureImage(dataUrl: string, note: string): Promise<void>;
       saveCaptureImage(
         dataUrl: string,
         suggestedName: string,
@@ -102,10 +98,7 @@ declare global {
       selectHistoricalAnnotation(reference: HistoryAnnotationReference): Promise<void>;
       openCapturePreview(captureId: string): Promise<void>;
       loadCapturePreview(captureId: string): Promise<SavedCapture>;
-      setRecording(enabled: boolean): Promise<void>;
-      syncAnnotations(annotations: Annotation[]): Promise<void>;
       syncAnchor(anchor: Anchor | null): Promise<void>;
-      focusAnnotation(annotationId: string): Promise<void>;
       capture(request: CaptureRequest): Promise<
         CaptureContext & {
           dataUrl: string;
@@ -116,26 +109,15 @@ declare global {
           deviceScaleFactor: number;
         }
       >;
-      saveDraft(draft: unknown): Promise<void>;
-      loadDraft(): Promise<unknown>;
-      clearDraft(): Promise<void>;
       loadSyncStatus(outboxId: string): Promise<{ status: string; reportId?: string } | undefined>;
-      submitReport(
-        report: CreateReport,
-        idempotencyKey?: string,
-        clearDraft?: boolean,
-      ): Promise<unknown>;
+      submitReport(report: CreateReport, idempotencyKey?: string): Promise<unknown>;
       onBrowserState(listener: (payload: unknown) => void): () => void;
       onDiagnostic(listener: (payload: DiagnosticEvidence) => void): () => void;
       onModeShortcut(listener: (payload: unknown) => void): () => void;
       onSelection(listener: (payload: unknown) => void): () => void;
-      onRegion(listener: (payload: unknown) => void): () => void;
       onCaptureSelection(listener: (payload: unknown) => void): () => void;
       onCaptureMarksChanged(listener: (payload: unknown) => void): () => void;
       onCaptureAction(listener: (payload: unknown) => void): () => void;
-      onRecorderEvent(listener: (payload: unknown) => void): () => void;
-      onAnnotationCreated(listener: (payload: unknown) => void): () => void;
-      onAnnotationSelected(listener: (payload: unknown) => void): () => void;
       onAnchorRecovery(listener: (payload: unknown) => void): () => void;
       onSyncStatus(listener: (payload: unknown) => void): () => void;
       onAnnotationSubmissionSaved(listener: (payload: unknown) => void): () => void;

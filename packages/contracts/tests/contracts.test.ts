@@ -3,8 +3,7 @@ import {
   createEnvironmentSchema,
   createProjectSchema,
   createReportSchema,
-  desktopDraftSchema,
-  recorderEventSchema,
+  elementAnchorSchema,
   regionAnchorSchema,
   savedCaptureSchema,
   updateEnvironmentSchema,
@@ -41,13 +40,51 @@ describe('regionAnchorSchema', () => {
   });
 });
 
-describe('current desktop persistence schemas', () => {
-  it('rejects drafts without the current annotation collections', () => {
-    expect(desktopDraftSchema.safeParse({ title: '', description: '', url: '' }).success).toBe(
-      false,
-    );
+describe('elementAnchorSchema runtime evidence', () => {
+  it('accepts source-search evidence while remaining optional for old records', () => {
+    const base = {
+      kind: 'element' as const,
+      cssSelector: '#submit',
+      textQuote: 'Submit',
+      tagName: 'button',
+      attributes: { id: 'submit' },
+      documentUrl: 'https://example.com/form',
+      framePath: [],
+      quadsCssPx: [[0, 0, 80, 0, 80, 30, 0, 30]],
+    };
+    expect(elementAnchorSchema.safeParse(base).success).toBe(true);
+    expect(
+      elementAnchorSchema.parse({
+        ...base,
+        runtimeEvidence: {
+          schemaVersion: 1,
+          selectorCandidates: ['#submit', 'button[data-testid="submit"]'],
+          classNames: ['primary'],
+          accessibleName: 'Submit form',
+          sanitizedOuterHtml: '<button id="submit">Submit</button>',
+          ancestorPath: [
+            { tagName: 'button', selectorSegment: 'button#submit', attributes: { id: 'submit' } },
+          ],
+          nearbyText: ['Cancel'],
+          pageBuild: {
+            scripts: [
+              {
+                url: 'https://example.com/app.js',
+                sourceMapUrl: 'https://example.com/app.js.map',
+              },
+            ],
+            stylesheets: ['https://example.com/app.css'],
+            sourceMapHints: ['https://example.com/app.js.map'],
+            metadata: { version: '1.0.0' },
+            frameworkHints: ['react'],
+          },
+        },
+      }).runtimeEvidence?.pageBuild.sourceMapHints,
+    ).toEqual(['https://example.com/app.js.map']);
   });
+});
 
+describe('current desktop persistence schemas', () => {
   it('rejects captures without editable source context', () => {
     expect(
       savedCaptureSchema.safeParse({
@@ -66,25 +103,6 @@ describe('current desktop persistence schemas', () => {
         updatedAt: new Date().toISOString(),
       }).success,
     ).toBe(false);
-  });
-});
-
-describe('recorderEventSchema', () => {
-  it('keeps input metadata but strips the entered value', () => {
-    const event = recorderEventSchema.parse({
-      protocolVersion: 1,
-      runtimeId: crypto.randomUUID(),
-      pageRevision: crypto.randomUUID(),
-      type: 'input',
-      timestampMs: Date.now(),
-      elementName: 'Password',
-      inputKind: 'password',
-      valueLength: 12,
-      value: 'must-not-cross-the-bridge',
-    });
-
-    expect(event.valueLength).toBe(12);
-    expect(event).not.toHaveProperty('value');
   });
 });
 

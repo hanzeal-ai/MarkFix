@@ -1,9 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   ipcChannels,
-  type Annotation,
   type AnnotationSubmission,
-  type AnnotationTool,
   type Anchor,
   type BrowserMode,
   type CaptureRequest,
@@ -40,8 +38,8 @@ contextBridge.exposeInMainWorld('markfix', {
   listEnvironments: (projectId: string) =>
     ipcRenderer.invoke(ipcChannels.listEnvironments, projectId),
   listWebsiteProjects: () => ipcRenderer.invoke(ipcChannels.listWebsiteProjects),
-  listProjectAnnotationReports: (projectId: string) =>
-    ipcRenderer.invoke(ipcChannels.listProjectAnnotationReports, projectId),
+  listProjectAnnotationReports: (projectId: string, pageUrl: string) =>
+    ipcRenderer.invoke(ipcChannels.listProjectAnnotationReports, { projectId, pageUrl }),
   createWebsiteProject: (workspaceId: string, url: string) =>
     ipcRenderer.invoke(ipcChannels.createWebsiteProject, { workspaceId, url }),
   switchWebsiteProject: (projectId: string) =>
@@ -67,8 +65,6 @@ contextBridge.exposeInMainWorld('markfix', {
   evaluateJavaScript: (input: string) => ipcRenderer.invoke(ipcChannels.diagnosticsEvaluate, input),
   runCurl: (input: string) => ipcRenderer.invoke(ipcChannels.diagnosticsRunCurl, input),
   setMode: (mode: BrowserMode) => ipcRenderer.invoke(ipcChannels.setMode, mode),
-  setAnnotationTool: (tool: AnnotationTool) =>
-    ipcRenderer.invoke(ipcChannels.setAnnotationTool, tool),
   setCaptureTool: (tool: ScreenshotTool) => ipcRenderer.invoke(ipcChannels.setCaptureTool, tool),
   setCaptureStyle: (style: ScreenshotStyle) =>
     ipcRenderer.invoke(ipcChannels.setCaptureStyle, style),
@@ -77,7 +73,8 @@ contextBridge.exposeInMainWorld('markfix', {
   clearCaptureSelection: () => ipcRenderer.invoke(ipcChannels.clearCaptureSelection),
   restoreCaptureSelection: (selection: RegionAnchor, marks: ScreenshotMark[]) =>
     ipcRenderer.invoke(ipcChannels.restoreCaptureSelection, { selection, marks }),
-  copyCaptureImage: (dataUrl: string) => ipcRenderer.invoke(ipcChannels.copyCaptureImage, dataUrl),
+  copyCaptureImage: (dataUrl: string, note: string) =>
+    ipcRenderer.invoke(ipcChannels.copyCaptureImage, { dataUrl, note }),
   saveCaptureImage: (dataUrl: string, suggestedName: string) =>
     ipcRenderer.invoke(ipcChannels.saveCaptureImage, { dataUrl, suggestedName }),
   listCaptureRecords: (projectId?: string) =>
@@ -114,19 +111,11 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(ipcChannels.openCapturePreview, captureId),
   loadCapturePreview: (captureId: string) =>
     ipcRenderer.invoke(ipcChannels.loadCapturePreview, captureId),
-  setRecording: (enabled: boolean) => ipcRenderer.invoke(ipcChannels.setRecording, enabled),
-  syncAnnotations: (annotations: Annotation[]) =>
-    ipcRenderer.invoke(ipcChannels.syncAnnotations, annotations),
   syncAnchor: (anchor: Anchor | null) => ipcRenderer.invoke(ipcChannels.syncAnchor, anchor),
-  focusAnnotation: (annotationId: string) =>
-    ipcRenderer.invoke(ipcChannels.focusAnnotation, annotationId),
   capture: (request: CaptureRequest) => ipcRenderer.invoke(ipcChannels.capture, request),
-  saveDraft: (draft: unknown) => ipcRenderer.invoke(ipcChannels.saveDraft, draft),
-  loadDraft: () => ipcRenderer.invoke(ipcChannels.loadDraft),
-  clearDraft: () => ipcRenderer.invoke(ipcChannels.clearDraft),
   loadSyncStatus: (outboxId: string) => ipcRenderer.invoke(ipcChannels.loadSyncStatus, outboxId),
-  submitReport: (report: CreateReport, idempotencyKey?: string, clearDraft = true) =>
-    ipcRenderer.invoke(ipcChannels.submitReport, { report, idempotencyKey, clearDraft }),
+  submitReport: (report: CreateReport, idempotencyKey?: string) =>
+    ipcRenderer.invoke(ipcChannels.submitReport, { report, idempotencyKey }),
   onBrowserState: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.browserState, listener),
   onDiagnostic: (listener: (payload: DiagnosticEvidence) => void) =>
@@ -134,19 +123,12 @@ contextBridge.exposeInMainWorld('markfix', {
   onModeShortcut: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.modeShortcut, listener),
   onSelection: (listener: (payload: unknown) => void) => subscribe(ipcChannels.selection, listener),
-  onRegion: (listener: (payload: unknown) => void) => subscribe(ipcChannels.region, listener),
   onCaptureSelection: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.captureSelection, listener),
   onCaptureMarksChanged: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.captureMarksChanged, listener),
   onCaptureAction: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.captureAction, listener),
-  onRecorderEvent: (listener: (payload: unknown) => void) =>
-    subscribe(ipcChannels.recorderEvent, listener),
-  onAnnotationCreated: (listener: (payload: unknown) => void) =>
-    subscribe(ipcChannels.annotationCreated, listener),
-  onAnnotationSelected: (listener: (payload: unknown) => void) =>
-    subscribe(ipcChannels.annotationSelected, listener),
   onAnchorRecovery: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.anchorRecovery, listener),
   onSyncStatus: (listener: (payload: unknown) => void) =>

@@ -1,4 +1,4 @@
-import type { Anchor, Annotation } from '@markfix/contracts';
+import type { Anchor, Annotation, CaptureContext, PageSnapshot } from '@markfix/contracts';
 
 export type BrowserState = {
   url?: string;
@@ -19,7 +19,21 @@ export type BrowserState = {
 
 export type DesktopUser = { id: string; email: string; displayName: string };
 export type CaptureSelection = Extract<Anchor, { kind: 'region' }>;
-export type CaptureSource = { dataUrl: string; captureScale: number };
+export type CaptureSource = {
+  dataUrl: string;
+  captureScale: number;
+  page?: PageSnapshot;
+  capture?: CaptureContext;
+};
+
+export const numberedVisibleRecords = <T extends { id: string }>(
+  comments: readonly T[],
+  editingId: string | undefined,
+): Array<{ comment: T; number: number }> =>
+  comments
+    .map((comment, index) => ({ comment, number: index + 1 }))
+    .filter(({ comment }) => comment.id !== editingId)
+    .reverse();
 
 export const annotationName = (annotation: Annotation): string => {
   if (annotation.type === 'pin') return `Pin ${annotation.label}`;

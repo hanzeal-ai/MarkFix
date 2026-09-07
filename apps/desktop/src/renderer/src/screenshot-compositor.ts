@@ -39,6 +39,77 @@ const encodePng = (canvas: HTMLCanvasElement): Promise<string> =>
     }, 'image/png');
   });
 
+export const captureNoteLines = (
+  note: string,
+  measure: (value: string) => number,
+  maxWidth: number,
+  maxLines = 20,
+): string[] => {
+  const lines: string[] = [];
+  for (const paragraph of note.trim().slice(0, 2000).split(/\r?\n/)) {
+    let line = '';
+    for (const character of paragraph) {
+      const candidate = `${line}${character}`;
+      if (line && measure(candidate) > maxWidth) {
+        lines.push(line.trimEnd());
+        line = character.trimStart();
+      } else {
+        line = candidate;
+      }
+    }
+    lines.push(line);
+  }
+  if (lines.length <= maxLines) return lines;
+  const visible = lines.slice(0, maxLines);
+  let lastLine = visible.at(-1) ?? '';
+  while (lastLine && measure(`${lastLine}…`) > maxWidth) lastLine = lastLine.slice(0, -1);
+  visible[maxLines - 1] = `${lastLine.trimEnd()}…`;
+  return visible;
+};
+
+export const composeCaptureExport = async (dataUrl: string, note: string): Promise<string> => {
+  const normalizedNote = note.trim();
+  if (!normalizedNote) return dataUrl;
+  const image = await loadImage(dataUrl);
+  const canvas = document.createElement('canvas');
+  const width = Math.max(image.naturalWidth, 360);
+  const horizontalPadding = 24;
+  const verticalPadding = 20;
+  const fontSize = Math.max(16, Math.min(24, Math.round(width / 48)));
+  const lineHeight = Math.round(fontSize * 1.5);
+  canvas.width = width;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Screenshot canvas is unavailable');
+  context.font = `${fontSize}px system-ui, sans-serif`;
+  const lines = captureNoteLines(
+    normalizedNote,
+    (value) => context.measureText(value).width,
+    width - horizontalPadding * 2,
+  );
+  canvas.height = image.naturalHeight + verticalPadding * 2 + lineHeight * lines.length;
+
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, Math.round((width - image.naturalWidth) / 2), 0);
+  context.strokeStyle = '#e2e4e9';
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(0, image.naturalHeight + 0.5);
+  context.lineTo(width, image.naturalHeight + 0.5);
+  context.stroke();
+  context.fillStyle = '#191a1d';
+  context.font = `${fontSize}px system-ui, sans-serif`;
+  context.textBaseline = 'top';
+  lines.forEach((line, index) =>
+    context.fillText(
+      line,
+      horizontalPadding,
+      image.naturalHeight + verticalPadding + index * lineHeight,
+    ),
+  );
+  return encodePng(canvas);
+};
+
 const arrowhead = (
   context: CanvasRenderingContext2D,
   start: { x: number; y: number },

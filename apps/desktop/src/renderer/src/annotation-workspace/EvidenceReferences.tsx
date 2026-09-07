@@ -16,7 +16,9 @@ export function EvidenceReferences({
         <span key={item.id} className={item.level}>
           <Paperclip />
           <b>{item.title}</b>
-          <Button type="button" title="移除引用" onClick={() => onRemove(item.id)}><X /></Button>
+          <Button type="button" title="移除引用" onClick={() => onRemove(item.id)}>
+            <X />
+          </Button>
         </span>
       ))}
     </div>

@@ -2,26 +2,20 @@ import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 import {
   annotationSubmissionSchema,
-  desktopDraftSchema,
   savedCaptureSchema,
   savedDiagnosticAnnotationSchema,
   savedElementCommentSchema,
   websiteProjectSchema,
   type AnnotationSubmission,
   type AnnotationHistorySummary,
-  type DesktopDraft,
   type SavedCapture,
   type SavedDiagnosticAnnotation,
   type SavedElementComment,
   type WebsiteProject,
 } from '@markfix/contracts';
 import { retryDelayMs } from './sync-policy.js';
-import {
-  captureStorage,
-  hydrateCapture,
-  type StoredCapture,
-} from './draft-store/capture-codec.js';
-import { draftStoreSchema } from './draft-store/schema.js';
+import { captureStorage, hydrateCapture, type StoredCapture } from './draft-store/capture-codec.js';
+import { initializeDraftStore, migrateWebsiteProjectState } from './draft-store/migrations.js';
 
 export type OutboxEntry = {
   id: string;
@@ -36,7 +30,7 @@ export class DraftStore {
   constructor(path: string) {
     this.database = new Database(path);
     this.database.pragma('journal_mode = WAL');
-    this.database.exec(draftStoreSchema);
+    initializeDraftStore(this.database);
   }
 
   listWebsiteProjects(): WebsiteProject[] {
@@ -50,6 +44,13 @@ export class DraftStore {
     const row = this.database
       .prepare('SELECT payload FROM website_projects WHERE id = ?')
       .get(projectId) as { payload: string } | undefined;
+    return row ? websiteProjectSchema.parse(JSON.parse(row.payload)) : undefined;
+  }
+
+  findWebsiteProjectByOrigin(origin: string): WebsiteProject | undefined {
+    const row = this.database
+      .prepare('SELECT payload FROM website_projects WHERE origin = ?')
+      .get(origin) as { payload: string } | undefined;
     return row ? websiteProjectSchema.parse(JSON.parse(row.payload)) : undefined;
   }
 
@@ -71,10 +72,26 @@ export class DraftStore {
       );
   }
 
+  migrateWebsiteProject(previousId: string, project: WebsiteProject): WebsiteProject {
+    const currentProject = websiteProjectSchema.parse(project);
+    if (previousId === currentProject.id) {
+      this.saveWebsiteProject(currentProject);
+      return currentProject;
+    }
+    const previousProject = this.getWebsiteProject(previousId);
+    if (!previousProject) throw new Error('Local website project to migrate was not found');
+    if (previousProject.origin !== currentProject.origin)
+      throw new Error('Website project origin changed during migration');
+    if (this.getWebsiteProject(currentProject.id))
+      throw new Error('Website project migration target already exists');
+
+    migrateWebsiteProjectState(this.database, previousId, currentProject);
+    return currentProject;
+  }
+
   deleteWebsiteProject(projectId: string): void {
     const remove = this.database.transaction(() => {
       const projectPayloadMatch = "json_extract(payload, '$.projectId') = ?";
-      this.database.prepare(`DELETE FROM drafts WHERE ${projectPayloadMatch}`).run(projectId);
       this.database.prepare(`DELETE FROM outbox WHERE ${projectPayloadMatch}`).run(projectId);
       this.database.prepare('DELETE FROM capture_annotations WHERE project_id = ?').run(projectId);
       this.database.prepare('DELETE FROM element_comments WHERE project_id = ?').run(projectId);
@@ -182,26 +199,6 @@ export class DraftStore {
     return entry;
   }
 
-  load(): DesktopDraft | undefined {
-    const row = this.database.prepare('SELECT payload FROM drafts WHERE id = ?').get('current') as
-      { payload: string } | undefined;
-    return row ? desktopDraftSchema.parse(JSON.parse(row.payload)) : undefined;
-  }
-
-  save(payload: DesktopDraft): void {
-    const draft = desktopDraftSchema.parse(payload);
-    this.database
-      .prepare(
-        `INSERT INTO drafts (id, payload, updated_at) VALUES ('current', ?, ?)
-         ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at`,
-      )
-      .run(JSON.stringify(draft), new Date().toISOString());
-  }
-
-  clear(): void {
-    this.database.prepare('DELETE FROM drafts WHERE id = ?').run('current');
-  }
-
   listCaptures(projectId?: string): SavedCapture[] {
     const rows = this.database
       .prepare(
@@ -238,11 +235,12 @@ export class DraftStore {
     this.database
       .prepare(
         `INSERT INTO capture_annotations
-         (id, page_url, payload, created_at, project_id, status, rendered_png, source_png)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         (id, page_url, payload, created_at, updated_at, project_id, status, rendered_png, source_png)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            page_url = excluded.page_url,
            payload = excluded.payload,
+           updated_at = excluded.updated_at,
            project_id = excluded.project_id,
            status = excluded.status,
            rendered_png = excluded.rendered_png,
@@ -253,6 +251,7 @@ export class DraftStore {
         currentCapture.pageUrl,
         JSON.stringify(stored.metadata),
         currentCapture.createdAt,
+        currentCapture.updatedAt,
         currentCapture.projectId,
         currentCapture.status,
         stored.renderedPng,
@@ -349,7 +348,7 @@ export class DraftStore {
       .prepare(
         `SELECT project_id AS projectId, status, COUNT(*) AS count, MAX(updated_at) AS updatedAt
          FROM (
-           SELECT project_id, status, created_at AS updated_at FROM capture_annotations
+           SELECT project_id, status, updated_at FROM capture_annotations
            UNION ALL
            SELECT project_id, status, updated_at FROM element_comments
            UNION ALL
@@ -393,9 +392,13 @@ export class DraftStore {
         ...currentSubmission.diagnostics,
       ].find(({ projectId }) => projectId !== currentSubmission.projectId);
       if (invalid) throw new Error('Annotation project mismatch');
+      const storedCaptures = currentSubmission.captures.map((capture) => ({
+        capture,
+        stored: captureStorage(capture),
+      }));
       const compactSubmission = {
         ...currentSubmission,
-        captures: currentSubmission.captures.map((capture) => captureStorage(capture).metadata),
+        captures: storedCaptures.map(({ stored }) => stored.metadata),
       };
       this.database
         .prepare(
@@ -412,8 +415,7 @@ export class DraftStore {
         `INSERT INTO submission_capture_images
          (submission_id, capture_id, rendered_png, source_png) VALUES (?, ?, ?, ?)`,
       );
-      for (const capture of currentSubmission.captures) {
-        const stored = captureStorage(capture);
+      for (const { capture, stored } of storedCaptures) {
         saveSubmissionImage.run(
           currentSubmission.id,
           capture.id,
@@ -427,7 +429,8 @@ export class DraftStore {
       );
       const updateCapture = this.database.prepare(
         `UPDATE capture_annotations
-         SET payload = ?, status = 'submitted', rendered_png = ?, source_png = ? WHERE id = ?`,
+         SET payload = ?, status = 'submitted', updated_at = ?, rendered_png = ?, source_png = ?
+         WHERE id = ?`,
       );
       const updateDiagnostic = this.database.prepare(
         `UPDATE diagnostic_annotations
@@ -445,15 +448,15 @@ export class DraftStore {
           comment.id,
         );
       }
-      for (const capture of currentSubmission.captures) {
+      for (const { capture, stored } of storedCaptures) {
         const updated = {
-          ...capture,
+          ...stored.metadata,
           status: 'submitted' as const,
           submittedAt: currentSubmission.submittedAt,
         };
-        const stored = captureStorage(updated);
         updateCapture.run(
-          JSON.stringify(stored.metadata),
+          JSON.stringify(updated),
+          currentSubmission.submittedAt,
           stored.renderedPng,
           stored.sourcePng,
           capture.id,
@@ -543,16 +546,41 @@ export class DraftStore {
     requestHash: string,
     idempotencyKey: string = crypto.randomUUID(),
   ): OutboxEntry {
-    const existing = this.database
+    const sameKey = this.database
+      .prepare(
+        `SELECT id, idempotency_key AS idempotencyKey, request_hash AS requestHash,
+                payload, attempts
+         FROM outbox WHERE idempotency_key = ?`,
+      )
+      .get(idempotencyKey) as
+      | {
+          id: string;
+          idempotencyKey: string;
+          requestHash: string;
+          payload: string;
+          attempts: number;
+        }
+      | undefined;
+    if (sameKey) {
+      if (sameKey.requestHash !== requestHash)
+        throw new Error('Idempotency key already used with another payload');
+      return {
+        id: sameKey.id,
+        idempotencyKey: sameKey.idempotencyKey,
+        payload: JSON.parse(sameKey.payload) as unknown,
+        attempts: sameKey.attempts,
+      };
+    }
+    const samePendingRequest = this.database
       .prepare(
         `SELECT id, idempotency_key AS idempotencyKey, payload, attempts
-         FROM outbox
-         WHERE idempotency_key = ? OR (request_hash = ? AND status IN ('PENDING', 'SYNCING'))
+         FROM outbox WHERE request_hash = ? AND status IN ('PENDING', 'SYNCING')
          ORDER BY created_at DESC LIMIT 1`,
       )
-      .get(idempotencyKey, requestHash) as
+      .get(requestHash) as
       { id: string; idempotencyKey: string; payload: string; attempts: number } | undefined;
-    if (existing) return { ...existing, payload: JSON.parse(existing.payload) as unknown };
+    if (samePendingRequest)
+      return { ...samePendingRequest, payload: JSON.parse(samePendingRequest.payload) as unknown };
 
     const now = new Date().toISOString();
     const entry: OutboxEntry = {

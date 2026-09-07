@@ -35,17 +35,21 @@ const pageSnapshot = (
 const titleFor = (prefix: string, pageTitle: string): string =>
   `${prefix} · ${pageTitle || '未命名页面'}`.slice(0, 200);
 
+const submissionKey = (record: { id: string; updatedAt: string }): string =>
+  `${record.id}@${record.updatedAt}`;
+
 export const annotationSelectionReportInputs = (
   projectId: string,
   selection: AnnotationSelection,
 ): ReportSubmissionInput[] => [
   ...selection.elementComments.map((record) => ({
-    idempotencyKey: record.id,
+    idempotencyKey: submissionKey(record),
     report: {
       projectId,
       title: titleFor('元素批注', record.pageTitle),
       description: record.note,
       priority: 'MEDIUM' as const,
+      ...(record.screenshotDataUrl ? { screenshotDataUrl: record.screenshotDataUrl } : {}),
       captureBundle: {
         schemaVersion: 1 as const,
         page: pageSnapshot(record.pageUrl, record.pageTitle, record.updatedAt),
@@ -55,11 +59,12 @@ export const annotationSelectionReportInputs = (
         evidence: record.evidence,
         annotations: [],
         reproduction: [],
+        ...(record.capture ? { capture: record.capture } : {}),
       },
     },
   })),
   ...selection.captures.map((record) => ({
-    idempotencyKey: record.id,
+    idempotencyKey: submissionKey(record),
     report: {
       projectId,
       title: titleFor('截图批注', record.pageTitle),
@@ -68,25 +73,19 @@ export const annotationSelectionReportInputs = (
       screenshotDataUrl: record.dataUrl,
       captureBundle: {
         schemaVersion: 1 as const,
-        page: pageSnapshot(
-          record.pageUrl,
-          record.pageTitle,
-          record.updatedAt,
-          record.widthCssPx,
-          record.heightCssPx,
-          record.captureScale,
-        ),
+        page: record.page ?? pageSnapshot(record.pageUrl, record.pageTitle, record.updatedAt),
         anchor: record.selection,
         annotationKind: 'SCREENSHOT' as const,
         sourceAnnotationId: record.id,
         evidence: record.evidence,
         annotations: [],
         reproduction: [],
+        ...(record.capture ? { capture: record.capture } : {}),
       },
     },
   })),
   ...selection.diagnostics.map((record) => ({
-    idempotencyKey: record.id,
+    idempotencyKey: submissionKey(record),
     report: {
       projectId,
       title: record.evidence.title.slice(0, 200),

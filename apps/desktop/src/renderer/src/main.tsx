@@ -2,6 +2,15 @@ import { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { Toaster } from '@markfix/ui';
 import './styles.css';
+import './styles/annotation-windows.css';
+import './styles/capture-panel.css';
+import './styles/diagnostics-panel.css';
+import './styles/saved-annotations.css';
+import './styles/project-sidebar.css';
+import './styles/settings-window.css';
+import './styles/project-pages.css';
+import './styles/history-pages.css';
+import './styles/desktop-chrome.css';
 
 const App = lazy(() => import('./App.js').then((module) => ({ default: module.App })));
 const AnnotationSaveWindow = lazy(() =>
@@ -39,6 +48,6 @@ ReactDOM.createRoot(document.querySelector('#root') as HTMLElement).render(
         <App />
       )}
     </Suspense>
-    <Toaster position="top-center" richColors closeButton />
+    <Toaster position="top-center" richColors closeButton offset={view ? 14 : { top: 68 }} />
   </>,
 );
