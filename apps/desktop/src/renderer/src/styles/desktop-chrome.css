@@ -354,17 +354,6 @@ button {
   color: #fff;
 }
 
-.annotation-review-titlebar,
-.annotation-history-titlebar,
-.project-history-titlebar,
-.settings-window-titlebar,
-.subscription-titlebar {
-  border-bottom-color: rgba(60, 60, 67, 0.18);
-  background: rgba(246, 246, 247, 0.82);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.72);
-  backdrop-filter: saturate(180%) blur(24px);
-}
-
 .new-project-search,
 .project-history-page {
   border-color: rgba(60, 60, 67, 0.14);

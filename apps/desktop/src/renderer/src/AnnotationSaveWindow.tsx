@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@markfix/ui';
-import { MessageSquareText } from '@markfix/ui/icons';
 import type {
   AnnotationSubmission,
   SavedCapture,
@@ -111,13 +110,6 @@ export function AnnotationSaveWindow(): React.JSX.Element {
 
   return (
     <main className="annotation-review-window">
-      <div className="annotation-review-titlebar">
-        <span>
-          <MessageSquareText />
-        </span>
-        <strong>MarkFix</strong>
-        <i>标注确认</i>
-      </div>
       {error && (
         <Alert className="annotation-review-error" variant="destructive">
           <AlertDescription>{error}</AlertDescription>

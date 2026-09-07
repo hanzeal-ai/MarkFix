@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, AlertDescription } from '@markfix/ui';
-import { History } from '@markfix/ui/icons';
 import type {
   SavedCapture,
   SavedDiagnosticAnnotation,
@@ -78,13 +77,6 @@ export function ProjectHistoryWindow(): React.JSX.Element {
 
   return (
     <main className="project-history-window">
-      <div className="project-history-titlebar">
-        <span>
-          <History />
-        </span>
-        <strong>MarkFix</strong>
-        <i>{project?.title ?? '项目历史'}</i>
-      </div>
       {error && (
         <Alert className="project-history-error" variant="destructive">
           <AlertDescription>{error}</AlertDescription>

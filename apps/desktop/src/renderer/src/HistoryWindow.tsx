@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@markfix/ui';
-import { History } from '@markfix/ui/icons';
 import type { AnnotationHistorySummary, WebsiteProject } from '@markfix/contracts';
 import { HistoryPage } from './ProjectNavigation';
 
@@ -43,13 +42,6 @@ export function HistoryWindow(): React.JSX.Element {
 
   return (
     <main className="annotation-history-window">
-      <div className="annotation-history-titlebar">
-        <span>
-          <History />
-        </span>
-        <strong>MarkFix</strong>
-        <i>历史标注</i>
-      </div>
       {error && (
         <Alert className="annotation-history-error" variant="destructive">
           <AlertDescription>{error}</AlertDescription>

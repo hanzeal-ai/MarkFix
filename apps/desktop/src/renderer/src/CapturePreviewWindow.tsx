@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@markfix/ui';
-import { Camera } from '@markfix/ui/icons';
 import type { SavedCapture } from '@markfix/contracts';
 
 export function CapturePreviewWindow(): React.JSX.Element {
@@ -30,13 +29,6 @@ export function CapturePreviewWindow(): React.JSX.Element {
 
   return (
     <main className="capture-preview-window">
-      <div className="capture-preview-titlebar">
-        <span>
-          <Camera />
-        </span>
-        <strong>MarkFix</strong>
-        <i>截图预览</i>
-      </div>
       {error ? (
         <Alert className="capture-preview-error" variant="destructive">
           <AlertDescription>{error}</AlertDescription>
