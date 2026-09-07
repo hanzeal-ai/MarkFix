@@ -17,10 +17,11 @@ export function Toaster(props: ToasterProps): React.JSX.Element {
       toastOptions={{
         classNames: {
           toast:
-            'group toast border bg-background text-foreground shadow-lg group-[.toaster]:rounded-lg',
+            'group toast border bg-background text-foreground shadow-lg group-[.toaster]:rounded-lg [&:has([data-close-button])]:pr-12',
           description: 'text-muted-foreground',
           actionButton: 'bg-primary text-primary-foreground',
           cancelButton: 'bg-muted text-muted-foreground',
+          closeButton: '!top-1/2 !right-3 !left-auto !translate-x-0 !-translate-y-1/2',
         },
       }}
       {...props}

@@ -30,6 +30,6 @@ ReactDOM.createRoot(document.querySelector('#root') as HTMLElement).render(
         <WebRoot />
       )}
     </React.Suspense>
-    <Toaster position="bottom-center" richColors closeButton />
+    <Toaster position="top-center" richColors closeButton />
   </React.StrictMode>,
 );
