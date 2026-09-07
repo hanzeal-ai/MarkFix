@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ExternalLink } from '@markfix/ui/icons';
 import {
   Alert,
   AlertDescription,
@@ -25,6 +24,7 @@ import { StatusBadge } from './AdminState';
 import {
   formatDate,
   kindText,
+  statusText,
   type AnnotationKind,
   type AnnotationStatus,
   type EditorState,
@@ -54,7 +54,7 @@ export function AnnotationEditor({
   const [authorId, setAuthorId] = useState('');
   const [status, setStatus] = useState<Exclude<AnnotationStatus, 'REJECTED'>>('OPEN');
   const [reason, setReason] = useState('');
-  const [screenshotPreviewOpen, setScreenshotPreviewOpen] = useState(false);
+  const [screenshotPreviewUrl, setScreenshotPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setTitle(annotation?.title ?? '');
@@ -64,7 +64,7 @@ export function AnnotationEditor({
     setAuthorId(annotation?.authorId ?? '');
     setStatus(annotation?.status === 'REJECTED' ? 'OPEN' : (annotation?.status ?? 'OPEN'));
     setReason(annotation?.rejectionReason ?? '');
-    setScreenshotPreviewOpen(false);
+    setScreenshotPreviewUrl(null);
   }, [annotation, project.baseUrl, state?.mode]);
 
   const save = useMutation({
@@ -129,20 +129,18 @@ export function AnnotationEditor({
         </DialogHeader>
         {readOnly ? (
           <div className="annotation-detail-grid">
-            <div className="annotation-detail-title">
-              <div className="annotation-detail-badges">
-                <StatusBadge status={state.annotation.status} />
-                <Badge variant="secondary">{kindText[state.annotation.kind]}</Badge>
-              </div>
-              <h3>{state.annotation.title}</h3>
+            <div className="annotation-detail-badges">
+              <Badge variant="outline">{state.annotation.referenceCode}</Badge>
+              <StatusBadge status={state.annotation.status} />
+              <Badge variant="secondary">{kindText[state.annotation.kind]}</Badge>
             </div>
             {state.annotation.screenshotUrl && (
-              <section className="annotation-detail-section annotation-screenshot-section">
+              <section className="annotation-detail-section">
                 <Button
                   className="annotation-screenshot-button"
                   variant="ghost"
                   type="button"
-                  onClick={() => setScreenshotPreviewOpen(true)}
+                  onClick={() => setScreenshotPreviewUrl(state.annotation.screenshotUrl)}
                   aria-label="预览完整截图"
                 >
                   <img
@@ -162,42 +160,60 @@ export function AnnotationEditor({
                 <p className="annotation-detail-note">{state.annotation.note}</p>
               </section>
             )}
-            <section className="annotation-detail-section">
-              <h4>定位信息</h4>
-              <a href={state.annotation.pageUrl} target="_blank" rel="noreferrer">
-                {state.annotation.pageUrl}
-                <ExternalLink />
-              </a>
-            </section>
-            <section className="annotation-detail-section">
-              <h4>记录信息</h4>
-              <dl>
-                <div>
-                  <dt>项目</dt>
-                  <dd>{project.name}</dd>
-                </div>
-                <div>
-                  <dt>项目分类</dt>
-                  <dd>{project.category}</dd>
-                </div>
-                <div>
-                  <dt>提交人</dt>
-                  <dd>
-                    {state.annotation.author?.displayName ?? '未知成员'}
-                    {state.annotation.author?.email && (
-                      <small>{state.annotation.author.email}</small>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>创建时间</dt>
-                  <dd>{formatDate(state.annotation.createdAt)}</dd>
-                </div>
-                <div>
-                  <dt>更新时间</dt>
-                  <dd>{formatDate(state.annotation.updatedAt)}</dd>
-                </div>
-              </dl>
+            <section className="annotation-detail-section annotation-history-section">
+              <h4>历史信息</h4>
+              <ol className="annotation-history-list">
+                {state.annotation.history.map((item) => (
+                  <li key={item.id}>
+                    <span
+                      className={`annotation-history-dot status-${item.status.toLowerCase()}`}
+                    />
+                    <div>
+                      <div className="annotation-history-heading">
+                        <strong>
+                          {item.action === 'SUBMITTED'
+                            ? '已提交'
+                            : item.action === 'REJECTED'
+                              ? '已驳回'
+                              : item.action === 'RESUBMITTED'
+                                ? '已重新提交'
+                                : '状态更新'}
+                        </strong>
+                        {item.status !== 'OPEN' && (
+                          <Badge
+                            className={`annotation-status status-${item.status.toLowerCase()}`}
+                          >
+                            {statusText[item.status]}
+                          </Badge>
+                        )}
+                        <time>{formatDate(item.createdAt)}</time>
+                      </div>
+                      {item.actor && <small>操作人：{item.actor.displayName}</small>}
+                      {(item.screenshotUrl || item.note) && (
+                        <div className="annotation-history-content">
+                          {item.screenshotUrl && (
+                            <Button
+                              className="annotation-history-thumbnail"
+                              variant="ghost"
+                              type="button"
+                              aria-label={`预览${item.action === 'SUBMITTED' ? '原始' : '重新提交'}截图`}
+                              onClick={() => setScreenshotPreviewUrl(item.screenshotUrl)}
+                            >
+                              <img
+                                src={resolveAdminAssetUrl(item.screenshotUrl)}
+                                alt="历史截图缩略图"
+                                loading="lazy"
+                              />
+                            </Button>
+                          )}
+                          {item.note && <p className="annotation-history-note">{item.note}</p>}
+                        </div>
+                      )}
+                      {item.reason && <p>原因：{item.reason}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </section>
             {state.annotation.rejectionReason && (
               <section className="annotation-detail-section rejection-detail">
@@ -223,7 +239,7 @@ export function AnnotationEditor({
                   className="annotation-screenshot-button annotation-screenshot-button-compact"
                   variant="ghost"
                   type="button"
-                  onClick={() => setScreenshotPreviewOpen(true)}
+                  onClick={() => setScreenshotPreviewUrl(annotation.screenshotUrl)}
                   aria-label="预览完整截图"
                 >
                   <img
@@ -359,8 +375,8 @@ export function AnnotationEditor({
             </div>
           </form>
         )}
-        {annotation?.screenshotUrl && (
-          <Dialog open={screenshotPreviewOpen} onOpenChange={setScreenshotPreviewOpen}>
+        {annotation && screenshotPreviewUrl && (
+          <Dialog open onOpenChange={(open) => !open && setScreenshotPreviewUrl(null)}>
             <DialogContent className="annotation-image-preview-dialog">
               <DialogHeader>
                 <DialogTitle>截图预览</DialogTitle>
@@ -368,11 +384,11 @@ export function AnnotationEditor({
               </DialogHeader>
               <div className="annotation-image-preview-canvas">
                 <img
-                  src={resolveAdminAssetUrl(annotation.screenshotUrl)}
+                  src={resolveAdminAssetUrl(screenshotPreviewUrl)}
                   alt={`${annotation.title}完整截图`}
                 />
               </div>
-              <Button variant="outline" onClick={() => setScreenshotPreviewOpen(false)}>
+              <Button variant="outline" onClick={() => setScreenshotPreviewUrl(null)}>
                 关闭预览
               </Button>
             </DialogContent>

@@ -231,6 +231,9 @@ export function ProjectDrawer({
                   <Card className="annotation-row" key={annotation.id}>
                     <div className="annotation-summary">
                       <div className="annotation-row-top">
+                        <span className="annotation-reference-code">
+                          {annotation.referenceCode}
+                        </span>
                         <StatusBadge status={annotation.status} />
                         <span>{kindText[annotation.kind]}</span>
                       </div>

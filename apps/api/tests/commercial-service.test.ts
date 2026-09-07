@@ -25,6 +25,7 @@ const report = (overrides: Record<string, unknown> = {}) => ({
 const managerDatabase = (workspaceId: string, projectId: string) => ({
   membership: { findUnique: vi.fn().mockResolvedValue(managerMembership) },
   project: { findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId }) },
+  reportSubmission: { findMany: vi.fn().mockResolvedValue([]) },
 });
 
 afterEach(() => {
@@ -56,32 +57,26 @@ describe('commercial annotation management', () => {
       },
       project: { findMany: vi.fn().mockResolvedValue([project]) },
       report: {
-        groupBy: vi.fn().mockResolvedValue([
-          {
-            projectId: project.id,
-            reporterId: userId,
-            status: 'OPEN',
-            rejectionReason: null,
-            _count: { _all: 2 },
-          },
-          {
+        findMany: vi.fn().mockResolvedValue([
+          report({ projectId: project.id, reporterId: userId }),
+          report({
             projectId: project.id,
             reporterId: userId,
             status: 'CLOSED',
             rejectionReason: 'Not planned',
-            _count: { _all: 1 },
-          },
+            updatedAt: new Date('2026-09-05T02:00:00Z'),
+          }),
         ]),
       },
     } as never);
 
     const result = await service.overview(userId, workspaceId);
 
-    expect(result.metrics).toEqual({ projects: 1, annotations: 3, pending: 2, rejected: 1 });
+    expect(result.metrics).toEqual({ projects: 1, annotations: 2, pending: 1, rejected: 1 });
     expect(result.projects[0]).toEqual(
-      expect.objectContaining({ annotationCount: 3, pendingCount: 2, rejectedCount: 1 }),
+      expect.objectContaining({ annotationCount: 2, pendingCount: 1, rejectedCount: 1 }),
     );
-    expect(result.users[0]?.projectCategories).toEqual([{ category: '品牌官网', count: 3 }]);
+    expect(result.users[0]?.projectCategories).toEqual([{ category: '品牌官网', count: 2 }]);
   });
 
   it('lists, filters and paginates Report projections', async () => {
@@ -116,6 +111,81 @@ describe('commercial annotation management', () => {
       pageSize: 1,
     });
     await expect(service.annotations('admin-1', projectId, { pageSize: '101' })).rejects.toThrow();
+  });
+
+  it('returns resubmissions as one annotation with stable history and reference code', async () => {
+    const workspaceId = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+    const sourceAnnotationId = crypto.randomUUID();
+    const captureBundle = {
+      sourceAnnotationId,
+      page: { url: 'https://example.test/pricing' },
+      annotationKind: 'SCREENSHOT',
+      annotations: [],
+    };
+    const current = report({
+      id: sourceAnnotationId,
+      projectId,
+      captureBundle,
+      title: 'Revised annotation',
+      activities: [
+        {
+          id: 'rejected',
+          type: 'ANNOTATION_REJECTED',
+          payload: { reason: 'Please revise' },
+          actor: { id: 'admin-1', displayName: 'Admin', email: 'admin@example.test' },
+          createdAt: new Date('2026-09-07T09:00:00Z'),
+        },
+      ],
+      updatedAt: new Date('2026-09-07T10:00:00Z'),
+    });
+    const submissions = [
+      {
+        id: crypto.randomUUID(),
+        payload: { description: 'Original note', captureBundle },
+        artifact: { id: 'original-image' },
+        createdBy: current.reporter,
+        createdAt: current.createdAt,
+      },
+      {
+        id: crypto.randomUUID(),
+        payload: { description: 'Revised note', captureBundle },
+        artifact: { id: 'revised-image' },
+        createdBy: current.reporter,
+        createdAt: new Date('2026-09-07T10:00:00Z'),
+      },
+    ];
+    const service = new CommercialService({
+      ...managerDatabase(workspaceId, projectId),
+      report: { findMany: vi.fn().mockResolvedValue([current]) },
+      reportSubmission: { findMany: vi.fn().mockResolvedValue(submissions) },
+    } as never);
+
+    const result = await service.annotations('admin-1', projectId);
+
+    expect(result.total).toBe(1);
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        id: current.id,
+        referenceCode: `#MF-${sourceAnnotationId.replaceAll('-', '').slice(0, 8).toUpperCase()}`,
+        title: 'Revised annotation',
+        history: [
+          expect.objectContaining({
+            action: 'RESUBMITTED',
+            status: 'OPEN',
+            note: 'Revised note',
+            screenshotUrl: '/v1/artifacts/revised-image',
+          }),
+          expect.objectContaining({ action: 'REJECTED', status: 'REJECTED' }),
+          expect.objectContaining({
+            action: 'SUBMITTED',
+            status: 'OPEN',
+            note: 'Original note',
+            screenshotUrl: '/v1/artifacts/original-image',
+          }),
+        ],
+      }),
+    );
   });
 
   it('exposes an authenticated artifact URL for screenshot reports', async () => {
@@ -218,6 +288,13 @@ describe('commercial annotation management', () => {
           status: 'CLOSED',
           rejectionReason: 'Not part of this release',
           version: { increment: 1 },
+          activities: {
+            create: {
+              type: 'ANNOTATION_REJECTED',
+              actorId: 'admin-1',
+              payload: { reason: 'Not part of this release' },
+            },
+          },
         },
       }),
     );

@@ -113,39 +113,6 @@
   white-space: nowrap;
 }
 
-.project-delete-trigger {
-  position: absolute;
-  z-index: 2;
-  top: 14px;
-  right: 14px;
-  color: #b4433a;
-  opacity: 0;
-  transform: translateY(-3px);
-  transition:
-    opacity 140ms ease,
-    transform 140ms ease;
-}
-
-.project-card:hover .project-delete-trigger,
-.project-card:focus-within .project-delete-trigger {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.project-card:hover .project-card-chevron,
-.project-card:focus-within .project-card-chevron {
-  opacity: 0;
-}
-
-.project-delete-confirm {
-  background: #c7463b;
-  color: #fff;
-}
-
-.project-delete-confirm:hover {
-  background: #ac382f;
-}
-
 .project-card-stats {
   margin-top: 24px;
   display: grid;

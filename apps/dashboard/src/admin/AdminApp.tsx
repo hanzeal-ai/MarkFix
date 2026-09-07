@@ -164,7 +164,6 @@ export function AdminApp() {
           <ProjectsView
             projects={overview.data.projects}
             memberCount={overview.data.users.length}
-            canManage={canManage}
             onProject={setSelectedProject}
           />
         )}

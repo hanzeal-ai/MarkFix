@@ -4,6 +4,7 @@ export type AnnotationKind = 'ELEMENT' | 'SCREENSHOT' | 'COMMENT';
 
 export type CommercialAnnotation = {
   id: string;
+  referenceCode: string;
   projectId: string;
   authorId: string | null;
   author: { id: string; displayName: string; email: string } | null;
@@ -14,6 +15,16 @@ export type CommercialAnnotation = {
   screenshotUrl: string | null;
   status: AnnotationStatus;
   rejectionReason: string | null;
+  history: Array<{
+    id: string;
+    action: 'SUBMITTED' | 'REJECTED' | 'RESUBMITTED' | 'STATUS_CHANGED';
+    status: AnnotationStatus;
+    note: string | null;
+    screenshotUrl: string | null;
+    reason: string | null;
+    actor: { id: string; displayName: string; email: string } | null;
+    createdAt: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 };

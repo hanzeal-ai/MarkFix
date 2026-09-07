@@ -473,42 +473,109 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
 
   async finalizeSubmission(userId: string, submissionId: string) {
     await this.requireSubmissionAccess(userId, submissionId);
-    const report = await this.database.$transaction(async (transaction) => {
-      const submission = await transaction.reportSubmission.findUnique({
-        where: { id: submissionId },
-        include: { artifact: true, report: true },
-      });
-      if (!submission) throw new NotFoundException('Submission not found');
-      if (submission.report) return submission.report;
-      if (submission.artifact && submission.artifact.uploadStatus !== 'COMPLETE') {
-        throw new ConflictException('Artifact upload is incomplete');
-      }
-      const payload = createReportSchema
-        .omit({ screenshotDataUrl: true })
-        .parse(submission.payload) as SubmissionPayload;
-      const report = await transaction.report.create({
-        data: {
-          projectId: submission.projectId,
-          environmentId: payload.environmentId ?? null,
-          submissionId: submission.id,
-          title: payload.title,
-          description: payload.description,
-          priority: payload.priority,
-          captureBundle: payload.captureBundle as unknown as Prisma.InputJsonValue,
-          screenshotPath: submission.artifact?.id ?? null,
-          reporterId: submission.createdById,
-          activities: {
-            create: { type: 'REPORT_CREATED', payload: {}, actorId: submission.createdById },
-          },
+    const finalize = () =>
+      this.database.$transaction(
+        async (transaction) => {
+          const submission = await transaction.reportSubmission.findUnique({
+            where: { id: submissionId },
+            include: { artifact: true, report: true },
+          });
+          if (!submission) throw new NotFoundException('Submission not found');
+          if (submission.report) return submission.report;
+          if (submission.artifact && submission.artifact.uploadStatus !== 'COMPLETE') {
+            throw new ConflictException('Artifact upload is incomplete');
+          }
+          const payload = createReportSchema
+            .omit({ screenshotDataUrl: true })
+            .parse(submission.payload) as SubmissionPayload;
+          const sourceAnnotationId = payload.captureBundle.sourceAnnotationId;
+          const existingReport = sourceAnnotationId
+            ? await transaction.report.findFirst({
+                where: {
+                  projectId: submission.projectId,
+                  OR: [
+                    { id: sourceAnnotationId },
+                    {
+                      captureBundle: {
+                        path: ['sourceAnnotationId'],
+                        equals: sourceAnnotationId,
+                      },
+                    },
+                  ],
+                },
+                orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+              })
+            : null;
+          if (submission.status === 'FINALIZED') {
+            if (existingReport) return existingReport;
+            throw new ConflictException('Finalized submission report is unavailable');
+          }
+          const currentData = {
+            environmentId: payload.environmentId ?? null,
+            title: payload.title,
+            description: payload.description,
+            priority: payload.priority,
+            captureBundle: payload.captureBundle as unknown as Prisma.InputJsonValue,
+            screenshotPath: submission.artifact?.id ?? null,
+            reporterId: submission.createdById,
+          };
+          const report = existingReport
+            ? await transaction.report.update({
+                where: { id: existingReport.id },
+                data: {
+                  ...currentData,
+                  status: 'OPEN',
+                  rejectionReason: null,
+                  version: { increment: 1 },
+                  activities: {
+                    create: {
+                      type: 'ANNOTATION_RESUBMITTED',
+                      payload: {
+                        previousStatus: existingReport.rejectionReason
+                          ? 'REJECTED'
+                          : existingReport.status,
+                        previousRejectionReason: existingReport.rejectionReason,
+                      },
+                      actorId: submission.createdById,
+                    },
+                  },
+                },
+              })
+            : await transaction.report.create({
+                data: {
+                  ...(sourceAnnotationId ? { id: sourceAnnotationId } : {}),
+                  projectId: submission.projectId,
+                  submissionId: submission.id,
+                  ...currentData,
+                  activities: {
+                    create: {
+                      type: 'REPORT_CREATED',
+                      payload: {},
+                      actorId: submission.createdById,
+                    },
+                  },
+                },
+              });
+          await transaction.reportSubmission.update({
+            where: { id: submission.id },
+            data: { status: 'FINALIZED' },
+          });
+          return report;
         },
-      });
-      await transaction.reportSubmission.update({
-        where: { id: submission.id },
-        data: { status: 'FINALIZED' },
-      });
-      return report;
-    });
-    return report;
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+
+    try {
+      return await finalize();
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2002' || error.code === 'P2034')
+      ) {
+        return finalize();
+      }
+      throw error;
+    }
   }
 
   async listReports(

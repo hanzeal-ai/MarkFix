@@ -374,6 +374,169 @@ describe('workspace and project management', () => {
     });
   });
 
+  it('updates the same report when a rejected annotation is resubmitted', async () => {
+    const projectId = crypto.randomUUID();
+    const submissionId = crypto.randomUUID();
+    const sourceAnnotationId = crypto.randomUUID();
+    const existingReport = {
+      id: crypto.randomUUID(),
+      projectId,
+      status: 'CLOSED',
+      rejectionReason: 'Please add more detail',
+      createdAt: new Date('2026-09-07T08:00:00Z'),
+      updatedAt: new Date('2026-09-07T09:00:00Z'),
+    };
+    const updatedReport = { ...existingReport, status: 'OPEN', rejectionReason: null };
+    const reportUpdate = vi.fn().mockResolvedValue(updatedReport);
+    const reportCreate = vi.fn();
+    const transaction = {
+      reportSubmission: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: submissionId,
+          projectId,
+          createdById: 'user-1',
+          status: 'PENDING',
+          artifact: null,
+          report: null,
+          payload: {
+            projectId,
+            title: 'Updated annotation',
+            description: 'More detail',
+            priority: 'MEDIUM',
+            captureBundle: {
+              schemaVersion: 1,
+              sourceAnnotationId,
+              page: {
+                url: 'https://example.test',
+                title: 'Example',
+                viewportWidthCssPx: 1280,
+                viewportHeightCssPx: 720,
+                deviceScaleFactor: 1,
+                capturedAt: new Date().toISOString(),
+              },
+              annotations: [],
+              reproduction: [],
+            },
+          },
+        }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      report: {
+        findFirst: vi.fn().mockResolvedValue(existingReport),
+        create: reportCreate,
+        update: reportUpdate,
+      },
+    };
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
+      },
+      reportSubmission: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: submissionId,
+          projectId,
+          createdById: 'user-1',
+          project: { workspaceId: 'workspace-1' },
+        }),
+      },
+      $transaction: vi.fn((callback) => callback(transaction)),
+    } as never);
+
+    await expect(service.finalizeSubmission('user-1', submissionId)).resolves.toEqual(
+      updatedReport,
+    );
+    expect(reportCreate).not.toHaveBeenCalled();
+    expect(reportUpdate).toHaveBeenCalledWith({
+      where: { id: existingReport.id },
+      data: expect.objectContaining({
+        status: 'OPEN',
+        rejectionReason: null,
+        version: { increment: 1 },
+        activities: {
+          create: expect.objectContaining({
+            type: 'ANNOTATION_RESUBMITTED',
+            actorId: 'user-1',
+          }),
+        },
+      }),
+    });
+    expect(reportUpdate.mock.calls[0]?.[0]?.data).not.toHaveProperty('submissionId');
+  });
+
+  it('returns the current report when a finalized resubmission is retried', async () => {
+    const projectId = crypto.randomUUID();
+    const submissionId = crypto.randomUUID();
+    const sourceAnnotationId = crypto.randomUUID();
+    const existingReport = {
+      id: crypto.randomUUID(),
+      projectId,
+      status: 'OPEN',
+      rejectionReason: null,
+      createdAt: new Date('2026-09-07T08:00:00Z'),
+      updatedAt: new Date('2026-09-07T10:00:00Z'),
+    };
+    const reportUpdate = vi.fn();
+    const submissionUpdate = vi.fn();
+    const transaction = {
+      reportSubmission: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: submissionId,
+          projectId,
+          createdById: 'user-1',
+          status: 'FINALIZED',
+          artifact: null,
+          report: null,
+          payload: {
+            projectId,
+            title: 'Updated annotation',
+            description: 'More detail',
+            priority: 'MEDIUM',
+            captureBundle: {
+              schemaVersion: 1,
+              sourceAnnotationId,
+              page: {
+                url: 'https://example.test',
+                title: 'Example',
+                viewportWidthCssPx: 1280,
+                viewportHeightCssPx: 720,
+                deviceScaleFactor: 1,
+                capturedAt: new Date().toISOString(),
+              },
+              annotations: [],
+              reproduction: [],
+            },
+          },
+        }),
+        update: submissionUpdate,
+      },
+      report: {
+        findFirst: vi.fn().mockResolvedValue(existingReport),
+        create: vi.fn(),
+        update: reportUpdate,
+      },
+    };
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
+      },
+      reportSubmission: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: submissionId,
+          projectId,
+          createdById: 'user-1',
+          project: { workspaceId: 'workspace-1' },
+        }),
+      },
+      $transaction: vi.fn((callback) => callback(transaction)),
+    } as never);
+
+    await expect(service.finalizeSubmission('user-1', submissionId)).resolves.toEqual(
+      existingReport,
+    );
+    expect(reportUpdate).not.toHaveBeenCalled();
+    expect(submissionUpdate).not.toHaveBeenCalled();
+  });
+
   it('rejects the removed JSON image envelope instead of keeping a second upload protocol', async () => {
     const findUnique = vi.fn();
     const service = new AppService({ artifact: { findUnique } } as never);

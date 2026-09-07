@@ -10,11 +10,12 @@ import { Prisma } from '@markfix/database';
 import { z } from 'zod';
 import { DatabaseService } from './database.service.js';
 import {
+  annotationHistoryForReport,
   reportAnnotationStatus,
   reportStatusForAnnotation,
   reportToCommercialAnnotation,
+  submissionSourceAnnotationId,
   updateReportBundle,
-  type CommercialAnnotationStatus,
 } from './commercial/report-annotation.js';
 import {
   createCommercialReport,
@@ -103,7 +104,7 @@ export class CommercialService implements OnApplicationBootstrap {
   }
 
   private async buildOverview(workspaceId: string) {
-    const [projects, members, reportGroups] = await Promise.all([
+    const [projects, members, reports] = await Promise.all([
       this.database.project.findMany({
         where: { workspaceId },
         orderBy: { updatedAt: 'desc' },
@@ -113,10 +114,18 @@ export class CommercialService implements OnApplicationBootstrap {
         orderBy: { createdAt: 'asc' },
         include: { user: { select: { id: true, displayName: true, email: true } } },
       }),
-      this.database.report.groupBy({
-        by: ['projectId', 'reporterId', 'status', 'rejectionReason'],
+      this.database.report.findMany({
         where: { project: { workspaceId } },
-        _count: { _all: true },
+        select: {
+          id: true,
+          projectId: true,
+          reporterId: true,
+          status: true,
+          rejectionReason: true,
+          captureBundle: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       }),
     ]);
     const projectById = new Map(projects.map((project) => [project.id, project]));
@@ -130,16 +139,11 @@ export class CommercialService implements OnApplicationBootstrap {
     >();
     const metrics = { projects: projects.length, annotations: 0, pending: 0, rejected: 0 };
 
-    const groups: Array<{
-      projectId: string;
-      authorId: string | null;
-      status: CommercialAnnotationStatus;
-      count: number;
-    }> = reportGroups.map((group) => ({
-      projectId: group.projectId,
-      authorId: group.reporterId,
-      status: reportAnnotationStatus(group),
-      count: group._count._all,
+    const groups = reports.map((report) => ({
+      projectId: report.projectId,
+      authorId: report.reporterId,
+      status: reportAnnotationStatus(report),
+      count: 1,
     }));
 
     for (const group of groups) {
@@ -205,18 +209,44 @@ export class CommercialService implements OnApplicationBootstrap {
     if (!parsedResult.success)
       throw new BadRequestException(parsedResult.error.issues[0]?.message ?? 'Invalid query');
     const parsed = parsedResult.data;
-    const reports = await this.database.report.findMany({
-      where: { projectId },
-      include: { reporter: { select: { id: true, displayName: true, email: true } } },
-    });
+    const [reports, submissions] = await Promise.all([
+      this.database.report.findMany({
+        where: { projectId },
+        include: {
+          reporter: { select: { id: true, displayName: true, email: true } },
+          activities: {
+            include: { actor: { select: { id: true, displayName: true, email: true } } },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      }),
+      this.database.reportSubmission.findMany({
+        where: { projectId, status: 'FINALIZED' },
+        include: {
+          artifact: { select: { id: true } },
+          createdBy: { select: { id: true, displayName: true, email: true } },
+        },
+      }),
+    ]);
     const normalizedQuery = parsed.query?.toLocaleLowerCase();
+    const groupedSubmissions = new Map<string, typeof submissions>();
+    for (const submission of submissions) {
+      const sourceId = submissionSourceAnnotationId(submission);
+      if (!sourceId) continue;
+      groupedSubmissions.set(sourceId, [...(groupedSubmissions.get(sourceId) ?? []), submission]);
+    }
     const allItems = reports
-      .map((report) => reportToCommercialAnnotation(report))
+      .map((report) =>
+        reportToCommercialAnnotation(
+          report,
+          annotationHistoryForReport(report, groupedSubmissions.get(report.id) ?? []),
+        ),
+      )
       .filter((annotation) => !parsed.status || annotation.status === parsed.status)
       .filter(
         (annotation) =>
           !normalizedQuery ||
-          `${annotation.title} ${annotation.note} ${annotation.pageUrl}`
+          `${annotation.referenceCode} ${annotation.title} ${annotation.note} ${annotation.pageUrl}`
             .toLocaleLowerCase()
             .includes(normalizedQuery),
       )
@@ -269,7 +299,21 @@ export class CommercialService implements OnApplicationBootstrap {
     };
     const updated = await this.database.report.update({
       where: { id: target.id },
-      data: reportData,
+      data: {
+        ...reportData,
+        ...(parsed.data.status !== undefined &&
+        parsed.data.status !== reportAnnotationStatus(target)
+          ? {
+              activities: {
+                create: {
+                  type: 'ANNOTATION_STATUS_CHANGED',
+                  actorId: userId,
+                  payload: { status: parsed.data.status },
+                },
+              },
+            }
+          : {}),
+      },
       include: { reporter: { select: { id: true, displayName: true, email: true } } },
     });
     return reportToCommercialAnnotation(updated);
@@ -285,6 +329,13 @@ export class CommercialService implements OnApplicationBootstrap {
         status: 'CLOSED',
         rejectionReason: parsed.data.reason,
         version: { increment: 1 },
+        activities: {
+          create: {
+            type: 'ANNOTATION_REJECTED',
+            actorId: userId,
+            payload: { reason: parsed.data.reason },
+          },
+        },
       },
       include: { reporter: { select: { id: true, displayName: true, email: true } } },
     });

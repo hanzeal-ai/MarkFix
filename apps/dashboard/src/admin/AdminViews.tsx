@@ -1,5 +1,5 @@
 import { useState, type ComponentType, type CSSProperties } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import {
   ChevronRight,
   CircleDot,
@@ -9,20 +9,11 @@ import {
   MessageSquareText,
   Plus,
   Search,
-  Trash2,
   Users,
 } from '@markfix/ui/icons';
 import {
   Alert,
   AlertDescription,
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   Badge,
   Button,
   Card,
@@ -37,7 +28,6 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-  toast,
 } from '@markfix/ui';
 import './admin.css';
 import { adminApi as api } from './api';
@@ -308,32 +298,14 @@ export function OverviewView({
 export function ProjectsView({
   projects,
   memberCount,
-  canManage,
   onProject,
 }: {
   projects: OverviewProject[];
   memberCount: number;
-  canManage: boolean;
   onProject: (project: OverviewProject) => void;
 }) {
-  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('ALL');
-  const [deleteTarget, setDeleteTarget] = useState<OverviewProject | null>(null);
-  const deletion = useMutation({
-    mutationFn: (projectId: string) => api.deleteProject(projectId),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['commercial-bootstrap'] }),
-        queryClient.invalidateQueries({ queryKey: ['commercial-overview'] }),
-      ]);
-      setDeleteTarget(null);
-      toast.success('项目已删除');
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : '删除项目失败');
-    },
-  });
   const categories = [...new Set(projects.map((project) => project.category))];
   const visible = projects.filter(
     (project) =>
@@ -410,49 +382,10 @@ export function ProjectsView({
                 </span>
               </div>
             </Button>
-            {canManage && (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                className="project-delete-trigger"
-                title={`删除${project.name}`}
-                aria-label={`删除${project.name}`}
-                onClick={() => setDeleteTarget(project)}
-              >
-                <Trash2 />
-              </Button>
-            )}
           </Card>
         ))}
       </section>
       {!visible.length && <EmptyState icon={FolderKanban} title="没有找到项目" />}
-      <AlertDialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(open) => !open && !deletion.isPending && setDeleteTarget(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>删除“{deleteTarget?.name}”？</AlertDialogTitle>
-            <AlertDialogDescription>
-              项目、标注记录和截图将被永久删除，此操作无法撤销。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletion.isPending}>取消</AlertDialogCancel>
-            <AlertDialogAction
-              className="project-delete-confirm"
-              disabled={deletion.isPending}
-              onClick={(event) => {
-                event.preventDefault();
-                if (deleteTarget) deletion.mutate(deleteTarget.id);
-              }}
-            >
-              {deletion.isPending ? '正在删除…' : '确认删除'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
