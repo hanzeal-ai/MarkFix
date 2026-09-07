@@ -6,3 +6,12 @@ export const normalizeWebsiteUrl = (input: string, allowHttp = false): string =>
   if (!isAllowedProtocol || !url.hostname) throw new Error('Enter a valid HTTPS website address');
   return url.toString();
 };
+
+export const isWebsiteUrlAllowed = (input: string, allowHttp = false): boolean => {
+  try {
+    normalizeWebsiteUrl(input, allowHttp);
+    return true;
+  } catch {
+    return false;
+  }
+};

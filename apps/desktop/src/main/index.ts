@@ -31,7 +31,7 @@ import { CdpInspector } from './cdp-inspector.js';
 import { CaptureService } from './capture-service.js';
 import { DraftStore } from './draft-store.js';
 import { DiagnosticConsole } from './diagnostic-console.js';
-import { normalizeWebsiteUrl } from './url.js';
+import { isWebsiteUrlAllowed, normalizeWebsiteUrl } from './url.js';
 import { subscriptionIpcChannels } from '../subscription.js';
 import { modeForShortcut } from './mode-shortcuts.js';
 import { windowActionForShortcut, type WindowShortcutAction } from './window-shortcuts.js';
@@ -83,6 +83,16 @@ const websiteProjectsById = new Map<string, WebsiteProject>();
 const cloudProjectStates = new Map<string, CloudProjectState>();
 const cloudStateSaveQueues = new Map<string, Promise<void>>();
 let cloudSessionGeneration = 0;
+
+const enforceWebsiteNavigationPolicy = (
+  event: { preventDefault(): void },
+  url: string,
+): boolean => {
+  if (url === 'about:blank' || isWebsiteUrlAllowed(url, process.env.MARKFIX_ALLOW_HTTP === 'true'))
+    return true;
+  event.preventDefault();
+  return false;
+};
 
 const loadClientPolicy = (force = false) => desktopSession.loadPolicy(force);
 const assertSupportedClient = (policy: Awaited<ReturnType<typeof loadClientPolicy>>) =>
@@ -528,7 +538,8 @@ const createWindow = async (): Promise<void> => {
   mainWindow.on('resize', layoutWebsite);
 
   websiteView.webContents.setWindowOpenHandler(({ url }) => {
-    void websiteView?.webContents.loadURL(url);
+    if (isWebsiteUrlAllowed(url, process.env.MARKFIX_ALLOW_HTTP === 'true'))
+      void websiteView?.webContents.loadURL(url);
     return { action: 'deny' };
   });
   websiteView.webContents.on('did-start-loading', () => {
@@ -553,7 +564,12 @@ const createWindow = async (): Promise<void> => {
       loading: Boolean(navigationWebsiteProjectId) && !websiteContentReady,
     });
   });
-  websiteView.webContents.on('will-navigate', (_event, url) => sendBrowserState({ url }));
+  websiteView.webContents.on('will-navigate', (event, url) => {
+    if (enforceWebsiteNavigationPolicy(event, url)) sendBrowserState({ url });
+  });
+  websiteView.webContents.on('will-redirect', (event, url) => {
+    enforceWebsiteNavigationPolicy(event, url);
+  });
   websiteView.webContents.on('did-navigate', (_event, url) => {
     const navigationProjectId = navigationWebsiteProjectId ?? activeWebsiteProjectId;
     const project = navigationProjectId
