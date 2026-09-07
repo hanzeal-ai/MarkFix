@@ -64,7 +64,7 @@ export class ClientPolicyService {
           : {}),
         features: {
           annotations: true,
-          reproductionRecorder: true,
+          reproductionRecorder: false,
           fullPageCapture: true,
         },
       };

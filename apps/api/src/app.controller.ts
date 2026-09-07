@@ -325,6 +325,7 @@ export class AppController {
       status?: string;
       priority?: string;
       assigneeId?: string;
+      pageUrl?: string;
       cursor?: string;
       limit?: string;
     },

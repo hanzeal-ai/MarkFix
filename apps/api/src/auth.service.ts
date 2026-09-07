@@ -275,86 +275,69 @@ export class AuthService {
   }
 
   async exportData(userId: string) {
-    const [account, memberships, reports, annotations, comments, activities, sessions] =
-      await Promise.all([
-        this.database.user.findUnique({
-          where: { id: userId },
-          select: {
-            id: true,
-            email: true,
-            displayName: true,
-            emailVerifiedAt: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        }),
-        this.database.membership.findMany({
-          where: { userId },
-          select: {
-            role: true,
-            status: true,
-            createdAt: true,
-            workspace: {
-              select: {
-                id: true,
-                name: true,
-                plan: true,
-                createdAt: true,
-                projects: {
-                  select: { id: true, name: true, baseUrl: true, category: true, createdAt: true },
-                },
+    const [account, memberships, reports, comments, activities, sessions] = await Promise.all([
+      this.database.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          emailVerifiedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.database.membership.findMany({
+        where: { userId },
+        select: {
+          role: true,
+          status: true,
+          createdAt: true,
+          workspace: {
+            select: {
+              id: true,
+              name: true,
+              plan: true,
+              createdAt: true,
+              projects: {
+                select: { id: true, name: true, baseUrl: true, category: true, createdAt: true },
               },
             },
           },
-        }),
-        this.database.report.findMany({
-          where: { reporterId: userId },
-          select: {
-            id: true,
-            projectId: true,
-            title: true,
-            description: true,
-            status: true,
-            rejectionReason: true,
-            priority: true,
-            captureBundle: true,
-            screenshotPath: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        }),
-        this.database.managedAnnotation.findMany({
-          where: { authorId: userId },
-          select: {
-            id: true,
-            projectId: true,
-            title: true,
-            note: true,
-            kind: true,
-            pageUrl: true,
-            status: true,
-            rejectionReason: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        }),
-        this.database.comment.findMany({
-          where: { authorId: userId },
-          select: { id: true, reportId: true, body: true, createdAt: true, updatedAt: true },
-        }),
-        this.database.activity.findMany({
-          where: { actorId: userId },
-          select: { id: true, reportId: true, type: true, payload: true, createdAt: true },
-        }),
-        this.sessions(userId),
-      ]);
+        },
+      }),
+      this.database.report.findMany({
+        where: { reporterId: userId },
+        select: {
+          id: true,
+          projectId: true,
+          title: true,
+          description: true,
+          status: true,
+          rejectionReason: true,
+          priority: true,
+          captureBundle: true,
+          screenshotPath: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.database.comment.findMany({
+        where: { authorId: userId },
+        select: { id: true, reportId: true, body: true, createdAt: true, updatedAt: true },
+      }),
+      this.database.activity.findMany({
+        where: { actorId: userId },
+        select: { id: true, reportId: true, type: true, payload: true, createdAt: true },
+      }),
+      this.sessions(userId),
+    ]);
     if (!account) throw new NotFoundException('User not found');
     return {
       exportedAt: new Date().toISOString(),
       account,
       memberships,
       reports,
-      annotations,
       comments,
       activities,
       sessions,

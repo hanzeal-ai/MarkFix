@@ -65,20 +65,29 @@ export type AccountExport = {
   };
   memberships: unknown[];
   reports: unknown[];
-  annotations: unknown[];
   comments: unknown[];
   activities: unknown[];
   sessions: unknown[];
 };
 
-const dataUrlBytes = (dataUrl: string): Uint8Array => {
+export class MarkFixApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'MarkFixApiError';
+  }
+}
+
+const dataUrlBytes = (dataUrl: string): Uint8Array<ArrayBuffer> => {
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
   const nodeBuffer = (
     globalThis as unknown as {
-      Buffer?: { from(value: string, encoding: string): Uint8Array };
+      Buffer?: { from(value: string, encoding: string): Uint8Array<ArrayBuffer> };
     }
   ).Buffer;
-  if (nodeBuffer) return new Uint8Array(nodeBuffer.from(base64, 'base64'));
+  if (nodeBuffer) return nodeBuffer.from(base64, 'base64');
   const binary = atob(base64);
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 };
@@ -133,7 +142,10 @@ export class MarkFixApi {
     if (!response.ok) {
       const body = (await response.json().catch(() => undefined)) as
         { message?: string } | undefined;
-      throw new Error(body?.message ?? `Request failed with ${response.status}`);
+      throw new MarkFixApiError(
+        body?.message ?? `Request failed with ${response.status}`,
+        response.status,
+      );
     }
     return (await response.json()) as T;
   }
@@ -361,12 +373,10 @@ export class MarkFixApi {
           }),
         },
       );
-      const binary = new Uint8Array(bytes.byteLength);
-      binary.set(bytes);
       await this.request(presigned.uploadUrl, {
         method: 'PUT',
         headers: { 'content-type': 'image/png' },
-        body: binary,
+        body: bytes,
       });
     }
     const report = await this.request<Record<string, unknown>>(
@@ -385,6 +395,7 @@ export class MarkFixApi {
       status?: string;
       priority?: string;
       assigneeId?: string;
+      pageUrl?: string;
       cursor?: string;
       limit?: string;
     } = {},
@@ -409,13 +420,14 @@ export class MarkFixApi {
     return (await this.listReportPage(projectId, filters)).items;
   }
 
-  async listAllReports(projectId: string): Promise<Report[]> {
+  async listAllReports(projectId: string, filters: { pageUrl?: string } = {}): Promise<Report[]> {
     const reports: Report[] = [];
     const seenCursors = new Set<string>();
     let cursor: string | undefined;
     do {
       const page = await this.listReportPage(projectId, {
         limit: '100',
+        ...filters,
         ...(cursor ? { cursor } : {}),
       });
       reports.push(...page.items);

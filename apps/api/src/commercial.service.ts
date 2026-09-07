@@ -16,6 +16,10 @@ import {
   updateReportBundle,
   type CommercialAnnotationStatus,
 } from './commercial/report-annotation.js';
+import {
+  createCommercialReport,
+  migrateLegacyManagedAnnotations,
+} from './commercial/report-writer.js';
 
 const annotationInputSchema = z.object({
   title: z.string().trim().min(1).max(160),
@@ -39,15 +43,12 @@ const annotationListQuerySchema = z.object({
   query: z.string().trim().max(200).optional(),
 });
 
-const annotationInclude = {
-  author: { select: { id: true, displayName: true, email: true } },
-} as const;
-
 @Injectable()
 export class CommercialService implements OnApplicationBootstrap {
   constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   async onApplicationBootstrap(): Promise<void> {
+    await migrateLegacyManagedAnnotations(this.database);
     if (process.env.MARKFIX_DEMO_PASSWORD) await this.seedLocalShowcase();
   }
 
@@ -102,7 +103,7 @@ export class CommercialService implements OnApplicationBootstrap {
   }
 
   private async buildOverview(workspaceId: string) {
-    const [projects, members, annotationGroups, reportGroups] = await Promise.all([
+    const [projects, members, reportGroups] = await Promise.all([
       this.database.project.findMany({
         where: { workspaceId },
         orderBy: { updatedAt: 'desc' },
@@ -111,11 +112,6 @@ export class CommercialService implements OnApplicationBootstrap {
         where: { workspaceId, status: 'ACTIVE' },
         orderBy: { createdAt: 'asc' },
         include: { user: { select: { id: true, displayName: true, email: true } } },
-      }),
-      this.database.managedAnnotation.groupBy({
-        by: ['projectId', 'authorId', 'status'],
-        where: { project: { workspaceId }, sourceReportId: null },
-        _count: { _all: true },
       }),
       this.database.report.groupBy({
         by: ['projectId', 'reporterId', 'status', 'rejectionReason'],
@@ -139,20 +135,12 @@ export class CommercialService implements OnApplicationBootstrap {
       authorId: string | null;
       status: CommercialAnnotationStatus;
       count: number;
-    }> = [
-      ...annotationGroups.map((group) => ({
-        projectId: group.projectId,
-        authorId: group.authorId,
-        status: group.status,
-        count: group._count._all,
-      })),
-      ...reportGroups.map((group) => ({
-        projectId: group.projectId,
-        authorId: group.reporterId,
-        status: reportAnnotationStatus(group),
-        count: group._count._all,
-      })),
-    ];
+    }> = reportGroups.map((group) => ({
+      projectId: group.projectId,
+      authorId: group.reporterId,
+      status: reportAnnotationStatus(group),
+      count: group._count._all,
+    }));
 
     for (const group of groups) {
       const count = group.count;
@@ -217,21 +205,13 @@ export class CommercialService implements OnApplicationBootstrap {
     if (!parsedResult.success)
       throw new BadRequestException(parsedResult.error.issues[0]?.message ?? 'Invalid query');
     const parsed = parsedResult.data;
-    const [standaloneAnnotations, reports] = await Promise.all([
-      this.database.managedAnnotation.findMany({
-        where: { projectId, sourceReportId: null },
-        include: annotationInclude,
-      }),
-      this.database.report.findMany({
-        where: { projectId },
-        include: { reporter: { select: { id: true, displayName: true, email: true } } },
-      }),
-    ]);
+    const reports = await this.database.report.findMany({
+      where: { projectId },
+      include: { reporter: { select: { id: true, displayName: true, email: true } } },
+    });
     const normalizedQuery = parsed.query?.toLocaleLowerCase();
-    const allItems = [
-      ...standaloneAnnotations,
-      ...reports.map((report) => reportToCommercialAnnotation(report)),
-    ]
+    const allItems = reports
+      .map((report) => reportToCommercialAnnotation(report))
       .filter((annotation) => !parsed.status || annotation.status === parsed.status)
       .filter(
         (annotation) =>
@@ -256,10 +236,12 @@ export class CommercialService implements OnApplicationBootstrap {
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message);
     if (parsed.data.authorId) await this.requireWorkspaceUser(projectId, parsed.data.authorId);
     const { authorId, ...annotation } = parsed.data;
-    return this.database.managedAnnotation.create({
-      data: { projectId, authorId: authorId ?? userId, ...annotation },
-      include: annotationInclude,
+    const report = await createCommercialReport(this.database, {
+      projectId,
+      authorId: authorId ?? userId,
+      ...annotation,
     });
+    return reportToCommercialAnnotation(report);
   }
 
   async updateAnnotation(userId: string, annotationId: string, input: unknown) {
@@ -267,73 +249,46 @@ export class CommercialService implements OnApplicationBootstrap {
     const parsed = annotationUpdateSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message);
     if (parsed.data.authorId)
-      await this.requireWorkspaceUser(target.record.projectId, parsed.data.authorId);
-    if (target.source === 'report') {
-      const reportData: Prisma.ReportUncheckedUpdateInput = {
-        ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
-        ...(parsed.data.note !== undefined ? { description: parsed.data.note } : {}),
-        ...(parsed.data.authorId !== undefined ? { reporterId: parsed.data.authorId } : {}),
-        ...(parsed.data.status !== undefined
-          ? { status: reportStatusForAnnotation(parsed.data.status), rejectionReason: null }
-          : {}),
-        ...(parsed.data.kind !== undefined || parsed.data.pageUrl !== undefined
-          ? {
-              captureBundle: updateReportBundle(target.record.captureBundle, {
-                ...(parsed.data.kind ? { kind: parsed.data.kind } : {}),
-                ...(parsed.data.pageUrl ? { pageUrl: parsed.data.pageUrl } : {}),
-              }),
-            }
-          : {}),
-        version: { increment: 1 },
-      };
-      const updated = await this.database.report.update({
-        where: { id: target.record.id },
-        data: reportData,
-        include: { reporter: { select: { id: true, displayName: true, email: true } } },
-      });
-      return reportToCommercialAnnotation(updated);
-    }
-    const data = Object.fromEntries(
-      Object.entries(parsed.data).filter(([, value]) => value !== undefined),
-    ) as Prisma.ManagedAnnotationUncheckedUpdateInput;
-    if (parsed.data.status) data.rejectionReason = null;
-    return this.database.managedAnnotation.update({
-      where: { id: annotationId },
-      data,
-      include: annotationInclude,
+      await this.requireWorkspaceUser(target.projectId, parsed.data.authorId);
+    const reportData: Prisma.ReportUncheckedUpdateInput = {
+      ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
+      ...(parsed.data.note !== undefined ? { description: parsed.data.note } : {}),
+      ...(parsed.data.authorId !== undefined ? { reporterId: parsed.data.authorId } : {}),
+      ...(parsed.data.status !== undefined
+        ? { status: reportStatusForAnnotation(parsed.data.status), rejectionReason: null }
+        : {}),
+      ...(parsed.data.kind !== undefined || parsed.data.pageUrl !== undefined
+        ? {
+            captureBundle: updateReportBundle(target.captureBundle, {
+              ...(parsed.data.kind ? { kind: parsed.data.kind } : {}),
+              ...(parsed.data.pageUrl ? { pageUrl: parsed.data.pageUrl } : {}),
+            }),
+          }
+        : {}),
+      version: { increment: 1 },
+    };
+    const updated = await this.database.report.update({
+      where: { id: target.id },
+      data: reportData,
+      include: { reporter: { select: { id: true, displayName: true, email: true } } },
     });
+    return reportToCommercialAnnotation(updated);
   }
 
   async rejectAnnotation(userId: string, annotationId: string, input: unknown) {
     const target = await this.requireAnnotationManager(userId, annotationId);
     const parsed = rejectionSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message);
-    if (target.source === 'report') {
-      const updated = await this.database.report.update({
-        where: { id: target.record.id },
-        data: {
-          status: 'CLOSED',
-          rejectionReason: parsed.data.reason,
-          version: { increment: 1 },
-        },
-        include: { reporter: { select: { id: true, displayName: true, email: true } } },
-      });
-      return reportToCommercialAnnotation(updated);
-    }
-    return this.database.managedAnnotation.update({
-      where: { id: annotationId },
-      data: { status: 'REJECTED', rejectionReason: parsed.data.reason },
-      include: annotationInclude,
+    const updated = await this.database.report.update({
+      where: { id: target.id },
+      data: {
+        status: 'CLOSED',
+        rejectionReason: parsed.data.reason,
+        version: { increment: 1 },
+      },
+      include: { reporter: { select: { id: true, displayName: true, email: true } } },
     });
-  }
-
-  async deleteAnnotation(userId: string, annotationId: string) {
-    const target = await this.requireAnnotationManager(userId, annotationId);
-    if (target.source === 'report') {
-      throw new BadRequestException('Submitted annotations cannot be deleted; reject them instead');
-    }
-    await this.database.managedAnnotation.delete({ where: { id: annotationId } });
-    return { deleted: true };
+    return reportToCommercialAnnotation(updated);
   }
 
   async updateProjectCategory(userId: string, projectId: string, input: unknown) {
@@ -371,27 +326,9 @@ export class CommercialService implements OnApplicationBootstrap {
   }
 
   private async requireAnnotationManager(userId: string, annotationId: string) {
-    const [annotation, report] = await Promise.all([
-      this.database.managedAnnotation.findFirst({
-        where: { id: annotationId, sourceReportId: null },
-        include: { project: true },
-      }),
-      this.database.report.findUnique({
-        where: { id: annotationId },
-        include: {
-          project: true,
-          reporter: { select: { id: true, displayName: true, email: true } },
-        },
-      }),
-    ]);
-    if (annotation) {
-      await this.requireProjectManager(userId, annotation.projectId);
-      return { source: 'managed', record: annotation } as const;
-    }
-    if (report) {
-      await this.requireProjectManager(userId, report.projectId);
-      return { source: 'report', record: report } as const;
-    }
+    const report = await this.database.report.findUnique({ where: { id: annotationId } });
+    if (report) await this.requireProjectManager(userId, report.projectId);
+    if (report) return report;
     throw new NotFoundException('Annotation not found');
   }
 
@@ -453,62 +390,62 @@ export class CommercialService implements OnApplicationBootstrap {
       );
     }
     if (
-      (await this.database.managedAnnotation.count({
-        where: { project: { workspaceId: workspace.id }, sourceReportId: null },
-      })) > 0
+      (await this.database.report.count({ where: { project: { workspaceId: workspace.id } } })) > 0
     )
       return;
     const [website, dashboard, help] = projects;
     if (!website || !dashboard || !help) return;
-    await this.database.managedAnnotation.createMany({
-      data: [
-        {
-          projectId: website.id,
-          authorId: lin.id,
-          title: '主标题在小屏下换行过早',
-          note: '建议收紧标题最大宽度，并保留行动按钮的完整展示。',
-          kind: 'ELEMENT',
-          pageUrl: 'https://markfix.local/#hero',
-          status: 'OPEN',
-        },
-        {
-          projectId: website.id,
-          authorId: zhou.id,
-          title: '套餐对比缺少团队版权益',
-          note: '补充无限项目和成员管理说明。',
-          kind: 'COMMENT',
-          pageUrl: 'https://markfix.local/#pricing',
-          status: 'IN_REVIEW',
-        },
-        {
-          projectId: dashboard.id,
-          authorId: owner.id,
-          title: '项目列表需要展示待处理数量',
-          note: '无需进入详情即可判断项目处理压力。',
-          kind: 'SCREENSHOT',
-          pageUrl: 'https://app.markfix.local/projects',
-          status: 'RESOLVED',
-        },
-        {
-          projectId: dashboard.id,
-          authorId: lin.id,
-          title: '状态筛选命名不清晰',
-          note: '“全部”与“待处理”同时出现时容易误解统计口径。',
-          kind: 'ELEMENT',
-          pageUrl: 'https://app.markfix.local/overview',
-          status: 'REJECTED',
-          rejectionReason: '现有命名与团队流程一致，暂不调整。',
-        },
-        {
-          projectId: help.id,
-          authorId: zhou.id,
-          title: '快捷键文档缺少 macOS 说明',
-          note: '补充 Command 与 Control 的平台差异。',
-          kind: 'COMMENT',
-          pageUrl: 'https://help.markfix.local/shortcuts',
-          status: 'OPEN',
-        },
-      ],
-    });
+    await Promise.all(
+      (
+        [
+          {
+            projectId: website.id,
+            authorId: lin.id,
+            title: '主标题在小屏下换行过早',
+            note: '建议收紧标题最大宽度，并保留行动按钮的完整展示。',
+            kind: 'ELEMENT',
+            pageUrl: 'https://markfix.local/#hero',
+            status: 'OPEN',
+          },
+          {
+            projectId: website.id,
+            authorId: zhou.id,
+            title: '套餐对比缺少团队版权益',
+            note: '补充无限项目和成员管理说明。',
+            kind: 'COMMENT',
+            pageUrl: 'https://markfix.local/#pricing',
+            status: 'IN_REVIEW',
+          },
+          {
+            projectId: dashboard.id,
+            authorId: owner.id,
+            title: '项目列表需要展示待处理数量',
+            note: '无需进入详情即可判断项目处理压力。',
+            kind: 'SCREENSHOT',
+            pageUrl: 'https://app.markfix.local/projects',
+            status: 'RESOLVED',
+          },
+          {
+            projectId: dashboard.id,
+            authorId: lin.id,
+            title: '状态筛选命名不清晰',
+            note: '“全部”与“待处理”同时出现时容易误解统计口径。',
+            kind: 'ELEMENT',
+            pageUrl: 'https://app.markfix.local/overview',
+            status: 'REJECTED',
+            rejectionReason: '现有命名与团队流程一致，暂不调整。',
+          },
+          {
+            projectId: help.id,
+            authorId: zhou.id,
+            title: '快捷键文档缺少 macOS 说明',
+            note: '补充 Command 与 Control 的平台差异。',
+            kind: 'COMMENT',
+            pageUrl: 'https://help.markfix.local/shortcuts',
+            status: 'OPEN',
+          },
+        ] as const
+      ).map((annotation) => createCommercialReport(this.database, annotation)),
+    );
   }
 }

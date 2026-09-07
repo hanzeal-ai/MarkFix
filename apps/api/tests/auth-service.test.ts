@@ -40,7 +40,6 @@ describe('authentication service', () => {
       user: { findUnique: vi.fn().mockResolvedValue(account) },
       membership: empty,
       report: empty,
-      managedAnnotation: empty,
       comment: empty,
       activity: empty,
       authSession: { findMany: vi.fn().mockResolvedValue([]) },

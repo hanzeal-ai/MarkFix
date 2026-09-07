@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppService } from '../src/app.service.js';
 
 describe('workspace and project management', () => {
-
   it('lists only active memberships and exposes the current user role', async () => {
     const workspace = {
       id: crypto.randomUUID(),
@@ -36,14 +35,12 @@ describe('workspace and project management', () => {
 
   it('allows owners to create normalized projects', async () => {
     const create = vi.fn().mockResolvedValue({ id: 'project-1' });
-    const service = new AppService(
-      {
-        membership: {
-          findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
-        },
-        project: { create },
-      } as never,
-    );
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
+      },
+      project: { create },
+    } as never);
 
     await service.createProject('user-1', 'workspace-1', {
       name: '  Storefront  ',
@@ -57,18 +54,16 @@ describe('workspace and project management', () => {
 
   it('allows owners to permanently delete a project', async () => {
     const remove = vi.fn().mockResolvedValue({ id: 'project-1' });
-    const service = new AppService(
-      {
-        membership: {
-          findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
-        },
-        project: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
-          delete: remove,
-        },
-        artifact: { findMany: vi.fn().mockResolvedValue([]) },
-      } as never,
-    );
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+        delete: remove,
+      },
+      artifact: { findMany: vi.fn().mockResolvedValue([]) },
+    } as never);
 
     await expect(service.deleteProject('user-1', 'project-1')).resolves.toEqual({
       deleted: true,
@@ -78,14 +73,12 @@ describe('workspace and project management', () => {
 
   it('rejects project creation by regular workspace members', async () => {
     const create = vi.fn();
-    const service = new AppService(
-      {
-        membership: {
-          findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
-        },
-        project: { create },
-      } as never,
-    );
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
+      },
+      project: { create },
+    } as never);
 
     await expect(
       service.createProject('user-1', 'workspace-1', { name: 'Forbidden' }),
@@ -95,17 +88,15 @@ describe('workspace and project management', () => {
 
   it('allows members to list project environments', async () => {
     const findMany = vi.fn().mockResolvedValue([{ id: 'environment-1' }]);
-    const service = new AppService(
-      {
-        membership: {
-          findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
-        },
-        project: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
-        },
-        environment: { findMany },
-      } as never,
-    );
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+      },
+      environment: { findMany },
+    } as never);
 
     await expect(service.listEnvironments('user-1', 'project-1')).resolves.toEqual([
       { id: 'environment-1' },
@@ -118,17 +109,15 @@ describe('workspace and project management', () => {
 
   it('allows owners to create normalized web environments', async () => {
     const create = vi.fn().mockResolvedValue({ id: 'environment-1' });
-    const service = new AppService(
-      {
-        membership: {
-          findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
-        },
-        project: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
-        },
-        environment: { create },
-      } as never,
-    );
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+      },
+      environment: { create },
+    } as never);
 
     await service.createEnvironment('user-1', 'project-1', {
       name: '  Staging  ',
@@ -146,20 +135,18 @@ describe('workspace and project management', () => {
 
   it('rejects environment updates by regular members', async () => {
     const update = vi.fn();
-    const service = new AppService(
-      {
-        membership: {
-          findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
-        },
-        project: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
-        },
-        environment: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'environment-1', projectId: 'project-1' }),
-          update,
-        },
-      } as never,
-    );
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+      },
+      environment: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'environment-1', projectId: 'project-1' }),
+        update,
+      },
+    } as never);
 
     await expect(
       service.updateEnvironment('user-1', 'environment-1', { name: 'Production' }),
@@ -171,20 +158,18 @@ describe('workspace and project management', () => {
     const projectId = crypto.randomUUID();
     const environmentId = crypto.randomUUID();
     const create = vi.fn().mockResolvedValue({ id: 'submission-1' });
-    const service = new AppService(
-      {
-        membership: {
-          findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
-        },
-        project: {
-          findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId: 'workspace-1' }),
-        },
-        environment: {
-          findUnique: vi.fn().mockResolvedValue({ id: environmentId, projectId }),
-        },
-        reportSubmission: { findUnique: vi.fn().mockResolvedValue(null), create },
-      } as never,
-    );
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId: 'workspace-1' }),
+      },
+      environment: {
+        findUnique: vi.fn().mockResolvedValue({ id: environmentId, projectId }),
+      },
+      reportSubmission: { findUnique: vi.fn().mockResolvedValue(null), create },
+    } as never);
 
     await service.createSubmission('user-1', projectId, 'request-1', {
       projectId,
@@ -226,17 +211,15 @@ describe('workspace and project management', () => {
     const routeProjectId = crypto.randomUUID();
     const payloadProjectId = crypto.randomUUID();
     const create = vi.fn();
-    const service = new AppService(
-      {
-        membership: {
-          findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
-        },
-        project: {
-          findUnique: vi.fn().mockResolvedValue({ id: routeProjectId, workspaceId: 'workspace-1' }),
-        },
-        reportSubmission: { create },
-      } as never,
-    );
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: routeProjectId, workspaceId: 'workspace-1' }),
+      },
+      reportSubmission: { create },
+    } as never);
 
     await expect(
       service.createSubmission('user-1', routeProjectId, 'request-mismatch', {
@@ -276,23 +259,21 @@ describe('workspace and project management', () => {
     const projectId = crypto.randomUUID();
     const environmentId = crypto.randomUUID();
     const create = vi.fn();
-    const service = new AppService(
-      {
-        membership: {
-          findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
-        },
-        project: {
-          findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId: 'workspace-1' }),
-        },
-        environment: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: environmentId,
-            projectId: crypto.randomUUID(),
-          }),
-        },
-        reportSubmission: { create },
-      } as never,
-    );
+    const service = new AppService({
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
+      },
+      project: {
+        findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId: 'workspace-1' }),
+      },
+      environment: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: environmentId,
+          projectId: crypto.randomUUID(),
+        }),
+      },
+      reportSubmission: { create },
+    } as never);
 
     await expect(
       service.createSubmission('user-1', projectId, 'request-1', {
@@ -391,5 +372,43 @@ describe('workspace and project management', () => {
       where: { id: submissionId },
       data: { status: 'FINALIZED' },
     });
+  });
+
+  it('rejects the removed JSON image envelope instead of keeping a second upload protocol', async () => {
+    const findUnique = vi.fn();
+    const service = new AppService({ artifact: { findUnique } } as never);
+
+    await expect(
+      service.uploadArtifact('user-1', 'artifact-1', {
+        dataUrl: 'data:image/png;base64,bGVnYWN5',
+      }),
+    ).rejects.toThrow('Expected PNG bytes');
+    expect(findUnique).not.toHaveBeenCalled();
+  });
+
+  it('filters report overlays by the active page at the database boundary', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const service = new AppService({
+      project: { findUnique: vi.fn().mockResolvedValue({ workspaceId: 'workspace-1' }) },
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
+      },
+      report: { findMany },
+    } as never);
+
+    await service.listReports('user-1', 'project-1', {
+      pageUrl: 'https://example.test/page?a=1',
+    });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          captureBundle: {
+            path: ['page', 'url'],
+            equals: 'https://example.test/page?a=1',
+          },
+        }),
+      }),
+    );
   });
 });

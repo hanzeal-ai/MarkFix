@@ -22,6 +22,7 @@ import {
 } from '@markfix/contracts';
 import { Prisma } from '@markfix/database';
 import { hashPassword } from './auth-crypto.js';
+import { maximumArtifactBytes, pngUploadBytes } from './artifact-upload.js';
 import { canTransitionReport } from './authorization.js';
 import { DatabaseService } from './database.service.js';
 import { transitionReport, type TransitionAction } from './report-state.js';
@@ -411,7 +412,11 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
     if (
       metadata.mimeType !== 'image/png' ||
       typeof metadata.size !== 'number' ||
-      typeof metadata.sha256 !== 'string'
+      !Number.isInteger(metadata.size) ||
+      metadata.size <= 0 ||
+      metadata.size > maximumArtifactBytes ||
+      typeof metadata.sha256 !== 'string' ||
+      !/^[a-f\d]{64}$/i.test(metadata.sha256)
     ) {
       throw new ConflictException('Invalid artifact metadata');
     }
@@ -440,8 +445,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
   }
 
   async uploadArtifact(userId: string, artifactId: string, input: unknown) {
-    if (!Buffer.isBuffer(input)) throw new ConflictException('Expected PNG bytes');
-    const bytes = input;
+    const bytes = pngUploadBytes(input);
     const artifact = await this.database.artifact.findUnique({
       where: { id: artifactId },
       include: { submission: { include: { project: true } } },
@@ -514,12 +518,16 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
       status?: string;
       priority?: string;
       assigneeId?: string;
+      pageUrl?: string;
       cursor?: string;
       limit?: string;
     },
   ) {
     await this.requireProjectAccess(userId, projectId);
     const limit = Math.min(100, Math.max(1, Number(filters.limit) || 30));
+    if (filters.pageUrl && !URL.canParse(filters.pageUrl))
+      throw new ConflictException('Invalid page URL');
+    const pageUrl = filters.pageUrl ? new URL(filters.pageUrl).href : undefined;
     const statuses = ['OPEN', 'IN_PROGRESS', 'READY_FOR_VERIFY', 'RESOLVED', 'CLOSED'] as const;
     const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
     const items = await this.database.report.findMany({
@@ -532,6 +540,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
           ? { priority: filters.priority as (typeof priorities)[number] }
           : {}),
         ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
+        ...(pageUrl ? { captureBundle: { path: ['page', 'url'], equals: pageUrl } } : {}),
       },
       include: {
         assignee: { select: publicUserSelect },

@@ -2,10 +2,11 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module.js';
+import { maximumArtifactBytes } from './artifact-upload.js';
 
 const app = await NestFactory.create<NestFastifyApplication>(
   AppModule,
-  new FastifyAdapter({ bodyLimit: 21 * 1024 * 1024 }),
+  new FastifyAdapter({ bodyLimit: maximumArtifactBytes }),
   {
     logger: ['error', 'warn', 'log'],
   },

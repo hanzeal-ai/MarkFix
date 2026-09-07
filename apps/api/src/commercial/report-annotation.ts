@@ -60,7 +60,6 @@ export const reportAnnotationPageUrl = (
 
 export const reportToCommercialAnnotation = (report: ReportAnnotationSource) => ({
   id: report.id,
-  sourceReportId: report.id,
   projectId: report.projectId,
   authorId: report.reporterId,
   author: report.reporter ?? null,
@@ -86,8 +85,6 @@ export const updateReportBundle = (
   return {
     ...bundle,
     ...(update.kind ? { annotationKind: update.kind } : {}),
-    ...(update.pageUrl
-      ? { page: { ...(bundle.page ?? {}), url: update.pageUrl } }
-      : {}),
+    ...(update.pageUrl ? { page: { ...(bundle.page ?? {}), url: update.pageUrl } } : {}),
   } as Prisma.InputJsonValue;
 };
