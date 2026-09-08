@@ -62,15 +62,25 @@ services:
     build:
       context: .
       dockerfile: infra/Dockerfile.dashboard
+      target: development
       args:
         VITE_API_URL: http://localhost:4310
+    environment:
+      VITE_API_URL: http://localhost:4310
+      CHOKIDAR_USEPOLLING: 'true'
     ports:
-      - '4311:80'
+      - '4311:4311'
+    volumes:
+      - ./apps/dashboard/src:/app/apps/dashboard/src
+      - ./apps/dashboard/public:/app/apps/dashboard/public
+      - ./packages/api-client/src:/app/packages/api-client/src
+      - ./packages/contracts/src:/app/packages/contracts/src
+      - ./packages/ui/src:/app/packages/ui/src
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ >/dev/null']
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4311/ >/dev/null']
       interval: 5s
       timeout: 3s
       retries: 20
