@@ -75,8 +75,8 @@ export class ChildWindowManager {
   }
 
   focusMainFromHistory(): void {
-    this.projectAnnotationHistoryWindow?.setParentWindow(null);
-    this.annotationHistoryWindow?.setParentWindow(null);
+    this.projectAnnotationHistoryWindow?.hide();
+    this.annotationHistoryWindow?.hide();
     const mainWindow = this.options.mainWindow();
     mainWindow?.show();
     mainWindow?.focus();
@@ -93,6 +93,7 @@ export class ChildWindowManager {
     const settings = this.createWindow({
       ...macWindowMaterial,
       parent: mainWindow,
+      titleBarStyle: 'default',
       width: 760,
       height: 520,
       minWidth: 680,
@@ -235,11 +236,12 @@ export class ChildWindowManager {
   }
 
   private createWindow(options: Electron.BrowserWindowConstructorOptions): BrowserWindow {
+    const titleBarStyle = options.titleBarStyle ?? 'hiddenInset';
     const window = new BrowserWindow({
       ...options,
       show: false,
-      titleBarStyle: 'hiddenInset',
-      trafficLightPosition: { x: 16, y: 16 },
+      titleBarStyle,
+      ...(titleBarStyle === 'default' ? {} : { trafficLightPosition: { x: 16, y: 16 } }),
       autoHideMenuBar: true,
       webPreferences: childWebPreferences(),
     });

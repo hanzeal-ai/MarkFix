@@ -34,7 +34,6 @@ export function SettingsWindow(): React.JSX.Element {
     <main className="settings-window">
       <div className="settings-window-body">
         <nav className="settings-sidebar" aria-label="设置项目">
-          <p>设置</p>
           <Button
             type="button"
             variant="ghost"
