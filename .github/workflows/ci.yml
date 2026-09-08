@@ -82,7 +82,8 @@ jobs:
     needs: publish
     runs-on: [self-hosted, Linux, X64, markfix-preview]
     environment: aliyun-preview
-    timeout-minutes: 15
+    # Allow slow first-time GHCR pulls on the preview server.
+    timeout-minutes: 120
     permissions:
       actions: read
       packages: read
