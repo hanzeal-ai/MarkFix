@@ -23,6 +23,12 @@ import {
 } from './model';
 import './admin.css';
 
+const viewPresentation: Record<AdminView, { title: string; description: string }> = {
+  overview: { title: '工作区概览', description: '查看项目、标注与团队的最新状态。' },
+  projects: { title: '标注项目', description: '集中查看每个网站的反馈与处理进度。' },
+  users: { title: '团队成员', description: '管理成员与他们参与的项目。' },
+};
+
 export function AdminApp() {
   const queryClient = useQueryClient();
   const pathView = window.location.pathname.split('/')[2];
@@ -65,6 +71,7 @@ export function AdminApp() {
     ? (overview.data?.projects.find((project) => project.id === selectedProject.id) ??
       selectedProject)
     : null;
+  const page = viewPresentation[view];
   const navigate = (next: AdminView) => {
     setView(next);
     window.history.replaceState({}, '', next === 'overview' ? '/app' : `/app/${next}`);
@@ -77,7 +84,7 @@ export function AdminApp() {
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <a className="admin-brand" href="/">
-          <MarkFixLogo className="admin-brand-logo-full" variant="reversed" />
+          <MarkFixLogo className="admin-brand-logo-full" />
           <MarkFixMark className="admin-brand-logo-compact" />
         </a>
         <div className="admin-workspace-label">工作区</div>
@@ -151,6 +158,14 @@ export function AdminApp() {
       </aside>
 
       <main className="admin-main">
+        <header className="admin-page-header">
+          <div>
+            <span>MARKFIX WORKSPACE</span>
+            <h1>{page.title}</h1>
+            <p>{page.description}</p>
+          </div>
+          <small>{currentWorkspace?.name ?? '工作区'}</small>
+        </header>
         {overview.isPending && <div className="admin-loading">正在汇总工作区数据…</div>}
         {overview.error instanceof Error && (
           <Alert variant="destructive">

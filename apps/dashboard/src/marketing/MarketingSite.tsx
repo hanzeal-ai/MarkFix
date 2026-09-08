@@ -87,6 +87,14 @@ export function MarketingSite() {
             <span>项目管理</span>
             <span>统计总览</span>
           </div>
+          <figure className="grida-product-frame">
+            <img
+              src="/marketing/element-annotation.png"
+              alt="MarkFix 桌面端网页元素批注工作区"
+              width="1374"
+              height="750"
+            />
+          </figure>
         </section>
 
         <section className="premium-capability-section" id="product">

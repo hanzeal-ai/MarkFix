@@ -11,6 +11,7 @@ import './styles/settings-window.css';
 import './styles/project-pages.css';
 import './styles/history-pages.css';
 import './styles/desktop-chrome.css';
+import './styles/grida-theme.css';
 
 const App = lazy(() => import('./App.js').then((module) => ({ default: module.App })));
 const AnnotationSaveWindow = lazy(() =>

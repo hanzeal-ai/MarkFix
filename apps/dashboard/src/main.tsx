@@ -4,6 +4,7 @@ import { Toaster } from '@markfix/ui';
 import { WebRoot } from './WebRoot.js';
 import { topLevelRoute } from './routes.js';
 import './styles.css';
+import './grida-theme.css';
 
 const AccountAccess = React.lazy(() =>
   import('./account/AccountAccess.js').then((module) => ({ default: module.AccountAccess })),

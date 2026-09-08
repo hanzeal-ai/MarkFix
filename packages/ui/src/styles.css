@@ -26,6 +26,10 @@
 }
 
 :root {
+  --font-sans: Inter, 'SF Pro Text', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+  --radius-control: 12px;
+  --radius-menu: 16px;
+  --radius-surface: 20px;
   --background: #f4f5f7;
   --foreground: #191a1d;
   --card: #ffffff;
@@ -55,4 +59,42 @@
     background: var(--background);
     color: var(--foreground);
   }
+}
+
+[data-slot='button'],
+[data-slot='input'],
+[data-slot='textarea'],
+[data-slot='native-select'],
+[data-slot='select-trigger'],
+[data-slot='toggle-group'],
+[data-slot='tabs-list'],
+[data-slot='badge'],
+[data-slot='alert-dialog-action'],
+[data-slot='alert-dialog-cancel'] {
+  border-radius: var(--radius-control);
+}
+
+[data-slot='card'],
+[data-slot='alert'],
+[data-slot='dialog-content'],
+[data-slot='alert-dialog-content'],
+[data-sonner-toast] {
+  border-radius: var(--radius-surface);
+}
+
+[data-slot='select-content'],
+[data-slot='popover-content'],
+[data-slot='dropdown-menu-content'],
+[data-slot='dropdown-menu-sub-content'] {
+  border-radius: var(--radius-menu);
+}
+
+[data-slot='select-item'],
+[data-slot='dropdown-menu-item'],
+[data-slot='dropdown-menu-checkbox-item'],
+[data-slot='dropdown-menu-radio-item'],
+[data-slot='dropdown-menu-sub-trigger'],
+[data-slot='tabs-trigger'],
+[data-slot='toggle-group-item'] {
+  border-radius: 10px;
 }

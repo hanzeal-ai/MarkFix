@@ -13,8 +13,7 @@
   --accent: #5b52e8;
   --accent-soft: #eeecff;
   --accent-strong: #4238d4;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Helvetica Neue', sans-serif;
+  font-family: var(--font-sans);
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -61,9 +60,7 @@ body {
 }
 .desktop-auth h1 {
   margin: 6px 0 8px;
-  font:
-    600 28px Georgia,
-    serif;
+  font: 600 28px var(--font-sans);
 }
 .desktop-auth section > p:not(.eyebrow) {
   margin: 0 0 24px;

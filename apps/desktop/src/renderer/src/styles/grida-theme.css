@@ -1,0 +1,159 @@
+/* Grida-inspired desktop treatment: neutral canvas chrome, not a marketing-page theme. */
+.shell {
+  --accent: #17181a;
+  --accent-soft: #eef0f3;
+  --accent-strong: #000;
+  font-family: var(--font-sans);
+}
+
+.shell .browser-bar,
+.shell .navigation-header {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.shell .prototype-browser-bar {
+  border-color: #dfe1e5;
+  border-radius: 16px;
+  background: #f3f4f6;
+  box-shadow: none;
+}
+
+.shell .prototype-browser-bar:focus-within {
+  border-color: #aeb2ba;
+  box-shadow: 0 0 0 3px rgba(17, 18, 20, 0.08);
+}
+
+.shell .annotation-mode-control {
+  border-color: #dfe1e5;
+  border-radius: 14px;
+  background: #f3f4f6;
+}
+
+.shell .annotation-mode-control [data-state='on'] {
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: #17181a;
+  box-shadow: 0 1px 4px rgba(24, 27, 33, 0.12);
+}
+
+.shell .tools button.save-annotations-button {
+  border-color: #17181a;
+  border-radius: 999px;
+  background: #17181a;
+  color: #fff;
+  box-shadow: none;
+}
+
+.shell .save-annotations-button:hover:not(:disabled) {
+  border-color: #000;
+  background: #000;
+}
+
+.shell .comment-panel,
+.shell .capture-panel {
+  background: #fbfbfc;
+}
+
+.shell .project-sidebar-action.active,
+.shell .project-sidebar-item.active {
+  border-color: #d6d9df;
+  background: #eceef1;
+  color: #17181a;
+}
+
+.shell .new-project-page {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(192, 206, 255, 0.32), transparent 24rem), #f7f8fa;
+}
+
+.shell .new-project-shortcut-card,
+.shell .new-project-shortcut,
+.shell .capture-selection-card,
+.shell .capture-note-card,
+.shell .diagnostic-entry {
+  border-radius: var(--radius-surface);
+}
+
+.shell .new-project-search {
+  border-radius: 999px;
+}
+
+.shell .new-project-submit {
+  border-color: #17181a;
+  background: #17181a;
+}
+
+.shell .panel-heading h1 {
+  font-family: var(--font-sans);
+}
+
+/* Normalize legacy one-off radii across every desktop window. */
+.desktop-auth > [data-slot='card'],
+.diagnostics-panel,
+.history-project-card,
+.project-history-page,
+.annotation-save-dialog,
+.shortcut-dialog,
+.capture-note-card,
+.element-selection-card,
+.settings-shortcut-list,
+.settings-option-list,
+.account-menu {
+  border-radius: var(--radius-surface);
+}
+
+.desktop-auth input,
+.desktop-auth form button,
+.auth-message,
+.brand span,
+.shell .nav-buttons button,
+.shell .header-navigation-controls button,
+.shell .tools button:not(.save-annotations-button),
+.shell .project-sidebar-delete,
+.shell .project-sidebar-account,
+.shell .account-menu button,
+.diagnostics-filterbar button,
+.diagnostics-filterbar input,
+.diagnostics-filterbar select,
+.diagnostic-quote,
+.diagnostics-command select,
+.diagnostics-command textarea,
+.diagnostics-command button.run,
+.new-project-shortcut-menu,
+.new-project-shortcut-menu [data-slot='dropdown-menu-item'],
+.shortcut-dialog input:not([type='radio']),
+.annotation-review-error,
+.annotation-save-dialog button,
+.annotation-save-preview-button,
+.annotation-save-item-icon,
+.capture-thumbnail,
+.capture-text-list input,
+.capture-note-input,
+.evidence-references > span,
+.evidence-references button,
+.capture-draft-actions button,
+.capture-note-head button,
+p.annotation-rejection,
+.capture-note-actions button,
+.element-selection-card textarea,
+.first-annotation-guide,
+.settings-sidebar button,
+.settings-shortcut-list kbd,
+.account-menu [data-slot='dropdown-menu-item'] {
+  border-radius: var(--radius-control);
+}
+
+.annotation-save-item,
+.capture-empty-icon,
+.navigation-page-icon,
+.history-page > header > span,
+.history-record-icon {
+  border-radius: var(--radius-menu);
+}
+
+.project-load-failure-actions button,
+.annotation-status,
+.project-history-stats > span,
+.history-project-counts i {
+  border-radius: 999px;
+}

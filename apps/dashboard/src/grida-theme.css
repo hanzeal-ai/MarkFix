@@ -1,0 +1,555 @@
+/* Grida-inspired trial for the marketing homepage and management workspace. */
+.premium-site:not(.commercial-page) {
+  --ink: #111214;
+  --muted: #696c72;
+  --line: #e2e3e6;
+  --soft: #f5f6f8;
+  --paper: #fff;
+  --purple: #111214;
+  color: var(--ink);
+  background: #fff;
+  font-family: var(--font-sans);
+}
+
+#root .admin-shell {
+  font-family: var(--font-sans);
+}
+
+.premium-site:not(.commercial-page) .premium-header {
+  height: 88px;
+  max-width: 1280px;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.premium-site:not(.commercial-page) .premium-nav > a {
+  color: #202226;
+  font-size: 13px;
+}
+
+.premium-site:not(.commercial-page) .premium-nav [data-slot='button'],
+.premium-site:not(.commercial-page) .premium-hero-actions [data-slot='button']:first-child {
+  border-color: #17181a;
+  background: #17181a;
+  color: #fff;
+  box-shadow: none;
+}
+
+.premium-site [data-slot='button'] {
+  border-radius: 999px;
+}
+
+.premium-site:not(.commercial-page) .premium-hero-actions [data-slot='button']:last-child {
+  border-color: transparent;
+  background: transparent;
+  color: #17181a;
+}
+
+.premium-site:not(.commercial-page) .premium-hero {
+  max-width: none;
+  min-height: 940px;
+  padding: 300px 40px 0;
+  background:
+    radial-gradient(circle at 50% 2%, rgba(176, 181, 255, 0.86), transparent 28rem),
+    radial-gradient(circle at 72% 26%, rgba(189, 233, 255, 0.65), transparent 28rem),
+    linear-gradient(180deg, #f6fbff 0%, #fff 78%);
+}
+
+.premium-site:not(.commercial-page) .premium-hero-kicker {
+  display: none;
+}
+
+.premium-site:not(.commercial-page) .premium-hero h1 {
+  max-width: none;
+  margin: 0 0 24px;
+  color: #111214;
+  font-size: clamp(58px, 6vw, 84px);
+  font-weight: 760;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.premium-site:not(.commercial-page) .premium-hero h1 span {
+  display: inline;
+  color: inherit;
+}
+
+.premium-site:not(.commercial-page) .premium-hero > p {
+  max-width: 620px;
+  color: #696c72;
+  font-size: 18px;
+  line-height: 1.65;
+}
+
+.premium-site:not(.commercial-page) .premium-hero-actions {
+  margin-top: 30px;
+}
+
+.premium-site:not(.commercial-page) .premium-product-note {
+  margin-top: 26px;
+  color: #74777e;
+}
+
+.grida-product-frame {
+  width: min(1024px, 100%);
+  margin: 112px 0 0;
+  overflow: hidden;
+  border: 1px solid #e0e1e4;
+  border-radius: 28px 28px 0 0;
+  background: #fff;
+  box-shadow: 0 24px 90px rgba(76, 89, 126, 0.12);
+}
+
+.grida-product-frame img {
+  width: 100%;
+  display: block;
+}
+
+.premium-site:not(.commercial-page) .premium-capability-section,
+.premium-site:not(.commercial-page) .premium-pricing-home {
+  background: #fff;
+}
+
+.premium-site:not(.commercial-page) .experience-section {
+  border-color: #e5e6e8;
+  background: #f7f8fa;
+}
+
+.premium-site:not(.commercial-page) .premium-capability-grid {
+  gap: 24px;
+  border: 0;
+}
+
+.premium-site:not(.commercial-page) .premium-capability-grid article,
+.premium-site:not(.commercial-page) .premium-home-plan {
+  border: 1px solid #e3e4e7;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.premium-site:not(.commercial-page) .premium-home-plan.is-featured {
+  border-color: #17181a;
+  background: #17181a;
+  color: #fff;
+}
+
+.premium-site:not(.commercial-page) .premium-download-home {
+  border-radius: 36px;
+  background:
+    radial-gradient(circle at 80% 10%, rgba(172, 203, 255, 0.4), transparent 18rem), #17181a;
+}
+
+/* The admin keeps its familiar layout and borrows Grida's neutral workspace language. */
+.admin-shell {
+  --admin-sidebar: #fbfbfc;
+  --admin-purple: #17181a;
+  --admin-purple-soft: #eff0f3;
+  --admin-border: #e1e3e7;
+  --admin-muted: #74777e;
+  background: #f6f7f9;
+  color: #17181a;
+}
+
+.admin-sidebar {
+  border-right: 1px solid #e1e3e7;
+  background: #fbfbfc;
+  color: #17181a;
+}
+
+.admin-brand text {
+  fill: #17181a;
+}
+
+.admin-brand tspan {
+  fill: #5b52e8;
+}
+
+.admin-workspace-label,
+.admin-profile small,
+.admin-profile button {
+  color: #777a82;
+}
+
+.admin-workspace-select {
+  border-color: #dfe1e5;
+  background: #fff;
+  color: #24262a;
+}
+
+.admin-nav button {
+  color: #5f6269;
+}
+
+.admin-nav button:hover,
+.admin-nav button.active {
+  background: #edeef1;
+  color: #111214;
+}
+
+.admin-nav button.active svg {
+  color: #111214;
+}
+
+.admin-profile {
+  border-color: #e1e3e7;
+}
+
+.admin-profile strong {
+  color: #24262a;
+}
+
+.admin-profile-settings {
+  color: #5f6269;
+}
+
+.admin-main {
+  background:
+    radial-gradient(circle at 70% 0%, rgba(193, 210, 255, 0.32), transparent 25rem), #f7f8fa;
+}
+
+.admin-main [data-slot='card'] {
+  border-color: var(--admin-border);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: none;
+}
+
+.metric-card {
+  border-radius: 22px;
+}
+
+.metric-icon,
+.metric-card.warning .metric-icon,
+.metric-card.danger .metric-icon {
+  background: #eff0f3;
+  color: #17181a;
+}
+
+/* Refined management workspace. ID scoping keeps lazy-loaded admin CSS from overriding it. */
+#root .admin-shell {
+  grid-template-columns: 224px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  background: #f1f2f4;
+}
+
+#root .admin-sidebar {
+  top: 12px;
+  height: calc(100vh - 24px);
+  padding: 22px 14px 14px;
+  border: 1px solid #e2e3e6;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #17181a;
+  box-shadow: 0 16px 40px rgba(30, 35, 48, 0.06);
+  backdrop-filter: blur(24px);
+}
+
+#root .admin-brand {
+  padding: 0 8px 24px;
+}
+
+#root .admin-brand-logo-full {
+  width: 112px;
+}
+
+#root .admin-workspace-label {
+  color: #999ca3;
+  letter-spacing: 0.12em;
+}
+
+#root .admin-workspace-select {
+  height: 40px;
+  border-color: transparent;
+  border-radius: 12px;
+  background: #f1f2f4;
+  color: #24262a;
+  box-shadow: inset 0 0 0 1px rgba(20, 22, 26, 0.04);
+}
+
+#root .admin-nav {
+  gap: 4px;
+  margin-top: 20px;
+}
+
+#root .admin-nav button {
+  height: 40px;
+  border-radius: 12px;
+  color: #666970;
+}
+
+#root .admin-nav button:hover {
+  background: #f1f2f4;
+  color: #17181a;
+}
+
+#root .admin-nav button.active {
+  background: #17181a;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(17, 18, 20, 0.14);
+}
+
+#root .admin-nav button.active svg {
+  color: #fff;
+}
+
+#root .admin-nav button > span {
+  background: rgba(120, 122, 128, 0.12);
+  color: inherit;
+}
+
+#root .admin-nav button.active > span {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+#root .admin-profile {
+  gap: 8px;
+  border: 1px solid #e7e8eb;
+  border-radius: 16px;
+  padding: 10px;
+  background: #fafafb;
+}
+
+#root .admin-profile strong {
+  color: #24262a;
+}
+
+#root .admin-profile small,
+#root .admin-profile button,
+#root .admin-profile-settings {
+  color: #85888f;
+}
+
+#root .admin-main {
+  min-height: calc(100vh - 24px);
+  padding: 34px clamp(28px, 4vw, 64px) 72px;
+  border: 1px solid #e5e6e9;
+  border-radius: 22px;
+  background: #fafafa;
+}
+
+#root .admin-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+#root .admin-page-header > div {
+  display: grid;
+  gap: 6px;
+}
+
+#root .admin-page-header span {
+  color: #999ca3;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+#root .admin-page-header h1 {
+  margin: 0;
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 680;
+  letter-spacing: -0.045em;
+}
+
+#root .admin-page-header p {
+  margin: 0;
+  color: #777a82;
+  font-size: 13px;
+}
+
+#root .admin-page-header > small {
+  padding: 8px 12px;
+  border: 1px solid #e2e3e6;
+  border-radius: 999px;
+  background: #fff;
+  color: #666970;
+  font-size: 11px;
+}
+
+#root .admin-main [data-slot='card'] {
+  border-color: var(--admin-border);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(25, 27, 34, 0.02);
+}
+
+#root .metric-card {
+  min-height: 128px;
+  border-radius: 18px;
+}
+
+#root .metric-icon,
+#root .metric-card.warning .metric-icon,
+#root .metric-card.danger .metric-icon {
+  background: #f0f1f3;
+  color: #17181a;
+}
+
+#root .projects-grid {
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+#root .project-card {
+  min-height: 236px;
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(25, 27, 34, 0.02);
+}
+
+#root .project-card:hover {
+  border-color: #c8cad0;
+  box-shadow: 0 16px 38px rgba(25, 27, 34, 0.08);
+  transform: translateY(-3px);
+}
+
+#root .project-card-open {
+  min-height: 236px;
+  padding: 22px;
+}
+
+#root .project-card-open:hover {
+  background: #fcfcfd;
+}
+
+#root .project-card-open h3 {
+  margin-top: 28px;
+  font-size: 19px;
+  letter-spacing: -0.025em;
+}
+
+#root .project-toolbar,
+#root .users-toolbar {
+  margin-bottom: 20px;
+}
+
+#root .admin-search input,
+#root .filter-control [data-slot='select-trigger'] {
+  height: 40px;
+  border-color: #dedfe3;
+  background: #fff;
+  box-shadow: none;
+}
+
+/* Keep legacy one-off radii aligned with the shared large-radius scale. */
+.marketing-site .browser-frame,
+.marketing-site .workflow-grid article,
+.marketing-site .feature-preview,
+.marketing-site .final-cta,
+.premium-site .premium-admin-main,
+.premium-site .premium-capability-visual,
+.premium-site .mf-demo-mini-panel,
+.premium-site .mf-demo-plan,
+.premium-site .mf-demo-draft,
+.premium-site .mf-demo-comment-list article,
+.admin-login-page .admin-login-card,
+.admin-shell .project-card,
+.admin-shell .admin-empty,
+.admin-shell .annotation-form-screenshot,
+.admin-shell .annotation-detail-section,
+.admin-shell .annotation-image-preview-canvas,
+.admin-shell .annotation-history-content {
+  border-radius: var(--radius-surface);
+}
+
+.marketing-site .address-bar,
+.marketing-site .demo-buttons span,
+.marketing-site .floating-status,
+.marketing-site .preview-filter,
+.marketing-site .premium-mobile-nav > a,
+.premium-site .mf-demo-projects button,
+.premium-site .mf-demo-address,
+.premium-site .mf-demo-modes button,
+.premium-site .mf-demo-site-header nav button,
+.premium-site .mf-demo-site-actions button,
+.premium-site .mf-demo-hint,
+.premium-site .mf-demo-capture-tools,
+.premium-site .mf-demo-capture-tools button,
+.premium-site .mf-capture-instruction,
+.premium-site .mf-capture-toolbar,
+.premium-site .mf-capture-toolbar button,
+.admin-login-page .admin-login-error,
+.admin-shell .annotation-thumbnail-button,
+.admin-shell .annotation-screenshot-button,
+.admin-shell .annotation-history-thumbnail,
+.admin-shell .admin-nav button > span,
+.admin-shell .metric-icon {
+  border-radius: var(--radius-control);
+}
+
+@media (max-width: 680px) {
+  .premium-site:not(.commercial-page) .premium-header {
+    height: 66px;
+  }
+
+  .premium-site:not(.commercial-page) .premium-hero {
+    min-height: 760px;
+    padding: 190px 20px 0;
+  }
+
+  .premium-site:not(.commercial-page) .premium-hero h1 {
+    font-size: clamp(46px, 14vw, 58px);
+    white-space: normal;
+  }
+
+  .premium-site:not(.commercial-page) .premium-hero h1 span {
+    display: block;
+  }
+
+  .grida-product-frame {
+    margin-top: 72px;
+  }
+
+  .premium-site:not(.commercial-page) .premium-capability-grid {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 820px) {
+  #root .admin-shell {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  #root .admin-sidebar {
+    padding-inline: 12px;
+  }
+
+  #root .admin-main {
+    padding-inline: 24px;
+  }
+}
+
+@media (max-width: 620px) {
+  #root .admin-shell {
+    padding: 8px;
+  }
+
+  #root .admin-sidebar {
+    top: 0;
+    width: 100%;
+    height: auto;
+    padding: 12px 16px;
+    border-radius: 16px;
+  }
+
+  #root .admin-main {
+    min-height: 0;
+    margin-top: 8px;
+    padding: 28px 18px 60px;
+    border-radius: 16px;
+  }
+
+  #root .admin-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-bottom: 26px;
+  }
+
+  #root .projects-grid {
+    grid-template-columns: 1fr;
+  }
+}
