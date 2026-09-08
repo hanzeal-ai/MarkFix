@@ -161,12 +161,13 @@ export function AnnotationWorkspace({
   selectedProjectIdRef.current = selectedProjectId;
 
   useEffect(() => {
-    const restoreMode = async (): Promise<void> => {
+    const restoreWorkspaceState = async (): Promise<void> => {
       if (modeRef.current === 'capture') await window.markfix.clearCaptureSelection();
       await window.markfix.setMode(modeRef.current);
+      await window.markfix.setDiagnosticsOpen(diagnosticsOpenRef.current);
     };
-    void restoreMode().catch((error: unknown) =>
-      setNotice(error instanceof Error ? error.message : '无法恢复标注模式。'),
+    void restoreWorkspaceState().catch((error: unknown) =>
+      setNotice(error instanceof Error ? error.message : '无法恢复工作区状态。'),
     );
   }, [setNotice]);
 
