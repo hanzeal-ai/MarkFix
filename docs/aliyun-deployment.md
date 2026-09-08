@@ -10,7 +10,7 @@
 
 ### 镜像仓库与认证
 
-两个私有仓库位于 `crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix`，分别为 `markfix-api` 和 `markfix-dashboard`。构建任务推送到 ACR，部署任务从同一仓库按 digest 拉取；不再发布或拉取 GHCR 应用镜像。
+两个私有仓库位于 `crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix`，分别为 `markfix-api` 和 `markfix-dashboard`。构建任务推送到 ACR，部署任务从同一仓库按 digest 拉取；不再发布或拉取 GHCR 应用镜像。当前 ACR 个人版拒绝 Buildx 的 provenance attestation 格式，因此两个镜像构建显式关闭该附加元数据；镜像仍按 digest 部署。
 
 运行前，在 GitHub 仓库的 Actions Secrets 中配置以下两项，供构建与部署任务使用：
 
