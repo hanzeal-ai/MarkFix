@@ -36,18 +36,17 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      packages: write
     outputs:
-      api_image: ghcr.io/hanzeal-ai/markfix-api@${{ steps.api.outputs.digest }}
-      dashboard_image: ghcr.io/hanzeal-ai/markfix-dashboard@${{ steps.dashboard.outputs.digest }}
+      api_image: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-api@${{ steps.api.outputs.digest }}
+      dashboard_image: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-dashboard@${{ steps.dashboard.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+          registry: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
       - name: Build and publish API
         id: api
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
@@ -56,7 +55,7 @@ jobs:
           file: infra/Dockerfile.api
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/hanzeal-ai/markfix-api:${{ github.sha }}
+          tags: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-api:${{ github.sha }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
       - name: Build and publish dashboard
@@ -68,7 +67,7 @@ jobs:
           platforms: linux/amd64
           push: true
           build-args: VITE_API_URL=
-          tags: ghcr.io/hanzeal-ai/markfix-dashboard:${{ github.sha }}
+          tags: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-dashboard:${{ github.sha }}
           cache-from: type=gha,scope=dashboard
           cache-to: type=gha,mode=max,scope=dashboard
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -82,11 +81,10 @@ jobs:
     needs: publish
     runs-on: [self-hosted, Linux, X64, markfix-preview]
     environment: aliyun-preview
-    # Allow slow first-time GHCR pulls on the preview server.
+    # Allow slow first-time image pulls on the preview server.
     timeout-minutes: 120
     permissions:
       actions: read
-      packages: read
     steps:
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
@@ -96,9 +94,9 @@ jobs:
         run: echo "DOCKER_CONFIG=$RUNNER_TEMP/markfix-docker-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+          registry: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
       - name: Deploy and check HTTP preview
         env:
           API_IMAGE: ${{ needs.publish.outputs.api_image }}

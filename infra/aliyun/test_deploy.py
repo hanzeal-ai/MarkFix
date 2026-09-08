@@ -20,8 +20,8 @@ class DeploymentTest(unittest.TestCase):
         self.deploy_root = self.root / 'markfix'
         self.env = dict(os.environ, PATH=f'{self.bin}:{os.environ["PATH"]}',
                         MARKFIX_DEPLOY_ROOT=str(self.deploy_root), TEST_LOG=str(self.log),
-                        API_IMAGE='ghcr.io/hanzeal-ai/markfix-api@sha256:' + 'a' * 64,
-                        DASHBOARD_IMAGE='ghcr.io/hanzeal-ai/markfix-dashboard@sha256:' + 'b' * 64)
+                        API_IMAGE='crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-api@sha256:' + 'a' * 64,
+                        DASHBOARD_IMAGE='crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-dashboard@sha256:' + 'b' * 64)
         self.command('docker', '''import json,os,sys
 from pathlib import Path
 a=sys.argv[1:]
@@ -72,9 +72,18 @@ except BlockingIOError: sys.exit(1)
         self.assertEqual(secret.read_text(), original)
 
     def test_reject_mutable_or_shell_input(self):
-        for image in ['ghcr.io/hanzeal-ai/markfix-api:latest', '$(touch bad)', '']:
-            with self.subTest(image=image):
-                self.assertNotEqual(self.run_deploy(API_IMAGE=image).returncode, 0)
+        for variable in ['API_IMAGE', 'DASHBOARD_IMAGE']:
+            for image in [
+                'crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-api:latest',
+                'ghcr.io/hanzeal-ai/markfix-api@sha256:' + 'a' * 64,
+                'crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com.example.com/markfix/markfix-api@sha256:' + 'a' * 64,
+                'crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/other/markfix-api@sha256:' + 'a' * 64,
+                'crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/other@sha256:' + 'a' * 64,
+                'crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-api@sha256:short',
+                '$(touch bad)', '',
+            ]:
+                with self.subTest(variable=variable, image=image):
+                    self.assertNotEqual(self.run_deploy(**{variable: image}).returncode, 0)
         self.assertEqual(self.calls(), [])
 
     def test_pull_failure_starts_nothing(self):
@@ -92,7 +101,7 @@ except BlockingIOError: sys.exit(1)
                 self.assertEqual(self.run_deploy().returncode, 0)
                 before = (self.deploy_root / 'current').resolve()
                 result = self.run_deploy(FAIL_PHASE=phase,
-                    API_IMAGE='ghcr.io/hanzeal-ai/markfix-api@sha256:' + 'c' * 64)
+                    API_IMAGE='crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-api@sha256:' + 'c' * 64)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual((self.deploy_root / 'current').resolve(), before)
                 self.assertIn('a' * 64, self.calls()[-1]['images'])

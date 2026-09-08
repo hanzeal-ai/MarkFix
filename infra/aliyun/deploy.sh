@@ -2,11 +2,11 @@
 set -Eeuo pipefail
 umask 077
 
-: "${API_IMAGE:?Set API_IMAGE to an immutable GHCR image digest}"
-: "${DASHBOARD_IMAGE:?Set DASHBOARD_IMAGE to an immutable GHCR image digest}"
+: "${API_IMAGE:?Set API_IMAGE to an immutable ACR image digest}"
+: "${DASHBOARD_IMAGE:?Set DASHBOARD_IMAGE to an immutable ACR image digest}"
 for image in "$API_IMAGE" "$DASHBOARD_IMAGE"; do
-  [[ "$image" =~ ^ghcr\.io/hanzeal-ai/markfix-(api|dashboard)@sha256:[a-f0-9]{64}$ ]] || {
-    echo 'Only immutable MarkFix GHCR images are accepted' >&2
+  [[ "$image" =~ ^crpi-c94ukgtq3wrezdx5\.cn-hangzhou\.personal\.cr\.aliyuncs\.com/markfix/markfix-(api|dashboard)@sha256:[a-f0-9]{64}$ ]] || {
+    echo 'Only immutable MarkFix ACR images are accepted' >&2
     exit 1
   }
 done

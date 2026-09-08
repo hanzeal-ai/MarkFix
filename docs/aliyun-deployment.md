@@ -4,9 +4,24 @@
 
 ## 自动发布
 
-`.github/workflows/ci.yml` 在 main 更新后依次执行全项目检查、构建 linux/amd64 镜像、发布 GHCR、部署。PR 只运行检查；手动运行也仅允许 main 发布。部署使用镜像 digest，构建发生在 GitHub 托管机器上，不占用目标服务器的构建内存。
+`.github/workflows/ci.yml` 在 main 更新后依次执行全项目检查、构建 linux/amd64 镜像、发布杭州 ACR 个人版、部署。PR 只运行检查；手动运行也仅允许 main 发布。部署使用镜像 digest，构建发生在 GitHub 托管机器上，不占用目标服务器的构建内存。
 
-目标服务器需要为本仓库注册独立的 GitHub Runner，标签为 `markfix-preview`，以已加入 docker 组的 `admin` 用户运行。该 Runner 拥有 Docker 主机权限，只用于受信任的 main 部署任务。GitHub Environment 名为 `aliyun-preview`，应仅允许 main 分支。无需把本机阿里云 AccessKey 上传到 GitHub；GHCR 使用当前任务的短期 `GITHUB_TOKEN`。
+目标服务器需要为本仓库注册独立的 GitHub Runner，标签为 `markfix-preview`，以已加入 docker 组的 `admin` 用户运行。该 Runner 拥有 Docker 主机权限，只用于受信任的 main 部署任务。GitHub Environment 名为 `aliyun-preview`，应仅允许 main 分支。ACR 使用专用的仓库登录凭据，无需把本机阿里云 AccessKey 上传到 GitHub。
+
+### 镜像仓库与认证
+
+两个私有仓库位于 `crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix`，分别为 `markfix-api` 和 `markfix-dashboard`。构建任务推送到 ACR，部署任务从同一仓库按 digest 拉取；不再发布或拉取 GHCR 应用镜像。
+
+运行前，在 GitHub 仓库的 Actions Secrets 中配置以下两项，供构建与部署任务使用：
+
+- `ACR_USERNAME`：ACR「访问凭证」页面提供的 Docker 登录用户名。
+- `ACR_PASSWORD`：该用户的 ACR 仓库访问密码，不是阿里云控制台登录密码或 AccessKey Secret。
+
+凭据必须能够向这两个仓库推送和拉取镜像。不得写入代码、文档或日志。部署任务仍使用独立的临时 Docker 配置目录，登录 Action 在结束时登出。
+
+个人版仅用于当前演示环境。此次切换只覆盖应用镜像；`postgres:18-alpine` 仍由 Docker Hub 提供，数据库镜像的首次拉取速度需要单独验证。部署时限暂保留 120 分钟，实际 ACR 拉取耗时以服务器日志为准。
+
+首次切换前保留服务器 `current`、旧镜像和数据卷。失败时继续使用既有应用回退流程；若旧版本来自 GHCR，回退依赖本机已缓存的旧镜像，缺失时须恢复对应仓库认证。回退应用不撤销数据库迁移。
 
 服务器需要 Docker Compose v2、bash、flock、openssl、curl。轻量服务器防火墙需要允许 TCP 8766；数据库和 API 不映射主机端口。DoTasks 的 8765 端口、容器和 Runner 保持独立。
 
