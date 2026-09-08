@@ -33,75 +33,65 @@ body {
   background: var(--bg);
 }
 .desktop-auth {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 70px 24px 24px;
-  color: #f6f5ff;
-  background: radial-gradient(circle at 25% 15%, rgba(91, 82, 232, 0.28), transparent 38%), #1f1d3f;
-  -webkit-app-region: drag;
+  height: 100vh;
+  overflow-y: auto;
 }
-.desktop-auth > [data-slot='card'] {
-  width: min(420px, 100%);
-  border-radius: 17px;
-  background: var(--surface);
-  color: var(--text);
-  padding: 34px;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.3);
+.desktop-auth .auth-form-panel {
   -webkit-app-region: no-drag;
 }
-.desktop-auth-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 32px;
-  font-size: 19px;
-  font-weight: 750;
+.desktop-auth [data-slot='card'] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .desktop-auth h1 {
-  margin: 6px 0 8px;
+  margin: 12px 0;
   font: 600 28px var(--font-sans);
 }
-.desktop-auth section > p:not(.eyebrow) {
-  margin: 0 0 24px;
+.desktop-auth .eyebrow {
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.desktop-auth-description {
   color: var(--text-2);
-  line-height: 1.5;
-}
-.auth-message {
-  position: fixed;
-  z-index: 20;
-  top: 72px;
-  right: 24px;
-  max-width: min(420px, calc(100vw - 48px));
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  padding: 12px 15px;
-  border: 1px solid #efc8c4;
-  border-radius: 10px;
-  background: #fff;
-  color: #9f3f34;
-  box-shadow: 0 12px 36px rgba(28, 25, 54, 0.2);
   font-size: 13px;
-  line-height: 1.45;
-  -webkit-app-region: no-drag;
-  animation: auth-message-in 160ms ease-out;
+  line-height: 1.8;
+  margin: 0 0 32px;
 }
-.auth-message svg {
-  flex: 0 0 auto;
-  width: 17px;
-  height: 17px;
-  margin-top: 1px;
+.desktop-auth-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 13px;
 }
-@keyframes auth-message-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.desktop-auth-links button,
+.desktop-auth-legal button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+.desktop-auth-links button:hover,
+.desktop-auth-legal button:hover {
+  text-decoration: underline;
+}
+.desktop-auth-legal {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 32px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.desktop-auth-legal button {
+  color: var(--text-2);
 }
 .desktop-auth form,
 .desktop-auth label {
@@ -113,38 +103,19 @@ body {
 }
 .desktop-auth label {
   color: var(--text-2);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 500;
 }
 .desktop-auth input {
+  height: 46px;
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: 11px 12px;
   outline: none;
 }
-.desktop-auth .password-field {
-  position: relative;
-  display: block;
-}
-.desktop-auth .password-field input {
-  padding-right: 42px;
-}
-.desktop-auth form .password-toggle {
-  position: absolute;
-  top: 50%;
-  right: 5px;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  transform: translateY(-50%);
-  background: transparent;
-  color: var(--text-2);
-}
-.desktop-auth form button {
-  height: 43px;
+.desktop-auth form > button {
+  height: 46px;
   border: 0;
   border-radius: 9px;
   background: var(--accent);
@@ -168,7 +139,7 @@ textarea {
   height: 56px;
   position: fixed;
   z-index: 10;
-  inset: 0 0 auto 228px;
+  inset: 0 0 auto var(--sidebar-width, 228px);
   display: grid;
   grid-template-columns: auto minmax(280px, 720px) minmax(430px, 1fr);
   align-items: center;
@@ -176,17 +147,16 @@ textarea {
   padding: 0 14px;
   background: #fff;
   color: #191a1d;
-  -webkit-app-region: drag;
   border-bottom: 1px solid #e2e4e9;
 }
 .sidebar-collapsed .browser-bar {
   left: 0;
-  padding-left: 108px;
+  padding-left: 14px;
 }
 .project-loading-page {
   position: fixed;
   z-index: 8;
-  inset: 56px 0 0 228px;
+  inset: 56px 0 0 var(--sidebar-width, 228px);
   display: grid;
   place-items: center;
   overflow: auto;

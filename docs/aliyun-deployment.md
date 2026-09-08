@@ -2,6 +2,16 @@
 
 目标是杭州轻量应用服务器 `Docker-kjka`（`768b01b0e1b44e1b8aa750cdcffd13e6`），访问地址为 `http://121.40.211.86:8766`。这不是正式生产环境：域名备案完成前使用 HTTP，API 使用现有开发邮件适配器，不承诺邮件投递。请只使用演示数据；HTTP 不保护登录凭据的传输。
 
+## 桌面端 API 环境配置
+
+桌面端使用 electron-vite 的环境文件：`apps/desktop/.env.development` 默认连接 `http://localhost:4310`，`apps/desktop/.env.production` 默认连接 `http://121.40.211.86:8766`。文件仅保存公开地址，不存放凭据。
+
+`pnpm dev:desktop` 使用开发配置；`pnpm --filter @markfix/desktop build` 和 `pnpm --filter @markfix/desktop package:mac` 使用生产配置，并将地址写入构建产物。修改配置后需要重新构建或打包，已安装的旧应用不会自动更新。
+
+启动进程的 `MARKFIX_API_URL` 仍可覆盖构建地址；构建时可用 `MAIN_VITE_API_URL` 或对应的 `.env.*.local` 文件覆盖默认值。未配置覆盖项时，按上述环境文件选择地址。
+
+桌面端左下角账号栏的「更新」按钮会启动 macOS 原生自动更新：保存当前有效批注后，检查、下载、校验、安装并自动重启。强制升级页面也提供同一入口。保存失败或截图批注尚不完整时停止更新，保留编辑内容；下载或校验失败不会调用安装。更新过程中暂停主窗口交互，无需再次确认。详见 [桌面自动更新发布](desktop-updates.md)。
+
 ## 自动发布
 
 `.github/workflows/ci.yml` 在 main 更新后依次执行全项目检查、构建 linux/amd64 镜像、发布杭州 ACR 个人版、部署。PR 只运行检查；手动运行也仅允许 main 发布。部署使用镜像 digest，构建发生在 GitHub 托管机器上，不占用目标服务器的构建内存。

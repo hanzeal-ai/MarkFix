@@ -1,4 +1,4 @@
-/* Grida-inspired trial for the marketing homepage and management workspace. */
+/* Neutral surfaces and a restrained brand accent across the platform. */
 .premium-site:not(.commercial-page) {
   --ink: #111214;
   --muted: #696c72;
@@ -7,7 +7,7 @@
   --paper: #fff;
   --purple: #111214;
   color: var(--ink);
-  background: #fff;
+  background: radial-gradient(ellipse 720px 560px at 50% 240px, #eeecfc 0%, transparent 78%), #fff;
   font-family: var(--font-sans);
 }
 
@@ -17,10 +17,11 @@
 
 .premium-site:not(.commercial-page) .premium-header {
   height: 88px;
-  max-width: 1280px;
+  max-width: none;
+  padding-inline: max(32px, calc((100vw - 1184px) / 2));
   border: 0;
   background: transparent;
-  backdrop-filter: none;
+  backdrop-filter: blur(18px);
 }
 
 .premium-site:not(.commercial-page) .premium-nav > a {
@@ -48,12 +49,9 @@
 
 .premium-site:not(.commercial-page) .premium-hero {
   max-width: none;
-  min-height: 940px;
-  padding: 300px 40px 0;
-  background:
-    radial-gradient(circle at 50% 2%, rgba(176, 181, 255, 0.86), transparent 28rem),
-    radial-gradient(circle at 72% 26%, rgba(189, 233, 255, 0.65), transparent 28rem),
-    linear-gradient(180deg, #f6fbff 0%, #fff 78%);
+  min-height: 780px;
+  padding: 136px 40px 0;
+  background: transparent;
 }
 
 .premium-site:not(.commercial-page) .premium-hero-kicker {
@@ -488,7 +486,7 @@
 
   .premium-site:not(.commercial-page) .premium-hero {
     min-height: 760px;
-    padding: 190px 20px 0;
+    padding: 80px 20px 0;
   }
 
   .premium-site:not(.commercial-page) .premium-hero h1 {

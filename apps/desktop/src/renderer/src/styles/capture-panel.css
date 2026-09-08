@@ -107,14 +107,7 @@
   max-height: 210px;
   object-fit: contain;
 }
-.capture-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: -2px 0 9px;
-  color: #90949d;
-  font-size: 11px;
-}
+
 .capture-empty {
   height: 100%;
   min-height: 330px;

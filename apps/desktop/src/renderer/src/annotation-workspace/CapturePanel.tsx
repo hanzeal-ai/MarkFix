@@ -92,13 +92,6 @@ export function CapturePanel({
                 <img src={screenshot} alt="截图选区预览" />
               </div>
             )}
-            <div className="capture-meta">
-              <span>
-                {Math.round(captureSelection.widthCssPx)} ×{' '}
-                {Math.round(captureSelection.heightCssPx)} px
-              </span>
-              <span>{captureMarks.length} 个标记</span>
-            </div>
             {captureMarks.some(({ type }) => type === 'text') && (
               <div className="capture-text-list">
                 {captureMarks.map((mark, index) =>
@@ -207,17 +200,6 @@ export function CapturePanel({
                 >
                   <div className="capture-thumbnail">
                     <img src={item.dataUrl} alt={item.note} />
-                  </div>
-                  <div className="capture-meta">
-                    <span>
-                      {Math.round(item.widthCssPx)} × {Math.round(item.heightCssPx)} px
-                    </span>
-                    <span>
-                      {item.marks.length} 个标记
-                      {(item.evidence?.length ?? 0) > 0
-                        ? ` · ${item.evidence?.length ?? 0} 条证据`
-                        : ''}
-                    </span>
                   </div>
                   <p>{item.note}</p>
                 </Button>

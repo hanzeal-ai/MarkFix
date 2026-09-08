@@ -1,4 +1,5 @@
 export { Alert, AlertDescription } from './components/alert.js';
+export { AuthLayout } from './components/auth-layout.js';
 export {
   AlertDialog,
   AlertDialogAction,

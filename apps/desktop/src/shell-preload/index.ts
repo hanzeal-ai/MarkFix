@@ -17,6 +17,8 @@ import {
   type SavedElementComment,
 } from '@markfix/contracts';
 import { subscriptionIpcChannels } from '../subscription.js';
+import { accountPageChannel, type AccountPage } from '../account-pages.js';
+import { desktopUpdateChannels } from '../desktop-update.js';
 
 const subscribe = (channel: string, listener: (payload: unknown) => void): (() => void) => {
   const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => listener(payload);
@@ -24,7 +26,53 @@ const subscribe = (channel: string, listener: (payload: unknown) => void): (() =
   return () => ipcRenderer.removeListener(channel, handler);
 };
 
+ipcRenderer.on('window:fullscreen-changed', (_event, fullscreen: unknown) => {
+  document.documentElement.classList.toggle('window-fullscreen', fullscreen === true);
+});
+
+let sidebarPreviewImage: HTMLImageElement | undefined;
+ipcRenderer.on(
+  'window:sidebar-preview',
+  (
+    _event,
+    preview: {
+      version: number;
+      dataUrl: string;
+      bounds: { x: number; y: number; width: number; height: number };
+    } | null,
+  ) => {
+    sidebarPreviewImage?.remove();
+    sidebarPreviewImage = undefined;
+    if (!preview) return;
+    const image = document.createElement('img');
+    image.alt = '';
+    image.setAttribute('aria-hidden', 'true');
+    Object.assign(image.style, {
+      position: 'fixed',
+      pointerEvents: 'none',
+      zIndex: '0',
+      left: `${preview.bounds.x}px`,
+      top: `${preview.bounds.y}px`,
+      width: `${preview.bounds.width}px`,
+      height: `${preview.bounds.height}px`,
+    });
+    image.onload = () => {
+      if (sidebarPreviewImage === image)
+        ipcRenderer.send('window:sidebar-preview-ready', preview.version);
+    };
+    sidebarPreviewImage = image;
+    image.src = preview.dataUrl;
+    document.body.append(image);
+  },
+);
+
 contextBridge.exposeInMainWorld('markfix', {
+  openOfficialWebsite: () => ipcRenderer.invoke('website:open-official'),
+  startUpdate: () => ipcRenderer.invoke(desktopUpdateChannels.start),
+  updateStatus: () => ipcRenderer.invoke(desktopUpdateChannels.status),
+  onUpdateStatus: (listener: (payload: unknown) => void) =>
+    subscribe(desktopUpdateChannels.changed, listener),
+  openAccountPage: (page: AccountPage) => ipcRenderer.invoke(accountPageChannel, page),
   authStatus: () => ipcRenderer.invoke(ipcChannels.authStatus),
   login: (email: string, password: string) =>
     ipcRenderer.invoke(ipcChannels.authLogin, { email, password }),
@@ -51,8 +99,12 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(ipcChannels.deleteWebsiteProject, projectId),
   confirmDiscardDraft: (reason: 'switch-project' | 'new-annotation') =>
     ipcRenderer.invoke(ipcChannels.confirmDiscardDraft, reason),
-  setWorkspaceLayout: (sidebarWidth: 0 | 228, visible: boolean) =>
-    ipcRenderer.invoke(ipcChannels.setWorkspaceLayout, { sidebarWidth, visible }),
+  setWorkspaceLayout: (sidebarWidth: number, visible: boolean, peekWidth?: number) =>
+    ipcRenderer.invoke(ipcChannels.setWorkspaceLayout, {
+      sidebarWidth,
+      visible,
+      peekWidth: peekWidth ?? 0,
+    }),
   openMoreMenu: (x: number, y: number) => ipcRenderer.invoke(ipcChannels.openMoreMenu, { x, y }),
   openSettings: () => ipcRenderer.invoke(ipcChannels.openSettings),
   navigate: (url: string) => ipcRenderer.invoke(ipcChannels.navigate, { url }),

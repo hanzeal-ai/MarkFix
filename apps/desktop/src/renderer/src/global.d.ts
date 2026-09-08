@@ -1,3 +1,5 @@
+import type { DesktopUpdateStatus } from '../../desktop-update';
+import type { AccountPage } from '../../account-pages';
 import type {
   AnnotationHistorySummary,
   AnnotationSubmission,
@@ -25,6 +27,10 @@ import type {
 declare global {
   interface Window {
     markfix: {
+      startUpdate(): Promise<DesktopUpdateStatus>;
+      updateStatus(): Promise<DesktopUpdateStatus>;
+      onUpdateStatus(listener: (status: DesktopUpdateStatus) => void): () => void;
+      openAccountPage(page: AccountPage): Promise<void>;
       authStatus(): Promise<{
         authenticated: boolean;
         user?: { id: string; email: string; displayName: string };
@@ -51,9 +57,10 @@ declare global {
       switchWebsiteProject(projectId: string): Promise<WebsiteProject>;
       deleteWebsiteProject(projectId: string): Promise<{ deleted: boolean }>;
       confirmDiscardDraft(reason: 'switch-project' | 'new-annotation'): Promise<boolean>;
-      setWorkspaceLayout(sidebarWidth: 0 | 228, visible: boolean): Promise<void>;
+      setWorkspaceLayout(sidebarWidth: number, visible: boolean, peekWidth?: number): Promise<void>;
       openMoreMenu(x: number, y: number): Promise<void>;
       openSettings(): Promise<void>;
+      openOfficialWebsite(): Promise<void>;
       navigate(url: string): Promise<string>;
       back(): Promise<void>;
       forward(): Promise<void>;

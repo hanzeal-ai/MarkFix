@@ -15,10 +15,10 @@ export function PasswordInput({
 }): React.JSX.Element {
   const [visible, setVisible] = React.useState(false);
   return (
-    <span className={cn('relative block', wrapperClassName)}>
+    <span data-slot="password-field" className={cn('relative block', wrapperClassName)}>
       <Input className={cn('pr-10', className)} type={visible ? 'text' : 'password'} {...props} />
       <Button
-        className={cn('absolute right-1 top-1/2 -translate-y-1/2', toggleClassName)}
+        className={cn('password-visibility-toggle', toggleClassName)}
         type="button"
         variant="ghost"
         size="icon"

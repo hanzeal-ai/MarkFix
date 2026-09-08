@@ -73,6 +73,19 @@ export class AppController {
     return this.clientPolicy.getPolicy(version);
   }
 
+  @Get('desktop-updates')
+  @Public()
+  @Header('Cache-Control', 'no-store')
+  desktopUpdate(
+    @Query('version') version: string | undefined,
+    @Query('platform') platform: string | undefined,
+    @Query('arch') arch: string | undefined,
+    @Res() reply: FastifyReply,
+  ) {
+    const update = this.clientPolicy.getUpdate(version, platform, arch);
+    return update ? reply.send(update) : reply.code(204).send();
+  }
+
   @Get('bootstrap')
   bootstrap(@CurrentUser() user: AuthenticatedUser) {
     return this.app.bootstrap(user.id);

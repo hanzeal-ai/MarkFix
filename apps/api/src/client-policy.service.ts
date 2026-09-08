@@ -1,4 +1,9 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 
 const versionPattern = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
 
@@ -41,6 +46,25 @@ export const compareVersions = (left: string, right: string): number => {
 
 @Injectable()
 export class ClientPolicyService {
+  getUpdate(version: string | undefined, platform: string | undefined, arch: string | undefined) {
+    if (platform !== 'darwin' || (arch !== 'arm64' && arch !== 'x64'))
+      throw new BadRequestException('Unsupported update platform or architecture');
+    const policy = this.getPolicy(version);
+    if (compareVersions(policy.currentVersion, policy.recommendedVersion) >= 0) return undefined;
+    const downloadUrl = process.env[`MARKFIX_DESKTOP_MAC_${arch.toUpperCase()}_UPDATE_URL`];
+    if (!downloadUrl)
+      throw new ServiceUnavailableException('Desktop update package is not published');
+    let url: URL;
+    try {
+      url = new URL(downloadUrl);
+    } catch {
+      throw new ServiceUnavailableException('Invalid desktop update package URL');
+    }
+    if (url.protocol !== 'https:' || url.username || url.password || !url.pathname.endsWith('.zip'))
+      throw new ServiceUnavailableException('Desktop updates require an HTTPS ZIP package');
+    return { url: url.href, name: policy.recommendedVersion };
+  }
+
   getPolicy(currentVersion: string | undefined) {
     if (!currentVersion || !versionPattern.test(currentVersion)) {
       throw new ConflictException('A valid desktop version is required');
@@ -48,6 +72,8 @@ export class ClientPolicyService {
     const minimumVersion = process.env.MARKFIX_MINIMUM_DESKTOP_VERSION ?? '0.1.0';
     const recommendedVersion = process.env.MARKFIX_RECOMMENDED_DESKTOP_VERSION ?? minimumVersion;
     try {
+      if (compareVersions(recommendedVersion, minimumVersion) < 0)
+        throw new Error('Recommended version is below minimum version');
       const status =
         compareVersions(currentVersion, minimumVersion) < 0
           ? 'upgrade-required'

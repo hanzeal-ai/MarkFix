@@ -1,46 +1,11 @@
-.account-shell {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 22px;
-  background: radial-gradient(circle at 12% 18%, rgb(91 82 232 / 12%), transparent 28%), #f7f7f9;
-  padding: 72px 20px 30px;
-  color: #1c1d22;
-}
-
-.account-back {
-  position: absolute;
-  top: 24px;
-  left: 28px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: #696b75;
-  font-size: 12px;
-  text-decoration: none;
-}
-
-.account-back svg {
-  width: 15px;
-}
-
 .account-card {
-  width: min(430px, 100%);
+  width: 100%;
   display: grid;
-  gap: 28px;
-  border-color: #e4e4e9;
-  padding: 32px;
-  box-shadow: 0 22px 70px rgb(30 28 48 / 10%);
-}
-
-.account-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  color: #23242a;
-  font-weight: 700;
-  text-decoration: none;
+  gap: 32px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
 }
 
 .account-card > header {
@@ -50,7 +15,7 @@
 
 .account-card > header > span {
   color: #5b52e8;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -70,39 +35,12 @@
 .account-card form > label {
   display: grid;
   gap: 7px;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .account-card form > button {
   width: 100%;
   margin-top: 3px;
-}
-
-.account-password {
-  position: relative;
-  display: block;
-}
-
-.account-password input {
-  padding-right: 42px;
-}
-
-.account-password > button {
-  position: absolute;
-  top: 50%;
-  right: 7px;
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  transform: translateY(-50%);
-  border: 0;
-  background: transparent;
-  color: #878893;
-}
-
-.account-password svg {
-  width: 15px;
 }
 
 .account-card > footer {
@@ -112,7 +50,7 @@
   border-top: 1px solid #ececf0;
   padding-top: 18px;
   color: #858690;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .account-card a {
@@ -140,13 +78,13 @@
 .account-invite-links {
   display: flex;
   gap: 16px;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .account-consent {
   margin: -14px 0 0;
   color: #858690;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.6;
 }
 
@@ -155,29 +93,41 @@
   align-items: center;
   gap: 14px;
   color: #9a9ba3;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .account-legal-footer a {
   color: inherit;
 }
 
-@media (max-width: 520px) {
-  .account-shell {
-    align-content: start;
-    padding-top: 82px;
-  }
-
-  .account-back {
-    left: 20px;
-  }
-
-  .account-card {
-    padding: 26px 22px;
-  }
-
+.account-card header > p {
+  color: #7a7a85;
+  font-size: 13px;
+  margin: 8px 0 0;
+  line-height: 1.8;
+}
+.account-card input {
+  height: 46px;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 1px 2px #20202d04;
+}
+.account-card form > button {
+  height: 46px;
+  border-radius: 9px;
+}
+.account-card a:hover {
+  text-decoration: underline;
+}
+.account-legal-footer {
+  margin-top: 32px;
+  justify-content: center;
+}
+.account-card .account-consent {
+  margin-top: 0;
+}
+@media (max-width: 420px) {
   .account-card > footer {
-    align-items: flex-start;
     flex-direction: column;
   }
 }

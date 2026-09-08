@@ -37,6 +37,9 @@
 }
 
 .shell .tools button.save-annotations-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
   border-color: #17181a;
   border-radius: 999px;
   background: #17181a;
@@ -110,7 +113,6 @@
 .shell .header-navigation-controls button,
 .shell .tools button:not(.save-annotations-button),
 .shell .project-sidebar-delete,
-.shell .project-sidebar-account,
 .shell .account-menu button,
 .diagnostics-filterbar button,
 .diagnostics-filterbar input,

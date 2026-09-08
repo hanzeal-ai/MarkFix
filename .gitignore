@@ -8,6 +8,8 @@ coverage/
 .env
 .env.*
 !.env.example
+!apps/desktop/.env.development
+!apps/desktop/.env.production
 apps/desktop/release/
 apps/desktop/.vite/
 packages/database/generated/

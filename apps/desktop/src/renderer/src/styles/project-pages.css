@@ -1,6 +1,6 @@
 .navigation-page {
   height: 100vh;
-  margin-left: 228px;
+  margin-left: var(--sidebar-width, 228px);
   overflow: auto;
   background: var(--bg);
 }

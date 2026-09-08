@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { AnnotationHistorySummary, WebsiteProject } from '@markfix/contracts';
 import { Badge, Button } from '@markfix/ui';
-import { Camera, History, MessageSquareText, Terminal } from '@markfix/ui/icons';
+import { Camera, MessageSquareText, Terminal } from '@markfix/ui/icons';
 import { WebsiteLogo } from './WebsiteLogo';
 import { annotationCounts, type ProjectAnnotation } from './model';
 
@@ -114,15 +114,6 @@ export function HistoryPage({
   );
   return (
     <main className="navigation-page history-page">
-      <header>
-        <span>
-          <History />
-        </span>
-        <div>
-          <h1>历史标注</h1>
-          <p>按项目查看已保存的元素、截图和调试标注。</p>
-        </div>
-      </header>
       {entries.length === 0 ? (
         <div className="history-empty">
           <MessageSquareText />

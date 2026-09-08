@@ -1,12 +1,17 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { isSidebarWidth } from '../sidebar-layout';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import {
   app,
+  autoUpdater,
   BrowserWindow,
   dialog,
   ipcMain,
   Menu,
   session,
+  shell,
   WebContentsView,
   type IpcMainInvokeEvent,
   type WebContents,
@@ -33,6 +38,13 @@ import { DraftStore } from './draft-store.js';
 import { DiagnosticConsole } from './diagnostic-console.js';
 import { isWebsiteUrlAllowed, normalizeWebsiteUrl } from './url.js';
 import { subscriptionIpcChannels } from '../subscription.js';
+import { accountPageChannel, accountPageUrl } from '../account-pages.js';
+import {
+  desktopUpdateChannels,
+  desktopUpdateFeedUrl,
+  desktopUpdateActive,
+} from '../desktop-update.js';
+import { DesktopUpdater } from './desktop-updater.js';
 import { modeForShortcut } from './mode-shortcuts.js';
 import { windowActionForShortcut, type WindowShortcutAction } from './window-shortcuts.js';
 import { DesktopSessionManager } from './session-manager.js';
@@ -54,10 +66,14 @@ const macWindowMaterial =
         visualEffectState: 'followWindow',
       } as const)
     : {};
-const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? 'http://localhost:4310');
+const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? import.meta.env.MAIN_VITE_API_URL);
 const desktopSession = new DesktopSessionManager(api);
 let mainWindow: BrowserWindow | undefined;
 let websiteView: WebContentsView | undefined;
+let pageLoading = false;
+let sidebarPreviewReady = false;
+let sidebarPreviewVersion = 0;
+let sidebarPeekWidth = 0;
 let inspector: CdpInspector | undefined;
 let captureService: CaptureService | undefined;
 let diagnosticConsole: DiagnosticConsole | undefined;
@@ -153,7 +169,7 @@ const projectDataRouter = new ProjectDataRouter(
 const sendBrowserState = (payload: Record<string, unknown> = {}): void => {
   const contents = websiteView?.webContents;
   sendShell(ipcChannels.browserState, {
-    loading: contents?.isLoading() ?? false,
+    loading: pageLoading,
     canGoBack: contents?.navigationHistory.canGoBack() ?? false,
     canGoForward: contents?.navigationHistory.canGoForward() ?? false,
     ...payload,
@@ -179,6 +195,10 @@ const performWindowShortcut = (
 
 const registerMainShortcuts = (browserWindow: BrowserWindow, webContents: WebContents): void => {
   webContents.on('before-input-event', (event, input) => {
+    if (desktopUpdateActive(desktopUpdater.getStatus())) {
+      event.preventDefault();
+      return;
+    }
     const windowAction = windowActionForShortcut(input, 'main');
     if (windowAction) {
       event.preventDefault();
@@ -241,6 +261,23 @@ const setOverlayHidden = async (hidden: boolean): Promise<void> => {
   }
 };
 
+const desktopUpdater = new DesktopUpdater(
+  autoUpdater,
+  () => {
+    if (!app.isPackaged || process.platform !== 'darwin')
+      throw new Error('自动更新仅适用于已安装的 macOS 正式版本。');
+    return desktopUpdateFeedUrl(
+      process.env.MARKFIX_API_URL ?? import.meta.env.MAIN_VITE_API_URL,
+      app.getVersion(),
+      process.arch,
+    );
+  },
+  (status) => {
+    mainWindow?.webContents.send(desktopUpdateChannels.changed, status);
+    layoutWebsite();
+  },
+);
+
 const layoutWebsite = (): void => {
   if (!mainWindow || !websiteView) return;
   const [width = 1060, height = 680] = mainWindow.getContentSize();
@@ -252,7 +289,13 @@ const layoutWebsite = (): void => {
     width: Math.max(320, width - navigationSidebarWidth - sidebarWidth),
     height: Math.max(200, height - toolbarHeight - bottomPanelHeight),
   });
-  websiteView.setVisible(Boolean(authenticatedUser) && workspaceViewVisible && websiteContentReady);
+  websiteView.setVisible(
+    Boolean(authenticatedUser) &&
+      workspaceViewVisible &&
+      websiteContentReady &&
+      !sidebarPreviewReady &&
+      !desktopUpdateActive(desktopUpdater.getStatus()),
+  );
 };
 
 const resolveWebsiteMetadata = async (
@@ -473,8 +516,14 @@ const activateWebsiteProject = (projectId: string, switchGeneration: number): We
     activeWebsiteProjectId === project.id &&
     websiteContentReady &&
     websiteView.webContents.getURL() === targetUrl
-  )
+  ) {
+    sendBrowserState({
+      url: targetUrl,
+      pageTitle: currentPageTitle,
+      pageSessionId: project.currentPageSessionId,
+    });
     return project;
+  }
 
   activeWebsiteProjectId = project.id;
   navigationWebsiteProjectId = project.id;
@@ -511,6 +560,8 @@ const createWindow = async (): Promise<void> => {
     minWidth: 1060,
     minHeight: 680,
     titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 20 },
+    title: '',
     backgroundColor: process.platform === 'darwin' ? '#00000000' : '#f4f4ef',
     webPreferences: {
       preload: join(__dirname, '../preload/shell.cjs'),
@@ -520,6 +571,13 @@ const createWindow = async (): Promise<void> => {
     },
   });
   shellWebContentsId = mainWindow.webContents.id;
+  mainWindow.on('page-title-updated', (event) => event.preventDefault());
+  const syncFullscreen = () => {
+    mainWindow?.webContents.send('window:fullscreen-changed', mainWindow.isFullScreen());
+  };
+  mainWindow.on('enter-full-screen', syncFullscreen);
+  mainWindow.on('leave-full-screen', syncFullscreen);
+  mainWindow.webContents.on('dom-ready', syncFullscreen);
   registerMainShortcuts(mainWindow, mainWindow.webContents);
   websiteView = new WebContentsView({
     webPreferences: {
@@ -542,7 +600,9 @@ const createWindow = async (): Promise<void> => {
       void websiteView?.webContents.loadURL(url);
     return { action: 'deny' };
   });
-  websiteView.webContents.on('did-start-loading', () => {
+  websiteView.webContents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
+    if (!isMainFrame || isInPlace) return;
+    pageLoading = true;
     currentPageTitle = '';
     currentPageFaviconUrl = null;
     sendBrowserState({
@@ -554,15 +614,21 @@ const createWindow = async (): Promise<void> => {
     });
   });
   websiteView.webContents.on('dom-ready', () => {
+    pageLoading = false;
+    sendBrowserState();
+    void websiteView?.webContents
+      .insertCSS('html::-webkit-scrollbar, body::-webkit-scrollbar { height: 0 !important; }', {
+        cssOrigin: 'user',
+      })
+      .catch((error: unknown) => console.warn('Unable to hide the horizontal scrollbar', error));
     if (!navigationWebsiteProjectId || navigationWebsiteProjectId !== activeWebsiteProjectId)
       return;
     websiteContentReady = true;
     layoutWebsite();
   });
   websiteView.webContents.on('did-stop-loading', () => {
-    sendBrowserState({
-      loading: Boolean(navigationWebsiteProjectId) && !websiteContentReady,
-    });
+    pageLoading = false;
+    sendBrowserState();
   });
   websiteView.webContents.on('will-navigate', (event, url) => {
     if (enforceWebsiteNavigationPolicy(event, url)) sendBrowserState({ url });
@@ -664,6 +730,7 @@ const createWindow = async (): Promise<void> => {
   });
   websiteView.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
     if (!isMainFrame || code === -3) return;
+    pageLoading = false;
     websiteContentReady = false;
     navigationWebsiteProjectId = undefined;
     layoutWebsite();
@@ -739,6 +806,28 @@ const registerIpc = (): void => {
     },
   });
   reportOutbox.registerIpc(assertShellSender);
+  ipcMain.handle(desktopUpdateChannels.start, (event) => {
+    if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted update sender');
+    return desktopUpdater.start();
+  });
+  ipcMain.handle(desktopUpdateChannels.status, (event) => {
+    if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted update sender');
+    return desktopUpdater.getStatus();
+  });
+  ipcMain.handle('website:open-official', async (event) => {
+    assertShellSender(event);
+    await promisify(execFile)('/usr/bin/open', [
+      '-a',
+      'Google Chrome',
+      'https://markfix.hanzeal.com',
+    ]);
+  });
+  ipcMain.handle(accountPageChannel, async (event, page: unknown) => {
+    if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted account page sender');
+    await shell.openExternal(
+      accountPageUrl(page, process.env.MARKFIX_DASHBOARD_ORIGIN ?? 'https://markfix.hanzeal.com'),
+    );
+  });
   ipcMain.handle(ipcChannels.authStatus, async (event) => {
     assertShellSender(event);
     const policy = await loadClientPolicy(true).catch(() => undefined);
@@ -945,20 +1034,6 @@ const registerIpc = (): void => {
     if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Desktop window is unavailable');
     const project = websiteProjectsById.get(input);
     if (!project) throw new Error('项目不存在或已被移除');
-    const { response } = await dialog.showMessageBox(mainWindow, {
-      type: 'warning',
-      title: '删除项目',
-      message: `确定删除“${project.title}”吗？`,
-      detail:
-        project.storageMode === 'CLOUD'
-          ? '该云端项目及报告、标注和浏览历史将被永久删除，无法撤销。'
-          : '该本地项目及标注和浏览历史将从本机永久删除，无法撤销。',
-      buttons: ['取消', '删除项目'],
-      defaultId: 0,
-      cancelId: 0,
-      noLink: true,
-    });
-    if (response !== 1) return { deleted: false };
     if (project.storageMode === 'CLOUD') await api.deleteProject(project.id);
     else draftStore.deleteWebsiteProject(project.id);
     websiteProjectsById.delete(project.id);
@@ -995,14 +1070,47 @@ const registerIpc = (): void => {
     });
     return response === 1;
   });
-  ipcMain.handle(ipcChannels.setWorkspaceLayout, (event, input: unknown) => {
+  ipcMain.on('window:sidebar-preview-ready', (event, version: unknown) => {
+    if (
+      event.sender.id !== shellWebContentsId ||
+      version !== sidebarPreviewVersion ||
+      sidebarPeekWidth === 0
+    )
+      return;
+    sidebarPreviewReady = true;
+    layoutWebsite();
+  });
+  ipcMain.handle(ipcChannels.setWorkspaceLayout, async (event, input: unknown) => {
     assertShellSender(event);
-    const payload = input as { sidebarWidth?: unknown; visible?: unknown };
-    if (payload.sidebarWidth !== 0 && payload.sidebarWidth !== 228)
-      throw new Error('无效的侧边栏宽度');
+    const payload = input as { sidebarWidth?: unknown; visible?: unknown; peekWidth?: unknown };
+    if (!isSidebarWidth(payload.sidebarWidth)) throw new Error('无效的侧边栏宽度');
     if (typeof payload.visible !== 'boolean') throw new Error('无效的工作区显示状态');
+    if (!isSidebarWidth(payload.peekWidth ?? 0)) throw new Error('无效的侧边栏预览宽度');
+    const previousPeek = sidebarPeekWidth;
+    sidebarPeekWidth = (payload.peekWidth ?? 0) as number;
     navigationSidebarWidth = payload.sidebarWidth;
     workspaceViewVisible = payload.visible;
+    if (sidebarPeekWidth === 0 || !workspaceViewVisible) {
+      sidebarPreviewVersion++;
+      sidebarPreviewReady = false;
+      mainWindow?.webContents.send('window:sidebar-preview', null);
+    } else if (previousPeek === 0 && websiteView && websiteContentReady) {
+      layoutWebsite();
+      const version = ++sidebarPreviewVersion;
+      const screenshot = await websiteView.webContents
+        .capturePage(undefined, { stayAwake: true, stayHidden: false })
+        .catch((error: unknown) => {
+          console.warn('Unable to capture sidebar preview', error);
+          return null;
+        });
+      if (screenshot && version === sidebarPreviewVersion && sidebarPeekWidth > 0) {
+        mainWindow?.webContents.send('window:sidebar-preview', {
+          version,
+          dataUrl: screenshot.toDataURL(),
+          bounds: websiteView.getBounds(),
+        });
+      }
+    }
     layoutWebsite();
   });
   ipcMain.handle(ipcChannels.openMoreMenu, (event, input: unknown) => {

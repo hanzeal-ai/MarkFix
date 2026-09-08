@@ -7,7 +7,7 @@ import {
   LoaderCircle,
   MessageSquareText,
   MoreHorizontal,
-  RefreshCw,
+  RotateCw,
   Send,
 } from '@markfix/ui/icons';
 import { Button, Input, ToggleGroup, ToggleGroupItem } from '@markfix/ui';
@@ -42,28 +42,29 @@ export function BrowserToolbar({
 }: BrowserToolbarProps) {
   return (
     <>
+      <div className="nav-buttons">
+        <Button
+          aria-label="后退"
+          title="后退"
+          disabled={!browserState?.canGoBack}
+          onClick={() => void window.markfix.back()}
+        >
+          <ArrowLeft />
+        </Button>
+        <Button
+          aria-label="前进"
+          title="前进"
+          disabled={!browserState?.canGoForward}
+          onClick={() => void window.markfix.forward()}
+        >
+          <ArrowRight />
+        </Button>
+
+        <Button aria-label="刷新" title="刷新" onClick={() => void window.markfix.reload()}>
+          <RotateCw className={browserState.loading ? 'spin' : ''} />
+        </Button>
+      </div>
       <div className="prototype-browser-bar">
-        <div className="nav-buttons">
-          <Button
-            aria-label="后退"
-            title="后退"
-            disabled={!browserState.canGoBack}
-            onClick={() => void window.markfix.back()}
-          >
-            <ArrowLeft />
-          </Button>
-          <Button
-            aria-label="前进"
-            title="前进"
-            disabled={!browserState.canGoForward}
-            onClick={() => void window.markfix.forward()}
-          >
-            <ArrowRight />
-          </Button>
-          <Button aria-label="刷新" title="刷新" onClick={() => void window.markfix.reload()}>
-            <RefreshCw className={browserState.loading ? 'spin' : ''} />
-          </Button>
-        </div>
         <form
           className="address"
           onSubmit={(event) => {
@@ -131,11 +132,13 @@ export function BrowserToolbar({
         </Button>
         <Button
           className="save-annotations-button"
+          size="icon"
+          aria-label={isSubmitting ? '正在提交标注' : '提交标注'}
+          title={isSubmitting ? '正在提交标注…' : `提交标注（${unsubmittedCount} 条待提交）`}
           disabled={unsubmittedCount === 0 || isSubmitting}
           onClick={onOpenReview}
         >
           {isSubmitting ? <LoaderCircle className="spin" /> : <Send />}
-          提交标注{unsubmittedCount > 0 ? ` ${unsubmittedCount}` : ''}
         </Button>
       </div>
     </>

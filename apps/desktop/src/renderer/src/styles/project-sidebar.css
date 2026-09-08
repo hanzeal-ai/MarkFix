@@ -2,14 +2,13 @@
   position: fixed;
   z-index: 40;
   inset: 0 auto 0 0;
-  width: 228px;
+  width: var(--sidebar-width, 228px);
   display: flex;
   flex-direction: column;
-  padding: 48px 10px 12px 0;
+  padding: 12px 10px 12px 0;
   border-right: 1px solid var(--line);
   background: #fff;
   transition: width 160ms ease;
-  -webkit-app-region: drag;
 }
 .header-navigation-controls {
   display: flex;
@@ -22,18 +21,17 @@
 .navigation-header {
   position: fixed;
   z-index: 40;
-  inset: 0 0 auto 228px;
+  inset: 0 0 auto var(--sidebar-width, 228px);
   height: 56px;
   display: flex;
   align-items: center;
   padding: 0 14px;
   border-bottom: 1px solid var(--line);
   background: #fff;
-  -webkit-app-region: drag;
 }
 .sidebar-collapsed .navigation-header {
   left: 0;
-  padding-left: 108px;
+  padding-left: 14px;
 }
 .header-navigation-controls button {
   position: relative;
@@ -243,37 +241,31 @@
   color: var(--text-3);
   font-size: 10px;
 }
-.project-sidebar-item > i {
-  min-width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  padding: 0 5px;
-  border-radius: 10px;
-  background: var(--surface-3);
-  color: var(--text-2);
-  font-size: 10px;
-  font-style: normal;
-}
 .project-sidebar-history {
   margin-top: 10px;
 }
 .project-sidebar-account-area {
   position: relative;
-  margin-top: 8px;
-  padding-left: 8px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin: 8px -10px -12px 0;
+  padding-right: 8px;
+  border-top: 1px solid var(--line);
   -webkit-app-region: no-drag;
 }
 .project-sidebar-account {
-  width: 100%;
-  height: 52px;
+  flex: 1;
+  min-width: 0;
+  height: 64px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 9px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface-2);
+  padding: 10px 8px 10px 16px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
   color: var(--text);
   text-align: left;
   cursor: pointer;
@@ -390,4 +382,15 @@
 .account-menu .account-menu-logout:hover,
 .account-menu .account-menu-logout:hover svg {
   color: #b04444;
+}
+
+.desktop-update-button {
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 6px;
+  font-size: 11px;
+}
+.desktop-update-button svg {
+  width: 14px;
+  height: 14px;
 }

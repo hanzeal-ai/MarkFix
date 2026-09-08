@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2 } from '@markfix/ui/icons';
+import { ArrowRight, CheckCircle2 } from '@markfix/ui/icons';
 import {
   Alert,
   AlertDescription,
@@ -7,7 +7,7 @@ import {
   Card,
   Input,
   Label,
-  MarkFixMark,
+  AuthLayout,
   PasswordInput,
 } from '@markfix/ui';
 import { MarkFixApi } from '@markfix/api-client';
@@ -135,18 +135,18 @@ export function AccountAccess() {
           : '进入管理后台';
 
   return (
-    <main className="account-shell">
-      <a className="account-back" href="/">
-        <ArrowLeft /> 返回官网
-      </a>
+    <AuthLayout className="account-shell">
       <Card className="account-card">
-        <a className="account-brand" href="/" aria-label="MarkFix 首页">
-          <MarkFixMark size={30} />
-          MarkFix
-        </a>
         <header>
           <span>{content[mode].eyebrow}</span>
           <h1>{content[mode].title}</h1>
+          <p>
+            {mode === 'login'
+              ? '欢迎回来，继续推进团队的每一处改进。'
+              : mode === 'forgot'
+                ? '输入注册邮箱，我们将向你发送密码重置链接。'
+                : '一个账户，连接桌面标注与团队工作区。'}
+          </p>
         </header>
 
         {message ? (
@@ -290,6 +290,11 @@ export function AccountAccess() {
             </span>
           </footer>
         )}
+        {!message && (mode === 'forgot' || mode === 'reset') && (
+          <footer>
+            <a href="/login">返回登录</a>
+          </footer>
+        )}
         {mode === 'register' ? (
           <p className="account-consent">
             创建账户即表示你同意 <a href="/terms">服务条款</a> 和 <a href="/privacy">隐私政策</a>。
@@ -301,6 +306,6 @@ export function AccountAccess() {
         <a href="/privacy">隐私</a>
         <a href="/terms">条款</a>
       </div>
-    </main>
+    </AuthLayout>
   );
 }

@@ -1,4 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  sidebarMinWidth,
+  sidebarMaxWidth,
+  sidebarCollapseWidth,
+  isSidebarWidth,
+} from '../../../sidebar-layout';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { toast } from '@markfix/ui';
 import {
   diagnosticEvidenceSchema,
@@ -14,6 +28,7 @@ import {
   type WebsiteProject,
   type WorkspaceSummary,
 } from '@markfix/contracts';
+import { hasDesktopUpdateEdits } from '../../../desktop-update';
 import { selectEditableProjectPageRecords } from '../page-records';
 import { projectReportOverlays } from '../project-report-overlays';
 import { latestReportRejections, rejectedRecordUpdates } from '../report-reconciliation';
@@ -23,6 +38,8 @@ import { BrowserToolbar } from './BrowserToolbar';
 import { ElementCommentPanel } from './ElementCommentPanel';
 import { firstAnnotationGuideStep } from './FirstAnnotationGuide';
 import { HistoryRestoreDialog } from './HistoryRestoreDialog';
+import { DeleteProjectDialog } from './DeleteProjectDialog';
+import { projectErrorMessage } from '../project-error';
 import { ProjectLoadState } from './ProjectLoadState';
 import { useCaptureEditor } from './useCaptureEditor';
 import { useElementCommentEditor } from './useElementCommentEditor';
@@ -69,8 +86,27 @@ export function AnnotationWorkspace({
         browserModeFromSession(window.sessionStorage.getItem(browserModeSessionKey)),
       ) && window.localStorage.getItem('markfix:sidebar-expanded') !== 'false',
   );
+  const [sidebarPeek, setSidebarPeek] = useState(false);
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const showSidebarPeek = () => {
+    clearTimeout(peekTimer.current);
+    if (!sidebarExpanded) setSidebarPeek(true);
+  };
+  const endSidebarPeek = () => {
+    clearTimeout(peekTimer.current);
+    peekTimer.current = setTimeout(() => setSidebarPeek(false), 180);
+  };
+  useEffect(() => () => clearTimeout(peekTimer.current), []);
+  useEffect(() => {
+    if (sidebarExpanded) setSidebarPeek(false);
+  }, [sidebarExpanded]);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = Number(window.localStorage.getItem('markfix:sidebar-width'));
+    return isSidebarWidth(saved) && saved > 0 && saved !== 228 ? saved : sidebarMinWidth;
+  });
   const [newProjectInput, setNewProjectInput] = useState('');
-  const [newProjectError, setNewProjectError] = useState<string>();
+  const [pendingDeleteProject, setPendingDeleteProject] = useState<WebsiteProject>();
+  const [deletingProject, setDeletingProject] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
   const [mode, setModeState] = useState<BrowserMode>(() =>
     browserModeFromSession(window.sessionStorage.getItem(browserModeSessionKey)),
@@ -325,7 +361,6 @@ export function AnnotationWorkspace({
           return;
         }
         if (payload === 'new-annotation') {
-          setNewProjectError(undefined);
           setActiveView('new');
           return;
         }
@@ -480,7 +515,7 @@ export function AnnotationWorkspace({
       })
       .catch((error: unknown) => {
         if (active && requestId === projectSwitchRequestRef.current)
-          setNewProjectError(error instanceof Error ? error.message : '无法读取项目。');
+          toast.error(error instanceof Error ? error.message : '无法读取项目。');
       });
     return () => {
       active = false;
@@ -527,10 +562,15 @@ export function AnnotationWorkspace({
     };
   }, [currentPageUrl, selectedProjectId]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.localStorage.setItem('markfix:sidebar-expanded', String(sidebarExpanded));
-    void window.markfix.setWorkspaceLayout(sidebarExpanded ? 228 : 0, activeView === 'workspace');
-  }, [activeView, sidebarExpanded]);
+    window.localStorage.setItem('markfix:sidebar-width', String(sidebarWidth));
+    void window.markfix.setWorkspaceLayout(
+      sidebarExpanded ? sidebarWidth : 0,
+      activeView === 'workspace' && !pendingDeleteProject,
+      !sidebarExpanded && sidebarPeek ? sidebarWidth : 0,
+    );
+  }, [activeView, sidebarExpanded, sidebarWidth, sidebarPeek, pendingDeleteProject]);
 
   useEffect(() => {
     window.sessionStorage.setItem(browserModeSessionKey, mode);
@@ -720,7 +760,6 @@ export function AnnotationWorkspace({
     const previousUrl = url;
     const previousPageSessionId = pageSessionId;
     const changingProject = previousProjectId !== project.id;
-    setNewProjectError(undefined);
     if (changingProject) {
       selectedProjectIdRef.current = project.id;
       setSelectedProjectId(project.id);
@@ -768,9 +807,12 @@ export function AnnotationWorkspace({
   };
 
   const deleteWebsiteProject = async (project: WebsiteProject): Promise<void> => {
+    if (deletingProject) return;
+    setDeletingProject(true);
     try {
       const result = await window.markfix.deleteWebsiteProject(project.id);
       if (!result.deleted) return;
+      setPendingDeleteProject(undefined);
       projectSwitchRequestRef.current += 1;
       setWebsiteProjects((projects) => projects.filter(({ id }) => id !== project.id));
       setDiagnosticAnnotations((records) =>
@@ -791,7 +833,9 @@ export function AnnotationWorkspace({
           .catch(() => undefined);
       setNotice(`已删除项目：${project.title}`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : '项目删除失败。');
+      toast.error(error instanceof Error ? error.message : '项目删除失败。');
+    } finally {
+      setDeletingProject(false);
     }
   };
 
@@ -805,11 +849,10 @@ export function AnnotationWorkspace({
     if (hadUnsavedDraft) await resetTransientDraft();
     const workspaceId = selectedWorkspaceId ?? workspaces[0]?.id;
     if (storageMode === 'CLOUD' && !workspaceId) {
-      setNewProjectError('当前账号没有可用工作区，请先在管理端创建工作区。');
+      toast.error('当前账号没有可用工作区，请先在管理端创建工作区。');
       return;
     }
     setCreatingProject(true);
-    setNewProjectError(undefined);
     if (prefillInput) setNewProjectInput(input);
     try {
       const result = await window.markfix.createWebsiteProject(storageMode, workspaceId, input);
@@ -844,9 +887,7 @@ export function AnnotationWorkspace({
       if (!(await switchProject(result.project))) return;
       if (result.created) setNotice(`已创建项目：${result.project.title}`);
     } catch (error) {
-      setNewProjectError(
-        error instanceof Error ? error.message : '网站加载或解析失败，请检查地址后重试。',
-      );
+      toast.error(projectErrorMessage(error));
     } finally {
       setCreatingProject(false);
     }
@@ -866,7 +907,7 @@ export function AnnotationWorkspace({
     try {
       shortcutOrigin = new URL(shortcutUrl).origin;
     } catch {
-      setNewProjectError('快捷方式的网址无效，请修改后重试。');
+      toast.error('快捷方式的网址无效，请修改后重试。');
       return;
     }
     const matchingProjects = websiteProjects.filter(({ origin }) => origin === shortcutOrigin);
@@ -920,6 +961,7 @@ export function AnnotationWorkspace({
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent): void => {
+      if (document.querySelector('[data-desktop-update-active]')) return;
       if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'l') {
         event.preventDefault();
         addressInputRef.current?.focus();
@@ -950,8 +992,8 @@ export function AnnotationWorkspace({
 
   const toggleSidebar = (): void => setSidebarExpanded((expanded) => !expanded);
   const openNewAnnotation = (): void => {
-    setNewProjectError(undefined);
     setActiveView('new');
+    requestAnimationFrame(() => document.getElementById('new-project-url')?.focus());
   };
   const retryProjectLoad = (): void => {
     if (!selectedWebsiteProject) return;
@@ -969,14 +1011,38 @@ export function AnnotationWorkspace({
   };
   const navigation = (
     <ProjectSidebar
-      expanded={sidebarExpanded}
+      updateAvailable={
+        policy?.status === 'upgrade-recommended' || policy?.status === 'upgrade-required'
+      }
+      beforeUpdate={async () => {
+        if (
+          isSubmitting ||
+          creatingProject ||
+          deletingProject ||
+          captureLoading ||
+          captureRendering
+        )
+          throw new Error('当前操作尚未完成，请稍后更新。');
+        const savedElement = elementComments.find(({ id }) => id === editingElementCommentId);
+        const elementChanged = hasDesktopUpdateEdits(
+          { note: elementCommentNote, evidence: elementEvidence },
+          savedElement,
+        );
+        const savedCapture = savedCaptures.find(({ id }) => id === editingCaptureId);
+        const captureChanged = hasDesktopUpdateEdits(
+          { note: captureNote, marks: captureMarks, evidence: captureEvidence },
+          savedCapture,
+        );
+        if (elementChanged && !(await completeElementComment()))
+          throw new Error('当前元素批注未能保存，已停止更新以保留编辑内容。');
+        if (captureChanged && !(await completeCapture()))
+          throw new Error('当前截图批注未能保存，已停止更新以保留编辑内容。');
+      }}
+      expanded={sidebarExpanded || sidebarPeek}
       user={user}
       projects={websiteProjects}
       selectedProjectId={selectedProjectId}
       activeView={activeView}
-      annotationCount={(projectId) =>
-        projectAnnotations(projectId, elementComments, savedCaptures, diagnosticAnnotations).length
-      }
       onNew={openNewAnnotation}
       onHistory={() => {
         void window.markfix
@@ -986,7 +1052,7 @@ export function AnnotationWorkspace({
           );
       }}
       onProject={(project) => void switchProject(project)}
-      onDeleteProject={(project) => void deleteWebsiteProject(project)}
+      onDeleteProject={setPendingDeleteProject}
       onOpenSettings={() => {
         void window.markfix
           .openSettings()
@@ -1001,6 +1067,8 @@ export function AnnotationWorkspace({
     <HeaderNavigationControls
       expanded={sidebarExpanded}
       onToggle={toggleSidebar}
+      onPeek={showSidebarPeek}
+      onEndPeek={endSidebarPeek}
       onNew={openNewAnnotation}
     />
   );
@@ -1018,16 +1086,93 @@ export function AnnotationWorkspace({
     />
   );
 
+  const deleteProjectDialog = (
+    <DeleteProjectDialog
+      project={pendingDeleteProject}
+      busy={deletingProject}
+      onCancel={() => setPendingDeleteProject(undefined)}
+      onConfirm={(project) => void deleteWebsiteProject(project)}
+    />
+  );
+
+  const sidebarResizeHandle = (
+    <div
+      className="sidebar-resize-handle"
+      role="separator"
+      aria-label="调整项目侧边栏宽度"
+      aria-orientation="vertical"
+      aria-valuemin={0}
+      aria-valuemax={sidebarMaxWidth}
+      aria-valuenow={sidebarExpanded ? sidebarWidth : 0}
+      tabIndex={0}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+        if (event.clientX < sidebarCollapseWidth) setSidebarExpanded(false);
+        else {
+          setSidebarExpanded(true);
+          setSidebarWidth(
+            Math.round(Math.max(sidebarMinWidth, Math.min(sidebarMaxWidth, event.clientX))),
+          );
+        }
+      }}
+      onPointerUp={(event) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId))
+          event.currentTarget.releasePointerCapture(event.pointerId);
+      }}
+      onKeyDown={(event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home'].includes(event.key)) return;
+        event.preventDefault();
+        if (event.key === 'Home' || (event.key === 'ArrowLeft' && sidebarWidth === sidebarMinWidth))
+          setSidebarExpanded(false);
+        else {
+          setSidebarExpanded(true);
+          setSidebarWidth(
+            event.key === 'ArrowRight'
+              ? Math.min(sidebarMaxWidth, sidebarWidth + 16)
+              : Math.max(sidebarMinWidth, sidebarWidth - 16),
+          );
+        }
+      }}
+    />
+  );
+  const shellStyle = {
+    '--sidebar-peek-width': `${sidebarWidth}px`,
+    '--sidebar-width': `${sidebarExpanded ? sidebarWidth : 0}px`,
+  } as CSSProperties;
+
   if (activeView === 'new') {
     return (
-      <div className={`shell ${sidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
-        {navigation}
-        <header className="navigation-header">{headerNavigation}</header>
+      <div
+        style={shellStyle}
+        className={`shell ${sidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'} ${sidebarPeek && !sidebarExpanded ? 'sidebar-peeking' : ''}`}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            clearTimeout(peekTimer.current);
+            setSidebarPeek(false);
+          }
+        }}
+      >
+        <div
+          onMouseEnter={showSidebarPeek}
+          onMouseLeave={endSidebarPeek}
+          onFocus={showSidebarPeek}
+          onBlur={endSidebarPeek}
+        >
+          {navigation}
+        </div>
+        {sidebarResizeHandle}
+        <header className="navigation-header" />
+        <div className="window-controls">{headerNavigation}</div>
         {historyRestoreDialog}
+        {deleteProjectDialog}
         <NewProjectPage
           initialValue={newProjectInput}
           busy={creatingProject}
-          error={newProjectError}
           projects={websiteProjects}
           onSubmit={(input, storageMode) => void createWebsiteProject(input, storageMode)}
           onShortcut={(shortcutId, shortcutUrl, storageMode) =>
@@ -1039,11 +1184,28 @@ export function AnnotationWorkspace({
   }
 
   return (
-    <div className={`shell ${sidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
-      {navigation}
+    <div
+      style={shellStyle}
+      className={`shell ${sidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'} ${sidebarPeek && !sidebarExpanded ? 'sidebar-peeking' : ''}`}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          clearTimeout(peekTimer.current);
+          setSidebarPeek(false);
+        }
+      }}
+    >
+      <div
+        onMouseEnter={showSidebarPeek}
+        onMouseLeave={endSidebarPeek}
+        onFocus={showSidebarPeek}
+        onBlur={endSidebarPeek}
+      >
+        {navigation}
+      </div>
+      {sidebarResizeHandle}
       {historyRestoreDialog}
+      {deleteProjectDialog}
       <header className="browser-bar">
-        {headerNavigation}
         <BrowserToolbar
           addressInputRef={addressInputRef}
           browserState={browserState}
@@ -1058,6 +1220,7 @@ export function AnnotationWorkspace({
           onUrlChange={setUrl}
         />
       </header>
+      <div className="window-controls">{headerNavigation}</div>
       {selectedWebsiteProject && (browserState.loading || browserState.loadFailure) && (
         <ProjectLoadState
           browserState={browserState}

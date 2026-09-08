@@ -93,7 +93,6 @@ export class ChildWindowManager {
     const settings = this.createWindow({
       ...macWindowMaterial,
       parent: mainWindow,
-      titleBarStyle: 'default',
       width: 760,
       height: 520,
       minWidth: 680,
@@ -236,12 +235,10 @@ export class ChildWindowManager {
   }
 
   private createWindow(options: Electron.BrowserWindowConstructorOptions): BrowserWindow {
-    const titleBarStyle = options.titleBarStyle ?? 'hiddenInset';
     const window = new BrowserWindow({
       ...options,
       show: false,
-      titleBarStyle,
-      ...(titleBarStyle === 'default' ? {} : { trafficLightPosition: { x: 16, y: 16 } }),
+      titleBarStyle: 'default',
       autoHideMenuBar: true,
       webPreferences: childWebPreferences(),
     });

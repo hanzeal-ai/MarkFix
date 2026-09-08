@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
-  ChevronUp,
+  CircleHelp,
+  Gift,
   CornerDownLeft,
   EllipsisVertical,
   History,
@@ -15,6 +16,7 @@ import {
   Trash2,
 } from '@markfix/ui/icons';
 import {
+  toast,
   Button,
   Dialog,
   DialogContent,
@@ -33,6 +35,7 @@ import {
 } from '@markfix/ui';
 import type { ProjectStorageMode, WebsiteProject } from '@markfix/contracts';
 import { desktopPreferenceKeys, newAnnotationStorageModePreference } from './desktop-preferences';
+import { DesktopUpdateButton } from './DesktopUpdateButton';
 import { MarkFixGlyph, WebsiteLogo } from './project-navigation/WebsiteLogo';
 
 export { HistoryPage, ProjectHistoryDetail } from './project-navigation/HistoryPages';
@@ -120,10 +123,14 @@ export function HeaderNavigationControls({
   expanded,
   onToggle,
   onNew,
+  onPeek,
+  onEndPeek,
 }: {
   expanded: boolean;
   onToggle: () => void;
   onNew: () => void;
+  onPeek: () => void;
+  onEndPeek: () => void;
 }): React.JSX.Element {
   return (
     <div className="header-navigation-controls" aria-label="项目快捷操作">
@@ -133,22 +140,32 @@ export function HeaderNavigationControls({
         size="icon"
         aria-label={expanded ? '收起项目侧边栏' : '展开项目侧边栏'}
         aria-keyshortcuts="Meta+B"
-        title={`${expanded ? '收起' : '展开'}侧边栏（⌘B）`}
+        title={expanded ? '收起侧边栏（⌘B）' : '展开侧边栏（⌘B）'}
         onClick={onToggle}
+        onMouseEnter={expanded ? undefined : onPeek}
+        onMouseLeave={onEndPeek}
+        onFocus={expanded ? undefined : onPeek}
+        onBlur={onEndPeek}
       >
         {expanded ? <PanelLeftClose /> : <PanelLeftOpen />}
       </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="新标注"
-        aria-keyshortcuts="Meta+N"
-        title="新标注（⌘N）"
-        onClick={onNew}
-      >
-        <SquarePen />
-      </Button>
+      {!expanded && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="新标注"
+          title="新标注（⌘N）"
+          aria-keyshortcuts="Meta+N"
+          onClick={onNew}
+          onMouseEnter={onPeek}
+          onMouseLeave={onEndPeek}
+          onFocus={onPeek}
+          onBlur={onEndPeek}
+        >
+          <SquarePen />
+        </Button>
+      )}
     </div>
   );
 }
@@ -159,12 +176,13 @@ export function ProjectSidebar({
   projects,
   selectedProjectId,
   activeView,
-  annotationCount,
   onNew,
   onHistory,
   onProject,
   onDeleteProject,
   onOpenSettings,
+  beforeUpdate,
+  updateAvailable,
   onLogout,
 }: {
   expanded: boolean;
@@ -172,12 +190,13 @@ export function ProjectSidebar({
   projects: WebsiteProject[];
   selectedProjectId: string | undefined;
   activeView: 'workspace' | 'new';
-  annotationCount: (projectId: string) => number;
   onNew: () => void;
   onHistory: () => void;
   onProject: (project: WebsiteProject) => void;
   onDeleteProject: (project: WebsiteProject) => void;
   onOpenSettings: () => void;
+  beforeUpdate: () => Promise<void>;
+  updateAvailable: boolean;
   onLogout: () => Promise<void>;
 }): React.JSX.Element | null {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -226,7 +245,6 @@ export function ProjectSidebar({
                     {project.storageMode === 'LOCAL' ? '本地' : '云端'}
                   </small>
                 </span>
-                <i>{annotationCount(project.id)}</i>
               </Button>
               <Button
                 type="button"
@@ -294,12 +312,41 @@ export function ProjectSidebar({
               <span className="account-avatar">{initials}</span>
               <span className="project-sidebar-account-copy">
                 <strong>{user.displayName}</strong>
-                <small>{user.email}</small>
               </span>
-              <ChevronUp className={accountMenuOpen ? 'open' : ''} />
             </Button>
           </DropdownMenuTrigger>
         </DropdownMenu>
+        <DesktopUpdateButton
+          available={updateAvailable}
+          beforeStart={beforeUpdate}
+          fallback={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="project-sidebar-help"
+                  aria-label="帮助"
+                  title="帮助"
+                >
+                  <CircleHelp />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="end" sideOffset={8} aria-label="帮助菜单">
+                <DropdownMenuItem
+                  onSelect={() => {
+                    void window.markfix
+                      .openOfficialWebsite()
+                      .catch(() => toast.error('无法打开 Chrome，请确认已安装 Google Chrome。'));
+                  }}
+                >
+                  <Gift />
+                  <span>新功能</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />
       </div>
     </nav>
   );
@@ -308,14 +355,12 @@ export function ProjectSidebar({
 export function NewProjectPage({
   initialValue,
   busy,
-  error,
   projects,
   onSubmit,
   onShortcut,
 }: {
   initialValue: string;
   busy: boolean;
-  error: string | undefined;
   projects: WebsiteProject[];
   onSubmit: (url: string, storageMode: ProjectStorageMode) => void;
   onShortcut: (shortcutId: string, url: string, storageMode: ProjectStorageMode) => void;
@@ -455,7 +500,6 @@ export function NewProjectPage({
               autoFocus
               value={value}
               placeholder="输入网站地址，例如 example.com"
-              aria-describedby={error ? 'new-project-error' : undefined}
               onChange={(event) => setValue(event.target.value)}
             />
             <Button
@@ -483,11 +527,6 @@ export function NewProjectPage({
               </label>
             ))}
           </fieldset>
-          {error && (
-            <p id="new-project-error" role="alert">
-              {error}
-            </p>
-          )}
         </form>
 
         <section className="new-project-recents" aria-label="快捷入口">
