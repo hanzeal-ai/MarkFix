@@ -1,6 +1,14 @@
-import { createHash } from 'node:crypto';
-import { mkdir, rm, unlink, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import {
+  createEnvironmentSchema,
+  createProjectSchema,
+  createReportSchema,
+  createWorkspaceSchema,
+  updateEnvironmentSchema,
+  updateProjectSchema,
+  type CreateReport,
+  type ReportStatus,
+} from '@markfix/contracts';
+import { Prisma } from '@markfix/database';
 import {
   ConflictException,
   ForbiddenException,
@@ -10,21 +18,14 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import {
-  createEnvironmentSchema,
-  createProjectSchema,
-  createReportSchema,
-  createWorkspaceSchema,
-  updateProjectSchema,
-  updateEnvironmentSchema,
-  type CreateReport,
-  type ReportStatus,
-} from '@markfix/contracts';
-import { Prisma } from '@markfix/database';
-import { hashPassword } from './auth-crypto.js';
+import { createHash } from 'node:crypto';
+import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { maximumArtifactBytes, pngUploadBytes } from './artifact-upload.js';
+import { hashPassword } from './auth-crypto.js';
 import { canTransitionReport } from './authorization.js';
 import { DatabaseService } from './database.service.js';
+import { cleanupExpiredSubmissions } from './expired-submission-cleanup.js';
 import { transitionReport, type TransitionAction } from './report-state.js';
 
 type SubmissionPayload = Omit<CreateReport, 'screenshotDataUrl'>;
@@ -47,11 +48,11 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     await mkdir(this.artifactDirectory, { recursive: true });
-    await this.cleanupExpiredSubmissions();
+    await cleanupExpiredSubmissions(this.database, this.artifactDirectory);
     this.cleanupTimer = setInterval(
       () =>
-        void this.cleanupExpiredSubmissions().catch((error: unknown) =>
-          console.error('Expired submission cleanup failed', error),
+        void cleanupExpiredSubmissions(this.database, this.artifactDirectory).catch(
+          (error: unknown) => console.error('Expired submission cleanup failed', error),
         ),
       60 * 60 * 1000,
     );
@@ -96,22 +97,6 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
 
   onModuleDestroy(): void {
     if (this.cleanupTimer) clearInterval(this.cleanupTimer);
-  }
-
-  private async cleanupExpiredSubmissions(): Promise<void> {
-    const expired = await this.database.reportSubmission.findMany({
-      where: { expiresAt: { lt: new Date() }, status: { not: 'FINALIZED' } },
-      include: { artifact: true },
-      take: 500,
-    });
-    await Promise.all(
-      expired.map(async (submission) => {
-        if (submission.artifact) {
-          await rm(join(this.artifactDirectory, `${submission.artifact.id}.png`), { force: true });
-        }
-        await this.database.reportSubmission.deleteMany({ where: { id: submission.id } });
-      }),
-    );
   }
 
   async bootstrap(userId: string) {
