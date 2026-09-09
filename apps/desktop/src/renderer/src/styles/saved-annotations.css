@@ -237,6 +237,7 @@ p.annotation-rejection {
   outline: none;
   background: #fff;
   color: #191a1d;
+  font-size: 12px;
   line-height: 1.55;
 }
 .element-selection-card textarea:focus {
