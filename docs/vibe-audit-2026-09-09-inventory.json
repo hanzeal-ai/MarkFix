@@ -1,0 +1,3534 @@
+{
+  "revision": "4d6e42a4e9b54718916de3a6635f1b8d587baf50",
+  "scope": "tracked and untracked non-ignored working tree files; generated and ignored output excluded",
+  "relativeImportCycles": [],
+  "files": [
+    {
+      "path": ".dockerignore",
+      "sha256": "142396b16fe958c54591cb3ee6fcc8aeaa66be6589bc54177d05ac092736e65a",
+      "bytes": 235,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 21
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "03288b808cb2b57f981e9029c48122140e78d989c7bfae5525267b0e030755a7",
+      "bytes": 4275,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 108
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "5a549322fdf732691bcf79a44f3070cdd2de7ea2bc0087ff9902ea39ce593cd1",
+      "bytes": 223,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 15
+    },
+    {
+      "path": ".nvmrc",
+      "sha256": "68ca3fba3b7e864770cb61aeb306d4bd4354b68ab4dd38450860c5d823e42a53",
+      "bytes": 3,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 1
+    },
+    {
+      "path": ".prettierignore",
+      "sha256": "5380a7116e7a18590d97a457b42fe7fc8e5c98991a78f14bdf1b723a003d9b5e",
+      "bytes": 50,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 5
+    },
+    {
+      "path": ".prettierrc.json",
+      "sha256": "85378d4d734cb7d35641c44ffdf322fe0bc76a3b12841927f20aa5f0eba12695",
+      "bytes": 73,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 5
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "86d90e86bc0a38e75288489c21b0aae68ba2d197b653e3c9ff4380dc43e44121",
+      "bytes": 2572,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 38
+    },
+    {
+      "path": "README.md",
+      "sha256": "61122c3d92bf9338d249b6b306280ba446adc8ad471b04227689adb2c05497fa",
+      "bytes": 2617,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 64
+    },
+    {
+      "path": "apps/api/.env.example",
+      "sha256": "5c3635a909fb6fcd38060a866527b9c2bc65745ffb08b410f1333a4bad07a964",
+      "bytes": 612,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 13
+    },
+    {
+      "path": "apps/api/package.json",
+      "sha256": "d610b930e23b7adc3191a414df26b6e3b7088cf6157c0accde9c0e124173bf22",
+      "bytes": 761,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 33
+    },
+    {
+      "path": "apps/api/scripts/repair-orphan-artifacts.ts",
+      "sha256": "337a0ab5c1a70219b9f2d7eb13eef0ae1fbb5e07a4a86976f5d348ca872ff098",
+      "bytes": 957,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 20,
+      "imports": ["node:path", "@markfix/database", "../src/orphan-artifact-repair.js"]
+    },
+    {
+      "path": "apps/api/scripts/verify-maintenance.ts",
+      "sha256": "5a9cf54ca7a7a3e596ff1a76a4392cb46a5fdabbf46d3bb2189dbbcbca80454e",
+      "bytes": 6489,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 165,
+      "imports": [
+        "node:assert/strict",
+        "node:fs/promises",
+        "node:os",
+        "node:path",
+        "@markfix/database",
+        "../src/database.service.js",
+        "../src/expired-submission-cleanup.js",
+        "../src/orphan-artifact-repair.js",
+        "../src/commercial/report-writer.js"
+      ]
+    },
+    {
+      "path": "apps/api/src/app.controller.ts",
+      "sha256": "a7bc331091203d0c9a305c87ee6ddbf9d327271cb2d5058517ad2a824276bab8",
+      "bytes": 12359,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 395,
+      "imports": [
+        "@nestjs/common",
+        "node:fs",
+        "fastify",
+        "./app.service.js",
+        "./auth.service.js",
+        "./auth-rate-limit.service.js",
+        "./client-policy.service.js",
+        "./current-user.decorator.js",
+        "./public.decorator.js",
+        "./subscription.service.js"
+      ]
+    },
+    {
+      "path": "apps/api/src/app.module.ts",
+      "sha256": "18d2f09a970bdab53ac5334295496bdf33f150a36f6a6f4b979b180580f6cac7",
+      "bytes": 1902,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 51,
+      "imports": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "./app.controller.js",
+        "./app.service.js",
+        "./auth.guard.js",
+        "./auth-rate-limit.service.js",
+        "./auth.service.js",
+        "./client-policy.service.js",
+        "./commercial.controller.js",
+        "./commercial.service.js",
+        "./database.service.js",
+        "./email.port.js",
+        "./subscription.controller.js",
+        "./subscription.service.js",
+        "./project-data.controller.js",
+        "./project-data.service.js"
+      ]
+    },
+    {
+      "path": "apps/api/src/app.service.ts",
+      "sha256": "d68abeafb014adcd090de49516ca7c6286e8048e9b0d878667e641323cd83d23",
+      "bytes": 31103,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 830,
+      "imports": [
+        "@markfix/contracts",
+        "@markfix/database",
+        "@nestjs/common",
+        "node:crypto",
+        "node:fs/promises",
+        "node:path",
+        "./artifact-upload.js",
+        "./auth-crypto.js",
+        "./authorization.js",
+        "./database.service.js",
+        "./expired-submission-cleanup.js",
+        "./report-state.js"
+      ]
+    },
+    {
+      "path": "apps/api/src/artifact-upload.ts",
+      "sha256": "15d8ab0750e220756ff806b83de79e7753f7464e5da9d2cf8c2a7902b930a8fc",
+      "bytes": 269,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 8,
+      "imports": ["@nestjs/common"]
+    },
+    {
+      "path": "apps/api/src/auth-crypto.ts",
+      "sha256": "c987c8daddb5aefb6dccf94323676a69b1433b5822525042f6cbedea9896857d",
+      "bytes": 2533,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 74,
+      "imports": ["node:crypto", "node:util"]
+    },
+    {
+      "path": "apps/api/src/auth-rate-limit.service.ts",
+      "sha256": "0f3f888162c44e661074c94098913c4f18d5752098c57bf2fc54d8b22363bfd2",
+      "bytes": 1205,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 41,
+      "imports": ["@nestjs/common"]
+    },
+    {
+      "path": "apps/api/src/auth.guard.ts",
+      "sha256": "0eba1d35f3333f94c43f72e41210d8f40260deb589b7f2e891f66ea9e9e14c9d",
+      "bytes": 1783,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 57,
+      "imports": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "fastify",
+        "./auth.service.js",
+        "./current-user.decorator.js",
+        "./public.decorator.js"
+      ]
+    },
+    {
+      "path": "apps/api/src/auth.service.ts",
+      "sha256": "dac7ea85010bcea6e6d930e2d820237ee2e3d152eec04f0c73532c4ae8378e9f",
+      "bytes": 16287,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 461,
+      "imports": [
+        "node:fs/promises",
+        "node:path",
+        "@nestjs/common",
+        "./database.service.js",
+        "./email.port.js",
+        "./auth-crypto.js"
+      ]
+    },
+    {
+      "path": "apps/api/src/authorization.ts",
+      "sha256": "e5130fa2ae536d0e2d617c545380004d69a19364c5fa4d0838b7f6f76b877819",
+      "bytes": 699,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 19,
+      "imports": ["./report-state.js"]
+    },
+    {
+      "path": "apps/api/src/client-policy.service.ts",
+      "sha256": "7c1179b7fd241a897ab7430e0186b73e746218e7505343c54c7ac503c4f05a1a",
+      "bytes": 4133,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 101,
+      "imports": ["@nestjs/common"]
+    },
+    {
+      "path": "apps/api/src/commercial.controller.ts",
+      "sha256": "62c342df69460736e97b2a160567130808fac54bfdcdbd9b7b2bc2b45d879846",
+      "bytes": 2060,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 63,
+      "imports": ["@nestjs/common", "./commercial.service.js", "./current-user.decorator.js"]
+    },
+    {
+      "path": "apps/api/src/commercial.service.ts",
+      "sha256": "c60679b2e8d5dc4c06d2625a2e723b92da6edab9ab335233ac112a7b105e5a0c",
+      "bytes": 18768,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 486,
+      "imports": [
+        "@markfix/contracts",
+        "@markfix/database",
+        "@nestjs/common",
+        "./commercial/report-annotation.js",
+        "./commercial/report-writer.js",
+        "./database.service.js"
+      ]
+    },
+    {
+      "path": "apps/api/src/commercial/report-annotation.ts",
+      "sha256": "2a62db33352184a75866b02ca3cfacf4027bd64ac5878aaae00ede671a46f8e7",
+      "bytes": 7467,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 216,
+      "imports": ["@markfix/database", "@markfix/contracts", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/api/src/commercial/report-writer.ts",
+      "sha256": "85b784d62b490bb3ad7a060396086384997ed97360cf8d83ac81570a8ca79218",
+      "bytes": 4872,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 145,
+      "imports": [
+        "node:crypto",
+        "@markfix/database",
+        "../database.service.js",
+        "./report-annotation.js"
+      ]
+    },
+    {
+      "path": "apps/api/src/current-user.decorator.ts",
+      "sha256": "361c0a96f0c7e56fda3cfc2ed7b9e3a01ec3407c2ba2bfdc9b091924d31bf9c0",
+      "bytes": 453,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 13,
+      "imports": ["@nestjs/common", "fastify"]
+    },
+    {
+      "path": "apps/api/src/database.service.ts",
+      "sha256": "3a98796c857dc3f2570c4b1f1f3a1b2e57292741f47fde400c5c9039c55b3f9c",
+      "bytes": 395,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 13,
+      "imports": ["@nestjs/common", "@markfix/database"]
+    },
+    {
+      "path": "apps/api/src/email.port.ts",
+      "sha256": "8c395f0df16b42dd3351c6af48d5457f77cec3668f6ee23402f790f1983655b7",
+      "bytes": 1646,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 55,
+      "imports": []
+    },
+    {
+      "path": "apps/api/src/expired-submission-cleanup.ts",
+      "sha256": "6394dbb580fbc54e102a2c3ba0f30156c4efef9cf457a610a8d5a196d8f074cd",
+      "bytes": 1039,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 28,
+      "imports": ["node:fs/promises", "node:path", "./database.service.js"]
+    },
+    {
+      "path": "apps/api/src/main.ts",
+      "sha256": "686c7c129e0943c0ec44eacd822b00029ce548bd805ac0fdfd1d0ee5bd4c5f33",
+      "bytes": 870,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 25,
+      "imports": [
+        "reflect-metadata",
+        "@nestjs/core",
+        "@nestjs/platform-fastify",
+        "./app.module.js",
+        "./artifact-upload.js"
+      ]
+    },
+    {
+      "path": "apps/api/src/orphan-artifact-repair.ts",
+      "sha256": "b3aaef6c445c4e50d5aa21f0127f2e862d97481fea758cd56a931074d96421de",
+      "bytes": 1516,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 39,
+      "imports": ["node:fs/promises", "node:path", "@markfix/database"]
+    },
+    {
+      "path": "apps/api/src/project-data.controller.ts",
+      "sha256": "b6c6f2750048ed81654b41dd5bd1745deb193bd344e86b278aef6656eb727d22",
+      "bytes": 3238,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 111,
+      "imports": ["@nestjs/common", "./current-user.decorator.js", "./project-data.service.js"]
+    },
+    {
+      "path": "apps/api/src/project-data.service.ts",
+      "sha256": "8b4a7c09b2bf7d575f4b500f5163ef68d83371f989684559fe1d4c5c67d31f10",
+      "bytes": 14674,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 360,
+      "imports": [
+        "@nestjs/common",
+        "@markfix/database",
+        "@markfix/contracts",
+        "./database.service.js"
+      ]
+    },
+    {
+      "path": "apps/api/src/public.decorator.ts",
+      "sha256": "1ddff831c45e85e29df426ba88b426eeb23e8c3e8467568a381baaf1efb17fcb",
+      "bytes": 164,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 4,
+      "imports": ["@nestjs/common"]
+    },
+    {
+      "path": "apps/api/src/report-state.ts",
+      "sha256": "54e5b807195e5276094ad3b598888e30db447a468a72168ece02f917d3e15e7e",
+      "bytes": 758,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 18,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/api/src/subscription.controller.ts",
+      "sha256": "5de6e2514cbd599e9f6e68b1ea8c420ea9d7085d45894210d93c55a54ebf6574",
+      "bytes": 784,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 18,
+      "imports": ["@nestjs/common", "./current-user.decorator.js", "./subscription.service.js"]
+    },
+    {
+      "path": "apps/api/src/subscription.service.ts",
+      "sha256": "e30cb264d75694487c2abe5430be37fc4753c117bfeaf78a0a216f34712819f6",
+      "bytes": 3714,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 103,
+      "imports": ["@nestjs/common", "./database.service.js"]
+    },
+    {
+      "path": "apps/api/tests/auth-crypto.test.ts",
+      "sha256": "ad8cdce168977a421855920bea852d163d28dbe01cc93297b4516acaa06579b4",
+      "bytes": 1345,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 33,
+      "imports": ["vitest", "../src/auth-crypto.js"]
+    },
+    {
+      "path": "apps/api/tests/auth-rate-limit-service.test.ts",
+      "sha256": "660aa4a22248cbebb3208cf4865234c0a9b9b5a69be45c8bb97a0e1a8a9a88ee",
+      "bytes": 1140,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 29,
+      "imports": ["vitest", "../src/auth-rate-limit.service.js"]
+    },
+    {
+      "path": "apps/api/tests/auth-service.test.ts",
+      "sha256": "7789a8c0f0422cd02458b8482e855ea771d83d230e08e3b267f1b76397d6184e",
+      "bytes": 4029,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 115,
+      "imports": ["vitest", "../src/auth-crypto.js", "../src/auth.service.js"]
+    },
+    {
+      "path": "apps/api/tests/authorization.test.ts",
+      "sha256": "4fe0e6f73cd61f3048b4c377ceb39f91598b5ce2f5dad387c5b70fd864da1a41",
+      "bytes": 1228,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 26,
+      "imports": ["vitest", "../src/authorization.js"]
+    },
+    {
+      "path": "apps/api/tests/client-policy.test.ts",
+      "sha256": "a624d861482261ec484998a3f6aeb8f36f3935cbc10db30a9ee437dcc4253e55",
+      "bytes": 1159,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 29,
+      "imports": ["vitest", "../src/client-policy.service.js"]
+    },
+    {
+      "path": "apps/api/tests/commercial-service.test.ts",
+      "sha256": "df9e347f63157a86db4422573df53c838f723f1fb4d4daf49c1b50e2124f8585",
+      "bytes": 12187,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 348,
+      "imports": ["vitest", "../src/commercial.service.js"]
+    },
+    {
+      "path": "apps/api/tests/desktop-update.test.ts",
+      "sha256": "ee61a1db21ff52337df693fc43f6222f904f2bc86103d53dffdc0fe6bd8b234d",
+      "bytes": 3902,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 95,
+      "imports": [
+        "reflect-metadata",
+        "@nestjs/common",
+        "@nestjs/core",
+        "@nestjs/platform-fastify",
+        "../src/app.controller.js",
+        "../src/app.service.js",
+        "../src/auth.service.js",
+        "../src/auth-rate-limit.service.js",
+        "../src/auth.guard.js",
+        "../src/subscription.service.js",
+        "vitest",
+        "../src/client-policy.service.js"
+      ]
+    },
+    {
+      "path": "apps/api/tests/email.port.test.ts",
+      "sha256": "e2f6baaa8934428ee7cd91355afb3272ec78a9c13529e0ce597ff83a52d67fd8",
+      "bytes": 1589,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 41,
+      "imports": ["vitest", "../src/email.port.js"]
+    },
+    {
+      "path": "apps/api/tests/expired-submission-cleanup.test.ts",
+      "sha256": "653f845a7d8bea277bf24191dc93a526bc1b5e4e911c571c812dcae629e489ed",
+      "bytes": 2083,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 60,
+      "imports": ["vitest", "node:fs/promises", "../src/expired-submission-cleanup.js"]
+    },
+    {
+      "path": "apps/api/tests/orphan-artifact-repair.test.ts",
+      "sha256": "08bcb95135f923e3eb7c0b981775c53a42ffd58f13f2b13483285ff50ccea82f",
+      "bytes": 2384,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 45,
+      "imports": ["vitest", "node:fs/promises", "../src/orphan-artifact-repair.js"]
+    },
+    {
+      "path": "apps/api/tests/project-data-service.test.ts",
+      "sha256": "6af18bce13faa87ec66f30fd801d98f54af0db8ade80445a145fd79a7003d957",
+      "bytes": 6219,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 195,
+      "imports": ["vitest", "@markfix/contracts", "../src/project-data.service.js"]
+    },
+    {
+      "path": "apps/api/tests/report-annotation.test.ts",
+      "sha256": "24d12739d86c7c70529c3f0517d0ab1dbaf7d83ab9c084bee1ad23dcc41c664b",
+      "bytes": 3006,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 89,
+      "imports": ["vitest", "../src/commercial/report-annotation.js"]
+    },
+    {
+      "path": "apps/api/tests/report-state.test.ts",
+      "sha256": "ca453c86bee8f948b322133298ba319058305097c98ea430979b4079e92aef45",
+      "bytes": 424,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 12,
+      "imports": ["vitest", "../src/report-state.js"]
+    },
+    {
+      "path": "apps/api/tests/subscription-service.test.ts",
+      "sha256": "db602561acb6e86fe80a9cc9f10c93779b639e18e3354bb02f249cf9a56fe353",
+      "bytes": 3285,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 97,
+      "imports": ["vitest", "../src/subscription.service.js"]
+    },
+    {
+      "path": "apps/api/tests/workspace-management.test.ts",
+      "sha256": "5dc5b26c8dde2f607bc124d337c2f0aa457f4761fedb516507321867d85fd623",
+      "bytes": 18696,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 577,
+      "imports": ["vitest", "../src/app.service.js"]
+    },
+    {
+      "path": "apps/api/tsconfig.build.json",
+      "sha256": "fde988f4984f288ab94fedc750287bc0bb4c29378330d79b03a021ab58ac173a",
+      "bytes": 136,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 5
+    },
+    {
+      "path": "apps/api/tsconfig.json",
+      "sha256": "6b0a24633021cf6de6dbc4bb035a721cc852809a369e9d14fc82cdf17a93f29d",
+      "bytes": 264,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 11
+    },
+    {
+      "path": "apps/dashboard/index.html",
+      "sha256": "47bf5b808b546cbb68837bb1c9fdcede9f06ac8559261504bf9e8857bbbe564c",
+      "bytes": 603,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 18
+    },
+    {
+      "path": "apps/dashboard/package.json",
+      "sha256": "add30146617c193fd3c8bc440b91d77cef1fc6bacc720411757f0557e3954c00",
+      "bytes": 716,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 28
+    },
+    {
+      "path": "apps/dashboard/public/marketing/analytics-overview.png",
+      "sha256": "386cdf3f9e176e14719f548fd9aadb788e0fbd7c6831c04ab537f9d5414b6fc0",
+      "bytes": 91905,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance"
+    },
+    {
+      "path": "apps/dashboard/public/marketing/element-annotation.png",
+      "sha256": "4714c73da74e330e2222e27275a564f11137c099e97232b8bb4ffb2034dcf626",
+      "bytes": 93494,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance"
+    },
+    {
+      "path": "apps/dashboard/public/marketing/project-management.png",
+      "sha256": "a17f68770bac171e1d8f10d7a86a554f0ad9540a69bbbeadf625cdbd813f7bc9",
+      "bytes": 89347,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance"
+    },
+    {
+      "path": "apps/dashboard/public/marketing/screenshot-editor.png",
+      "sha256": "17b970b0a61611c257a4defc202bf9aa49cf2598e9368f238e3f394914af0e16",
+      "bytes": 97228,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance"
+    },
+    {
+      "path": "apps/dashboard/public/markfix-logo-icon.svg",
+      "sha256": "40f0680f9e36e437205256109ba68ff98f4a24cb52bc805826942eb26d03c66f",
+      "bytes": 894,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 13
+    },
+    {
+      "path": "apps/dashboard/src/WebRoot.tsx",
+      "sha256": "e7dead93fc173734f47e9ef26db751ea4548692f4ff5f3620d2c213e6c81de92",
+      "bytes": 1119,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 33,
+      "imports": ["react"]
+    },
+    {
+      "path": "apps/dashboard/src/account/AccountAccess.tsx",
+      "sha256": "e215569258e48c77cb918c9405dc0be595cccf5a2537c1aef17db635cc1857ee",
+      "bytes": 11041,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 311,
+      "imports": [
+        "react",
+        "@markfix/ui/icons",
+        "@markfix/ui",
+        "@markfix/api-client",
+        "./account-access.css"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/account/AccountSettings.tsx",
+      "sha256": "6ba3bcc6cd72dcd43330dc5c3ecbe5cb21b17da0b4f5f381ab69005e49db5c0f",
+      "bytes": 4621,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 132,
+      "imports": [
+        "react",
+        "@markfix/api-client",
+        "@markfix/api-client",
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "./account-settings.css"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/account/account-access.css",
+      "sha256": "5ac50d02bbff3f5434866c5be64f58776a1ba165c3d3e5c6e59b85ac75709749",
+      "bytes": 1978,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 133
+    },
+    {
+      "path": "apps/dashboard/src/account/account-settings.css",
+      "sha256": "f242e3d7f5915f34aff95393363d1b850e3f9332f028b9411c017b6e29c38beb",
+      "bytes": 2366,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 150
+    },
+    {
+      "path": "apps/dashboard/src/admin/AdminApp.tsx",
+      "sha256": "21b10fa4ef3500eeb6a976ea3d28e4ae0ba4a43caa8802749e4fdbc9f12fc090",
+      "bytes": 7455,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 209,
+      "imports": [
+        "@markfix/ui",
+        "react",
+        "@tanstack/react-query",
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "./api",
+        "./OverviewView",
+        "./ProjectsView",
+        "./UsersView",
+        "./components/ProjectDrawer",
+        "./model",
+        "./admin.css"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/admin/AdminEntry.tsx",
+      "sha256": "eaaafaddbb5756551dd8f81851dcb4a9867714ea0350613b6a6faaf1e3c25873",
+      "bytes": 403,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 18,
+      "imports": ["@tanstack/react-query", "./AdminApp.js"]
+    },
+    {
+      "path": "apps/dashboard/src/admin/OverviewView.tsx",
+      "sha256": "66e3479142e5a78dd130491b816339eccf26e4057992646d7a74c97a134b5420",
+      "bytes": 9121,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 264,
+      "imports": [
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "react",
+        "./admin.css",
+        "./components/AdminState",
+        "./model",
+        "./components/ProjectLogo"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/admin/ProjectsView.tsx",
+      "sha256": "cf9839793b3a9459fee64dd39cc1e963851dcc562d828805d02e849ca87a1509",
+      "bytes": 3671,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 112,
+      "imports": [
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "react",
+        "./admin.css",
+        "./components/AdminState",
+        "./model",
+        "./components/ProjectLogo"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/admin/UsersView.tsx",
+      "sha256": "13c269b828f24c544bdbed6cefbf75266fecd5c7e0770bd0b28c103b074e7c7d",
+      "bytes": 5026,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 161,
+      "imports": [
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "@tanstack/react-query",
+        "react",
+        "./admin.css",
+        "./api",
+        "./components/AdminState",
+        "./model"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/admin/admin.css",
+      "sha256": "c98bdc98621f30e526e2455af893b921c59fb5656399842ad1fe0addd5725526",
+      "bytes": 152,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 4
+    },
+    {
+      "path": "apps/dashboard/src/admin/annotation-query.test.ts",
+      "sha256": "3071eb9cb63cea2d29106bd8f0f67abf726e2ed8c54cb28f011105ddc4779ffc",
+      "bytes": 2035,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 53,
+      "imports": ["@tanstack/react-query", "vitest", "./api", "./annotation-query"]
+    },
+    {
+      "path": "apps/dashboard/src/admin/annotation-query.ts",
+      "sha256": "30e5b2a44d70c1e444cd2c7e4b26257dcf597c41ad86381f08d3b3cb8ce3a0fe",
+      "bytes": 755,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 22,
+      "imports": ["@tanstack/react-query", "./api", "./model"]
+    },
+    {
+      "path": "apps/dashboard/src/admin/api.test.ts",
+      "sha256": "5fcd9fdc28ce79cf2012aef37db82c15a192522a5d455cc3742d655e03cb1aeb",
+      "bytes": 841,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 23,
+      "imports": ["vitest"]
+    },
+    {
+      "path": "apps/dashboard/src/admin/api.ts",
+      "sha256": "86f8b3f4bd283c3a4d5f1098bc6b932f9828963c313a481a039f71b64928de1c",
+      "bytes": 515,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 14,
+      "imports": ["@markfix/api-client"]
+    },
+    {
+      "path": "apps/dashboard/src/admin/components/AdminState.tsx",
+      "sha256": "10e4b559f3d322616004ace7e7672e68ab6db80389eb26f058785b3efb42bd9a",
+      "bytes": 866,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 33,
+      "imports": ["@markfix/ui", "@markfix/ui/icons", "../model"]
+    },
+    {
+      "path": "apps/dashboard/src/admin/components/AnnotationEditor.tsx",
+      "sha256": "cf979c65ab8fcb2a39a182d8fe29444500573495b0ad0ead7b72c87d4c6f3290",
+      "bytes": 14495,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 389,
+      "imports": [
+        "react",
+        "@tanstack/react-query",
+        "@markfix/ui",
+        "../api",
+        "./AdminState",
+        "./ScreenshotPreviewDialog",
+        "../model"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/admin/components/ProjectDrawer.tsx",
+      "sha256": "5ec421decd4c01e34fda916471ed2d8f667188d13bcb522ee0586533499b67b0",
+      "bytes": 12578,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 335,
+      "imports": [
+        "react",
+        "@tanstack/react-query",
+        "@markfix/ui/icons",
+        "@markfix/ui",
+        "../api",
+        "./AdminState",
+        "./AnnotationEditor",
+        "./ScreenshotPreviewDialog",
+        "../annotation-query",
+        "../model"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/admin/components/ProjectLogo.tsx",
+      "sha256": "cd69430916b4c585e35878c74bd9fca83912f22913b82f1c2e191288092e3a30",
+      "bytes": 676,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 18,
+      "imports": ["react", "@markfix/ui/icons", "../model"]
+    },
+    {
+      "path": "apps/dashboard/src/admin/components/ScreenshotPreviewDialog.tsx",
+      "sha256": "fba6c1a91909f62fe0c8efea2fced1423346d2f9d05d5e4563d2eefc87a57714",
+      "bytes": 885,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 36,
+      "imports": ["@markfix/ui", "../api"]
+    },
+    {
+      "path": "apps/dashboard/src/admin/model.ts",
+      "sha256": "377f9d6cba1cee06b43386c7c8dd6dd7302fb9da89890a78aa8723241d350673",
+      "bytes": 1238,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 45,
+      "imports": ["@markfix/contracts", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/dashboard/src/admin/styles/project-drawer.css",
+      "sha256": "ba21b21080895d9b84afe78bc0cb45225721f67b1fb9e571e51d984c3677c195",
+      "bytes": 8785,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 530
+    },
+    {
+      "path": "apps/dashboard/src/admin/styles/projects-users.css",
+      "sha256": "d17e0c841329375cd9c209875ba9146e57910ba9d81301547ddd8b21c2c6c646",
+      "bytes": 4142,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 263
+    },
+    {
+      "path": "apps/dashboard/src/admin/styles/responsive.css",
+      "sha256": "b83c7fb8530b09819e1e2d4b1f10acc67dac20cccaaf8df4583eb656d727268c",
+      "bytes": 3130,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 209
+    },
+    {
+      "path": "apps/dashboard/src/admin/styles/shell-overview.css",
+      "sha256": "62c9f5fbf29d0883ca59f44b3b5c349531b6119757fc59e696d41e3ceb638eb4",
+      "bytes": 8688,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 539
+    },
+    {
+      "path": "apps/dashboard/src/grida-theme.css",
+      "sha256": "6cf801908c37d2560433c6cbc838bf0408a8da369f4c22d97da3187b957478de",
+      "bytes": 11427,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 553
+    },
+    {
+      "path": "apps/dashboard/src/legal/LegalPage.tsx",
+      "sha256": "beb1f0873f9a3772ae34555c75b55062fb6f183890b94e8309b5bdc5ae3a9d65",
+      "bytes": 4776,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 132,
+      "imports": ["@markfix/ui/icons", "@markfix/ui", "./legal-page.css"]
+    },
+    {
+      "path": "apps/dashboard/src/legal/legal-page.css",
+      "sha256": "304deef11c8171531b3b430f2b0a81eec08593ea735dc47d8a5ea7265d6cbb9c",
+      "bytes": 1718,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 113
+    },
+    {
+      "path": "apps/dashboard/src/main.tsx",
+      "sha256": "a00c403687f5593ade495620a815eed4814b760ecb0be20ef820435b91bb8cfd",
+      "bytes": 1226,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 36,
+      "imports": [
+        "react",
+        "react-dom/client",
+        "@markfix/ui",
+        "./WebRoot.js",
+        "./routes.js",
+        "./styles.css",
+        "./grida-theme.css"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/marketing/CaptureDemo.tsx",
+      "sha256": "f126dbd52a1a36be23316c3302084b0a14617be283898448689176f6e563d207",
+      "bytes": 19590,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 617,
+      "imports": ["react", "@markfix/ui/icons"]
+    },
+    {
+      "path": "apps/dashboard/src/marketing/CommercialPages.tsx",
+      "sha256": "f2e82511543084fd9ec6884c30536763c1138566530fd843bf3281890179ae62",
+      "bytes": 7706,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 230,
+      "imports": [
+        "@markfix/ui/icons",
+        "@markfix/ui",
+        "./SiteChrome",
+        "./premium-marketing.css",
+        "react"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/marketing/InteractiveDemo.tsx",
+      "sha256": "8776084f35a28a4c8ccffd38ae173ac6d42e912d0f1f392f1b0b418365d7f38c",
+      "bytes": 15753,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 453,
+      "imports": ["react", "@markfix/ui/icons", "@markfix/ui", "./CaptureDemo"]
+    },
+    {
+      "path": "apps/dashboard/src/marketing/MarketingSite.tsx",
+      "sha256": "540bc35f2cef445a93447aa742422576989f43fc8f698ab7bc56bf75032698d8",
+      "bytes": 7685,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 222,
+      "imports": [
+        "@markfix/ui/icons",
+        "@markfix/ui",
+        "./InteractiveDemo",
+        "./SiteChrome",
+        "./premium-marketing.css"
+      ]
+    },
+    {
+      "path": "apps/dashboard/src/marketing/SiteChrome.tsx",
+      "sha256": "774e614a53ffac92bfbbfcdf7aecc716ed9bb280a6f4abbae22816b60280325e",
+      "bytes": 3067,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 100,
+      "imports": ["react", "@markfix/ui/icons", "@markfix/ui"]
+    },
+    {
+      "path": "apps/dashboard/src/marketing/marketing.css",
+      "sha256": "24bc2a7af19ef4a2e18a7cac456522c3d761e37cf623d3278305f13e926e5c4a",
+      "bytes": 15213,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 942
+    },
+    {
+      "path": "apps/dashboard/src/marketing/premium-marketing.css",
+      "sha256": "36f3c39a2dfaa248755f662e76376ec4c2ec33ba5f5692e945a18825960dd50e",
+      "bytes": 227,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 6
+    },
+    {
+      "path": "apps/dashboard/src/marketing/styles/base.css",
+      "sha256": "111566b5d5e805e03369405c4d8058b5d365ce17dad5ede0833d7580963d3534",
+      "bytes": 12901,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 703
+    },
+    {
+      "path": "apps/dashboard/src/marketing/styles/capture-demo.css",
+      "sha256": "482165de4d72e30628f1f180fd47488830334a4550dfba10e240927f10e121cc",
+      "bytes": 2863,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 162
+    },
+    {
+      "path": "apps/dashboard/src/marketing/styles/commercial-pages.css",
+      "sha256": "6097ededc0ccf6f563cc6e71d92a740153d0d99d9885868c52b70fa3fa46b7f8",
+      "bytes": 5700,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 334
+    },
+    {
+      "path": "apps/dashboard/src/marketing/styles/commercial-sections.css",
+      "sha256": "e2b921878822f6a840afe5c7b9549b42fd58292628f9c8a29bbd6d65e4c533cc",
+      "bytes": 5642,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 305
+    },
+    {
+      "path": "apps/dashboard/src/marketing/styles/interactive-demo.css",
+      "sha256": "c8a3dc3c63c8458adbbd42f8d9be6778070adc110db129505fbea4d1e8b959d3",
+      "bytes": 13536,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 714
+    },
+    {
+      "path": "apps/dashboard/src/marketing/styles/responsive.css",
+      "sha256": "711db16562bb10d4dc8656d6cf5cd9041e9c888cde26aba1569e3909b6862778",
+      "bytes": 7965,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 409
+    },
+    {
+      "path": "apps/dashboard/src/routes.test.ts",
+      "sha256": "e9a5f543adea1a4b0086095ef012568afd155f80961277d7e0479da2f0d02c08",
+      "bytes": 529,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 17,
+      "imports": ["vitest", "./routes.js"]
+    },
+    {
+      "path": "apps/dashboard/src/routes.ts",
+      "sha256": "3ae425b4f680d62141486745930d8bc3522e0b94d446662f98732230b83892f5",
+      "bytes": 539,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 17,
+      "imports": []
+    },
+    {
+      "path": "apps/dashboard/src/styles.css",
+      "sha256": "603fac8291f9bc471784a098dd8b8d355fbf6f795b3866ca65b91fcb9044557c",
+      "bytes": 379,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 32
+    },
+    {
+      "path": "apps/dashboard/tsconfig.json",
+      "sha256": "dcfbf6e244f66f1aa267c77e4fabeede4befb08f7b46cd9691876b4a82d31696",
+      "bytes": 112,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 5
+    },
+    {
+      "path": "apps/dashboard/vite.config.ts",
+      "sha256": "f0c3b48f1dfed677f66cfda6f533c970d9b34a4d0b93faaf1309efd2c4e305c7",
+      "bytes": 193,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 5,
+      "imports": ["vite", "@vitejs/plugin-react", "@tailwindcss/vite"]
+    },
+    {
+      "path": "apps/desktop/.env.development",
+      "sha256": "7422b61e952fef7acc14c243542e9a1699a3634eef46a5c6bbff1b1f5c58c0c8",
+      "bytes": 40,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 1
+    },
+    {
+      "path": "apps/desktop/.env.production",
+      "sha256": "c0ea0eb369a28c15dd97f43ffab69a381a90fde0b50ef4aa1a3600e7e9d0e787",
+      "bytes": 44,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 1
+    },
+    {
+      "path": "apps/desktop/build/icon.icns",
+      "sha256": "f8159cdfa256f65406087c6669802e111925f008be382ab1f399440ebb0690bc",
+      "bytes": 729633,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance"
+    },
+    {
+      "path": "apps/desktop/electron.vite.config.ts",
+      "sha256": "56ce57d759d7bfef5aba095b0a5779b0d8b1cab50e37f5460746de111b5a190c",
+      "bytes": 859,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 28,
+      "imports": ["node:path", "electron-vite", "@vitejs/plugin-react", "@tailwindcss/vite"]
+    },
+    {
+      "path": "apps/desktop/package.json",
+      "sha256": "89369c95283f57f900a1c6dbe9606f5d837fef2b251eb6a9be9d2cf7683f086c",
+      "bytes": 1860,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 61
+    },
+    {
+      "path": "apps/desktop/scripts/check-login-layout.mjs",
+      "sha256": "85e0c1ca3c5ed95f08fdbd5ffcf14f7eaece0772ad6616f6df2d977a7af737d7",
+      "bytes": 2447,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 60,
+      "imports": ["node:assert/strict", "node:path", "node:fs", "electron"]
+    },
+    {
+      "path": "apps/desktop/scripts/check-update-release.mjs",
+      "sha256": "aebd89f95382a141895960705edf6154ec945ef5b6de1e46f5d97bbfd9bdcc82",
+      "bytes": 356,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 9,
+      "imports": ["node:process", "node:url"]
+    },
+    {
+      "path": "apps/desktop/scripts/generate-mac-icon.sh",
+      "sha256": "4ffcab49b0e88c8e43404156a1a8e91480acace577e91a2970fcb8d5e22608e9",
+      "bytes": 849,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 19
+    },
+    {
+      "path": "apps/desktop/scripts/smoke-account-ui.mjs",
+      "sha256": "fac67652ef5079e6aeb8b80921d88b296bc7edbe64498d1c9a9ae66ea7b133b1",
+      "bytes": 48732,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 1023,
+      "imports": [
+        "node:child_process",
+        "node:module",
+        "electron",
+        "node:fs",
+        "node:path",
+        "node:os",
+        "node:assert/strict",
+        "node:process",
+        "node:console",
+        "node:timers",
+        "node:buffer",
+        "node:http"
+      ]
+    },
+    {
+      "path": "apps/desktop/scripts/smoke-dashboard-components.mjs",
+      "sha256": "ff0ccedc3a4c0c33cc5072ab858ee8f4218dfccffc0331fbd504b3d18bdaf4a4",
+      "bytes": 11715,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 323,
+      "imports": [
+        "electron",
+        "node:assert/strict",
+        "node:http",
+        "node:url",
+        "node:fs",
+        "node:os",
+        "node:path",
+        "node:process",
+        "node:console",
+        "node:timers/promises"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/account-pages.ts",
+      "sha256": "607ff8550b6e267042a1d059a6966174f37878e0d62a9405f347742475bdf666",
+      "bytes": 751,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 21,
+      "imports": ["zod"]
+    },
+    {
+      "path": "apps/desktop/src/desktop-update.ts",
+      "sha256": "212cbdfa3e091717f23a0ee2e55458c60d0d7694d3629023e0a71ebc0add0034",
+      "bytes": 1481,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 39,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/main/anchor-state.ts",
+      "sha256": "c1b8315bda815b07df9312ec12996626974a064d75c584ebcae3d314a9766eac",
+      "bytes": 205,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 4,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/main/capture-clipboard.ts",
+      "sha256": "efec700dfee25515512b112f6f807d543c5cac9482328884582c98e82c96558e",
+      "bytes": 827,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 26,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/main/capture-policy.ts",
+      "sha256": "92e756709b50dff03c56600ef2ab2216f159ca0e849057f6f5fabd6ba140f49c",
+      "bytes": 1536,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 36,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/main/capture-service.ts",
+      "sha256": "0968c4cae0c3f2fd4a4f0009df10bb7e1f0ab0cc8afba2b7b111efc8ebc76df5",
+      "bytes": 6053,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 154,
+      "imports": ["electron", "@markfix/contracts", "./capture-policy.js"]
+    },
+    {
+      "path": "apps/desktop/src/main/cdp-inspector.ts",
+      "sha256": "6007acf0e880904a5a281d651495daab4dc39e57ecb16fd75b9de65a2db3f664",
+      "bytes": 23364,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 653,
+      "imports": ["electron", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/main/child-window-manager.ts",
+      "sha256": "f7483c53d584a77102041e54f73cbd939ceaf557cdd434e7adc82ac5633f5376",
+      "bytes": 9518,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 261,
+      "imports": ["node:path", "electron"]
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-updater.ts",
+      "sha256": "2bff24b4d4a1d78a7f258e45533d6be965161e56f31c6c97440aba0070547f3b",
+      "bytes": 2009,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 55,
+      "imports": ["electron", "../desktop-update.js"]
+    },
+    {
+      "path": "apps/desktop/src/main/diagnostic-console.ts",
+      "sha256": "d2de2a30c554410cee9529e9617d6bea77527c0883876f8b8bd7619a93a491c7",
+      "bytes": 17981,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 500,
+      "imports": ["node:crypto", "electron", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/main/draft-store.ts",
+      "sha256": "bae1cfc0860b4f3235bed85172e6b4422b20f8c6440ab7fb4a627d7a3e2f9358",
+      "bytes": 23852,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 675,
+      "imports": [
+        "better-sqlite3",
+        "node:crypto",
+        "@markfix/contracts",
+        "./sync-policy.js",
+        "./draft-store/capture-codec.js",
+        "./draft-store/migrations.js"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/draft-store/capture-codec.ts",
+      "sha256": "681fc300a7eca37ef7c7d70da17f346f72b3ec89409e333f432eedd17f1dcab5",
+      "bytes": 919,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 27,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/main/draft-store/migrations.ts",
+      "sha256": "b9740d2d08203d968ff08caa5fcff478221d6affcd52f8dd2f7b51516ae8cea2",
+      "bytes": 7489,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 217,
+      "imports": ["better-sqlite3", "@markfix/contracts", "./capture-codec.js", "./schema.js"]
+    },
+    {
+      "path": "apps/desktop/src/main/draft-store/schema.ts",
+      "sha256": "bf892b3dd154f3db0cdb629a08149179cd681ef1d65ba40a32c03bab09445b9e",
+      "bytes": 3585,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 101,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/main/image-export.ts",
+      "sha256": "1a34465488ce4934c3bc9085661306dd924c82e68df050c6e42811491c7ab52b",
+      "bytes": 1338,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 35,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/main/index.ts",
+      "sha256": "c536570d03a59985dc4db23c5717aefcc5799ca16dd86da46fbb9a8b04a4b012",
+      "bytes": 51873,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 1370,
+      "imports": [
+        "node:child_process",
+        "node:util",
+        "../sidebar-layout",
+        "node:crypto",
+        "node:path",
+        "electron",
+        "@markfix/contracts",
+        "@markfix/api-client",
+        "./anchor-state.js",
+        "./cdp-inspector.js",
+        "./capture-service.js",
+        "./draft-store.js",
+        "./diagnostic-console.js",
+        "./url.js",
+        "../subscription.js",
+        "../account-pages.js",
+        "../desktop-update.js",
+        "./desktop-updater.js",
+        "./mode-shortcuts.js",
+        "./window-shortcuts.js",
+        "./session-manager.js",
+        "./website-load-error.js",
+        "./ipc/register-annotation-store-ipc.js",
+        "./child-window-manager.js",
+        "./ipc/register-capture-ipc.js",
+        "./ipc/register-diagnostics-ipc.js",
+        "./report-outbox.js",
+        "./project-data-router.js"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/ipc/register-annotation-store-ipc.ts",
+      "sha256": "7f09b3282f061fdee5c2917d176ea20fad8c31855a4103b4dc2aad6a30a14a62",
+      "bytes": 5364,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 110,
+      "imports": [
+        "electron",
+        "@markfix/contracts",
+        "../project-data-router.js",
+        "../image-export.js"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/ipc/register-capture-ipc.ts",
+      "sha256": "91268138c478103cb976e9cece37ceee4b4dd9946ceab04e4a5c38fb28b32aee",
+      "bytes": 4803,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 119,
+      "imports": [
+        "node:fs/promises",
+        "electron",
+        "@markfix/contracts",
+        "../capture-service.js",
+        "../capture-clipboard.js",
+        "../image-export.js"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/ipc/register-diagnostics-ipc.ts",
+      "sha256": "da90bc1d7442ebe6b1ae66005be2bef4ca5fc58b8bd193b76a0cf957f39bfc32",
+      "bytes": 1785,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 43,
+      "imports": ["electron", "@markfix/contracts", "../diagnostic-console.js"]
+    },
+    {
+      "path": "apps/desktop/src/main/mode-shortcuts.ts",
+      "sha256": "4e5201b4896d20c18b3025acfe5a4aa3191ed27ddc86e91f20ef26ce786de23b",
+      "bytes": 1000,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 40,
+      "imports": ["./shortcut-input.js"]
+    },
+    {
+      "path": "apps/desktop/src/main/project-data-router.ts",
+      "sha256": "94fd14f16c1aea635b5de1890f7b3ed0a3caa8d0717f3240bdee5fc0f044c13d",
+      "bytes": 4688,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 124,
+      "imports": ["@markfix/contracts", "@markfix/api-client", "./draft-store.js"]
+    },
+    {
+      "path": "apps/desktop/src/main/report-outbox.ts",
+      "sha256": "f32e671326e7881801180aed0fd02f5440c2ec361c09a950ecd20da65e3ea6a3",
+      "bytes": 4161,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 105,
+      "imports": [
+        "node:crypto",
+        "electron",
+        "@markfix/contracts",
+        "@markfix/api-client",
+        "./draft-store.js",
+        "./report-screenshot-optimizer.js"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/report-screenshot-optimizer.ts",
+      "sha256": "977b370dbde25f93aa9f7d1b6bcdf0c3b2b4f7d43ab3f6ec40a2633fad8dc2bb",
+      "bytes": 1814,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 56,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/main/session-manager.ts",
+      "sha256": "ca9565fc7f433722bcf04d64e14612787822e34b1b3a71710f80fe02d4743c2d",
+      "bytes": 2215,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 63,
+      "imports": [
+        "node:fs/promises",
+        "node:path",
+        "electron",
+        "@markfix/api-client",
+        "@markfix/contracts"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/shortcut-input.ts",
+      "sha256": "ae8a1c8965bbe5015214714d4ce384174dae848e16f51da2a0640deb7f92556d",
+      "bytes": 161,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 9,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/main/sync-policy.ts",
+      "sha256": "3843e983311503d47c23bbeb6937b7143e6714376f315f5a7310d3054a0d5738",
+      "bytes": 117,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 2,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/main/url.ts",
+      "sha256": "9a860dc1401ca5a0d16a485b973194605f275c9ba0be29ef2ad26033a3d37eca",
+      "bytes": 660,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 17,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/main/website-load-error.ts",
+      "sha256": "68d89e5ec7769f700ae3e3714e3d4831fa86d590d46c466a9e3e1205bba86a54",
+      "bytes": 972,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 25,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/main/window-shortcuts.ts",
+      "sha256": "635f1fd92e958f1b649c8d870e19ae2cf8e7729fb2dfe887c41b063a930fd309",
+      "bytes": 693,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 24,
+      "imports": ["./shortcut-input.js"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/index.html",
+      "sha256": "8b08b6eb406107becdcaef814b6cbfd095feb7e3121e8d710f440cff2a5c0089",
+      "bytes": 488,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 16
+    },
+    {
+      "path": "apps/desktop/src/renderer/public/markfix-logo-icon.svg",
+      "sha256": "40f0680f9e36e437205256109ba68ff98f4a24cb52bc805826942eb26d03c66f",
+      "bytes": 894,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 13
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/AnnotationSaveDialog.tsx",
+      "sha256": "0e45485f690d93690e59825c59c807bc6589d4dcc124eec376594fb180f10b4f",
+      "bytes": 7975,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 227,
+      "imports": ["react", "@markfix/ui", "@markfix/ui/icons", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/AnnotationSaveWindow.tsx",
+      "sha256": "d0cc610b8e4d6b21ad016821d00c2e1713cdc7a4ea06659e7401576c617247d3",
+      "bytes": 4708,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 133,
+      "imports": [
+        "react",
+        "@markfix/ui",
+        "@markfix/contracts",
+        "./AnnotationSaveDialog",
+        "./annotation-submission/report-inputs"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/App.tsx",
+      "sha256": "eeb24f9b7b49334e25fdda4566a0cacf0874b3cf3c618cc78c5d99057e2a9c6f",
+      "bytes": 1835,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 52,
+      "imports": [
+        "react",
+        "@markfix/ui",
+        "@markfix/contracts",
+        "./DesktopUpdateButton",
+        "./auth/DesktopLogin",
+        "./annotation-workspace/AnnotationWorkspace",
+        "./annotation-workspace/model"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/CapturePreviewWindow.tsx",
+      "sha256": "52bf8edd20ffc27783658d1e03040436fb2e98d05c795dfa0512d5b047f0ba98",
+      "bytes": 1718,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 52,
+      "imports": ["react", "@markfix/ui", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/DesktopUpdateButton.tsx",
+      "sha256": "144470d307e08fa114be4a4e97fab7ec0a7940c8de9e5ca584b958d0d7edb46d",
+      "bytes": 2833,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 97,
+      "imports": ["react", "@markfix/ui", "@markfix/ui/icons", "../../desktop-update"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/DiagnosticsPanel.tsx",
+      "sha256": "71dec7f92487816596a4774aa18ad1b7a1c7f2937af699405bda473249c212b2",
+      "bytes": 12161,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 336,
+      "imports": ["react", "@markfix/ui", "@markfix/ui/icons", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/HistoryWindow.tsx",
+      "sha256": "096322fcb476495dc7f57a9524b28015d1d66cafaf780bd4d317e9df17761500",
+      "bytes": 1992,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 61,
+      "imports": ["react", "@markfix/ui", "@markfix/contracts", "./project-navigation/HistoryPages"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/ProjectHistoryWindow.tsx",
+      "sha256": "3d6eed91ccb59b99eb50e1d02e10a8a74785e7f2a4f305743652faa9c693bc39",
+      "bytes": 3299,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 93,
+      "imports": [
+        "react",
+        "@markfix/ui",
+        "@markfix/contracts",
+        "./project-navigation/HistoryPages",
+        "./project-navigation/model"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/SettingsWindow.tsx",
+      "sha256": "cb218d598e3dce642f2626fbc35b1ba8eca223921f7c9bafe9d5b949a1ba02e3",
+      "bytes": 4897,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 134,
+      "imports": [
+        "react",
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "@markfix/contracts",
+        "./SubscriptionWindow",
+        "./desktop-preferences"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/SubscriptionWindow.tsx",
+      "sha256": "99e2f5b565d0ddffd823cd8ac36c3123a55141f61d292880b79ca7cbd7ac2529",
+      "bytes": 6844,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 198,
+      "imports": [
+        "react",
+        "@markfix/api-client",
+        "@markfix/contracts",
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "../../subscription.js",
+        "./subscription-window.css"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-submission/report-inputs.ts",
+      "sha256": "2310d08231d18036900afc73729951fda22e09e53d0f994b66b8638e7e54cd4e",
+      "bytes": 3279,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 105,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/AnnotationWorkspace.tsx",
+      "sha256": "a5a9b71a3f6ee271c21ea2f28d52b02255d57f570c3fe1b2d9dd424b1c6cb89b",
+      "bytes": 50262,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 1312,
+      "imports": [
+        "../../../sidebar-layout",
+        "react",
+        "@markfix/ui",
+        "./WorkspaceResizeLayout",
+        "@markfix/contracts",
+        "../../../desktop-update",
+        "../page-records",
+        "../project-report-overlays",
+        "../report-reconciliation",
+        "../DiagnosticsPanel",
+        "./CapturePanel",
+        "./BrowserToolbar",
+        "./ElementCommentPanel",
+        "./FirstAnnotationGuide",
+        "./HistoryRestoreDialog",
+        "./DeleteProjectDialog",
+        "../project-error",
+        "./ProjectLoadState",
+        "./useCaptureEditor",
+        "./useElementCommentEditor",
+        "./model",
+        "./workspace-session",
+        "../project-navigation/HeaderNavigationControls",
+        "../project-navigation/NewProjectPage",
+        "../project-navigation/ProjectSidebar",
+        "../project-navigation/model",
+        "../desktop-preferences"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/BrowserToolbar.tsx",
+      "sha256": "819d5a2c1b1606c8d033aa4984317faeaec7eda27034128b8bc44387ea495c30",
+      "bytes": 4723,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 146,
+      "imports": ["react", "@markfix/contracts", "@markfix/ui/icons", "@markfix/ui", "./model"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/CapturePanel.tsx",
+      "sha256": "6f27a6213d87a732f6a5362518a48361d6ff7ba75c90ecae1272ea52be6092ca",
+      "bytes": 8538,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 220,
+      "imports": [
+        "react",
+        "@markfix/ui/icons",
+        "@markfix/ui",
+        "@markfix/contracts",
+        "./EvidenceReferences",
+        "./FirstAnnotationGuide",
+        "./model"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/DeleteProjectDialog.tsx",
+      "sha256": "1786c1a94b929f94eafda02eb287ffffc108f083a8e9d4df88d2ebe64323f68a",
+      "bytes": 1535,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 48,
+      "imports": ["@markfix/ui", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/ElementCommentPanel.tsx",
+      "sha256": "1957b54c9966beb52137b1f04344cf5babe01f1e9e5c2e0e478409dcfb2b4c88",
+      "bytes": 8489,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 215,
+      "imports": [
+        "react",
+        "@markfix/ui/icons",
+        "@markfix/ui",
+        "@markfix/contracts",
+        "./EvidenceReferences",
+        "./FirstAnnotationGuide",
+        "./model"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/EvidenceReferences.tsx",
+      "sha256": "74b346700c956806d63e77a44a67e62f355e51b8c3fc6c342a9862092b5eed77",
+      "bytes": 745,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 26,
+      "imports": ["@markfix/contracts", "@markfix/ui", "@markfix/ui/icons"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/FirstAnnotationGuide.tsx",
+      "sha256": "d68c8253e286b8ea371bc36f9be8843a0a0bdf9ca1dbbcbae8bf5ef6f9f3f950",
+      "bytes": 2425,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 93,
+      "imports": ["@markfix/ui/icons", "@markfix/ui"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/HistoryRestoreDialog.tsx",
+      "sha256": "ee2542d245843c3d220613ade540698dd6a1a30a9f473918c79cb03e3858d7c6",
+      "bytes": 1331,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 43,
+      "imports": ["@markfix/ui", "../project-navigation/model"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/ProjectLoadState.tsx",
+      "sha256": "39b7c3805ec720ce3054d4140db5efc64399818167b7edf8617d43d0f6e7617a",
+      "bytes": 1640,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 50,
+      "imports": ["@markfix/contracts", "@markfix/ui/icons", "@markfix/ui", "./model"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/WorkspaceResizeLayout.tsx",
+      "sha256": "a1cd9b21f33973083f2f230d5b12b1574ea23775412da3b45be8c77f64c715a8",
+      "bytes": 3928,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 102,
+      "imports": ["react", "@markfix/ui", "../../../sidebar-layout"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/anchor-recovery.ts",
+      "sha256": "f4a992ca1fa2b8d7913f2dc82d4f84a59cd1bbeb4c747815614df8ece60d6360",
+      "bytes": 198,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 4,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/model.ts",
+      "sha256": "624aa26fb13d247bdf6c7404cb4ecc275a4351316736f9ece69a215934493693",
+      "bytes": 1860,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 55,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/useCaptureEditor.ts",
+      "sha256": "fa2393b6133c4b1fc74948020ca85cc61300deb7e249cda9b42bbc023826f647",
+      "bytes": 15005,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 428,
+      "imports": [
+        "react",
+        "@markfix/contracts",
+        "../screenshot-compositor",
+        "../report-reconciliation",
+        "./model"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/useElementCommentEditor.ts",
+      "sha256": "3941dcd771c4b3d8aaf722a567c07fe9ae211923fb70e1bf2d2241cfbe034eb2",
+      "bytes": 9220,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 246,
+      "imports": [
+        "react",
+        "@markfix/contracts",
+        "./anchor-recovery",
+        "./model",
+        "../report-reconciliation"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/annotation-workspace/workspace-session.ts",
+      "sha256": "6352a7cf0d2c218553d45146062ba9db226325f557d858b7585c1fc1d05ce163",
+      "bytes": 801,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 30,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/auth/DesktopLogin.tsx",
+      "sha256": "1276c1c1f92f8bbb6010515ca12c4a306ac4ec7ff0587ddf1c662e5fed89cff8",
+      "bytes": 3516,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 100,
+      "imports": [
+        "../../../account-pages",
+        "react",
+        "@markfix/ui",
+        "../annotation-workspace/model",
+        "./login-defaults"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/auth/login-defaults.ts",
+      "sha256": "1d49df219a397f6a8da534a261f6f994585974770c15bf48c9b2814694584f58",
+      "bytes": 110,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 2,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/desktop-preferences.ts",
+      "sha256": "4c30131e5d7afc882fe7cea7cc219ee04775464570848863813f90544068d12e",
+      "bytes": 1134,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 26,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/global.d.ts",
+      "sha256": "357a1a73f2d14cca7e28e76c33361ecf0ef49a94e9753db19e36e19c4dea68cf",
+      "bytes": 6144,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 138,
+      "imports": ["../../desktop-update", "../../account-pages", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/main.tsx",
+      "sha256": "5033c828e33025e7116090cfeec23566e1c00cb971bd32d7d8a2d88e67201a9d",
+      "bytes": 2048,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 54,
+      "imports": [
+        "react",
+        "react-dom/client",
+        "@markfix/ui",
+        "./styles.css",
+        "./styles/annotation-windows.css",
+        "./styles/capture-panel.css",
+        "./styles/diagnostics-panel.css",
+        "./styles/saved-annotations.css",
+        "./styles/project-sidebar.css",
+        "./styles/settings-window.css",
+        "./styles/project-pages.css",
+        "./styles/history-pages.css",
+        "./styles/desktop-chrome.css",
+        "./styles/grida-theme.css"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/page-records.ts",
+      "sha256": "ea701f36d97bb05983004e2c4449d70cd941702021842eae45be68a48dd1544f",
+      "bytes": 926,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 26,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/project-error.ts",
+      "sha256": "c2f862281fa7b8f83ebcdc1d2d4a2545c9adf8a3fbcedf0f97d224e5255f8e04",
+      "bytes": 616,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 9,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/project-navigation/HeaderNavigationControls.tsx",
+      "sha256": "232d48d8997134040137a8e07ccd0b6bd1f02f45390eba6c7203b239212ed243",
+      "bytes": 1450,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 53,
+      "imports": ["@markfix/ui", "@markfix/ui/icons"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/project-navigation/HistoryPages.tsx",
+      "sha256": "3bf5bcad0aa779e6e64c5712ab3e14ff3292460c5a472bd3ab21ba0aa5f83367",
+      "bytes": 4973,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 149,
+      "imports": [
+        "react",
+        "@markfix/contracts",
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "./WebsiteLogo",
+        "./model"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/project-navigation/NewProjectPage.tsx",
+      "sha256": "7c6a3e0ec759d519833be6c34944cf92e9246488f1bdcde2f37d14150f7b032e",
+      "bytes": 3722,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 96,
+      "imports": [
+        "@markfix/contracts",
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "react",
+        "../desktop-preferences",
+        "./WebsiteShortcuts"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/project-navigation/ProjectSidebar.tsx",
+      "sha256": "806316fd3ee6743e15617df93efbb408a53adf27b779808e41fff3f3d34b2e31",
+      "bytes": 6999,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 207,
+      "imports": [
+        "@markfix/contracts",
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "react",
+        "../DesktopUpdateButton",
+        "./WebsiteLogo"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/project-navigation/WebsiteLogo.tsx",
+      "sha256": "f5cc3ee7541af6f87df774e8d739192e20ea751d26865261cccc534ba064dee0",
+      "bytes": 713,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 21,
+      "imports": ["react", "@markfix/contracts", "@markfix/ui"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/project-navigation/WebsiteShortcuts.tsx",
+      "sha256": "e7b6de5e565d297d96024b841a4bdb7da3bef86a2eb3b1d87bcef5708b8f74fd",
+      "bytes": 10470,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 303,
+      "imports": [
+        "@markfix/contracts",
+        "@markfix/ui",
+        "@markfix/ui/icons",
+        "react",
+        "./WebsiteLogo",
+        "./website-shortcuts"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/project-navigation/model.ts",
+      "sha256": "9873ad47b158d5fe9417ca022c6a2de7d182b4e11b26375fddfc1f32018846ad",
+      "bytes": 1417,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 35,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/project-navigation/website-shortcuts.ts",
+      "sha256": "ecbd9458a2fdcf0a8000e5a757ccd408de90b2d84631c498de6de29a35c0726b",
+      "bytes": 2462,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 72,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/project-report-overlays.ts",
+      "sha256": "1a056de1321f312d89ef7d036b7fb5dc4551165b8b13360f2d6f8d24c94f7fc1",
+      "bytes": 2294,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 61,
+      "imports": ["@markfix/contracts", "./report-reconciliation"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/report-reconciliation.ts",
+      "sha256": "5c672e19c21bddce631d33b9ab87ca26ac7a5d3984c1584345ec0c1f6dd6a3ba",
+      "bytes": 1848,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 57,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/screenshot-compositor.ts",
+      "sha256": "260cbad14d5c072b9595f0ca43e1376f0bcba8eefcbc044623f90cbc6492da9b",
+      "bytes": 8813,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 256,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles.css",
+      "sha256": "fb3e1ab78092da7c358efdcea45a02ed5ac3defbda2d22dc0122562fa4d30585",
+      "bytes": 8170,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 444
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles/annotation-windows.css",
+      "sha256": "c05a1683e11cf1be0c733e1fb964492003664ddc4bdd8039fb9e190afa545451",
+      "bytes": 6728,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 338
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles/capture-panel.css",
+      "sha256": "185f480664ce30eada08e51a84cae28c3718f88d4be3e4902550138b7aadcc7a",
+      "bytes": 4414,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 245
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles/desktop-chrome.css",
+      "sha256": "b75b0f99666a092e01b872fedcb12dcab2814a6eea86edeb6e64c42b3b54fbc5",
+      "bytes": 10836,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 518
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles/diagnostics-panel.css",
+      "sha256": "6a56af7fb25d9cff8a964d401ec355c55fbb79c3700376686ccdda5ffbeb436b",
+      "bytes": 5918,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 305
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles/grida-theme.css",
+      "sha256": "17e3e95478dbb26f8e91df353307ed07de598f12f11f21fc0f2548db400506a6",
+      "bytes": 3686,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 160
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles/history-pages.css",
+      "sha256": "81e0beaf1e8e48bc589ab6328e3ec85bc35b5f1f07643646c65b4967527d2663",
+      "bytes": 4715,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 252
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles/project-pages.css",
+      "sha256": "ebdbcda25a1ad0182632c2f54a5663d9992f204b6239c9b1f632246445feb54c",
+      "bytes": 8227,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 380
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles/project-sidebar.css",
+      "sha256": "56aeb745fef5ef92c8f28305856d2261bf41dcd487889c49a2714a3688ce67f6",
+      "bytes": 8337,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 392
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles/saved-annotations.css",
+      "sha256": "aaaa2ad977fe5f3e27953df47310dcfe2ddb5be0ea791d5f40bdfcb3682dd91a",
+      "bytes": 7368,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 374
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/styles/settings-window.css",
+      "sha256": "5d4687ce535a9c4dbde6e6b17dcabc3bb72b5b1915b3395e45899594b7461282",
+      "bytes": 2774,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 137
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/subscription-window.css",
+      "sha256": "63d4084e5cae24f80f97cd760437ebc20d8e127cf0c2e3aacbe2132f3d439581",
+      "bytes": 3318,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 204
+    },
+    {
+      "path": "apps/desktop/src/shell-preload/index.ts",
+      "sha256": "26a7d092944fa6110c4f34a20b9ea425ec68243c6a73184cb58b923fa335af49",
+      "bytes": 10386,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 201,
+      "imports": [
+        "electron",
+        "@markfix/contracts",
+        "../subscription.js",
+        "../account-pages.js",
+        "../desktop-update.js"
+      ]
+    },
+    {
+      "path": "apps/desktop/src/sidebar-layout.ts",
+      "sha256": "d1545b5936e70564c92308f98fb867e9d88d88683149350dd8f09529fb4c88cc",
+      "bytes": 530,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 12,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/subscription.ts",
+      "sha256": "3559e627bd9a7dd3e96e074dd325e67aa07b515fff54aea45d94b360140206d7",
+      "bytes": 407,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 11,
+      "imports": ["@markfix/api-client"]
+    },
+    {
+      "path": "apps/desktop/src/target-runtime/anchor-tracker.ts",
+      "sha256": "a4add407de8627ee947072a75ef8b38a85798f53b4a94f33c22f6fc790389643",
+      "bytes": 10004,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 295,
+      "imports": ["@markfix/contracts", "@markfix/anchor-core"]
+    },
+    {
+      "path": "apps/desktop/src/target-runtime/capture-selection.ts",
+      "sha256": "13a0e378bf8085ea254386235d3bf7caca6c8d544b3de35f95de9d0de3f24aff",
+      "bytes": 1919,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 61,
+      "imports": []
+    },
+    {
+      "path": "apps/desktop/src/target-runtime/element-comment-overlay.ts",
+      "sha256": "226d98bb1eb7019e21e4128c63896be5b4a6f44d2bd7a181b1739d2cd965d8d3",
+      "bytes": 4957,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 161,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/src/target-runtime/index.ts",
+      "sha256": "8d08f8d694bd56792008347afbfb7650c6efcdd9514595c63435dd4c2a68166e",
+      "bytes": 32160,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 915,
+      "imports": [
+        "electron",
+        "@markfix/contracts",
+        "./capture-selection.js",
+        "./anchor-tracker.js",
+        "./element-comment-overlay.js"
+      ]
+    },
+    {
+      "path": "apps/desktop/tests/account-pages.test.ts",
+      "sha256": "b1211f9c0d27135ba05d5caefd46939a5d96c1b687090d5bee0e0efa77bd32b2",
+      "bytes": 2044,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 54,
+      "imports": ["vitest", "../src/account-pages.js", "../src/renderer/src/project-error.js"]
+    },
+    {
+      "path": "apps/desktop/tests/anchor-recovery.test.ts",
+      "sha256": "f9c4030fd2117288f2ba3dd2c92dd711c4321a6b45154c642c4e33cc30b33c8e",
+      "bytes": 545,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 14,
+      "imports": ["vitest", "../src/renderer/src/annotation-workspace/anchor-recovery.js"]
+    },
+    {
+      "path": "apps/desktop/tests/anchor-state.test.ts",
+      "sha256": "784c764c0a9ba9ba998ba3c86152e45db9c2843f3d3df6b1a5a1e2131956e2dd",
+      "bytes": 877,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 29,
+      "imports": ["vitest", "@markfix/contracts", "../src/main/anchor-state.js"]
+    },
+    {
+      "path": "apps/desktop/tests/anchor-tracker.test.ts",
+      "sha256": "ede05697b4a02a711b04fb3379dff06e375606f44efc9112364785dc16bc9df3",
+      "bytes": 2989,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 97,
+      "imports": ["vitest", "@markfix/contracts", "../src/target-runtime/anchor-tracker.js"]
+    },
+    {
+      "path": "apps/desktop/tests/annotation-submission-report-inputs.test.ts",
+      "sha256": "efed79d0ff63017cbd6ee2744160350d308e5e8f9711f2f6bd6adc442267fc2a",
+      "bytes": 6838,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 214,
+      "imports": ["vitest", "../src/renderer/src/annotation-submission/report-inputs"]
+    },
+    {
+      "path": "apps/desktop/tests/api-env.test.ts",
+      "sha256": "ffab45bb37b19515feface9c200c83b8270f543796c086feb6749baa2882755e",
+      "bytes": 511,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 13,
+      "imports": ["node:url", "electron-vite", "vitest"]
+    },
+    {
+      "path": "apps/desktop/tests/capture-clipboard.test.ts",
+      "sha256": "72ab88015df9275503495b80add804f53dae75144fee0d92930c70a441d717c1",
+      "bytes": 922,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 20,
+      "imports": ["vitest", "../src/main/capture-clipboard"]
+    },
+    {
+      "path": "apps/desktop/tests/capture-contract.test.ts",
+      "sha256": "c01fbbf9d7b342aec190267ffe175ffa22196b40cd2f8830cd0d3ce15b615cf2",
+      "bytes": 621,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 23,
+      "imports": ["vitest", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/tests/capture-history-layout.test.ts",
+      "sha256": "b0819c21029c6ef6c33926b6af03edb80a07fae9b5f38410219374f489b37a6d",
+      "bytes": 1702,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 44,
+      "imports": ["node:fs", "node:url", "vitest"]
+    },
+    {
+      "path": "apps/desktop/tests/capture-policy.test.ts",
+      "sha256": "cc8fe124aae1292dcb90154fd944422b1bc84ff345052b8c579552b191d46d46",
+      "bytes": 611,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 23,
+      "imports": ["vitest", "../src/main/capture-policy.js"]
+    },
+    {
+      "path": "apps/desktop/tests/capture-selection.test.ts",
+      "sha256": "318bb8a30a38a6915857a4346c25144a6de67891b7c7fa9ae4907f8591362bf8",
+      "bytes": 1287,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 44,
+      "imports": ["vitest", "../src/target-runtime/capture-selection.js"]
+    },
+    {
+      "path": "apps/desktop/tests/capture-toolbar.test.ts",
+      "sha256": "884fe45965d77046600e9e2429aebeffaa20fc116318b7868aefec74f097c3c5",
+      "bytes": 636,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 17,
+      "imports": ["node:fs", "node:url", "vitest"]
+    },
+    {
+      "path": "apps/desktop/tests/cdp-inspector.test.ts",
+      "sha256": "063c3a9f9fa792238c1f48df290080e12a7315fe18a06b8238e46701501ca649",
+      "bytes": 5913,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 148,
+      "imports": ["vitest", "electron", "../src/main/cdp-inspector.js"]
+    },
+    {
+      "path": "apps/desktop/tests/child-window-manager.test.ts",
+      "sha256": "e03c98f11fead0faba54bb0822058df24432292688a600edf6351b05f2249de1",
+      "bytes": 1179,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 36,
+      "imports": ["vitest", "electron", "../src/main/child-window-manager.js"]
+    },
+    {
+      "path": "apps/desktop/tests/desktop-preferences.test.ts",
+      "sha256": "b20643dcafd4a054e8ecf7e7d69816148f772ade020810fd39c498b5e63bc176",
+      "bytes": 3127,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 84,
+      "imports": [
+        "react",
+        "react-dom/server",
+        "vitest",
+        "@markfix/contracts",
+        "../src/renderer/src/project-navigation/website-shortcuts",
+        "../src/renderer/src/desktop-preferences"
+      ]
+    },
+    {
+      "path": "apps/desktop/tests/desktop-update.test.ts",
+      "sha256": "0924ad6e9e1c8a998f6a06dc2755331128b0bda9a131d7dee09ca45b05ba3a44",
+      "bytes": 3418,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 83,
+      "imports": [
+        "node:events",
+        "vitest",
+        "../src/desktop-update.js",
+        "../src/main/desktop-updater.js"
+      ]
+    },
+    {
+      "path": "apps/desktop/tests/diagnostic-console.test.ts",
+      "sha256": "12597a8f71a078422597a7484d5d92013736ffe85b09aee9e389bf29d2a064f4",
+      "bytes": 4255,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 119,
+      "imports": ["vitest", "electron", "../src/main/diagnostic-console.js"]
+    },
+    {
+      "path": "apps/desktop/tests/draft-store.test.ts",
+      "sha256": "0d909b26cc2421b8487eb53d037f0a46b0c86367c3b7a97ad81401c015144818",
+      "bytes": 19711,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 572,
+      "imports": [
+        "node:fs",
+        "node:os",
+        "node:path",
+        "better-sqlite3",
+        "vitest",
+        "@markfix/contracts",
+        "../src/main/draft-store.js"
+      ]
+    },
+    {
+      "path": "apps/desktop/tests/element-comment-list.test.ts",
+      "sha256": "9d4f1359153366a90e8124349a5a730fe93dc637004e65b2a9d0d899a1240383",
+      "bytes": 744,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 21,
+      "imports": ["vitest", "../src/renderer/src/annotation-workspace/model.js"]
+    },
+    {
+      "path": "apps/desktop/tests/element-comment-overlay.test.ts",
+      "sha256": "1dc79d596ccaf657b4845a0e3978888c36b4bfe92896cc57ef48a07ac7187cc2",
+      "bytes": 736,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 22,
+      "imports": ["vitest", "../src/target-runtime/element-comment-overlay.js"]
+    },
+    {
+      "path": "apps/desktop/tests/first-annotation-guide.test.ts",
+      "sha256": "e902ce638cda43bbdd2e48623c098dbe1316507f677948cbd975ab7b186ba396",
+      "bytes": 2805,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 87,
+      "imports": [
+        "react",
+        "react-dom/server",
+        "vitest",
+        "../src/renderer/src/annotation-workspace/ElementCommentPanel",
+        "../src/renderer/src/annotation-workspace/FirstAnnotationGuide"
+      ]
+    },
+    {
+      "path": "apps/desktop/tests/image-export.test.ts",
+      "sha256": "34da7845b748795e5836f01323726f728dc41e6901e80c16a1a8862f8cbe4e23",
+      "bytes": 973,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 23,
+      "imports": ["vitest", "../src/main/image-export.js"]
+    },
+    {
+      "path": "apps/desktop/tests/login-defaults.test.ts",
+      "sha256": "cbac46ea40b6044da0af8f21558bd214079d4f2d7f9ac7939eaa067770ab42bb",
+      "bytes": 435,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 12,
+      "imports": ["vitest", "../src/renderer/src/auth/login-defaults.js"]
+    },
+    {
+      "path": "apps/desktop/tests/mode-shortcuts.test.ts",
+      "sha256": "c5305625b043ab62593672be79384de03ef72c3a6517c9cf46475cf93a03d317",
+      "bytes": 1718,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 45,
+      "imports": ["vitest", "../src/main/mode-shortcuts.js", "../src/main/shortcut-input.js"]
+    },
+    {
+      "path": "apps/desktop/tests/page-records.test.ts",
+      "sha256": "762ccfada19750b1aad8a3d7713170f9c4f84d79cb09d2374b5fc95ddf5dcf37",
+      "bytes": 2657,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 65,
+      "imports": ["vitest", "../src/renderer/src/page-records"]
+    },
+    {
+      "path": "apps/desktop/tests/project-data-router.test.ts",
+      "sha256": "94fe99da5447256846efe35320b506d2d492c88a2f881197ef821c8490359805",
+      "bytes": 3624,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 104,
+      "imports": ["vitest", "@markfix/contracts", "../src/main/project-data-router.js"]
+    },
+    {
+      "path": "apps/desktop/tests/project-report-overlays.test.ts",
+      "sha256": "cc99683482c48e074031c8b440e2db17e309d188364bc88d1c192bb208d2a5b9",
+      "bytes": 5728,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 184,
+      "imports": ["vitest", "@markfix/contracts", "../src/renderer/src/project-report-overlays"]
+    },
+    {
+      "path": "apps/desktop/tests/report-reconciliation.test.ts",
+      "sha256": "b94bad6bc3c5935be22a15351bb472c0e1a6f0233661a444688c2d9f43601102",
+      "bytes": 3145,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 104,
+      "imports": ["vitest", "@markfix/contracts", "../src/renderer/src/report-reconciliation"]
+    },
+    {
+      "path": "apps/desktop/tests/report-screenshot-optimizer.test.ts",
+      "sha256": "3c4422fa123c88ffa8bf395e496dc341096bead50165079f3850766f02c965e4",
+      "bytes": 2440,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 76,
+      "imports": ["vitest", "@markfix/contracts", "../src/main/report-screenshot-optimizer.js"]
+    },
+    {
+      "path": "apps/desktop/tests/screenshot-compositor.test.ts",
+      "sha256": "c6fbc893a8cb521e097ac8f35b282ab11c5943548a49c75d2c299a5627f29b49",
+      "bytes": 2325,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 73,
+      "imports": ["vitest", "../src/renderer/src/screenshot-compositor.js"]
+    },
+    {
+      "path": "apps/desktop/tests/screenshot-mark-contract.test.ts",
+      "sha256": "ac5485d6711a4fc421b311d0d9bb73b0ac585b9631ea809b50a3048c7ff69cbf",
+      "bytes": 1496,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 47,
+      "imports": ["vitest", "@markfix/contracts"]
+    },
+    {
+      "path": "apps/desktop/tests/sidebar-layout.test.ts",
+      "sha256": "c2a85bc677d1d8a7dc56e77ab37cbc881791b6a89468b5901d617ede1eaad1b0",
+      "bytes": 798,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 16,
+      "imports": ["vitest", "../src/sidebar-layout"]
+    },
+    {
+      "path": "apps/desktop/tests/toast-policy.test.ts",
+      "sha256": "f5f53fb2f7199d2037aa0ff0c91b3eb5c12c3eeeefe844aa55685d392f204a32",
+      "bytes": 2158,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 55,
+      "imports": ["node:fs", "vitest"]
+    },
+    {
+      "path": "apps/desktop/tests/url.test.ts",
+      "sha256": "f3ca572e3aaa5ee9de0390e1770255de1c7d3cfe3004a85eb09c5e6b0dc5f921",
+      "bytes": 1025,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 27,
+      "imports": ["vitest", "../src/main/url.js", "../src/main/sync-policy.js"]
+    },
+    {
+      "path": "apps/desktop/tests/website-shortcuts.test.ts",
+      "sha256": "688ce9f768649b00f10b75aca3c4f9df80cb514341f8c16d17f763d825a63015",
+      "bytes": 982,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 29,
+      "imports": ["vitest", "../src/renderer/src/project-navigation/website-shortcuts"]
+    },
+    {
+      "path": "apps/desktop/tests/window-shortcuts.test.ts",
+      "sha256": "c7820352a10c74557b9bc30ef7628a7148f07d0a3fc1fec075437b82956a192e",
+      "bytes": 1598,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 38,
+      "imports": ["vitest", "../src/main/shortcut-input.js", "../src/main/window-shortcuts.js"]
+    },
+    {
+      "path": "apps/desktop/tests/workspace-session.test.ts",
+      "sha256": "f27a633267cbc5208df0bfe7e520386d30f84e1dccbb90ac8cb7533ecb22575d",
+      "bytes": 1666,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 45,
+      "imports": ["vitest", "../src/renderer/src/annotation-workspace/workspace-session"]
+    },
+    {
+      "path": "apps/desktop/tsconfig.json",
+      "sha256": "0e5f14dcdb07106905c29c80d5c754088a617fc72d657fbd26b75ad0c6ba4561",
+      "bytes": 178,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 5
+    },
+    {
+      "path": "compose.yaml",
+      "sha256": "7bdf14271a553cea9ea14f200bd9fe4b51cfad8efd1aa57204efba6f00b673d0",
+      "bytes": 2750,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 102
+    },
+    {
+      "path": "docs/account-experience-review.md",
+      "sha256": "f6d6ce3436f6a698b4949037440658d4a0676a814265124ff379a736ea1d3646",
+      "bytes": 3356,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 50
+    },
+    {
+      "path": "docs/adr/0001-target-overlay.md",
+      "sha256": "673faaa239f5ab7efab918792c7d3b01edcff153a3aedaba02e6a89feab60613",
+      "bytes": 1022,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 19
+    },
+    {
+      "path": "docs/aliyun-deployment.md",
+      "sha256": "ba654f9eae94672e5304e17073406c74152982b6825d22aaadfa87333e07388f",
+      "bytes": 6423,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 59
+    },
+    {
+      "path": "docs/artifact-maintenance.md",
+      "sha256": "6beb71ac154a7f551925bf4fb4ac69a57614139557245ced74659dde2f5a0ee8",
+      "bytes": 4361,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 47
+    },
+    {
+      "path": "docs/brand/logo/README.md",
+      "sha256": "c1ec79f9650241c2696aeccc61f5a2842a71581b59ef0b6f3c64ca2e652bf1a3",
+      "bytes": 1984,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 39
+    },
+    {
+      "path": "docs/brand/logo/concepts/markfix-mf-concept-horizontal.svg",
+      "sha256": "d4d42af0f43ca6f8d431f3f139e8752af0686050f73ccb3f45ac81b395410c51",
+      "bytes": 1302,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 23
+    },
+    {
+      "path": "docs/brand/logo/concepts/markfix-mf-concept-icon.svg",
+      "sha256": "93de66d485b7edeeee1b1b67b6ca7588bebcb5853014a45b1612d9a6057a8dfb",
+      "bytes": 1009,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 20
+    },
+    {
+      "path": "docs/brand/logo/concepts/markfix-mf-ligature-horizontal.svg",
+      "sha256": "85b4ddb85da0b902ff2047d15bed0d5d61e7741d4d77ead31d1594379da04b32",
+      "bytes": 1230,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 19
+    },
+    {
+      "path": "docs/brand/logo/concepts/markfix-mf-ligature-icon.svg",
+      "sha256": "3f29af970eaf910dfcd330d55488ea6e38dcdeaa451e45825e20de560f627a3a",
+      "bytes": 907,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 16
+    },
+    {
+      "path": "docs/brand/logo/markfix-logo-horizontal.svg",
+      "sha256": "6152258757d523f3344f91b311cf1796bca6f7e54fc7f4452d0f53d0162d310a",
+      "bytes": 1424,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 19
+    },
+    {
+      "path": "docs/brand/logo/markfix-logo-icon.svg",
+      "sha256": "e13695ade9a54a21f7d0c0f8e8e98ae88b035c401310ece7e5d7142b2bcd7629",
+      "bytes": 917,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 13
+    },
+    {
+      "path": "docs/brand/logo/markfix-logo-mf-horizontal.svg",
+      "sha256": "b8e44362ff874f1a06c3f8b7eb06cb2dbd83b9163c380d4aa6339dbfdbbbdf94",
+      "bytes": 1393,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 18
+    },
+    {
+      "path": "docs/brand/logo/markfix-logo-mf-icon.svg",
+      "sha256": "b1e414c7c1fa5dcc005281d30e21715185c8e2b9545c8d5f85e2ed2fabb91c74",
+      "bytes": 1135,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 28
+    },
+    {
+      "path": "docs/brand/logo/markfix-logo-monochrome.svg",
+      "sha256": "f8bf9c016ff09a994f12aa98dc838be170816555465360cb17397710de417901",
+      "bytes": 882,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 10
+    },
+    {
+      "path": "docs/brand/logo/markfix-logo-reversed.svg",
+      "sha256": "1d45aafb1b3f5763d142b4f22ce60dd21460c5baf55ebd321932296c19917c61",
+      "bytes": 943,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 10
+    },
+    {
+      "path": "docs/brand/logo/markfix-logo-stacked.svg",
+      "sha256": "5e24647afe88db72b78478d102088679796d031bf64e09dec099d6bcbebe05b8",
+      "bytes": 1485,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 17
+    },
+    {
+      "path": "docs/commercial-local-scope.md",
+      "sha256": "f535cca839fe3a5ee9da1b74f875d67715c2c60ff0bf49b2731730af09b84859",
+      "bytes": 2987,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 68
+    },
+    {
+      "path": "docs/desktop-updates.md",
+      "sha256": "da88e3f01aaba56533a9baf56af6cff82b4f8a1d2feb0d4985b5551546251443",
+      "bytes": 5158,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 47
+    },
+    {
+      "path": "docs/security/browser-boundary.md",
+      "sha256": "b24f602b1aed2077b23ac3d83ff5b615f33171f475df649848180c10dedcb878",
+      "bytes": 745,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 9
+    },
+    {
+      "path": "docs/vibe-review-checklist.md",
+      "sha256": "184354d4bb9791e20fb57bfeb5e996f97d060745600d3736f595cc681f145791",
+      "bytes": 2232,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 40
+    },
+    {
+      "path": "eslint.config.js",
+      "sha256": "8a7e85717cd7e5f2220037cfd5c3d09e36572a50cc42c7e2130e21caa462c647",
+      "bytes": 691,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 21
+    },
+    {
+      "path": "infra/Dockerfile.api",
+      "sha256": "2016d5238587c96dc21d9ca80bfcabda1fe560395cb2c29d0783304f6b6c4c04",
+      "bytes": 1824,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 39
+    },
+    {
+      "path": "infra/Dockerfile.dashboard",
+      "sha256": "a121c02dae27571d260975c210cb5fb11dad340e3b519f8e3091be15b1d8230c",
+      "bytes": 1180,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 31
+    },
+    {
+      "path": "infra/Dockerfile.testkit",
+      "sha256": "efa943ec7c234db1ced87ba6e7c4ac4f3c224cd0b6d9fabb5472eac6accc6e5b",
+      "bytes": 449,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 13
+    },
+    {
+      "path": "infra/aliyun/api-proxy.conf",
+      "sha256": "9fde67f69dab7e7eb5e59afef533dcf5678cfc6dd764bf5d425613c400fd7c00",
+      "bytes": 292,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 9
+    },
+    {
+      "path": "infra/aliyun/compose.preview.yaml",
+      "sha256": "8a646b41c39108af4d16a5770eb666463225c219e258fbe7b549a68acc09f610",
+      "bytes": 2086,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 82
+    },
+    {
+      "path": "infra/aliyun/deploy.sh",
+      "sha256": "339c4eb289a2a96b486a2ef9dc5532256c7a88be3106e15a5acf38f18132bc92",
+      "bytes": 3162,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 76
+    },
+    {
+      "path": "infra/aliyun/test_deploy.py",
+      "sha256": "dca4e22636463b638a11cbd2eb447e8ec893624db938893eda9ed34b51f3e5d6",
+      "bytes": 6718,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 132
+    },
+    {
+      "path": "infra/nginx.conf",
+      "sha256": "4048ca969904bd3faeaea6e4be22dc2a28fb36a20a3fdf466355fab7505535c3",
+      "bytes": 618,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 32
+    },
+    {
+      "path": "package.json",
+      "sha256": "44eb3f881a55c6f480b62e211b49b0d8bb7dbe8e3a001b6a0e83b01a462f6439",
+      "bytes": 885,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 32
+    },
+    {
+      "path": "packages/anchor-core/package.json",
+      "sha256": "c827a8b9335c536c54e3361af3a6c1e155807887fb260687bfee90ff919d0cb0",
+      "bytes": 338,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 17
+    },
+    {
+      "path": "packages/anchor-core/src/index.ts",
+      "sha256": "41fa79205729e98c4d84fe0ebaa7570ee2709df6d7b4141769ad0ba292fb072a",
+      "bytes": 2544,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 77,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "packages/anchor-core/tests/anchor.test.ts",
+      "sha256": "80f3c55d5deb30315b5e3f922ae58fac3d71b1b75525eb3f761c9d0e1023151b",
+      "bytes": 2005,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 70,
+      "imports": ["vitest", "@markfix/contracts", "../src/index.js"]
+    },
+    {
+      "path": "packages/anchor-core/tsconfig.build.json",
+      "sha256": "209894ce9a8c848457df5bbaf219078cfda191f55f1cf3abb830a872d69c1020",
+      "bytes": 138,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 5
+    },
+    {
+      "path": "packages/anchor-core/tsconfig.json",
+      "sha256": "a5080bcfa6e750414a62de027d6546236d6c581e4ff347024e422bcd2b5e5dd6",
+      "bytes": 70,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 4
+    },
+    {
+      "path": "packages/annotation-model/package.json",
+      "sha256": "60d7885140264d7fba67ad4e3421cb8708cf93d21da523424be957753595734a",
+      "bytes": 343,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 17
+    },
+    {
+      "path": "packages/annotation-model/src/index.ts",
+      "sha256": "e3ec6fc73029ac0781b7c57836fe33c9e830bf20cc6aed2cfad74461ae81fe47",
+      "bytes": 1839,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 58,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "packages/annotation-model/tests/annotation.test.ts",
+      "sha256": "bcc9086da8b59f447faf478ca1fab68dfc725841c92762894d86e6a4685337b5",
+      "bytes": 694,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 18,
+      "imports": ["vitest", "../src/index.js"]
+    },
+    {
+      "path": "packages/annotation-model/tsconfig.build.json",
+      "sha256": "209894ce9a8c848457df5bbaf219078cfda191f55f1cf3abb830a872d69c1020",
+      "bytes": 138,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 5
+    },
+    {
+      "path": "packages/annotation-model/tsconfig.json",
+      "sha256": "a5080bcfa6e750414a62de027d6546236d6c581e4ff347024e422bcd2b5e5dd6",
+      "bytes": 70,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 4
+    },
+    {
+      "path": "packages/api-client/package.json",
+      "sha256": "c748b8bc62a8233eee03d8fc060a46d852cd119c5e978d648d7da01faf7a0b3e",
+      "bytes": 357,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 18
+    },
+    {
+      "path": "packages/api-client/src/index.ts",
+      "sha256": "68d72fbf4b16296f26407ad7cbef7e549d7bd9838da4dde97f3b71b241eae944",
+      "bytes": 20113,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 610,
+      "imports": ["@markfix/contracts"]
+    },
+    {
+      "path": "packages/api-client/tests/api-client.test.ts",
+      "sha256": "3f49231b870764e5c25d7915ace438c48230f141a430493a51d50f412cd1cb4a",
+      "bytes": 9681,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 283,
+      "imports": ["vitest", "../src/index.js"]
+    },
+    {
+      "path": "packages/api-client/tsconfig.build.json",
+      "sha256": "209894ce9a8c848457df5bbaf219078cfda191f55f1cf3abb830a872d69c1020",
+      "bytes": 138,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 5
+    },
+    {
+      "path": "packages/api-client/tsconfig.json",
+      "sha256": "639cd9738fe64eb0f069f295a3ca5d6a9ec123aff8d8e1c63d288d128865c87b",
+      "bytes": 61,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 4
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "sha256": "44e2cd4433813795a7e5c0a5d1bf61edcc99d7181b1254d02117bbd80000b1bb",
+      "bytes": 315,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 17
+    },
+    {
+      "path": "packages/contracts/src/commercial.ts",
+      "sha256": "128fb9253832bc0f0f68dcc53c0635d19bc153dd76be62f33b046c1de2dd2927",
+      "bytes": 3147,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 111,
+      "imports": ["zod"]
+    },
+    {
+      "path": "packages/contracts/src/index.ts",
+      "sha256": "a613ad647d8a18cc5fd477c9f58b60b5d650ec06a8f5171f3b3f9cea16881904",
+      "bytes": 21924,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 623,
+      "imports": ["zod", "./commercial.js"]
+    },
+    {
+      "path": "packages/contracts/tests/commercial.test.ts",
+      "sha256": "439c72b2d7a3162c29571df89187da6cf91140f83e1a2a6bcf5f4a72bd131a43",
+      "bytes": 1186,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 32,
+      "imports": ["vitest", "../src/index.js"]
+    },
+    {
+      "path": "packages/contracts/tests/contracts.test.ts",
+      "sha256": "27a918475538914494d1aa03260640b6357e3b82393b69614a51210738fc3820",
+      "bytes": 6132,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 192,
+      "imports": ["vitest", "../src/index.js"]
+    },
+    {
+      "path": "packages/contracts/tsconfig.build.json",
+      "sha256": "209894ce9a8c848457df5bbaf219078cfda191f55f1cf3abb830a872d69c1020",
+      "bytes": 138,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 5
+    },
+    {
+      "path": "packages/contracts/tsconfig.json",
+      "sha256": "a5080bcfa6e750414a62de027d6546236d6c581e4ff347024e422bcd2b5e5dd6",
+      "bytes": 70,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 4
+    },
+    {
+      "path": "packages/database/package.json",
+      "sha256": "b630b404a3cb591744e1c79aa1666c04194d322a19237e6b1b915f26815b50e1",
+      "bytes": 451,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 22
+    },
+    {
+      "path": "packages/database/prisma/migrations/20260908000000_initial/migration.sql",
+      "sha256": "2d25994616b507fbdfa96f1c44c0a94f52460746345fc8a5da1a6ef4f3d350b4",
+      "bytes": 15797,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 437
+    },
+    {
+      "path": "packages/database/prisma/migrations/migration_lock.toml",
+      "sha256": "1db17a8d051aa136110736752c5e1f8b7ed92b6ea8e803112fbbe2497047c210",
+      "bytes": 24,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 1
+    },
+    {
+      "path": "packages/database/prisma/schema.prisma",
+      "sha256": "c27ba48f6a7aa176b0a3b12477a0ac400fa59321ac357a8e0305a92939854711",
+      "bytes": 11091,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 347
+    },
+    {
+      "path": "packages/database/src/index.ts",
+      "sha256": "e7b95d8317f92e9be04dc31fc33cea2f39b52d59017180e69307776619c1b61a",
+      "bytes": 55,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 1,
+      "imports": ["@prisma/client"]
+    },
+    {
+      "path": "packages/database/tsconfig.json",
+      "sha256": "639cd9738fe64eb0f069f295a3ca5d6a9ec123aff8d8e1c63d288d128865c87b",
+      "bytes": 61,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 4
+    },
+    {
+      "path": "packages/testkit/index.html",
+      "sha256": "eaba32283eed979da173170c7da43373380222438d5ab0b69c9c7cf1db9041b5",
+      "bytes": 2173,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 81
+    },
+    {
+      "path": "packages/testkit/package.json",
+      "sha256": "4fa2afa9bb2c5d4bf7114b9640d0f0b87b7a9cfdc66292146e7e231eb94d6e4b",
+      "bytes": 214,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 12
+    },
+    {
+      "path": "packages/testkit/tsconfig.json",
+      "sha256": "639cd9738fe64eb0f069f295a3ca5d6a9ec123aff8d8e1c63d288d128865c87b",
+      "bytes": 61,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 4
+    },
+    {
+      "path": "packages/ui/components.json",
+      "sha256": "a0432de3f21458276ea7f68f8c6f331cac7320dbaa61f59b31d85b1a7deb1bea",
+      "bytes": 420,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 20
+    },
+    {
+      "path": "packages/ui/package.json",
+      "sha256": "a7afc2ae6a65c4defb1f2f7da6a38098eeffcc365430fa1f77b43d25f1e601a0",
+      "bytes": 1319,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 47
+    },
+    {
+      "path": "packages/ui/src/components/alert-dialog.tsx",
+      "sha256": "dee449efc3752298417089aad4869b9d6722cda20fed0378d99dc7b4e9cf9760",
+      "bytes": 3367,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 122,
+      "imports": ["react", "@radix-ui/react-alert-dialog", "./button.js", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/alert.tsx",
+      "sha256": "e7871e85fb32f11fea0f8e22576c1d743dcb17d36dbdd64d7cf146fc466b1783",
+      "bytes": 1277,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 47,
+      "imports": ["react", "class-variance-authority", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/auth-layout.tsx",
+      "sha256": "42fc67cef70db1fc6ca47ef06f2ae5d1bbc74f049350f94393e9d583c419c878",
+      "bytes": 1796,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 57,
+      "imports": ["react", "./markfix-logo.js"]
+    },
+    {
+      "path": "packages/ui/src/components/avatar.tsx",
+      "sha256": "c2b21cf1ca8b9caf1c35428ea0280030067ecf0d18334dfaf0e72ce16a12e3f4",
+      "bytes": 2917,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 95,
+      "imports": ["react", "../lib/cn.js", "@radix-ui/react-avatar"]
+    },
+    {
+      "path": "packages/ui/src/components/badge.tsx",
+      "sha256": "17c6172fdf0cccce4f5fd3d8eb4de00bcb43f082a39fe56697e5535055c02ab1",
+      "bytes": 1003,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 28,
+      "imports": ["react", "class-variance-authority", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/button.tsx",
+      "sha256": "e7824319b2d21e5ca140e6b2b627ee918c3ccb5c64fb5f4764034d1eb3776496",
+      "bytes": 1990,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 49,
+      "imports": ["react", "@radix-ui/react-slot", "class-variance-authority", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/card.tsx",
+      "sha256": "ac42cd6c5efefbfa80a2a99c17cd4e6f9ed0814dbe67b44c896f2acb2651a619",
+      "bytes": 330,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 12,
+      "imports": ["react", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/checkbox.tsx",
+      "sha256": "0bc3761b26ae5f3977ab06580c16ca85053f53dc44047ccd0c72061058f8071a",
+      "bytes": 1113,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 27,
+      "imports": ["react", "@radix-ui/react-checkbox", "../icons.js", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/dialog.tsx",
+      "sha256": "e8b2fea817668ffad0204d35422ce6e7950905452a0d8ef939ec511f1bd4baa7",
+      "bytes": 2260,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 84,
+      "imports": ["react", "@radix-ui/react-dialog", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/dropdown-menu.tsx",
+      "sha256": "97ed2af1da6359458364a07b5bdbcbaa84ca592d4dc3aafda868ec6204d61b17",
+      "bytes": 6083,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 182,
+      "imports": ["react", "@radix-ui/react-dropdown-menu", "lucide-react", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/empty.tsx",
+      "sha256": "3a88fce6297473e2405983ace6ca82d015c47a76b68c09defbf8f9453e745237",
+      "bytes": 2410,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 94,
+      "imports": ["react", "class-variance-authority", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/input.tsx",
+      "sha256": "cc3e759461c5773839f059f03d9714dc35115fbd917f6e30000d091061a1e78a",
+      "bytes": 737,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 20,
+      "imports": ["react", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/kbd.tsx",
+      "sha256": "f563a272bb0c254c05ce88abbf2ebba9d475bd6ad1de04b84274aace40817b90",
+      "bytes": 905,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 29,
+      "imports": ["react", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/label.tsx",
+      "sha256": "8ec9683c61edb31a0f683154972add82311ca4e132b6d7e5305cf0028f8eee6a",
+      "bytes": 610,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 19,
+      "imports": ["react", "@radix-ui/react-label", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/markfix-logo.tsx",
+      "sha256": "d546a7bb1d6a35c63ee6c0ce858b3c96c8d4ae0d06a37a5b4f8463aca43c8061",
+      "bytes": 4900,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 182,
+      "imports": ["react"]
+    },
+    {
+      "path": "packages/ui/src/components/native-select.tsx",
+      "sha256": "84b10e1b5243a1f8df93b9e87e2aa36529b8ec8f4e96e358b161b2aaa81d219c",
+      "bytes": 664,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 18,
+      "imports": ["react", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/password-input.tsx",
+      "sha256": "52b586d0d56351f450b1f16f8780831e07a82fa367fb5d05f637d75c1b761efd",
+      "bytes": 1058,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 33,
+      "imports": ["react", "lucide-react", "./button.js", "./input.js", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/popover.tsx",
+      "sha256": "ebd6d8f21980f52afe2f434e45bb2eca7b222e183dca964120dfcfb0168defa4",
+      "bytes": 1028,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 29,
+      "imports": ["react", "@radix-ui/react-popover", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/progress.tsx",
+      "sha256": "9b5d424e51cf774b5b1f2303a19c42a90cf196cb0f3afe6bb81f02242a85d8a0",
+      "bytes": 742,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 28,
+      "imports": ["react", "../lib/cn.js", "@radix-ui/react-progress"]
+    },
+    {
+      "path": "packages/ui/src/components/radio-group.tsx",
+      "sha256": "fda0fd48638f8965b03f08ca7a7bca3b2d1323006066abd4f1a1ed253d14462f",
+      "bytes": 1475,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 44,
+      "imports": ["react", "../lib/cn.js", "lucide-react", "@radix-ui/react-radio-group"]
+    },
+    {
+      "path": "packages/ui/src/components/resizable.tsx",
+      "sha256": "ea4684dfd10ed65954a59f874ca8fccde8beff7018572b0d871cc46dbc5af475",
+      "bytes": 1359,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 38,
+      "imports": [
+        "react-resizable-panels",
+        "lucide-react",
+        "../lib/cn.js",
+        "react-resizable-panels"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/select.tsx",
+      "sha256": "629cbc2f9a3dea9feda9413e606f08112bc01b7312565f6becb8a2948dc39abb",
+      "bytes": 4896,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 145,
+      "imports": ["react", "@radix-ui/react-select", "lucide-react", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/sheet.tsx",
+      "sha256": "fc6ac480ffc02885feabc8be354cff8b813bafcc2a8381f3c1c1cc825e6dbc25",
+      "bytes": 2339,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 65,
+      "imports": ["react", "@radix-ui/react-dialog", "lucide-react", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/sonner.tsx",
+      "sha256": "99ead588403af4b737cd09cbb4193ac3a0a638763cb0a9ec4ee18dd4d73c7ab7",
+      "bytes": 1170,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 32,
+      "imports": ["react", "lucide-react", "sonner", "sonner"]
+    },
+    {
+      "path": "packages/ui/src/components/table.tsx",
+      "sha256": "60e97ba9fab6d22b0b8dc28747f81de237e9cabaf9921cbec636f31690c66334",
+      "bytes": 2399,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 91,
+      "imports": ["react", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/tabs.tsx",
+      "sha256": "178a8d5ffa703caba8b871b25cf818c8f3eb47a833ab9a2b649471896e196c7f",
+      "bytes": 1874,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 61,
+      "imports": ["react", "@radix-ui/react-tabs", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/textarea.tsx",
+      "sha256": "a3154145b41ba6e82b3f0c7b47d3ebf6e4e452e5e90bc179318528dc69f4f499",
+      "bytes": 700,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 18,
+      "imports": ["react", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/components/toggle-group.tsx",
+      "sha256": "2fdd0fd4bf00fb8f1daef3b9d6cfe7ed78b27200df5ae5cf57b941b7ae16d198",
+      "bytes": 1119,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 32,
+      "imports": ["react", "@radix-ui/react-toggle-group", "../lib/cn.js"]
+    },
+    {
+      "path": "packages/ui/src/icons.ts",
+      "sha256": "ec9de0c8a9a2c3ab9984d7ac2706e0a1a61629712d11aa89f396992164c6e8b2",
+      "bytes": 848,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 67,
+      "imports": ["lucide-react"]
+    },
+    {
+      "path": "packages/ui/src/index.ts",
+      "sha256": "1fb26fce42a1e684b71330762fa0784b41f23d73f93c431aa8ce860a20deecc9",
+      "bytes": 2757,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 100,
+      "imports": [
+        "./components/alert.js",
+        "./components/auth-layout.js",
+        "./components/alert-dialog.js",
+        "./components/badge.js",
+        "./components/button.js",
+        "./components/card.js",
+        "./components/checkbox.js",
+        "./components/dialog.js",
+        "./components/dropdown-menu.js",
+        "./components/input.js",
+        "./components/kbd.js",
+        "./components/label.js",
+        "./components/markfix-logo.js",
+        "./components/native-select.js",
+        "./components/password-input.js",
+        "./components/popover.js",
+        "./components/select.js",
+        "./components/sheet.js",
+        "./components/sonner.js",
+        "./components/tabs.js",
+        "./components/textarea.js",
+        "./components/toggle-group.js",
+        "./lib/cn.js",
+        "./components/resizable.js",
+        "./components/radio-group.js",
+        "./components/progress.js",
+        "./components/table.js",
+        "./components/avatar.js",
+        "./components/empty.js"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/cn.ts",
+      "sha256": "d6cf1d2c25e92eba18c73f11c9676f0a7099020f1010396b94fa4c0356e7fc9a",
+      "bytes": 177,
+      "status": "partially verified",
+      "evidence": "repository lint/typecheck/test/build; semantic scope described in audit report",
+      "lines": 6,
+      "imports": ["clsx", "tailwind-merge"]
+    },
+    {
+      "path": "packages/ui/src/styles.css",
+      "sha256": "0c72825a438433fe9958dff2132a79a24505945bacaa53afd382a487205e568b",
+      "bytes": 6461,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 300
+    },
+    {
+      "path": "packages/ui/tsconfig.json",
+      "sha256": "007a8916b06b7bcd564a274d98938610ae9511fe0b0111e6a30572166b858477",
+      "bytes": 119,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 5
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "99fe205fcbc0925b03ebcc54f4cb49d753948e5fc5559137a7bae713ad31b9ac",
+      "bytes": 257072,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 7324
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "sha256": "72105759354ff3d6774f78c0c39f109f0457889fb0b7227b299f579a362901d5",
+      "bytes": 293,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 18
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "ff45eaddd5db87455bd269d9e43035cc20445bc9ba52492f727691cb7591117d",
+      "bytes": 459,
+      "status": "unverified",
+      "evidence": "inventory only; not a per-file semantic or visual acceptance",
+      "lines": 18
+    }
+  ]
+}
