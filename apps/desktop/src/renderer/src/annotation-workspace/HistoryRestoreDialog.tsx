@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@markfix/ui';
-import type { ProjectAnnotation } from '../ProjectNavigation';
+import type { ProjectAnnotation } from '../project-navigation/model';
 
 export function HistoryRestoreDialog({
   annotation,

@@ -29,11 +29,12 @@ export type CaptureSource = {
 export const numberedVisibleRecords = <T extends { id: string }>(
   comments: readonly T[],
   editingId: string | undefined,
+  numberOffset = 0,
 ): Array<{ comment: T; number: number }> =>
   comments
-    .map((comment, index) => ({ comment, number: index + 1 }))
-    .filter(({ comment }) => comment.id !== editingId)
-    .reverse();
+    .filter((comment) => comment.id !== editingId)
+    .reverse()
+    .map((comment, index) => ({ comment, number: numberOffset + index + 1 }));
 
 export const annotationName = (annotation: Annotation): string => {
   if (annotation.type === 'pin') return `Pin ${annotation.label}`;

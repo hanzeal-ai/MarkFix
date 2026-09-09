@@ -140,7 +140,6 @@ p.annotation-rejection,
 .element-selection-card textarea,
 .first-annotation-guide,
 .settings-sidebar button,
-.settings-shortcut-list kbd,
 .account-menu [data-slot='dropdown-menu-item'] {
   border-radius: var(--radius-control);
 }

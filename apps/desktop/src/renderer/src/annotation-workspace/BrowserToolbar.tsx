@@ -10,7 +10,7 @@ import {
   RotateCw,
   Send,
 } from '@markfix/ui/icons';
-import { Button, Input, ToggleGroup, ToggleGroupItem } from '@markfix/ui';
+import { Button, Input, Kbd, ToggleGroup, ToggleGroupItem } from '@markfix/ui';
 import type { BrowserState } from './model';
 
 type BrowserToolbarProps = {
@@ -107,10 +107,10 @@ export function BrowserToolbar({
           }}
         >
           <ToggleGroupItem value="comment" aria-keyshortcuts="Alt+W" title="批注（⌥W）">
-            <MessageSquareText /> 批注 <kbd>⌥W</kbd>
+            <MessageSquareText /> 批注 <Kbd>⌥W</Kbd>
           </ToggleGroupItem>
           <ToggleGroupItem value="capture" aria-keyshortcuts="Alt+A" title="截图（⌥A）">
-            <Camera /> 截图 <kbd>⌥A</kbd>
+            <Camera /> 截图 <Kbd>⌥A</Kbd>
           </ToggleGroupItem>
         </ToggleGroup>
         <Button

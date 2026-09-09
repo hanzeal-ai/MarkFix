@@ -77,6 +77,7 @@ app.on('browser-window-created', (_event, win) => {
       win.setAlwaysOnTop(true);
       win.show();
       win.focus();
+      if (process.env.MARKFIX_PREVIEW_SMOKE) win.setIgnoreMouseEvents(true);
       assert.equal(
         win.getContentBounds().y,
         win.getBounds().y,
@@ -144,6 +145,53 @@ app.on('browser-window-created', (_event, win) => {
         `qa.button('登录').click();qa.wait(()=>document.querySelector('[aria-label="新标注"]'))`,
       );
       console.log('PASS desktop login and account page links');
+      if (process.env.MARKFIX_MENU_SMOKE) {
+        await run(
+          `document.querySelector('.new-project-shortcut-add').click();qa.wait(()=>document.querySelector('#shortcut-name'))`,
+        );
+        await run(
+          `qa.fill(document.querySelector('#shortcut-name'),'快捷方式验收');qa.fill(document.querySelector('#shortcut-url'),'https://shortcut.example.test');`,
+        );
+        await run(
+          `qa.button('完成').click();qa.wait(()=>!document.querySelector('#shortcut-name'))`,
+        );
+        assert.ok(
+          await run(
+            `JSON.parse(localStorage.getItem('markfix.website-shortcuts.v1')).some(x=>x.name==='快捷方式验收')`,
+          ),
+        );
+        await run(
+          `document.querySelector('[aria-label="管理快捷方式：快捷方式验收"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role=menuitem]'))`,
+        );
+        await run(
+          `[...document.querySelectorAll('[role=menuitem]')].find(el=>el.textContent.trim()==='修改').click();qa.wait(()=>document.querySelector('#shortcut-name'))`,
+        );
+        await run(`qa.fill(document.querySelector('#shortcut-name'),'已修改快捷方式');`);
+        await run(
+          `qa.button('完成').click();qa.wait(()=>!document.querySelector('#shortcut-name'))`,
+        );
+        assert.ok(
+          await run(
+            `JSON.parse(localStorage.getItem('markfix.website-shortcuts.v1')).some(x=>x.name==='已修改快捷方式')`,
+          ),
+        );
+        await run(
+          `document.querySelector('[aria-label="管理快捷方式：已修改快捷方式"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role=menuitem]'))`,
+        );
+        await run(
+          `[...document.querySelectorAll('[role=menuitem]')].find(el=>el.textContent.trim()==='删除').click();qa.wait(()=>document.querySelector('.shortcut-delete-dialog'))`,
+        );
+        await run(
+          `document.querySelector('.shortcut-delete-dialog button:last-child').click();qa.wait(()=>!document.querySelector('.shortcut-delete-dialog'))`,
+        );
+        assert.equal(
+          await run(
+            `JSON.parse(localStorage.getItem('markfix.website-shortcuts.v1')).some(x=>x.name==='已修改快捷方式')`,
+          ),
+          false,
+        );
+        console.log('PASS shortcut add, edit, delete and persistence after component extraction');
+      }
       if (process.env.MARKFIX_HEADER_SMOKE) {
         for (let repeat = 0; repeat < 4; repeat++) {
           await clickHeaderButton();
@@ -165,24 +213,28 @@ app.on('browser-window-created', (_event, win) => {
         return;
       }
 
-      await run(
-        `document.querySelector('[aria-label="帮助"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menuitem"]')?.textContent.includes('新功能'))`,
-      );
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      writeFileSync(
-        join(output, 'account-help.png'),
-        (await win.webContents.capturePage()).toPNG(),
-      );
-      await run(`document.querySelector('[role="menuitem"]').click()`);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      assert.deepEqual(chromeLaunches.at(-1), {
-        file: '/usr/bin/open',
-        args: ['-a', 'Google Chrome', 'https://markfix.hanzeal.com'],
-      });
-      console.log('PASS help menu and Chrome website launch command');
+      if (!process.env.MARKFIX_PREVIEW_SMOKE && !process.env.MARKFIX_MENU_SMOKE) {
+        await run(
+          `document.querySelector('[aria-label="帮助"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menuitem"]')?.textContent.includes('新功能'))`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        writeFileSync(
+          join(output, 'account-help.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+        await run(
+          `if(!document.querySelector('[role="menuitem"]'))document.querySelector('[aria-label="帮助"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menuitem"]')).then(()=>document.querySelector('[role="menuitem"]').click())`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        assert.deepEqual(chromeLaunches.at(-1), {
+          file: '/usr/bin/open',
+          args: ['-a', 'Google Chrome', 'https://markfix.hanzeal.com'],
+        });
+        console.log('PASS help menu and Chrome website launch command');
+      }
 
       await run(
-        `document.querySelector('input[value="LOCAL"]').click();qa.fill(document.querySelector('#new-project-url'),'javascript:alert(1)')`,
+        `document.querySelector('[role="radio"][data-value="LOCAL"]').click();qa.fill(document.querySelector('#new-project-url'),'javascript:alert(1)')`,
       );
       await run(
         `document.querySelector('#new-project-url').form.requestSubmit();qa.wait(()=>document.body.textContent.includes('请输入有效的 HTTPS 网站地址'))`,
@@ -206,6 +258,375 @@ app.on('browser-window-created', (_event, win) => {
         `document.querySelector('#new-project-url').form.requestSubmit();qa.wait(()=>document.querySelector('[aria-label="删除项目：界面验收项目"]'))`,
       );
       await run(`qa.wait(()=>!document.querySelector('.browser-bar .spin'))`);
+      if (process.env.MARKFIX_MENU_SMOKE) {
+        const website = win.contentView.children[0];
+        await website.webContents.executeJavaScript(
+          `document.body.style.background='#e9eefb';document.querySelector('h1').style.marginLeft='40px'`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        for (let attempt = 0; attempt < 2; attempt++) {
+          await run(
+            `document.querySelector('.project-sidebar-account').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[aria-label="账号菜单"]'))`,
+          );
+          await run(
+            `qa.wait(()=>document.querySelector('body > img[aria-hidden="true"]')?.complete)`,
+          );
+          assert.equal(
+            await run(
+              `document.querySelector('.account-menu [data-slot="dropdown-menu-shortcut"]').textContent`,
+            ),
+            '⌘,',
+          );
+          for (let attempt = 0; attempt < 50 && website.getVisible(); attempt++)
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          assert.equal(
+            website.getVisible(),
+            false,
+            'Native website yields to the open account menu',
+          );
+          assert.equal(
+            await run(
+              `document.querySelector('.account-menu').getBoundingClientRect().right > document.querySelector('.project-sidebar').getBoundingClientRect().right`,
+            ),
+            true,
+          );
+          assert.equal(
+            await run(
+              `(()=>{const menu=document.querySelector('.account-menu');const rect=menu.getBoundingClientRect();return menu.contains(document.elementFromPoint(rect.right-10,rect.top+20));})()`,
+            ),
+            true,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          writeFileSync(
+            join(output, 'account-menu-layer.png'),
+            (await win.webContents.capturePage()).toPNG(),
+          );
+          win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+          win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+          await run(
+            `qa.wait(()=>!document.querySelector('.account-menu') && !document.querySelector('body > img[aria-hidden="true"]'))`,
+          );
+          for (let attempt = 0; attempt < 50 && !website.getVisible(); attempt++)
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          assert.equal(website.getVisible(), true, 'Native website restored after menu dismissal');
+        }
+        assert.equal(
+          await run(
+            `document.querySelectorAll('.annotation-mode-control [data-slot="kbd"]').length`,
+          ),
+          2,
+        );
+        await run(`window.markfix.openSettings()`);
+        const settingsWindow = BrowserWindow.getAllWindows().find((child) => child !== win);
+        assert.ok(settingsWindow);
+        for (let attempt = 0; attempt < 100; attempt++) {
+          if (
+            await settingsWindow.webContents.executeJavaScript(
+              `document.querySelectorAll('[data-slot="kbd-group"]').length === 6`,
+            )
+          )
+            break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        assert.deepEqual(
+          await settingsWindow.webContents.executeJavaScript(
+            `[...document.querySelectorAll('[data-slot="kbd-group"]')].map(group=>[...group.querySelectorAll('[data-slot="kbd"]')].map(key=>key.textContent).join(''))`,
+          ),
+          ['⌘N', '⌘B', '⌘L', '⌥W', '⌥A', '⌘,'],
+        );
+        await settingsWindow.webContents.executeJavaScript(
+          `document.querySelector('[aria-label="上次项目"]').click();document.querySelector('[aria-labelledby="new-annotation-storage-mode-label"] [data-value="LOCAL"]').click()`,
+        );
+        assert.deepEqual(
+          await settingsWindow.webContents.executeJavaScript(
+            `[localStorage.getItem('markfix:startup-view'),localStorage.getItem('markfix:new-annotation-storage-mode')]`,
+          ),
+          ['last-project', 'LOCAL'],
+        );
+        await settingsWindow.webContents.executeJavaScript(
+          `document.querySelector('[role="tab"][data-state="active"]').focus()`,
+        );
+        settingsWindow.focus();
+        settingsWindow.webContents.focus();
+        settingsWindow.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Down' });
+        settingsWindow.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Down' });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        assert.equal(
+          await settingsWindow.webContents.executeJavaScript(
+            `document.querySelector('[role="tab"][data-state="active"]').textContent.trim()`,
+          ),
+          '订阅',
+        );
+        settingsWindow.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Up' });
+        settingsWindow.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Up' });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        assert.equal(
+          await settingsWindow.webContents.executeJavaScript(
+            `document.querySelector('[role="tab"][data-state="active"]').textContent.trim()`,
+          ),
+          '通用',
+        );
+        writeFileSync(
+          join(output, 'settings-kbd.png'),
+          (await settingsWindow.webContents.capturePage()).toPNG(),
+        );
+        settingsWindow.close();
+        console.log('PASS shadcn keyboard hints in toolbar, account menu and settings');
+        console.log('PASS account menu above website and repeated open/close restores interaction');
+        console.log('Screenshots: ' + output);
+        clearTimeout(timeout);
+        server.close();
+        process.exit(0);
+        return;
+      }
+      if (process.env.MARKFIX_PREVIEW_SMOKE) {
+        const pageUrl = process.env.MARKFIX_API_URL + '/site';
+        const projectId = await run(
+          `window.markfix.listWebsiteProjects().then(items=>items[0].id)`,
+        );
+        const now = new Date().toISOString();
+        const context = {
+          projectId,
+          pageSessionId: await run(
+            `window.markfix.listWebsiteProjects().then(items=>items[0].currentPageSessionId)`,
+          ),
+          pageTitle: '界面验收项目',
+          pageUrl,
+          status: 'draft',
+          createdAt: now,
+          updatedAt: now,
+        };
+        const dataUrl = (await win.webContents.capturePage()).toDataURL();
+        const capture = {
+          ...context,
+          id: '22222222-2222-4222-8222-222222222222',
+          note: '共用截图记录',
+          dataUrl,
+          sourceDataUrl: dataUrl,
+          widthCssPx: 100,
+          heightCssPx: 100,
+          marks: [],
+          captureScale: 1,
+          selection: {
+            kind: 'region',
+            xCssPx: 0,
+            yCssPx: 0,
+            widthCssPx: 100,
+            heightCssPx: 100,
+            documentUrl: pageUrl,
+            scrollXCssPx: 0,
+            scrollYCssPx: 0,
+          },
+        };
+        const comment = {
+          ...context,
+          id: '44444444-4444-4444-8444-444444444444',
+          note: '共用元素记录',
+          anchor: {
+            kind: 'element',
+            cssSelector: 'h1',
+            tagName: 'H1',
+            textQuote: 'Test fixture',
+            documentUrl: pageUrl,
+            quadsCssPx: [[480, 0, 680, 0, 680, 40, 480, 40]],
+          },
+        };
+        await run(`window.markfix.saveCaptureRecord(${JSON.stringify(capture)})`);
+        await run(`window.markfix.saveElementComment(${JSON.stringify(comment)})`);
+        await run(
+          `window.markfix.saveCaptureRecord(${JSON.stringify({ ...capture, id: '55555555-5555-4555-8555-555555555555' })})`,
+        );
+        await run(
+          `window.markfix.saveDiagnosticAnnotation(${JSON.stringify({ ...context, id: '66666666-6666-4666-8666-666666666666', evidence: { id: '77777777-7777-4777-8777-777777777777', kind: 'command', level: 'info', timestamp: now, pageUrl, title: '命令记录', message: '测试结果' } })})`,
+        );
+        await run(`sessionStorage.setItem('markfix:browser-mode','comment')`);
+        win.webContents.reload();
+        await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+        // Reload restores the real renderer and its records from the isolated local store.
+        const waitFor = async (expression) => {
+          for (let attempt = 0; attempt < 100; attempt++) {
+            if (await run(expression)) return;
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+          throw new Error('Preview condition timed out: ' + expression);
+        };
+        await waitFor(`!!document.querySelector('.new-project-shortcut[title="界面验收项目"]')`);
+        await run(`document.querySelector('.new-project-shortcut[title="界面验收项目"]').click()`);
+        await waitFor(
+          `!!document.querySelector('.browser-bar') && !document.querySelector('.browser-bar .spin')`,
+        );
+        await run(`document.querySelector('[title="批注（⌥W）"]').click()`);
+        await waitFor(
+          `!!document.querySelector('.element-note-select') && !!document.querySelector('.capture-history-select')`,
+        );
+        assert.equal(await run(`document.querySelectorAll('aside.comment-panel').length`), 1);
+        assert.equal(await run(`!!document.querySelector('.capture-panel-header')`), false);
+        const assertNumbers = async (count) => {
+          assert.deepEqual(
+            await run(
+              `[...document.querySelectorAll('.capture-note-head i')].sort((a,b)=>a.getBoundingClientRect().top-b.getBoundingClientRect().top).map(el=>Number(el.textContent))`,
+            ),
+            Array.from({ length: count }, (_, index) => index + 1),
+          );
+        };
+        assert.equal(
+          await run(`document.querySelectorAll('[data-slot="resizable-handle"]').length`),
+          2,
+        );
+        // Keep real cursor movement out of the automated continuous drag sequence.
+        if (!win.webContents.debugger.isAttached()) win.webContents.debugger.attach('1.3');
+        await win.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+          enabled: true,
+        });
+        win.hide();
+        const dragPanel = async (selector, delta) => {
+          const sendDragInput = async ({ type, x, y, modifiers }) => {
+            if (!win.webContents.debugger.isAttached()) win.webContents.debugger.attach('1.3');
+            await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent', {
+              type: {
+                mouseMove: 'mouseMoved',
+                mouseDown: 'mousePressed',
+                mouseUp: 'mouseReleased',
+              }[type],
+              x,
+              y,
+              button: type === 'mouseMove' ? 'none' : 'left',
+              buttons: type === 'mouseDown' || modifiers?.includes('leftButtonDown') ? 1 : 0,
+              clickCount: type === 'mouseMove' ? 0 : 1,
+            });
+          };
+          const point = await run(
+            `(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();if(r.width<6)throw Error("Resize handle has no real hit area");const x=Math.round(r.left+r.width/2),y=240;if(document.elementFromPoint(x,y)!==document.querySelector(${JSON.stringify(selector)}))throw Error("Resize handle is covered");return {x,y}})()`,
+          );
+          const before = win.contentView.children[0].getBounds();
+          await sendDragInput({ type: 'mouseMove', ...point });
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          await sendDragInput({
+            type: 'mouseDown',
+            button: 'left',
+            clickCount: 1,
+            ...point,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          await sendDragInput({
+            type: 'mouseMove',
+            x: point.x,
+            y: point.y + 1,
+            modifiers: ['leftButtonDown'],
+          });
+          await new Promise((resolve) => setTimeout(resolve, 30));
+          for (let step = 1; step <= 5; step++) {
+            await sendDragInput({
+              type: 'mouseMove',
+              x: point.x + Math.round((delta * step) / 5),
+              y: point.y,
+              modifiers: ['leftButtonDown'],
+            });
+            await new Promise((resolve) => setTimeout(resolve, 30));
+          }
+          await sendDragInput({
+            type: 'mouseUp',
+            button: 'left',
+            clickCount: 1,
+            x: point.x + delta,
+            y: point.y,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          const after = win.contentView.children[0].getBounds();
+          assert.ok(
+            Math.abs(
+              after.width - before.width - (selector === '.sidebar-resize-handle' ? -delta : delta),
+            ) <= 2,
+            `Drag must track full pointer distance: ${before.width} -> ${after.width}, delta ${delta}`,
+          );
+          const edge = await run(
+            `document.querySelector('aside.comment-panel').getBoundingClientRect().left`,
+          );
+          assert.ok(
+            Math.abs(after.x + after.width - edge) <= 1,
+            'Native website follows dragged panel',
+          );
+        };
+        await dragPanel('.annotation-panel-resize-handle', -30);
+        await dragPanel('.annotation-panel-resize-handle', 60);
+        await clickHeaderButton();
+        await waitFor(`!!document.querySelector('.sidebar-expanded')`);
+        await dragPanel('.sidebar-resize-handle', 40);
+        await dragPanel('.sidebar-resize-handle', -20);
+        await clickHeaderButton();
+        await waitFor(`!!document.querySelector('.sidebar-collapsed')`);
+        await assertNumbers(4);
+        for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowLeft']) {
+          await run(
+            `document.querySelector('[aria-label="调整批注栏宽度"]').dispatchEvent(new KeyboardEvent('keydown',{key:${JSON.stringify(key)},bubbles:true}))`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          const panelLeft = await run(
+            `document.querySelector('aside.comment-panel').getBoundingClientRect().left`,
+          );
+          const bounds = win.contentView.children[0].getBounds();
+          assert.ok(
+            Math.abs(bounds.x + bounds.width - panelLeft) <= 1,
+            'Website edge follows resized preview',
+          );
+        }
+        await run(
+          `document.querySelector('.annotation-panel-resize-handle').dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true}))`,
+        );
+        await waitFor(`!document.querySelector('aside.comment-panel')`);
+        assert.equal(win.contentView.children[0].getBounds().width, win.getContentSize()[0]);
+        await run(
+          `document.querySelector('.annotation-panel-resize-handle').dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}))`,
+        );
+        await waitFor(`!!document.querySelector('aside.comment-panel')`);
+        console.log('PASS shadcn native drag on both sides, keyboard resize, collapse and restore');
+        await run(`document.querySelector('.capture-history-select').click()`);
+        await waitFor(`!!document.querySelector('[data-capture-note]')`);
+        assert.equal(
+          await run(`document.querySelector('[data-capture-note]').value`),
+          capture.note,
+        );
+        assert.equal(await run(`!!document.querySelector('.element-note-select')`), true);
+        await assertNumbers(3);
+        assert.equal(
+          await run(`document.querySelector('[data-capture-note]').hasAttribute('placeholder')`),
+          false,
+        );
+        await run(`document.querySelector('.element-note-select').click()`);
+        await waitFor(`!!document.querySelector('[data-element-comment-note]')`);
+        assert.equal(
+          await run(`document.querySelector('[data-element-comment-note]').value`),
+          comment.note,
+        );
+        assert.equal(await run(`!!document.querySelector('.capture-history-select')`), true);
+        await assertNumbers(3);
+        assert.equal(
+          await run(
+            `document.querySelector('[data-element-comment-note]').hasAttribute('placeholder')`,
+          ),
+          false,
+        );
+        await run(`document.querySelector('.diagnostic-note-card button[title="删除"]').click()`);
+        await waitFor(`!document.querySelector('.diagnostic-note-card')`);
+        await assertNumbers(2);
+        const target = webContents.getAllWebContents().find((c) => c.getURL() === pageUrl);
+        await target.executeJavaScript('window.scrollTo(0,300)');
+        assert.equal(await run(`document.querySelectorAll('aside.comment-panel').length`), 1);
+        writeFileSync(
+          join(output, 'unified-preview.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+        await target.loadURL(pageUrl + '?other=1');
+        await waitFor(
+          `!document.querySelector('.element-note-select') && !document.querySelector('.capture-history-select') && !document.querySelector('.capture-note-card')`,
+        );
+        console.log('PASS unified preview, cross-mode replay, scrolling and per-page isolation');
+        console.log('Screenshots: ' + output);
+        clearTimeout(timeout);
+        server.close();
+        process.exit(0);
+        return;
+      }
       await webContents
         .getAllWebContents()
         .find((c) => c.getURL().includes('/site'))
@@ -308,7 +729,13 @@ app.on('browser-window-created', (_event, win) => {
       await run(`qa.wait(()=>document.querySelector('[aria-label="收起项目侧边栏"]'))`);
       await new Promise((resolve) => setTimeout(resolve, 350));
       console.log('PASS collapsed new icon, sidebar hover and stable website width');
-      const dragSidebar = async (from, to) => {
+      // Keep physical cursor events from interrupting synthetic resize gestures.
+      win.setIgnoreMouseEvents(true);
+      const dragSidebar = async (targetWidth) => {
+        const { from, currentWidth } = await run(
+          `(()=>{const handle=document.querySelector('.sidebar-resize-handle').getBoundingClientRect();return {from:Math.round(handle.x+handle.width/2),currentWidth:document.querySelector('.project-sidebar').getBoundingClientRect().width}})()`,
+        );
+        const to = from + targetWidth - currentWidth;
         win.webContents.sendInputEvent({
           type: 'mouseDown',
           x: from,
@@ -317,13 +744,15 @@ app.on('browser-window-created', (_event, win) => {
           clickCount: 1,
         });
         await new Promise((resolve) => setTimeout(resolve, 100));
-        win.webContents.sendInputEvent({
-          type: 'mouseMove',
-          x: to,
-          y: 220,
-          modifiers: ['leftButtonDown'],
-        });
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        for (const x of [Math.round((from + to) / 2), to]) {
+          win.webContents.sendInputEvent({
+            type: 'mouseMove',
+            x,
+            y: 220,
+            modifiers: ['leftButtonDown'],
+          });
+          await new Promise((resolve) => setTimeout(resolve, 75));
+        }
         const edge = await run(
           `document.querySelector('.project-sidebar')?.getBoundingClientRect().right ?? 0`,
         );
@@ -336,17 +765,17 @@ app.on('browser-window-created', (_event, win) => {
           clickCount: 1,
         });
       };
-      await dragSidebar(197, 320);
+      await dragSidebar(320);
       await run(
         `qa.wait(()=>document.querySelector('.project-sidebar').getBoundingClientRect().width===320)`,
       );
-      await dragSidebar(317, 100);
+      await dragSidebar(80);
       await run(`qa.wait(()=>!document.querySelector('.project-sidebar'))`);
       await clickHeaderButton();
       await run(
         `qa.wait(()=>document.querySelector('.project-sidebar')?.getBoundingClientRect().width===320)`,
       );
-      await dragSidebar(317, 200);
+      await dragSidebar(200);
       await run(
         `qa.wait(()=>document.querySelector('.project-sidebar').getBoundingClientRect().width===200)`,
       );
@@ -374,6 +803,59 @@ app.on('browser-window-created', (_event, win) => {
         );
       }
       console.log('PASS mouse click opens sidebar and new annotation');
+      await run(
+        `document.querySelector('[title="批注（⌥W）"]').click();qa.wait(()=>document.querySelector('.comment-panel'))`,
+      );
+      const dragRightPanel = async (width) => {
+        const { point, currentWidth } = await run(
+          `(()=>{const handle=document.querySelector('.annotation-panel-resize-handle').getBoundingClientRect();return {point:{x:Math.round(handle.x+handle.width/2),y:200},currentWidth:document.querySelector('.comment-panel')?.getBoundingClientRect().width??0}})()`,
+        );
+        win.webContents.sendInputEvent({
+          type: 'mouseDown',
+          ...point,
+          button: 'left',
+          clickCount: 1,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const x = point.x + currentWidth - width;
+        for (const dragX of [Math.round((point.x + x) / 2), x]) {
+          win.webContents.sendInputEvent({
+            type: 'mouseMove',
+            x: dragX,
+            y: 200,
+            modifiers: ['leftButtonDown'],
+          });
+          await new Promise((resolve) => setTimeout(resolve, 75));
+        }
+        win.webContents.sendInputEvent({
+          type: 'mouseUp',
+          x,
+          y: 200,
+          button: 'left',
+          clickCount: 1,
+        });
+        await run(
+          `qa.wait(()=>(document.querySelector('.comment-panel')?.getBoundingClientRect().width??0)===${width < 160 ? 0 : width})`,
+        );
+        const viewport = await run(
+          `({width:innerWidth,left:document.querySelector('.shell.sidebar-expanded .project-sidebar')?.getBoundingClientRect().width??0,right:document.querySelector('.comment-panel')?.getBoundingClientRect().width??0})`,
+        );
+        assert.equal(
+          win.contentView.children[0].getBounds().width,
+          viewport.width - viewport.left - viewport.right,
+        );
+      };
+      await dragRightPanel(300);
+      assert.equal(await run(`localStorage.getItem('markfix:annotation-panel-width')`), '300');
+      await dragRightPanel(80);
+      await run(
+        `document.querySelector('[title="批注（⌥W）"]').click();qa.wait(()=>document.querySelector('.comment-panel')?.getBoundingClientRect().width===300)`,
+      );
+      await dragRightPanel(360);
+      await run(
+        `document.querySelector('[title="批注（⌥W）"]').click();qa.wait(()=>!document.querySelector('.comment-panel'))`,
+      );
+      console.log('PASS right panel drag, collapse, remembered width and native website bounds');
 
       for (const fullscreen of [true, false]) {
         const changed = new Promise((resolve) =>
@@ -467,11 +949,12 @@ app.on('browser-window-created', (_event, win) => {
         assert.ok(child.getContentBounds().y > child.getBounds().y, name + ' native title bar');
         await child.webContents.executeJavaScript(`(async()=>{
           const end=Date.now()+8000;
-          while(document.querySelector('.loading') || !document.querySelector('#root')?.textContent){
+          while(document.querySelector('.loading') || !document.querySelector('#root')?.textContent || document.querySelector('#root').textContent.includes('正在加载')){
             if(Date.now()>end)throw Error('Child renderer did not finish loading');
             await new Promise(resolve=>setTimeout(resolve,50));
           }
         })()`);
+        await new Promise((resolve) => setTimeout(resolve, 300));
         writeFileSync(join(output, name + '.png'), (await child.webContents.capturePage()).toPNG());
         child.close();
       }

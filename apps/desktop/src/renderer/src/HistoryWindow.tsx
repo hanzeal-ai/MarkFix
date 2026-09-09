@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@markfix/ui';
 import type { AnnotationHistorySummary, WebsiteProject } from '@markfix/contracts';
-import { HistoryPage } from './ProjectNavigation';
+import { HistoryPage } from './project-navigation/HistoryPages';
 
 export function HistoryWindow(): React.JSX.Element {
   const [projects, setProjects] = useState<WebsiteProject[]>([]);

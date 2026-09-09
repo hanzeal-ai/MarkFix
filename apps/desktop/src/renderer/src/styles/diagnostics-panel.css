@@ -15,7 +15,7 @@
   box-shadow: 0 14px 38px rgba(15, 17, 22, 0.3);
 }
 .diagnostics-panel.with-sidebar {
-  right: 374px;
+  right: calc(var(--annotation-panel-width, 360px) + 14px);
 }
 .sidebar-expanded .diagnostics-panel {
   left: 242px;

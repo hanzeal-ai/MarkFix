@@ -57,7 +57,12 @@ declare global {
       switchWebsiteProject(projectId: string): Promise<WebsiteProject>;
       deleteWebsiteProject(projectId: string): Promise<{ deleted: boolean }>;
       confirmDiscardDraft(reason: 'switch-project' | 'new-annotation'): Promise<boolean>;
-      setWorkspaceLayout(sidebarWidth: number, visible: boolean, peekWidth?: number): Promise<void>;
+      setWorkspaceLayout(
+        sidebarWidth: number,
+        visible: boolean,
+        peekWidth: number,
+        panelWidth: number,
+      ): Promise<void>;
       openMoreMenu(x: number, y: number): Promise<void>;
       openSettings(): Promise<void>;
       openOfficialWebsite(): Promise<void>;

@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { WebsiteProject } from '@markfix/contracts';
-import { normalizeWebsiteShortcuts } from '../src/renderer/src/ProjectNavigation';
+import { normalizeWebsiteShortcuts } from '../src/renderer/src/project-navigation/website-shortcuts';
 import {
   desktopPreferenceKeys,
   newAnnotationStorageModePreference,
@@ -57,11 +57,16 @@ describe('desktop preferences', () => {
 
     const markup = renderToStaticMarkup(createElement(SettingsWindow));
 
-    expect(markup.match(/type="radio"/g)).toHaveLength(4);
-    expect(markup).toMatch(/name="startup-view" checked="" value="new"/);
-    expect(markup).toMatch(/name="new-annotation-storage-mode" checked="" value="CLOUD"/);
+    const radios = markup.match(/<button[^>]*role="radio"[^>]*>/g) ?? [];
+    expect(radios).toHaveLength(4);
+    expect(
+      radios
+        .filter((radio) => radio.includes('aria-checked="true"'))
+        .map((radio) => radio.match(/data-value="([^"]+)"/)?.[1]),
+    ).toEqual(['new', 'CLOUD']);
     expect(markup).not.toContain('桌面端');
-    expect(markup).toContain('aria-label="通用设置"><h2>启动与新标注</h2>');
+    expect(markup).toContain('aria-label="通用设置"');
+    expect(markup).toContain('<h2>启动与新标注</h2>');
   });
 
   it('defaults existing shortcuts without a saved mode to cloud collaboration', () => {

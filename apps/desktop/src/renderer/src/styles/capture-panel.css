@@ -4,7 +4,7 @@
   right: 0;
   top: 56px;
   bottom: 0;
-  width: 360px;
+  width: var(--annotation-panel-width, 360px);
   background: #fff;
   border: 1px solid #e2e4e9;
   border-left: 0;
@@ -45,22 +45,6 @@
   gap: 0;
   justify-content: flex-start;
   overflow: hidden;
-}
-.capture-panel-header {
-  min-height: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 18px;
-  border-bottom: 1px solid #e2e4e9;
-}
-.capture-panel-header > span {
-  font-size: 15px;
-  font-weight: 500;
-}
-.capture-panel-header small {
-  color: #90949d;
-  font-size: 12px;
 }
 .capture-panel-body {
   min-height: 0;
@@ -248,4 +232,14 @@
 .saved-evidence-count svg {
   width: 12px;
   height: 12px;
+}
+
+.annotation-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.annotation-preview-body > section {
+  flex-shrink: 0;
 }

@@ -62,41 +62,12 @@
   border: 0;
 }
 
-.new-project-storage-mode legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-}
-
 .new-project-storage-mode label {
-  cursor: pointer;
-}
-
-.new-project-storage-mode input {
-  position: absolute;
-  opacity: 0;
-}
-
-.new-project-storage-mode span {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 7px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--muted-foreground);
-  font-size: 12px;
-}
-
-.new-project-storage-mode input:checked + span {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, transparent);
-}
-
-.new-project-storage-mode input:focus-visible + span {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+  cursor: pointer;
 }
 .new-project-visually-hidden {
   position: absolute;
@@ -368,12 +339,6 @@
   padding: 0;
   border: 0;
 }
-.shortcut-storage-mode legend {
-  margin-bottom: 7px;
-  color: var(--text-2);
-  font-size: 12px;
-  font-weight: 600;
-}
 .shortcut-dialog form .shortcut-storage-mode label {
   display: flex;
   grid-template-columns: none;
@@ -381,10 +346,6 @@
   gap: 6px;
   font-weight: 400;
   cursor: pointer;
-}
-.shortcut-storage-mode input {
-  margin: 0;
-  accent-color: var(--accent-strong);
 }
 .shortcut-dialog form > p {
   margin: -5px 0 0;

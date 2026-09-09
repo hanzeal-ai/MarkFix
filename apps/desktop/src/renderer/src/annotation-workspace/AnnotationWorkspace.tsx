@@ -1,8 +1,8 @@
 import {
   sidebarMinWidth,
-  sidebarMaxWidth,
-  sidebarCollapseWidth,
   isSidebarWidth,
+  annotationPanelDefaultWidth,
+  annotationPanelWidth,
 } from '../../../sidebar-layout';
 import {
   useCallback,
@@ -14,6 +14,7 @@ import {
   type CSSProperties,
 } from 'react';
 import { toast } from '@markfix/ui';
+import { WorkspaceResizeLayout } from './WorkspaceResizeLayout';
 import {
   diagnosticEvidenceSchema,
   historyAnnotationReferenceSchema,
@@ -43,20 +44,17 @@ import { projectErrorMessage } from '../project-error';
 import { ProjectLoadState } from './ProjectLoadState';
 import { useCaptureEditor } from './useCaptureEditor';
 import { useElementCommentEditor } from './useElementCommentEditor';
-import { type BrowserState, type DesktopUser } from './model';
+import { numberedVisibleRecords, type BrowserState, type DesktopUser } from './model';
 import {
   browserModeFromSession,
   browserModeSessionKey,
   shouldCollapseSidebarForMode,
   shouldRestoreCaptureAfterPageLoad,
 } from './workspace-session';
-import {
-  HeaderNavigationControls,
-  NewProjectPage,
-  ProjectSidebar,
-  projectAnnotations,
-  type ProjectAnnotation,
-} from '../ProjectNavigation';
+import { HeaderNavigationControls } from '../project-navigation/HeaderNavigationControls';
+import { NewProjectPage } from '../project-navigation/NewProjectPage';
+import { ProjectSidebar } from '../project-navigation/ProjectSidebar';
+import { projectAnnotations, type ProjectAnnotation } from '../project-navigation/model';
 import { desktopPreferenceKeys, startupProjectPreference } from '../desktop-preferences';
 
 const firstAnnotationGuideKeys = {
@@ -87,6 +85,7 @@ export function AnnotationWorkspace({
       ) && window.localStorage.getItem('markfix:sidebar-expanded') !== 'false',
   );
   const [sidebarPeek, setSidebarPeek] = useState(false);
+  const [sidebarMenuOpen, setSidebarMenuOpen] = useState(false);
   const peekTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const showSidebarPeek = () => {
     clearTimeout(peekTimer.current);
@@ -105,6 +104,17 @@ export function AnnotationWorkspace({
     return isSidebarWidth(saved) && saved > 0 && saved !== 228 ? saved : sidebarMinWidth;
   });
   const [newProjectInput, setNewProjectInput] = useState('');
+  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
+    const saved = Number(window.localStorage.getItem('markfix:annotation-panel-width'));
+    return isSidebarWidth(saved) && saved > 0 ? saved : annotationPanelDefaultWidth;
+  });
+  const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const lastPanelMode = useRef<'comment' | 'capture'>('comment');
   const [pendingDeleteProject, setPendingDeleteProject] = useState<WebsiteProject>();
   const [deletingProject, setDeletingProject] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
@@ -565,15 +575,26 @@ export function AnnotationWorkspace({
   useLayoutEffect(() => {
     window.localStorage.setItem('markfix:sidebar-expanded', String(sidebarExpanded));
     window.localStorage.setItem('markfix:sidebar-width', String(sidebarWidth));
+    window.localStorage.setItem('markfix:annotation-panel-width', String(rightPanelWidth));
     void window.markfix.setWorkspaceLayout(
       sidebarExpanded ? sidebarWidth : 0,
       activeView === 'workspace' && !pendingDeleteProject,
-      !sidebarExpanded && sidebarPeek ? sidebarWidth : 0,
+      sidebarMenuOpen || (!sidebarExpanded && sidebarPeek) ? sidebarWidth : 0,
+      rightPanelWidth,
     );
-  }, [activeView, sidebarExpanded, sidebarWidth, sidebarPeek, pendingDeleteProject]);
+  }, [
+    activeView,
+    sidebarExpanded,
+    sidebarWidth,
+    sidebarPeek,
+    sidebarMenuOpen,
+    pendingDeleteProject,
+    rightPanelWidth,
+  ]);
 
   useEffect(() => {
     window.sessionStorage.setItem(browserModeSessionKey, mode);
+    if (mode !== 'browse') lastPanelMode.current = mode;
   }, [mode]);
 
   useEffect(() => {
@@ -1060,6 +1081,7 @@ export function AnnotationWorkspace({
             setNotice(error instanceof Error ? error.message : '无法打开设置窗口。'),
           );
       }}
+      onMenuOpenChange={setSidebarMenuOpen}
       onLogout={onLoggedOut}
     />
   );
@@ -1095,52 +1117,31 @@ export function AnnotationWorkspace({
     />
   );
 
-  const sidebarResizeHandle = (
-    <div
-      className="sidebar-resize-handle"
-      role="separator"
-      aria-label="调整项目侧边栏宽度"
-      aria-orientation="vertical"
-      aria-valuemin={0}
-      aria-valuemax={sidebarMaxWidth}
-      aria-valuenow={sidebarExpanded ? sidebarWidth : 0}
-      tabIndex={0}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
+  const resizeLayout = (
+    <WorkspaceResizeLayout
+      key="workspace-resize-layout"
+      leftWidth={sidebarExpanded ? sidebarWidth : 0}
+      rightWidth={activeView === 'workspace' && mode !== 'browse' ? rightPanelWidth : 0}
+      workspaceVisible={activeView === 'workspace'}
+      onLeftResize={(width, dragStartWidth) => {
+        setSidebarExpanded(width > 0);
+        if (width > 0) setSidebarWidth(width);
+        else if (dragStartWidth) setSidebarWidth(dragStartWidth);
       }}
-      onPointerMove={(event) => {
-        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-        if (event.clientX < sidebarCollapseWidth) setSidebarExpanded(false);
-        else {
-          setSidebarExpanded(true);
-          setSidebarWidth(
-            Math.round(Math.max(sidebarMinWidth, Math.min(sidebarMaxWidth, event.clientX))),
-          );
-        }
-      }}
-      onPointerUp={(event) => {
-        if (event.currentTarget.hasPointerCapture(event.pointerId))
-          event.currentTarget.releasePointerCapture(event.pointerId);
-      }}
-      onKeyDown={(event) => {
-        if (!['ArrowLeft', 'ArrowRight', 'Home'].includes(event.key)) return;
-        event.preventDefault();
-        if (event.key === 'Home' || (event.key === 'ArrowLeft' && sidebarWidth === sidebarMinWidth))
-          setSidebarExpanded(false);
-        else {
-          setSidebarExpanded(true);
-          setSidebarWidth(
-            event.key === 'ArrowRight'
-              ? Math.min(sidebarMaxWidth, sidebarWidth + 16)
-              : Math.max(sidebarMinWidth, sidebarWidth - 16),
-          );
+      onRightResize={(width, dragStartWidth) => {
+        if (activeView !== 'workspace') return;
+        if (width === 0) {
+          if (dragStartWidth) setRightPanelWidth(dragStartWidth);
+          if (modeRef.current !== 'browse') void setMode('browse');
+        } else {
+          setRightPanelWidth(width);
+          if (modeRef.current === 'browse') void setMode(lastPanelMode.current);
         }
       }}
     />
   );
   const shellStyle = {
+    '--annotation-panel-width': `${annotationPanelWidth(rightPanelWidth, sidebarExpanded ? sidebarWidth : 0, viewportWidth)}px`,
     '--sidebar-peek-width': `${sidebarWidth}px`,
     '--sidebar-width': `${sidebarExpanded ? sidebarWidth : 0}px`,
   } as CSSProperties;
@@ -1165,7 +1166,7 @@ export function AnnotationWorkspace({
         >
           {navigation}
         </div>
-        {sidebarResizeHandle}
+        {resizeLayout}
         <header className="navigation-header" />
         <div className="window-controls">{headerNavigation}</div>
         {historyRestoreDialog}
@@ -1202,7 +1203,7 @@ export function AnnotationWorkspace({
       >
         {navigation}
       </div>
-      {sidebarResizeHandle}
+      {resizeLayout}
       {historyRestoreDialog}
       {deleteProjectDialog}
       <header className="browser-bar">
@@ -1229,48 +1230,73 @@ export function AnnotationWorkspace({
           onRetry={retryProjectLoad}
         />
       )}
-      {mode === 'capture' ? (
-        <CapturePanel
-          pageCaptures={pageCaptures}
-          captureSelection={captureSelection}
-          captureLoading={captureLoading}
-          screenshot={screenshot}
-          captureMarks={captureMarks}
-          captureNote={captureNote}
-          captureEvidence={captureEvidence}
-          captureRendering={captureRendering}
-          editingCaptureId={editingCaptureId}
-          setCaptureNote={setCaptureNote}
-          setCaptureEvidence={setCaptureEvidence}
-          updateCaptureText={updateCaptureText}
-          cancelCapture={cancelCapture}
-          completeCapture={completeCaptureWithGuide}
-          deleteSavedCapture={deleteSavedCapture}
-          selectSavedCapture={selectSavedCapture}
-          copyCapture={copyCapture}
-          saveCapture={saveCapture}
-          guideStep={captureGuideStep}
-          dismissGuide={() => dismissFirstAnnotationGuide('capture')}
-        />
-      ) : mode === 'comment' ? (
-        <ElementCommentPanel
-          anchor={anchor}
-          editingElementCommentId={editingElementCommentId}
-          elementCommentNote={elementCommentNote}
-          elementEvidence={elementEvidence}
-          pageElementComments={pageElementComments}
-          pageDiagnosticAnnotations={pageDiagnosticAnnotations}
-          setElementCommentNote={setElementCommentNote}
-          setElementEvidence={setElementEvidence}
-          clearElementSelection={clearElementSelection}
-          completeElementComment={completeElementCommentWithGuide}
-          deleteDiagnosticAnnotation={deleteDiagnosticAnnotation}
-          deleteElementComment={deleteElementComment}
-          selectElementComment={selectElementComment}
-          guideStep={commentGuideStep}
-          dismissGuide={() => dismissFirstAnnotationGuide('comment')}
-        />
-      ) : null}
+      {mode !== 'browse' && (
+        <aside className="comment-panel capture-panel" aria-label="批注预览">
+          <div className="capture-panel-body annotation-preview-body">
+            <CapturePanel
+              active={mode === 'capture'}
+              numberOffset={
+                mode === 'capture'
+                  ? 0
+                  : pageDiagnosticAnnotations.length +
+                    numberedVisibleRecords(pageElementComments, editingElementCommentId).length
+              }
+              pageCaptures={pageCaptures}
+              captureSelection={captureSelection}
+              captureLoading={captureLoading}
+              screenshot={screenshot}
+              captureMarks={captureMarks}
+              captureNote={captureNote}
+              captureEvidence={captureEvidence}
+              captureRendering={captureRendering}
+              editingCaptureId={editingCaptureId}
+              setCaptureNote={setCaptureNote}
+              setCaptureEvidence={setCaptureEvidence}
+              updateCaptureText={updateCaptureText}
+              cancelCapture={cancelCapture}
+              completeCapture={completeCaptureWithGuide}
+              deleteSavedCapture={deleteSavedCapture}
+              selectSavedCapture={async (capture) => {
+                await setMode('capture');
+                await selectSavedCapture(capture);
+              }}
+              copyCapture={copyCapture}
+              saveCapture={saveCapture}
+              guideStep={captureGuideStep}
+              dismissGuide={() => dismissFirstAnnotationGuide('capture')}
+            />
+            <ElementCommentPanel
+              active={mode === 'comment'}
+              numberOffset={
+                mode === 'comment'
+                  ? 0
+                  : numberedVisibleRecords(pageCaptures, editingCaptureId).length
+              }
+              anchor={anchor}
+              editingElementCommentId={editingElementCommentId}
+              elementCommentNote={elementCommentNote}
+              elementEvidence={elementEvidence}
+              pageElementComments={pageElementComments}
+              pageDiagnosticAnnotations={pageDiagnosticAnnotations}
+              setElementCommentNote={setElementCommentNote}
+              setElementEvidence={setElementEvidence}
+              clearElementSelection={clearElementSelection}
+              completeElementComment={completeElementCommentWithGuide}
+              deleteDiagnosticAnnotation={deleteDiagnosticAnnotation}
+              deleteElementComment={deleteElementComment}
+              selectElementComment={(comment) => {
+                void setMode('comment')
+                  .then(() => selectElementComment(comment))
+                  .catch((error: unknown) =>
+                    setNotice(error instanceof Error ? error.message : '无法打开批注。'),
+                  );
+              }}
+              guideStep={commentGuideStep}
+              dismissGuide={() => dismissFirstAnnotationGuide('comment')}
+            />
+          </div>
+        </aside>
+      )}
       {diagnosticsOpen && (
         <DiagnosticsPanel
           entries={diagnosticEntries}

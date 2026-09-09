@@ -371,13 +371,9 @@
   height: 16px;
   color: var(--text-2);
 }
-.account-menu [data-slot='dropdown-menu-item'] span {
+.account-menu [data-slot='dropdown-menu-item'] > span:not([data-slot='dropdown-menu-shortcut']) {
   flex: 1;
   text-align: left;
-}
-.account-menu [data-slot='dropdown-menu-item'] kbd {
-  color: var(--text-3);
-  font: inherit;
 }
 .account-menu .account-menu-logout:hover,
 .account-menu .account-menu-logout:hover svg {

@@ -1,6 +1,11 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { isSidebarWidth } from '../sidebar-layout';
+import {
+  isSidebarWidth,
+  annotationPanelDefaultWidth,
+  annotationPanelWidth,
+  websiteMinWidth,
+} from '../sidebar-layout';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import {
@@ -57,7 +62,7 @@ import { ReportOutbox } from './report-outbox.js';
 import { ProjectDataRouter } from './project-data-router.js';
 
 const toolbarHeight = 56;
-const panelWidth = 360;
+let panelWidth = annotationPanelDefaultWidth;
 const diagnosticsPanelHeight = 300;
 const macWindowMaterial =
   process.platform === 'darwin'
@@ -279,14 +284,23 @@ const desktopUpdater = new DesktopUpdater(
 );
 
 const layoutWebsite = (): void => {
-  if (!mainWindow || !websiteView) return;
+  if (
+    !mainWindow ||
+    mainWindow.isDestroyed() ||
+    !websiteView ||
+    websiteView.webContents.isDestroyed()
+  )
+    return;
   const [width = 1060, height = 680] = mainWindow.getContentSize();
-  const sidebarWidth = currentBrowserMode === 'browse' ? 0 : panelWidth;
+  const sidebarWidth =
+    currentBrowserMode === 'browse'
+      ? 0
+      : annotationPanelWidth(panelWidth, navigationSidebarWidth, width);
   const bottomPanelHeight = diagnosticsOpen ? diagnosticsPanelHeight : 0;
   websiteView.setBounds({
     x: navigationSidebarWidth,
     y: toolbarHeight,
-    width: Math.max(320, width - navigationSidebarWidth - sidebarWidth),
+    width: Math.max(websiteMinWidth, width - navigationSidebarWidth - sidebarWidth),
     height: Math.max(200, height - toolbarHeight - bottomPanelHeight),
   });
   websiteView.setVisible(
@@ -1082,10 +1096,21 @@ const registerIpc = (): void => {
   });
   ipcMain.handle(ipcChannels.setWorkspaceLayout, async (event, input: unknown) => {
     assertShellSender(event);
-    const payload = input as { sidebarWidth?: unknown; visible?: unknown; peekWidth?: unknown };
+    const payload = input as {
+      sidebarWidth?: unknown;
+      visible?: unknown;
+      peekWidth?: unknown;
+      panelWidth?: unknown;
+    };
     if (!isSidebarWidth(payload.sidebarWidth)) throw new Error('无效的侧边栏宽度');
     if (typeof payload.visible !== 'boolean') throw new Error('无效的工作区显示状态');
     if (!isSidebarWidth(payload.peekWidth ?? 0)) throw new Error('无效的侧边栏预览宽度');
+    if (!isSidebarWidth(payload.panelWidth) || payload.panelWidth === 0)
+      throw new Error('无效的批注栏宽度');
+    const window = mainWindow;
+    const view = websiteView;
+    if (!window || window.isDestroyed() || !view || view.webContents.isDestroyed()) return;
+    panelWidth = payload.panelWidth;
     const previousPeek = sidebarPeekWidth;
     sidebarPeekWidth = (payload.peekWidth ?? 0) as number;
     navigationSidebarWidth = payload.sidebarWidth;
@@ -1093,11 +1118,11 @@ const registerIpc = (): void => {
     if (sidebarPeekWidth === 0 || !workspaceViewVisible) {
       sidebarPreviewVersion++;
       sidebarPreviewReady = false;
-      mainWindow?.webContents.send('window:sidebar-preview', null);
-    } else if (previousPeek === 0 && websiteView && websiteContentReady) {
+      window.webContents.send('window:sidebar-preview', null);
+    } else if (previousPeek === 0 && websiteContentReady) {
       layoutWebsite();
       const version = ++sidebarPreviewVersion;
-      const contents = websiteView.webContents;
+      const contents = view.webContents;
       if (!contents.debugger.isAttached()) contents.debugger.attach('1.3');
       const screenshot = (await contents.debugger
         .sendCommand('Page.captureScreenshot', {
@@ -1106,14 +1131,23 @@ const registerIpc = (): void => {
           captureBeyondViewport: false,
         })
         .catch((error: unknown) => {
-          console.warn('Unable to capture sidebar preview', error);
+          if (!contents.isDestroyed() && !window.isDestroyed())
+            console.warn('Unable to capture sidebar preview', error);
           return null;
         })) as { data: string } | null;
-      if (screenshot && version === sidebarPreviewVersion && sidebarPeekWidth > 0) {
-        mainWindow?.webContents.send('window:sidebar-preview', {
+      if (
+        screenshot &&
+        version === sidebarPreviewVersion &&
+        sidebarPeekWidth > 0 &&
+        mainWindow === window &&
+        websiteView === view &&
+        !window.isDestroyed() &&
+        !contents.isDestroyed()
+      ) {
+        window.webContents.send('window:sidebar-preview', {
           version,
           dataUrl: `data:image/png;base64,${screenshot.data}`,
-          bounds: websiteView.getBounds(),
+          bounds: view.getBounds(),
         });
       }
     }

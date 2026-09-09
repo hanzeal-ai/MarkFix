@@ -99,11 +99,17 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(ipcChannels.deleteWebsiteProject, projectId),
   confirmDiscardDraft: (reason: 'switch-project' | 'new-annotation') =>
     ipcRenderer.invoke(ipcChannels.confirmDiscardDraft, reason),
-  setWorkspaceLayout: (sidebarWidth: number, visible: boolean, peekWidth?: number) =>
+  setWorkspaceLayout: (
+    sidebarWidth: number,
+    visible: boolean,
+    peekWidth: number,
+    panelWidth: number,
+  ) =>
     ipcRenderer.invoke(ipcChannels.setWorkspaceLayout, {
       sidebarWidth,
       visible,
       peekWidth: peekWidth ?? 0,
+      panelWidth,
     }),
   openMoreMenu: (x: number, y: number) => ipcRenderer.invoke(ipcChannels.openMoreMenu, { x, y }),
   openSettings: () => ipcRenderer.invoke(ipcChannels.openSettings),

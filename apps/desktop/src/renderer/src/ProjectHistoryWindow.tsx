@@ -6,11 +6,8 @@ import type {
   SavedElementComment,
   WebsiteProject,
 } from '@markfix/contracts';
-import {
-  ProjectHistoryDetail,
-  projectAnnotations,
-  type ProjectAnnotation,
-} from './ProjectNavigation';
+import { ProjectHistoryDetail } from './project-navigation/HistoryPages';
+import { projectAnnotations, type ProjectAnnotation } from './project-navigation/model';
 
 export function ProjectHistoryWindow(): React.JSX.Element {
   const projectId = new URLSearchParams(window.location.search).get('projectId');

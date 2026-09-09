@@ -344,8 +344,8 @@ button {
 
 .account-menu button:hover svg,
 .account-menu button:focus-visible svg,
-.account-menu button:hover kbd,
-.account-menu button:focus-visible kbd {
+.account-menu button:hover [data-slot='dropdown-menu-shortcut'],
+.account-menu button:focus-visible [data-slot='dropdown-menu-shortcut'] {
   color: currentColor;
 }
 
@@ -418,21 +418,41 @@ button {
   padding-left: 90px;
 }
 
-.sidebar-resize-handle {
+.workspace-resize-layout {
   position: fixed;
+  inset: 56px 0 0;
+  height: auto;
   z-index: 60;
-  top: 0;
-  bottom: 0;
-  left: max(0px, calc(var(--sidebar-width, 228px) - 6px));
+  pointer-events: none;
+}
+.workspace-resize-layout [data-slot='resizable-handle'] {
+  position: relative;
   width: 6px;
+  background: transparent;
+  pointer-events: auto;
   cursor: col-resize;
   touch-action: none;
   -webkit-app-region: no-drag;
 }
-.sidebar-resize-handle:hover,
-.sidebar-resize-handle:focus-visible {
-  background: transparent;
-  box-shadow: none;
+.workspace-resize-layout [data-slot='resizable-handle']::after {
+  display: none;
+}
+.workspace-resize-layout .sidebar-resize-handle {
+  margin-left: -6px;
+}
+.sidebar-collapsed .workspace-resize-layout .sidebar-resize-handle {
+  margin-left: 0;
+  margin-right: -6px;
+}
+.workspace-resize-layout .annotation-panel-resize-handle {
+  margin-right: -6px;
+}
+.workspace-resize-layout .annotation-panel-resize-handle[data-collapsed='true'] {
+  margin-left: -6px;
+  margin-right: 0;
+}
+.workspace-resize-layout [data-slot='resizable-handle']:focus-visible {
+  background: rgba(10, 132, 255, 0.24);
 }
 .shell:has(.sidebar-resize-handle:hover) .project-sidebar,
 .shell:has(.sidebar-resize-handle:focus-visible) .project-sidebar {
@@ -490,7 +510,7 @@ button {
   box-shadow: 6px 0 20px rgba(0, 0, 0, 0.12);
 }
 .sidebar-peeking .sidebar-resize-handle {
-  display: none;
+  pointer-events: none;
 }
 
 .shell:has(.browser-bar) {

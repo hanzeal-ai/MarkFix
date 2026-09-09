@@ -52,6 +52,8 @@ describe('first annotation roaming guide', () => {
   it('keeps the element locator but omits the selected element text', () => {
     const html = renderToStaticMarkup(
       createElement(ElementCommentPanel, {
+        active: true,
+        numberOffset: 0,
         anchor: {
           kind: 'element',
           cssSelector: '#welcome-title',

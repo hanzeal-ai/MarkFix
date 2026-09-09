@@ -25,7 +25,7 @@ describe('capture history card layout', () => {
     expect(rule).toContain('right: 0');
     expect(rule).toContain('top: 56px');
     expect(rule).toContain('bottom: 0');
-    expect(rule).toContain('width: 360px');
+    expect(rule).toContain('width: var(--annotation-panel-width, 360px)');
     expect(rule).toContain('box-shadow:');
     expect(rule).toContain('-12px 0 28px');
   });
