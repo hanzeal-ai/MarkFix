@@ -3,7 +3,6 @@ import type { SavedDiagnosticAnnotation } from '@markfix/contracts';
 import { ProjectDataService } from '../src/project-data.service.js';
 
 const projectId = '90e2a0c5-0755-49b9-9d5d-41534ed41b41';
-const workspaceId = 'bb0ee545-59c0-427f-ad9c-fb976ef266d5';
 
 const diagnostic = (): SavedDiagnosticAnnotation => ({
   id: crypto.randomUUID(),
@@ -31,7 +30,6 @@ const database = (overrides: Record<string, unknown> = {}) => {
     project: {
       findUnique: vi.fn().mockResolvedValue({
         id: projectId,
-        workspaceId,
         name: 'Example',
         baseUrl: 'https://example.test',
         createdAt: new Date('2026-09-07T00:00:00.000Z'),
@@ -102,7 +100,6 @@ describe('ProjectDataService', () => {
         project: {
           id: projectId,
           storageMode: 'CLOUD',
-          workspaceId,
           title: 'Example',
           origin: 'https://example.test',
           entryUrl: 'https://example.test/start',

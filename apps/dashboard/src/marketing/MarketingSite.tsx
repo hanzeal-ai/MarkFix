@@ -40,9 +40,9 @@ const capabilities = [
     index: '03',
     title: '项目化管理',
     description:
-      '从项目侧栏切换网站，为不同页面分别保留标注。本地项目在本机保存，云端项目用于工作区协作。',
+      '从项目侧栏切换网站，为不同页面分别保留标注。本地项目在本机保存，云端项目用于项目成员协作。',
     image: '/marketing/project-management.png',
-    imageAlt: '当前 MarkFix 桌面端项目侧栏与网站工作区',
+    imageAlt: '当前 MarkFix 桌面端项目侧栏与网站项目',
     imageWidth: 1440,
     imageHeight: 900,
   },

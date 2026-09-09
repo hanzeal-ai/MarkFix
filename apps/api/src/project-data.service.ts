@@ -327,7 +327,7 @@ export class ProjectDataService {
     const project = await this.database.project.findUnique({ where: { id: projectId } });
     if (!project) throw new NotFoundException('Project not found');
     const membership = await this.database.membership.findUnique({
-      where: { workspaceId_userId: { workspaceId: project.workspaceId, userId } },
+      where: { projectId_userId: { projectId: project.id, userId } },
     });
     if (!membership || membership.status !== 'ACTIVE')
       throw new ForbiddenException('You do not have access to this project');
@@ -337,7 +337,6 @@ export class ProjectDataService {
   private canonicalProject(
     project: {
       id: string;
-      workspaceId: string;
       name: string;
       baseUrl: string | null;
       createdAt: Date;
@@ -351,7 +350,6 @@ export class ProjectDataService {
     return {
       ...candidate,
       id: project.id,
-      workspaceId: project.workspaceId,
       title: project.name,
       origin,
       createdAt: project.createdAt.toISOString(),

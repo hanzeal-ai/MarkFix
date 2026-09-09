@@ -1,20 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppService } from '../src/app.service.js';
 
-describe('workspace and project management', () => {
+describe('project membership and management', () => {
   it('lists only active memberships and exposes the current user role', async () => {
-    const workspace = {
+    const project = {
       id: crypto.randomUUID(),
       name: 'Product',
-      projects: [],
       memberships: [{ role: 'OWNER' }],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    const findMany = vi.fn().mockResolvedValue([workspace]);
-    const service = new AppService({ workspace: { findMany } } as never);
+    const findMany = vi.fn().mockResolvedValue([project]);
+    const service = new AppService({ project: { findMany } } as never);
 
-    const result = await service.listWorkspaces('user-1');
+    const result = await service.listProjects('user-1');
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -23,11 +22,10 @@ describe('workspace and project management', () => {
     );
     expect(result).toEqual([
       {
-        id: workspace.id,
-        name: workspace.name,
-        projects: [],
-        createdAt: workspace.createdAt,
-        updatedAt: workspace.updatedAt,
+        id: project.id,
+        name: project.name,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
         role: 'OWNER',
       },
     ]);
@@ -42,13 +40,18 @@ describe('workspace and project management', () => {
       project: { create },
     } as never);
 
-    await service.createProject('user-1', 'workspace-1', {
+    await service.createProject('user-1', {
       name: '  Storefront  ',
       baseUrl: '',
     });
 
     expect(create).toHaveBeenCalledWith({
-      data: { workspaceId: 'workspace-1', name: 'Storefront', baseUrl: null },
+      data: {
+        ownerId: 'user-1',
+        name: 'Storefront',
+        baseUrl: null,
+        memberships: { create: { userId: 'user-1', role: 'OWNER' } },
+      },
     });
   });
 
@@ -59,7 +62,7 @@ describe('workspace and project management', () => {
         findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
       },
       project: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1' }),
         delete: remove,
       },
       artifact: { findMany: vi.fn().mockResolvedValue([]) },
@@ -71,19 +74,16 @@ describe('workspace and project management', () => {
     expect(remove).toHaveBeenCalledWith({ where: { id: 'project-1' } });
   });
 
-  it('rejects project creation by regular workspace members', async () => {
-    const create = vi.fn();
+  it('rejects project updates by regular members', async () => {
+    const update = vi.fn();
     const service = new AppService({
-      membership: {
-        findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
-      },
-      project: { create },
+      membership: { findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }) },
+      project: { findUnique: vi.fn().mockResolvedValue({ id: 'project-1' }), update },
     } as never);
-
     await expect(
-      service.createProject('user-1', 'workspace-1', { name: 'Forbidden' }),
-    ).rejects.toThrow('access to this workspace action');
-    expect(create).not.toHaveBeenCalled();
+      service.updateProject('user-1', 'project-1', { name: 'Forbidden' }),
+    ).rejects.toThrow('access to this project action');
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('allows members to list project environments', async () => {
@@ -93,7 +93,7 @@ describe('workspace and project management', () => {
         findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
       },
       project: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1' }),
       },
       environment: { findMany },
     } as never);
@@ -114,7 +114,7 @@ describe('workspace and project management', () => {
         findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
       },
       project: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1' }),
       },
       environment: { create },
     } as never);
@@ -140,7 +140,7 @@ describe('workspace and project management', () => {
         findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
       },
       project: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'project-1', workspaceId: 'workspace-1' }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'project-1' }),
       },
       environment: {
         findUnique: vi.fn().mockResolvedValue({ id: 'environment-1', projectId: 'project-1' }),
@@ -150,7 +150,7 @@ describe('workspace and project management', () => {
 
     await expect(
       service.updateEnvironment('user-1', 'environment-1', { name: 'Production' }),
-    ).rejects.toThrow('access to this workspace action');
+    ).rejects.toThrow('access to this project action');
     expect(update).not.toHaveBeenCalled();
   });
 
@@ -163,7 +163,7 @@ describe('workspace and project management', () => {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
       },
       project: {
-        findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId: 'workspace-1' }),
+        findUnique: vi.fn().mockResolvedValue({ id: projectId }),
       },
       environment: {
         findUnique: vi.fn().mockResolvedValue({ id: environmentId, projectId }),
@@ -216,7 +216,7 @@ describe('workspace and project management', () => {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
       },
       project: {
-        findUnique: vi.fn().mockResolvedValue({ id: routeProjectId, workspaceId: 'workspace-1' }),
+        findUnique: vi.fn().mockResolvedValue({ id: routeProjectId }),
       },
       reportSubmission: { create },
     } as never);
@@ -264,7 +264,7 @@ describe('workspace and project management', () => {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
       },
       project: {
-        findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId: 'workspace-1' }),
+        findUnique: vi.fn().mockResolvedValue({ id: projectId }),
       },
       environment: {
         findUnique: vi.fn().mockResolvedValue({
@@ -338,7 +338,7 @@ describe('workspace and project management', () => {
       id: submissionId,
       projectId,
       createdById: 'user-1',
-      project: { workspaceId: 'workspace-1' },
+      project: { id: 'project-1' },
     };
     const reportCreate = vi.fn().mockResolvedValue({ id: 'report-1' });
     const submissionUpdate = vi.fn().mockResolvedValue({ id: submissionId });
@@ -436,7 +436,7 @@ describe('workspace and project management', () => {
           id: submissionId,
           projectId,
           createdById: 'user-1',
-          project: { workspaceId: 'workspace-1' },
+          project: { id: 'project-1' },
         }),
       },
       $transaction: vi.fn((callback) => callback(transaction)),
@@ -524,7 +524,7 @@ describe('workspace and project management', () => {
           id: submissionId,
           projectId,
           createdById: 'user-1',
-          project: { workspaceId: 'workspace-1' },
+          project: { id: 'project-1' },
         }),
       },
       $transaction: vi.fn((callback) => callback(transaction)),
@@ -552,7 +552,7 @@ describe('workspace and project management', () => {
   it('filters report overlays by the active page at the database boundary', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const service = new AppService({
-      project: { findUnique: vi.fn().mockResolvedValue({ workspaceId: 'workspace-1' }) },
+      project: { findUnique: vi.fn().mockResolvedValue({ id: 'project-1' }) },
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
       },

@@ -5,6 +5,13 @@
   padding: 36px 24px 72px;
 }
 
+.account-settings-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+}
+
 .account-settings-back {
   display: inline-flex;
   align-items: center;
@@ -147,4 +154,30 @@
   .account-settings-danger form {
     width: 100%;
   }
+}
+
+.agent-access-card {
+  padding: 24px;
+  margin: 18px 0;
+  display: grid;
+  gap: 16px;
+}
+.agent-project-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+.agent-actions {
+  display: flex;
+  gap: 12px;
+}
+.repository-binding {
+  display: grid;
+  gap: 12px;
+  padding: 16px 0;
+}
+.repository-binding label {
+  display: grid;
+  gap: 8px;
 }

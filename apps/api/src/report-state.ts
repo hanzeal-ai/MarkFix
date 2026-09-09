@@ -4,6 +4,7 @@ export type TransitionAction =
   'start' | 'submit_for_verification' | 'verify' | 'reject' | 'close' | 'reopen';
 
 const transitions: Record<ReportStatus, Partial<Record<TransitionAction, ReportStatus>>> = {
+  FIX_FAILED: { start: 'IN_PROGRESS', reopen: 'OPEN' },
   OPEN: { start: 'IN_PROGRESS' },
   IN_PROGRESS: { submit_for_verification: 'READY_FOR_VERIFY' },
   READY_FOR_VERIFY: { verify: 'RESOLVED', reject: 'IN_PROGRESS' },

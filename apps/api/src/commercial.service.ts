@@ -37,85 +37,49 @@ export class CommercialService implements OnApplicationBootstrap {
     if (process.env.MARKFIX_DEMO_PASSWORD) await this.seedLocalShowcase();
   }
 
-  async overview(userId: string, workspaceId: string) {
-    await this.requireMembership(userId, workspaceId);
-    return this.buildOverview(workspaceId);
+  async overview(userId: string) {
+    return this.buildOverview(userId);
   }
 
   async bootstrap(userId: string) {
-    const [user, workspaces] = await Promise.all([
-      this.database.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-          displayName: true,
-          emailVerifiedAt: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
-      this.database.workspace.findMany({
-        where: { memberships: { some: { userId, status: 'ACTIVE' } } },
-        select: {
-          id: true,
-          name: true,
-          createdAt: true,
-          updatedAt: true,
-          memberships: {
-            where: { userId, status: 'ACTIVE' },
-            select: { role: true },
-            take: 1,
-          },
-        },
-        orderBy: { updatedAt: 'desc' },
-      }),
-    ]);
+    const user = await this.database.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        emailVerifiedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
     if (!user) throw new NotFoundException('User not found');
-    const workspace = workspaces[0];
-    if (!workspace) throw new NotFoundException('No workspace is available for this account');
-    const overview = await this.buildOverview(workspace.id);
     const { emailVerifiedAt, ...publicUser } = user;
     return {
       user: { ...publicUser, emailVerified: Boolean(emailVerifiedAt) },
-      workspaces: workspaces.map(({ memberships, ...item }) => ({
-        ...item,
-        role: memberships[0]?.role,
-      })),
-      workspaceId: workspace.id,
-      overview,
+      overview: await this.buildOverview(userId),
     };
   }
 
-  private async buildOverview(workspaceId: string) {
-    const [projects, members, reports] = await Promise.all([
-      this.database.project.findMany({
-        where: { workspaceId },
-        orderBy: { updatedAt: 'desc' },
-      }),
+  private async buildOverview(userId: string) {
+    const projects = await this.database.project.findMany({
+      where: { memberships: { some: { userId, status: 'ACTIVE' } } },
+      include: { memberships: { where: { userId, status: 'ACTIVE' }, select: { role: true } } },
+      orderBy: { updatedAt: 'desc' },
+    });
+    const projectIds = projects.map(({ id }) => id);
+    const [members, reports] = await Promise.all([
       this.database.membership.findMany({
-        where: { workspaceId, status: 'ACTIVE' },
+        where: { projectId: { in: projectIds }, status: 'ACTIVE' },
         orderBy: { createdAt: 'asc' },
         include: { user: { select: { id: true, displayName: true, email: true } } },
       }),
-      this.database.report.findMany({
-        where: { project: { workspaceId } },
-        select: {
-          id: true,
-          projectId: true,
-          reporterId: true,
-          status: true,
-          rejectionReason: true,
-          captureBundle: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
+      this.database.report.findMany({ where: { projectId: { in: projectIds } } }),
     ]);
     const projectById = new Map(projects.map((project) => [project.id, project]));
     const projectCounts = new Map<
       string,
-      { annotations: number; pending: number; rejected: number; resolved: number }
+      { annotations: number; pending: number; rejected: number; resolved: number; failed: number }
     >();
     const userCounts = new Map<
       string,
@@ -141,11 +105,13 @@ export class CommercialService implements OnApplicationBootstrap {
         pending: 0,
         rejected: 0,
         resolved: 0,
+        failed: 0,
       };
       projectCount.annotations += count;
       if (group.status === 'OPEN' || group.status === 'IN_REVIEW') projectCount.pending += count;
       if (group.status === 'REJECTED') projectCount.rejected += count;
       if (group.status === 'RESOLVED') projectCount.resolved += count;
+      if (group.status === 'FIX_FAILED') projectCount.failed += count;
       projectCounts.set(group.projectId, projectCount);
 
       if (!group.authorId) continue;
@@ -164,26 +130,40 @@ export class CommercialService implements OnApplicationBootstrap {
 
     return {
       metrics,
-      projects: projects.map((project) => ({
+      projects: projects.map(({ memberships, ...project }) => ({
         ...project,
+        role: memberships[0]?.role,
         annotationCount: projectCounts.get(project.id)?.annotations ?? 0,
         pendingCount: projectCounts.get(project.id)?.pending ?? 0,
         rejectedCount: projectCounts.get(project.id)?.rejected ?? 0,
         resolvedCount: projectCounts.get(project.id)?.resolved ?? 0,
+        failedCount: projectCounts.get(project.id)?.failed ?? 0,
+        memberCount: members.filter((member) => member.projectId === project.id).length,
       })),
-      users: members.map(({ user, role }) => {
-        const counts = userCounts.get(user.id);
-        return {
-          ...user,
-          role,
-          annotationCount: counts?.annotations ?? 0,
-          rejectedCount: counts?.rejected ?? 0,
-          projectCategories: [...(counts?.categories.entries() ?? [])].map(([category, count]) => ({
-            category,
-            count,
-          })),
-        };
-      }),
+      users: [...new Map(members.map((member) => [member.userId, member])).values()].map(
+        ({ user }) => {
+          const counts = userCounts.get(user.id);
+          return {
+            ...user,
+            projectRoles: Object.fromEntries(
+              members
+                .filter((member) => member.userId === user.id)
+                .map((member) => [member.projectId, member.role]),
+            ),
+            projectIds: members
+              .filter((member) => member.userId === user.id)
+              .map((member) => member.projectId),
+            annotationCount: counts?.annotations ?? 0,
+            rejectedCount: counts?.rejected ?? 0,
+            projectCategories: [...(counts?.categories.entries() ?? [])].map(
+              ([category, count]) => ({
+                category,
+                count,
+              }),
+            ),
+          };
+        },
+      ),
     };
   }
 
@@ -197,6 +177,7 @@ export class CommercialService implements OnApplicationBootstrap {
       this.database.report.findMany({
         where: { projectId },
         include: {
+          fixAttempts: { orderBy: { createdAt: 'desc' }, take: 10 },
           reporter: { select: { id: true, displayName: true, email: true } },
           activities: {
             include: { actor: { select: { id: true, displayName: true, email: true } } },
@@ -248,7 +229,7 @@ export class CommercialService implements OnApplicationBootstrap {
     await this.requireProjectManager(userId, projectId);
     const parsed = annotationInputSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message);
-    if (parsed.data.authorId) await this.requireWorkspaceUser(projectId, parsed.data.authorId);
+    if (parsed.data.authorId) await this.requireProjectUser(projectId, parsed.data.authorId);
     const { authorId, ...annotation } = parsed.data;
     const report = await createCommercialReport(this.database, {
       projectId,
@@ -262,8 +243,7 @@ export class CommercialService implements OnApplicationBootstrap {
     const target = await this.requireAnnotationManager(userId, annotationId);
     const parsed = annotationUpdateSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message);
-    if (parsed.data.authorId)
-      await this.requireWorkspaceUser(target.projectId, parsed.data.authorId);
+    if (parsed.data.authorId) await this.requireProjectUser(target.projectId, parsed.data.authorId);
     const reportData: Prisma.ReportUncheckedUpdateInput = {
       ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
       ...(parsed.data.note !== undefined ? { description: parsed.data.note } : {}),
@@ -336,27 +316,27 @@ export class CommercialService implements OnApplicationBootstrap {
     });
   }
 
-  private async requireMembership(userId: string, workspaceId: string) {
+  private async requireMembership(userId: string, projectId: string) {
     const membership = await this.database.membership.findUnique({
-      where: { workspaceId_userId: { workspaceId, userId } },
+      where: { projectId_userId: { projectId, userId } },
     });
     if (!membership || membership.status !== 'ACTIVE')
-      throw new ForbiddenException('You do not have access to this workspace');
+      throw new ForbiddenException('You do not have access to this project');
     return membership;
   }
 
   private async requireProject(userId: string, projectId: string) {
     const project = await this.database.project.findUnique({ where: { id: projectId } });
     if (!project) throw new NotFoundException('Project not found');
-    await this.requireMembership(userId, project.workspaceId);
+    await this.requireMembership(userId, project.id);
     return project;
   }
 
   private async requireProjectManager(userId: string, projectId: string) {
     const project = await this.requireProject(userId, projectId);
-    const membership = await this.requireMembership(userId, project.workspaceId);
+    const membership = await this.requireMembership(userId, project.id);
     if (!['OWNER', 'ADMIN'].includes(membership.role))
-      throw new ForbiddenException('Only workspace managers can change annotations');
+      throw new ForbiddenException('Only project managers can change annotations');
     return project;
   }
 
@@ -367,24 +347,22 @@ export class CommercialService implements OnApplicationBootstrap {
     throw new NotFoundException('Annotation not found');
   }
 
-  private async requireWorkspaceUser(projectId: string, targetUserId: string) {
+  private async requireProjectUser(projectId: string, targetUserId: string) {
     const project = await this.database.project.findUnique({ where: { id: projectId } });
     if (!project) throw new NotFoundException('Project not found');
     const membership = await this.database.membership.findUnique({
-      where: { workspaceId_userId: { workspaceId: project.workspaceId, userId: targetUserId } },
+      where: { projectId_userId: { projectId: project.id, userId: targetUserId } },
     });
     if (!membership || membership.status !== 'ACTIVE')
-      throw new BadRequestException('Author must be an active workspace member');
+      throw new BadRequestException('Author must be an active project member');
   }
 
   private async seedLocalShowcase(): Promise<void> {
     const email = process.env.MARKFIX_DEMO_EMAIL ?? 'admin@markfix.local';
     const owner = await this.database.user.findUnique({ where: { email } });
     if (!owner) return;
-    const workspace = await this.database.workspace.findFirst({ where: { createdById: owner.id } });
-    if (!workspace) return;
-    await this.database.workspace.update({
-      where: { id: workspace.id },
+    await this.database.user.update({
+      where: { id: owner.id },
       data: { plan: 'TEAM', upgradeRequestedAt: null },
     });
     const demoMembers = await Promise.all(
@@ -399,13 +377,6 @@ export class CommercialService implements OnApplicationBootstrap {
         }),
       ),
     );
-    for (const member of demoMembers) {
-      await this.database.membership.upsert({
-        where: { workspaceId_userId: { workspaceId: workspace.id, userId: member.id } },
-        update: { status: 'ACTIVE' },
-        create: { workspaceId: workspace.id, userId: member.id, role: 'MEMBER' },
-      });
-    }
     const [lin, zhou] = demoMembers;
     if (!lin || !zhou) return;
     const projectSeeds = [
@@ -416,17 +387,29 @@ export class CommercialService implements OnApplicationBootstrap {
     const projects = [];
     for (const seed of projectSeeds) {
       const current = await this.database.project.findFirst({
-        where: { workspaceId: workspace.id, name: seed.name },
+        where: { ownerId: owner.id, name: seed.name },
       });
       projects.push(
         current
           ? await this.database.project.update({ where: { id: current.id }, data: seed })
-          : await this.database.project.create({ data: { workspaceId: workspace.id, ...seed } }),
+          : await this.database.project.create({
+              data: {
+                ownerId: owner.id,
+                ...seed,
+                memberships: {
+                  create: [
+                    { userId: owner.id, role: 'OWNER' },
+                    ...demoMembers.map((member) => ({
+                      userId: member.id,
+                      role: 'MEMBER' as const,
+                    })),
+                  ],
+                },
+              },
+            }),
       );
     }
-    if (
-      (await this.database.report.count({ where: { project: { workspaceId: workspace.id } } })) > 0
-    )
+    if ((await this.database.report.count({ where: { project: { ownerId: owner.id } } })) > 0)
       return;
     const [website, dashboard, help] = projects;
     if (!website || !dashboard || !help) return;

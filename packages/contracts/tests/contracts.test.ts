@@ -136,28 +136,13 @@ describe('website project storage ownership', () => {
     updatedAt: new Date().toISOString(),
   };
 
-  it('keeps local projects independent from cloud workspaces', () => {
-    expect(websiteProjectSchema.parse({ ...base, storageMode: 'LOCAL' })).not.toHaveProperty(
-      'workspaceId',
-    );
+  it('supports both local and cloud projects without a tenancy selector', () => {
+    expect(websiteProjectSchema.parse({ ...base, storageMode: 'LOCAL' }).storageMode).toBe('LOCAL');
+    expect(websiteProjectSchema.parse({ ...base, storageMode: 'CLOUD' }).storageMode).toBe('CLOUD');
     expect(
-      websiteProjectSchema.safeParse({
-        ...base,
-        storageMode: 'LOCAL',
-        workspaceId: crypto.randomUUID(),
-      }).success,
+      websiteProjectSchema.safeParse({ ...base, storageMode: 'LOCAL', unexpected: 'field' })
+        .success,
     ).toBe(false);
-  });
-
-  it('requires every cloud project to belong to a workspace', () => {
-    expect(websiteProjectSchema.safeParse({ ...base, storageMode: 'CLOUD' }).success).toBe(false);
-    expect(
-      websiteProjectSchema.safeParse({
-        ...base,
-        storageMode: 'CLOUD',
-        workspaceId: crypto.randomUUID(),
-      }).success,
-    ).toBe(true);
   });
 });
 

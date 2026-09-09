@@ -1,3 +1,4 @@
+import type { AgentRepository } from '@markfix/contracts';
 import type { DesktopUpdateStatus } from '../../desktop-update';
 import type { AccountPage } from '../../account-pages';
 import type {
@@ -20,7 +21,6 @@ import type {
   SavedCapture,
   SavedDiagnosticAnnotation,
   SavedElementComment,
-  WorkspaceSummary,
   WebsiteProject,
 } from '@markfix/contracts';
 
@@ -42,16 +42,23 @@ declare global {
       ): Promise<{ id: string; email: string; displayName: string }>;
       logout(): Promise<boolean>;
       desktopBootstrap(): Promise<{
-        workspaces: WorkspaceSummary[];
         websiteProjects: WebsiteProject[];
       }>;
-      listWorkspaces(): Promise<WorkspaceSummary[]>;
       listEnvironments(projectId: string): Promise<Environment[]>;
+      getProjectAgentData(projectId: string): Promise<{
+        binding: { repositoryId: string | null; repositoryName: string | null };
+        repositories: AgentRepository[];
+        reports: Report[];
+        canManage: boolean;
+      }>;
+      setProjectRepository(
+        projectId: string,
+        binding: { repositoryId: string | null; repositoryName: string | null },
+      ): Promise<unknown>;
       listWebsiteProjects(): Promise<WebsiteProject[]>;
       listProjectAnnotationReports(projectId: string, pageUrl: string): Promise<Report[]>;
       createWebsiteProject(
         storageMode: 'LOCAL' | 'CLOUD',
-        workspaceId: string | undefined,
         url: string,
       ): Promise<{ project: WebsiteProject; created: boolean }>;
       switchWebsiteProject(projectId: string): Promise<WebsiteProject>;

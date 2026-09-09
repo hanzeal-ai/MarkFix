@@ -1,18 +1,7 @@
 import { Avatar, AvatarFallback } from '@markfix/ui';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Alert,
-  AlertDescription,
-  Button,
-  MarkFixLogo,
-  MarkFixMark,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@markfix/ui';
+import { Alert, AlertDescription, Button, MarkFixLogo, MarkFixMark } from '@markfix/ui';
 import { FolderKanban, LayoutDashboard, LogOut, Users } from '@markfix/ui/icons';
 import { adminApi, commercialRequest } from './api';
 import { OverviewView } from './OverviewView';
@@ -28,7 +17,7 @@ import {
 import './admin.css';
 
 const viewPresentation: Record<AdminView, { title: string; description: string }> = {
-  overview: { title: '工作区概览', description: '查看项目、标注与团队的最新状态。' },
+  overview: { title: '项目概览', description: '查看项目、标注与团队的最新状态。' },
   projects: { title: '标注项目', description: '集中查看每个网站的反馈与处理进度。' },
   users: { title: '团队成员', description: '管理成员与他们参与的项目。' },
 };
@@ -39,7 +28,6 @@ export function AdminApp() {
   const [view, setView] = useState<AdminView>(
     pathView === 'projects' || pathView === 'users' ? pathView : 'overview',
   );
-  const [workspaceId, setWorkspaceId] = useState<string>();
   const [selectedProject, setSelectedProject] = useState<OverviewProject | null>(null);
   const bootstrap = useQuery({
     queryKey: ['commercial-bootstrap'],
@@ -48,16 +36,14 @@ export function AdminApp() {
     staleTime: 5 * 60_000,
   });
   const bootstrapData = bootstrap.data;
-  const activeWorkspaceId = workspaceId ?? bootstrapData?.workspaceId;
   const overview = useQuery({
-    queryKey: ['commercial-overview', activeWorkspaceId],
-    queryFn: () =>
-      commercialRequest<CommercialOverview>(`/workspaces/${activeWorkspaceId}/overview`),
-    enabled: Boolean(activeWorkspaceId),
+    queryKey: ['commercial-overview'],
+    queryFn: () => commercialRequest<CommercialOverview>('/overview'),
+    enabled: Boolean(bootstrapData),
     retry: false,
     staleTime: 30_000,
     initialData: () => {
-      if (!bootstrapData || bootstrapData.workspaceId !== activeWorkspaceId) return undefined;
+      if (!bootstrapData) return undefined;
       return bootstrapData.overview;
     },
     initialDataUpdatedAt: () => queryClient.getQueryState(['commercial-bootstrap'])?.dataUpdatedAt,
@@ -67,10 +53,6 @@ export function AdminApp() {
     if (bootstrap.error) window.location.replace('/login');
   }, [bootstrap.error]);
 
-  const currentWorkspace = bootstrap.data?.workspaces.find(
-    (workspace) => workspace.id === activeWorkspaceId,
-  );
-  const canManage = currentWorkspace?.role === 'OWNER' || currentWorkspace?.role === 'ADMIN';
   const activeProject = selectedProject
     ? (overview.data?.projects.find((project) => project.id === selectedProject.id) ??
       selectedProject)
@@ -91,26 +73,8 @@ export function AdminApp() {
           <MarkFixLogo className="admin-brand-logo-full" />
           <MarkFixMark className="admin-brand-logo-compact" />
         </a>
-        <div className="admin-workspace-label">工作区</div>
-        <Select
-          value={activeWorkspaceId ?? ''}
-          onValueChange={(value) => {
-            setWorkspaceId(value);
-            setSelectedProject(null);
-          }}
-        >
-          <SelectTrigger aria-label="选择工作区" className="admin-workspace-select">
-            <SelectValue placeholder="选择工作区" />
-          </SelectTrigger>
-          <SelectContent>
-            {(bootstrap.data?.workspaces ?? []).map((workspace) => (
-              <SelectItem key={workspace.id} value={workspace.id}>
-                {workspace.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <nav className="admin-nav">
+          <a href="/agent">Agent 接入</a>
           <Button
             variant="ghost"
             className={view === 'overview' ? 'active' : ''}
@@ -168,13 +132,12 @@ export function AdminApp() {
       <main className="admin-main">
         <header className="admin-page-header">
           <div>
-            <span>MARKFIX WORKSPACE</span>
+            <span>MARKFIX</span>
             <h1>{page.title}</h1>
             <p>{page.description}</p>
           </div>
-          <small>{currentWorkspace?.name ?? '工作区'}</small>
         </header>
-        {overview.isPending && <div className="admin-loading">正在汇总工作区数据…</div>}
+        {overview.isPending && <div className="admin-loading">正在汇总项目数据…</div>}
         {overview.error instanceof Error && (
           <Alert variant="destructive">
             <AlertDescription>{overview.error.message}</AlertDescription>
@@ -184,24 +147,18 @@ export function AdminApp() {
           <OverviewView overview={overview.data} onProject={setSelectedProject} />
         )}
         {overview.data && view === 'projects' && (
-          <ProjectsView
-            projects={overview.data.projects}
-            memberCount={overview.data.users.length}
-            onProject={setSelectedProject}
-          />
+          <ProjectsView projects={overview.data.projects} onProject={setSelectedProject} />
         )}
-        {overview.data && activeWorkspaceId && view === 'users' && (
-          <UsersView
-            users={overview.data.users}
-            workspaceId={activeWorkspaceId}
-            canManage={canManage}
-          />
+        {overview.data && view === 'users' && (
+          <UsersView users={overview.data.users} projects={overview.data.projects} />
         )}
       </main>
       <ProjectDrawer
         project={activeProject}
-        users={overview.data?.users ?? []}
-        canManage={canManage}
+        users={(overview.data?.users ?? []).filter(
+          (user) => activeProject && user.projectIds?.includes(activeProject.id),
+        )}
+        canManage={activeProject?.role === 'OWNER' || activeProject?.role === 'ADMIN'}
         onClose={() => setSelectedProject(null)}
       />
     </div>

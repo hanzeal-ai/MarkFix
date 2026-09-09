@@ -98,7 +98,7 @@ export function AnnotationEditor({
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['commercial-overview', project.workspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['commercial-overview'] }),
         queryClient.invalidateQueries({ queryKey: ['commercial-reports', project.id] }),
       ]);
       onClose();
@@ -216,6 +216,21 @@ export function AnnotationEditor({
                 ))}
               </ol>
             </section>
+            {state.annotation.fixAttempts?.map((run) => (
+              <div key={run.id} className="annotation-rejection-reason">
+                <strong>
+                  {run.status === 'SUCCEEDED'
+                    ? '已完成'
+                    : run.status === 'FAILED'
+                      ? '修复失败'
+                      : run.status === 'RUNNING'
+                        ? '修复中'
+                        : '执行中断'}
+                </strong>
+                <p>{run.reason ?? run.summary}</p>
+                <small>{run.stage}</small>
+              </div>
+            ))}
             {state.annotation.rejectionReason && (
               <section className="annotation-detail-section rejection-detail">
                 <h4>驳回原因</h4>

@@ -6,6 +6,7 @@ export const reportStatuses = [
   'READY_FOR_VERIFY',
   'RESOLVED',
   'CLOSED',
+  'FIX_FAILED',
 ] as const;
 
 export const reportPriorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
@@ -346,21 +347,20 @@ export const userSummarySchema = z.object({
   displayName: z.string().min(1).max(120),
 });
 
+export const projectRoleSchema = z.enum(['OWNER', 'ADMIN', 'MEMBER', 'REPORTER']);
+export type ProjectRole = z.infer<typeof projectRoleSchema>;
 export const membershipSchema = z.object({
-  workspaceId: z.uuid(),
+  projectId: z.uuid(),
   userId: z.uuid(),
-  role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'REPORTER']),
+  role: projectRoleSchema,
   status: z.enum(['ACTIVE', 'SUSPENDED']),
   user: userSummarySchema,
 });
 
-export const createWorkspaceSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-});
-
 export const projectSchema = z.object({
   id: z.uuid(),
-  workspaceId: z.uuid(),
+  ownerId: z.uuid(),
+  role: projectRoleSchema.optional(),
   name: z.string().min(1).max(120),
   baseUrl: z.url().nullable(),
   createdAt: z.iso.datetime(),
@@ -373,6 +373,7 @@ export const webUrlSchema = z.url().refine((value) => {
 }, 'Only HTTP and HTTPS URLs are supported');
 
 const websiteProjectBaseSchema = z.object({
+  repositoryName: z.string().trim().min(1).max(120).nullable().optional(),
   id: z.uuid(),
   title: z.string().min(1).max(120),
   origin: webUrlSchema,
@@ -396,7 +397,6 @@ export const websiteProjectSchema = z.discriminatedUnion('storageMode', [
   websiteProjectBaseSchema
     .extend({
       storageMode: z.literal('CLOUD'),
-      workspaceId: z.uuid(),
     })
     .strict(),
 ]);
@@ -404,7 +404,6 @@ export const websiteProjectSchema = z.discriminatedUnion('storageMode', [
 export const cloudProjectStateSchema = z.object({
   project: websiteProjectBaseSchema.extend({
     storageMode: z.literal('CLOUD'),
-    workspaceId: z.uuid(),
   }),
   navigation: z.object({
     entries: z
@@ -454,15 +453,6 @@ export const updateProjectSchema = createProjectSchema
     'At least one project field is required',
   );
 
-export const workspaceSummarySchema = z.object({
-  id: z.uuid(),
-  name: z.string().min(1).max(120),
-  role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'REPORTER']),
-  projects: z.array(projectSchema),
-  createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
-});
-
 export const reportSchema = createReportSchema.omit({ screenshotDataUrl: true }).extend({
   id: z.uuid(),
   environmentId: z.uuid().nullable(),
@@ -471,6 +461,20 @@ export const reportSchema = createReportSchema.omit({ screenshotDataUrl: true })
   rejectionReason: z.string().max(2000).nullable().optional(),
   version: z.number().int().positive(),
   screenshotUrl: z.string().optional(),
+  fixAttempts: z
+    .array(
+      z.object({
+        id: z.string(),
+        status: z.string(),
+        summary: z.string().nullable(),
+        reason: z.string().nullable(),
+        stage: z.string().nullable(),
+        evidence: z.unknown(),
+        createdAt: z.iso.datetime(),
+        finishedAt: z.iso.datetime().nullable(),
+      }),
+    )
+    .optional(),
   assignee: userSummarySchema.nullable().optional(),
   reporter: userSummarySchema.nullable().optional(),
   createdAt: z.iso.datetime(),
@@ -514,8 +518,9 @@ export const ipcChannels = {
   authLogin: 'auth:login',
   authLogout: 'auth:logout',
   desktopBootstrap: 'desktop:bootstrap',
-  listWorkspaces: 'workspace:list',
   listEnvironments: 'environment:list',
+  getProjectAgentData: 'project-agent:get',
+  setProjectRepository: 'project-agent:bind',
   listWebsiteProjects: 'website-project:list',
   listProjectAnnotationReports: 'project-annotation-reports:list',
   createWebsiteProject: 'website-project:create',
@@ -603,7 +608,6 @@ export type ClientPolicy = z.infer<typeof clientPolicySchema>;
 export type CreateEnvironment = z.infer<typeof createEnvironmentSchema>;
 export type CreateProject = z.infer<typeof createProjectSchema>;
 export type CreateReport = z.infer<typeof createReportSchema>;
-export type CreateWorkspace = z.infer<typeof createWorkspaceSchema>;
 export type ElementAnchor = z.infer<typeof elementAnchorSchema>;
 export type ElementRuntimeEvidence = z.infer<typeof elementRuntimeEvidenceSchema>;
 export type Environment = z.infer<typeof environmentSchema>;
@@ -617,7 +621,8 @@ export type ReportStatus = (typeof reportStatuses)[number];
 export type ReproductionStep = z.infer<typeof reproductionStepSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
 export type UpdateEnvironment = z.infer<typeof updateEnvironmentSchema>;
-export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;
 export type WebsiteProject = z.infer<typeof websiteProjectSchema>;
 
 export * from './commercial.js';
+
+export * from './agent.js';

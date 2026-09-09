@@ -36,21 +36,6 @@
   display: none;
 }
 
-.admin-workspace-label {
-  margin: 0 8px 8px;
-  color: #85838d;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-}
-
-.admin-workspace-select {
-  border-color: #3a3843;
-  background: #27262e;
-  color: #f1f0f5;
-  box-shadow: none;
-}
-
 .admin-nav {
   display: grid;
   gap: 5px;
@@ -536,4 +521,8 @@ button.dimension-row:hover {
 .category-badges small {
   color: #a0a1aa;
   font-size: 10px;
+}
+.project-sheet .repository-binding {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
 }

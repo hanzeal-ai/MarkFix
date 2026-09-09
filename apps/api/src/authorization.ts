@@ -1,10 +1,10 @@
 import type { TransitionAction } from './report-state.js';
-
-export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'REPORTER';
+import type { ProjectRole } from '@markfix/contracts';
+export type { ProjectRole } from '@markfix/contracts';
 
 export const canTransitionReport = (
   userId: string,
-  role: WorkspaceRole,
+  role: ProjectRole,
   report: { assigneeId: string | null; reporterId: string | null },
   action: TransitionAction,
 ): boolean => {
@@ -17,3 +17,12 @@ export const canTransitionReport = (
   }
   return action === 'reopen' && (report.reporterId === userId || role === 'MEMBER');
 };
+
+export const canRepairReport = (
+  userId: string,
+  role: ProjectRole,
+  report: { assigneeId: string | null },
+): boolean =>
+  role === 'OWNER' ||
+  role === 'ADMIN' ||
+  (role === 'MEMBER' && (!report.assigneeId || report.assigneeId === userId));

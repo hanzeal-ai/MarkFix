@@ -57,9 +57,14 @@ export function AccountSettings(): React.JSX.Element {
 
   return (
     <main className="account-settings-shell">
-      <a className="account-settings-back" href="/app">
-        <ArrowLeft /> 返回管理后台
-      </a>
+      <nav className="account-settings-navigation" aria-label="账户导航">
+        <a className="account-settings-back" href="/app">
+          <ArrowLeft /> 返回管理后台
+        </a>
+        <a className="account-settings-back" href="/agent">
+          Agent 接入与授权设备
+        </a>
+      </nav>
       <section className="account-settings-content">
         <header>
           <span className="account-settings-icon">
@@ -81,7 +86,7 @@ export function AccountSettings(): React.JSX.Element {
         <Card className="account-settings-card">
           <div>
             <h2>导出账户数据</h2>
-            <p>下载账户、工作区、项目及由你创建的标注记录。</p>
+            <p>下载账户、项目及由你创建的标注记录。</p>
           </div>
           <Button variant="outline" onClick={() => void exportData()} disabled={Boolean(busy)}>
             {busy === 'export' ? <LoaderCircle className="account-settings-spin" /> : <Download />}
@@ -92,7 +97,7 @@ export function AccountSettings(): React.JSX.Element {
         <Card className="account-settings-card account-settings-danger">
           <div>
             <h2>注销账户</h2>
-            <p>永久删除账户及仅由你使用的工作区。含其他成员的工作区不会被删除。</p>
+            <p>永久删除账户及仅由你使用的项目。含其他成员的项目不会被删除。</p>
           </div>
           <form onSubmit={(event) => void deleteAccount(event)}>
             <Label>

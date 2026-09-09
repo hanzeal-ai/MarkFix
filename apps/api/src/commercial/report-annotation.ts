@@ -16,8 +16,18 @@ export type ReportAnnotationSource = {
   reporter?: { id: string; displayName: string; email: string } | null;
   title: string;
   description: string;
-  status: 'OPEN' | 'IN_PROGRESS' | 'READY_FOR_VERIFY' | 'RESOLVED' | 'CLOSED';
+  status: 'OPEN' | 'IN_PROGRESS' | 'READY_FOR_VERIFY' | 'RESOLVED' | 'CLOSED' | 'FIX_FAILED';
   rejectionReason: string | null;
+  fixAttempts?: Array<{
+    id: string;
+    status: string;
+    summary: string | null;
+    reason: string | null;
+    stage: string | null;
+    evidence: unknown;
+    createdAt: Date;
+    finishedAt: Date | null;
+  }>;
   captureBundle: unknown;
   screenshotPath?: string | null;
   createdAt: Date;
@@ -151,6 +161,7 @@ export const reportAnnotationStatus = (
   report: Pick<ReportAnnotationSource, 'status' | 'rejectionReason'>,
 ): CommercialAnnotationStatus => {
   if (report.rejectionReason) return 'REJECTED';
+  if (report.status === 'FIX_FAILED') return 'FIX_FAILED';
   if (report.status === 'IN_PROGRESS' || report.status === 'READY_FOR_VERIFY') return 'IN_REVIEW';
   if (report.status === 'RESOLVED' || report.status === 'CLOSED') return 'RESOLVED';
   return 'OPEN';
@@ -195,6 +206,7 @@ export const reportToCommercialAnnotation = (
   status: reportAnnotationStatus(report),
   rejectionReason: report.rejectionReason,
   history,
+  fixAttempts: report.fixAttempts ?? [],
   createdAt: report.createdAt,
   updatedAt: report.updatedAt,
 });

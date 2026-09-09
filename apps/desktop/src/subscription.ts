@@ -1,4 +1,4 @@
-import type { SubscriptionUpgradeResult, WorkspaceSubscription } from '@markfix/api-client';
+import type { SubscriptionUpgradeResult, AccountSubscription } from '@markfix/api-client';
 
 export const subscriptionIpcChannels = {
   get: 'subscription:get',
@@ -6,6 +6,6 @@ export const subscriptionIpcChannels = {
 } as const;
 
 export type SubscriptionBridge = {
-  getSubscription(workspaceId: string): Promise<WorkspaceSubscription>;
-  requestSubscriptionUpgrade(workspaceId: string): Promise<SubscriptionUpgradeResult>;
+  getSubscription(): Promise<AccountSubscription>;
+  requestSubscriptionUpgrade(): Promise<SubscriptionUpgradeResult>;
 };

@@ -1,3 +1,4 @@
+import { repositoryBindingSchema, type AgentRepository } from '@markfix/contracts';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import {
@@ -141,11 +142,6 @@ const assertSubscriptionSender = (event: IpcMainInvokeEvent): void => {
   if (event.sender.id === shellWebContentsId || childWindows.isSettingsSender(event.sender.id))
     return;
   throw new Error('Untrusted subscription IPC sender');
-};
-
-const assertWorkspaceListSender = (event: IpcMainInvokeEvent): void => {
-  if (childWindows.isSettingsSender(event.sender.id)) return;
-  assertShellSender(event);
 };
 
 const sendShell = (channel: string, payload: unknown): void => {
@@ -454,7 +450,7 @@ const stepProjectHistory = (
 };
 
 const ensureWebsiteProjects = async (
-  availableWorkspaces?: Awaited<ReturnType<MarkFixApi['listWorkspaces']>>,
+  availableProjects?: Awaited<ReturnType<MarkFixApi['listProjects']>>,
 ): Promise<WebsiteProject[]> => {
   if (!draftStore) return [];
   const localProjects = draftStore.listWebsiteProjects('LOCAL');
@@ -464,56 +460,53 @@ const ensureWebsiteProjects = async (
     if (project.storageMode === 'CLOUD') websiteProjectsById.delete(id);
   }
   cloudProjectStates.clear();
-  const workspaces = availableWorkspaces ?? (await api.listWorkspaces());
+  const projects = availableProjects ?? (await api.listProjects());
   const cloudProjects: WebsiteProject[] = [];
-  for (const workspace of workspaces) {
-    for (const project of workspace.projects) {
-      if (!project.baseUrl) continue;
-      let entryUrl: string;
-      try {
-        entryUrl = normalizeWebsiteUrl(project.baseUrl, process.env.MARKFIX_ALLOW_HTTP === 'true');
-      } catch {
-        // Projects without a usable HTTP(S) URL are not website annotation projects.
-        continue;
-      }
-      const origin = new URL(entryUrl).origin;
-      const now = new Date().toISOString();
-      const remoteState = await api.getCloudProjectState(project.id);
-      const initialProject = websiteProjectSchema.parse({
-        id: project.id,
-        storageMode: 'CLOUD',
-        workspaceId: workspace.id,
-        title: project.name,
-        origin,
-        entryUrl,
-        faviconUrl: new URL('/favicon.ico', entryUrl).href,
-        faviconSource: 'root',
-        currentPageSessionId: randomUUID(),
-        currentUrl: entryUrl,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt ?? now,
-      });
-      if (initialProject.storageMode !== 'CLOUD') throw new Error('Invalid cloud project state');
-      const state =
-        remoteState ??
-        (await api.saveCloudProjectState({
-          project: initialProject,
-          navigation: {
-            entries: [
-              {
-                pageSessionId: initialProject.currentPageSessionId,
-                url: entryUrl,
-                title: project.name,
-              },
-            ],
-            currentIndex: 0,
-          },
-          revision: 0,
-        }));
-      cloudProjectStates.set(project.id, state);
-      websiteProjectsById.set(project.id, state.project);
-      cloudProjects.push(state.project);
+  for (const project of projects) {
+    if (!project.baseUrl) continue;
+    let entryUrl: string;
+    try {
+      entryUrl = normalizeWebsiteUrl(project.baseUrl, process.env.MARKFIX_ALLOW_HTTP === 'true');
+    } catch {
+      // Projects without a usable HTTP(S) URL are not website annotation projects.
+      continue;
     }
+    const origin = new URL(entryUrl).origin;
+    const now = new Date().toISOString();
+    const remoteState = await api.getCloudProjectState(project.id);
+    const initialProject = websiteProjectSchema.parse({
+      id: project.id,
+      storageMode: 'CLOUD',
+      title: project.name,
+      origin,
+      entryUrl,
+      faviconUrl: new URL('/favicon.ico', entryUrl).href,
+      faviconSource: 'root',
+      currentPageSessionId: randomUUID(),
+      currentUrl: entryUrl,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt ?? now,
+    });
+    if (initialProject.storageMode !== 'CLOUD') throw new Error('Invalid cloud project state');
+    const state =
+      remoteState ??
+      (await api.saveCloudProjectState({
+        project: initialProject,
+        navigation: {
+          entries: [
+            {
+              pageSessionId: initialProject.currentPageSessionId,
+              url: entryUrl,
+              title: project.name,
+            },
+          ],
+          currentIndex: 0,
+        },
+        revision: 0,
+      }));
+    cloudProjectStates.set(project.id, state);
+    websiteProjectsById.set(project.id, state.project);
+    cloudProjects.push(state.project);
   }
   return [...localProjects, ...cloudProjects].sort((left, right) =>
     right.updatedAt.localeCompare(left.updatedAt),
@@ -904,35 +897,79 @@ const registerIpc = (): void => {
     }
     return true;
   });
-  ipcMain.handle(ipcChannels.listWorkspaces, async (event) => {
-    assertWorkspaceListSender(event);
-    if (!authenticatedUser) throw new Error('Sign in to load workspaces');
-    return api.listWorkspaces();
-  });
   ipcMain.handle(ipcChannels.desktopBootstrap, async (event) => {
     assertShellSender(event);
-    if (!authenticatedUser) throw new Error('Sign in to load the workspace');
-    const workspaces = await api.listWorkspaces().catch(() => []);
-    const websiteProjects = await ensureWebsiteProjects(workspaces);
-    return { workspaces, websiteProjects };
+    if (!authenticatedUser) throw new Error('Sign in to load projects');
+    const websiteProjects = await ensureWebsiteProjects();
+    return { websiteProjects };
   });
-  ipcMain.handle(subscriptionIpcChannels.get, async (event, input: unknown) => {
+  ipcMain.handle(subscriptionIpcChannels.get, async (event) => {
     assertSubscriptionSender(event);
     if (!authenticatedUser) throw new Error('Sign in to load the subscription');
-    if (typeof input !== 'string') throw new Error('Invalid workspace ID');
-    return api.getSubscription(input);
+    return api.getSubscription();
   });
-  ipcMain.handle(subscriptionIpcChannels.upgrade, async (event, input: unknown) => {
+  ipcMain.handle(subscriptionIpcChannels.upgrade, async (event) => {
     assertSubscriptionSender(event);
     if (!authenticatedUser) throw new Error('Sign in to manage the subscription');
-    if (typeof input !== 'string') throw new Error('Invalid workspace ID');
-    return api.requestSubscriptionUpgrade(input);
+    return api.requestSubscriptionUpgrade();
   });
   ipcMain.handle(ipcChannels.listEnvironments, async (event, input: unknown) => {
     assertShellSender(event);
     if (!authenticatedUser) throw new Error('Sign in to load environments');
     if (typeof input !== 'string') throw new Error('Invalid project ID');
     return api.listEnvironments(input);
+  });
+  ipcMain.handle(ipcChannels.getProjectAgentData, async (event, projectId: unknown) => {
+    assertShellSender(event);
+    if (typeof projectId !== 'string') throw new Error('Invalid project ID');
+    const project = websiteProjectsById.get(projectId);
+    if (!project) throw new Error('Project not found');
+    if (project.storageMode === 'LOCAL')
+      return {
+        binding: {
+          repositoryId: null,
+          repositoryName: draftStore?.getWebsiteProject(projectId)?.repositoryName ?? null,
+        },
+        repositories: [],
+        reports: [],
+        canManage: true,
+      };
+    const remote = (await api.listProjects()).find(({ id }) => id === projectId);
+    if (!remote) throw new Error('Project access is required');
+    const canManage = remote.role === 'OWNER' || remote.role === 'ADMIN';
+    const [binding, repositories] = await Promise.all([
+      api.requestJson<{ repositoryId: string | null; repositoryName: string | null }>(
+        `/v1/agent/projects/${projectId}/binding`,
+      ),
+      canManage
+        ? api.requestJson<AgentRepository[]>(`/v1/agent/projects/${projectId}/repositories`)
+        : [],
+    ]);
+    const reports = await api.listAllReports(projectId);
+    return { binding, repositories, reports, canManage };
+  });
+  ipcMain.handle(ipcChannels.setProjectRepository, async (event, input: unknown) => {
+    assertShellSender(event);
+    const payload = input as { projectId?: unknown; binding?: unknown };
+    if (typeof payload.projectId !== 'string') throw new Error('Invalid project ID');
+    const binding = repositoryBindingSchema.parse(payload.binding);
+    const project = websiteProjectsById.get(payload.projectId);
+    if (!project) throw new Error('Project not found');
+    if (project.storageMode === 'LOCAL') {
+      if (binding.repositoryId) throw new Error('Local projects only support repository names');
+      const updated = {
+        ...project,
+        repositoryName: binding.repositoryName,
+        updatedAt: new Date().toISOString(),
+      };
+      draftStore?.saveWebsiteProject(updated);
+      websiteProjectsById.set(project.id, updated);
+      return binding;
+    }
+    return api.requestJson(`/v1/agent/projects/${project.id}/binding`, {
+      method: 'PATCH',
+      body: JSON.stringify(binding),
+    });
   });
   ipcMain.handle(ipcChannels.listWebsiteProjects, (event) => {
     assertShellSender(event);
@@ -943,7 +980,7 @@ const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.createWebsiteProject, async (event, input: unknown) => {
     assertShellSender(event);
     if (!draftStore) throw new Error('本地项目存储不可用');
-    const payload = input as { workspaceId?: unknown; url?: unknown; storageMode?: unknown };
+    const payload = input as { url?: unknown; storageMode?: unknown };
     if (
       typeof payload.url !== 'string' ||
       (payload.storageMode !== 'LOCAL' && payload.storageMode !== 'CLOUD')
@@ -951,18 +988,13 @@ const registerIpc = (): void => {
       throw new Error('请选择项目存储方式并输入网站地址');
     const storageMode = payload.storageMode satisfies ProjectStorageMode;
     if (storageMode === 'CLOUD' && !authenticatedUser) throw new Error('请先登录后再新建云端项目');
-    if (storageMode === 'CLOUD' && typeof payload.workspaceId !== 'string')
-      throw new Error('请选择云端项目所属工作区');
     const normalized = normalizeWebsiteUrl(payload.url, process.env.MARKFIX_ALLOW_HTTP === 'true');
     const origin = new URL(normalized).origin;
     const existing =
       storageMode === 'LOCAL'
         ? draftStore.findWebsiteProjectByOrigin(origin, 'LOCAL')
         : [...websiteProjectsById.values()].find(
-            (project) =>
-              project.storageMode === 'CLOUD' &&
-              project.origin === origin &&
-              project.workspaceId === payload.workspaceId,
+            (project) => project.storageMode === 'CLOUD' && project.origin === origin,
           );
     if (existing) {
       return { project: existing, created: false };
@@ -973,7 +1005,7 @@ const registerIpc = (): void => {
     const now = new Date().toISOString();
     const remoteProject =
       storageMode === 'CLOUD'
-        ? await api.createProject(payload.workspaceId as string, {
+        ? await api.createProject({
             name: metadata.title.slice(0, 120),
             baseUrl: origin,
           })
@@ -981,7 +1013,6 @@ const registerIpc = (): void => {
     const websiteProject = websiteProjectSchema.parse({
       id: remoteProject?.id ?? randomUUID(),
       storageMode,
-      ...(remoteProject ? { workspaceId: remoteProject.workspaceId } : {}),
       title: (currentPageTitle || metadata.title).slice(0, 120),
       origin,
       entryUrl: metadata.url,
@@ -1103,7 +1134,7 @@ const registerIpc = (): void => {
       panelWidth?: unknown;
     };
     if (!isSidebarWidth(payload.sidebarWidth)) throw new Error('无效的侧边栏宽度');
-    if (typeof payload.visible !== 'boolean') throw new Error('无效的工作区显示状态');
+    if (typeof payload.visible !== 'boolean') throw new Error('无效的标注界面显示状态');
     if (!isSidebarWidth(payload.peekWidth ?? 0)) throw new Error('无效的侧边栏预览宽度');
     if (!isSidebarWidth(payload.panelWidth) || payload.panelWidth === 0)
       throw new Error('无效的批注栏宽度');

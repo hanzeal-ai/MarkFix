@@ -4,7 +4,6 @@ import {
   createEnvironmentSchema,
   createProjectSchema,
   createReportSchema,
-  createWorkspaceSchema,
   environmentSchema,
   projectSchema,
   reportSchema,
@@ -13,7 +12,6 @@ import {
   savedElementCommentSchema,
   updateEnvironmentSchema,
   updateProjectSchema,
-  workspaceSummarySchema,
   type Comment,
   type ClientPolicy,
   type CloudProjectState,
@@ -30,15 +28,9 @@ import {
   type AnnotationSubmission,
   type UpdateEnvironment,
   type UpdateProject,
-  type WorkspaceSummary,
 } from '@markfix/contracts';
 
-type Bootstrap = {
-  id: string;
-  name: string;
-  projects: Array<{ id: string; name: string }>;
-  memberships: Membership[];
-};
+type Bootstrap = { projects: Project[] };
 type DetailedReport = Report & { comments: Comment[]; activities: Array<Record<string, unknown>> };
 type ReportPage = { items: Report[]; nextCursor?: string };
 export type AuthTokens = { accessToken: string; refreshToken: string; expiresIn: number };
@@ -48,7 +40,7 @@ export type AuthUser = {
   displayName: string;
   emailVerified: boolean;
 };
-export type WorkspaceSubscription = {
+export type AccountSubscription = {
   plan: 'FREE' | 'TEAM';
   planName: string;
   projectLimit: number | null;
@@ -56,7 +48,7 @@ export type WorkspaceSubscription = {
   usage: { projects: number; members: number };
   upgradeRequestedAt: string | null;
 };
-export type SubscriptionUpgradeResult = WorkspaceSubscription & {
+export type SubscriptionUpgradeResult = AccountSubscription & {
   upgraded: boolean;
   alreadyUpgraded: boolean;
   upgradeRequested?: boolean;
@@ -167,7 +159,6 @@ export class MarkFixApi {
     email: string;
     password: string;
     displayName: string;
-    workspaceName?: string;
   }): Promise<{ user: AuthUser; verificationRequired: boolean; verificationToken?: string }> {
     return this.request('/v1/auth/register', { method: 'POST', body: JSON.stringify(input) });
   }
@@ -266,41 +257,21 @@ export class MarkFixApi {
     return this.request('/v1/bootstrap');
   }
 
-  async listWorkspaces(): Promise<WorkspaceSummary[]> {
-    return workspaceSummarySchema.array().parse(await this.request('/v1/workspaces'));
+  getSubscription(): Promise<AccountSubscription> {
+    return this.request('/v1/me/subscription');
+  }
+  requestSubscriptionUpgrade(): Promise<SubscriptionUpgradeResult> {
+    return this.request('/v1/me/subscription/upgrade', { method: 'POST', body: '{}' });
   }
 
-  getSubscription(workspaceId: string): Promise<WorkspaceSubscription> {
-    return this.request(`/v1/workspaces/${workspaceId}/subscription`);
+  async listProjects(): Promise<Project[]> {
+    return projectSchema.array().parse(await this.request('/v1/projects'));
   }
 
-  requestSubscriptionUpgrade(workspaceId: string): Promise<SubscriptionUpgradeResult> {
-    return this.request(`/v1/workspaces/${workspaceId}/subscription/upgrade`, {
-      method: 'POST',
-      body: '{}',
-    });
-  }
-
-  async createWorkspace(name: string): Promise<WorkspaceSummary> {
-    const input = createWorkspaceSchema.parse({ name });
-    return workspaceSummarySchema.parse(
-      await this.request('/v1/workspaces', {
-        method: 'POST',
-        body: JSON.stringify(input),
-      }),
-    );
-  }
-
-  async listProjects(workspaceId: string): Promise<Project[]> {
-    return projectSchema
-      .array()
-      .parse(await this.request(`/v1/workspaces/${workspaceId}/projects`));
-  }
-
-  async createProject(workspaceId: string, input: CreateProject): Promise<Project> {
+  async createProject(input: CreateProject): Promise<Project> {
     const parsed = createProjectSchema.parse(input);
     return projectSchema.parse(
-      await this.request(`/v1/workspaces/${workspaceId}/projects`, {
+      await this.request('/v1/projects', {
         method: 'POST',
         body: JSON.stringify(parsed),
       }),
@@ -549,13 +520,13 @@ export class MarkFixApi {
     return reports;
   }
 
-  listMembers(workspaceId: string): Promise<Membership[]> {
-    return this.request(`/v1/workspaces/${workspaceId}/members`);
+  listMembers(projectId: string): Promise<Membership[]> {
+    return this.request(`/v1/projects/${projectId}/members`);
   }
 
-  createInvitation(workspaceId: string, email: string, role: string) {
+  createInvitation(projectId: string, email: string, role: string) {
     return this.request<{ id: string; email: string; role: string; token: string }>(
-      `/v1/workspaces/${workspaceId}/invitations`,
+      `/v1/projects/${projectId}/invitations`,
       { method: 'POST', body: JSON.stringify({ email, role }) },
     );
   }

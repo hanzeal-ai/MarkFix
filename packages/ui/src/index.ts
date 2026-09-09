@@ -98,3 +98,4 @@ export * from './components/progress.js';
 export * from './components/table.js';
 export * from './components/avatar.js';
 export * from './components/empty.js';
+export { RepositoryBinding, type RepositoryOption } from './components/repository-binding.js';

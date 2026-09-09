@@ -2,7 +2,7 @@ import {
   createEnvironmentSchema,
   createProjectSchema,
   createReportSchema,
-  createWorkspaceSchema,
+  reportStatuses,
   updateEnvironmentSchema,
   updateProjectSchema,
   type CreateReport,
@@ -80,19 +80,14 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
             emailVerifiedAt: new Date(),
           },
         });
-    const existingWorkspace = await this.database.workspace.findFirst({
-      where: { createdById: demoUser.id },
+    const existingProject = await this.database.project.findFirst({
+      where: { ownerId: demoUser.id },
     });
-    if (!existingWorkspace) {
-      await this.database.workspace.create({
-        data: {
-          name: 'MarkFix Demo',
-          createdById: demoUser.id,
-          memberships: { create: { userId: demoUser.id, role: 'OWNER' } },
-          projects: { create: { name: 'Website feedback', baseUrl: 'https://example.com' } },
-        },
+    if (!existingProject)
+      await this.createProject(demoUser.id, {
+        name: 'Website feedback',
+        baseUrl: 'https://example.com',
       });
-    }
   }
 
   onModuleDestroy(): void {
@@ -100,79 +95,31 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
   }
 
   async bootstrap(userId: string) {
-    const latestMembership = await this.database.membership.findFirst({
-      where: { userId, status: 'ACTIVE' },
-      orderBy: { updatedAt: 'desc' },
-    });
-    if (!latestMembership)
-      throw new NotFoundException('No workspace is available for this account');
-    const workspace = await this.database.workspace.findUnique({
-      where: { id: latestMembership.workspaceId },
-      include: {
-        projects: true,
-        memberships: { include: { user: { select: publicUserSelect } } },
-      },
-    });
-    if (!workspace) throw new NotFoundException('No workspace is available for this account');
-    return workspace;
+    return { projects: await this.listProjects(userId) };
   }
 
-  async listWorkspaces(userId: string) {
-    const workspaces = await this.database.workspace.findMany({
+  async listProjects(userId: string) {
+    const projects = await this.database.project.findMany({
       where: { memberships: { some: { userId, status: 'ACTIVE' } } },
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-        projects: { orderBy: { createdAt: 'asc' } },
-        memberships: {
-          where: { userId, status: 'ACTIVE' },
-          select: { role: true },
-          take: 1,
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
+      include: { memberships: { where: { userId, status: 'ACTIVE' }, select: { role: true } } },
+      orderBy: { createdAt: 'asc' },
     });
-    return workspaces.map(({ memberships, ...workspace }) => ({
-      ...workspace,
+    return projects.map(({ memberships, ...project }) => ({
+      ...project,
       role: memberships[0]?.role,
     }));
   }
 
-  async createWorkspace(userId: string, input: unknown) {
-    const parsed = createWorkspaceSchema.safeParse(input);
-    if (!parsed.success) throw new ConflictException('A workspace name is required');
-    return this.database.$transaction(async (transaction) => {
-      const workspace = await transaction.workspace.create({
-        data: {
-          name: parsed.data.name,
-          createdById: userId,
-          memberships: { create: { userId, role: 'OWNER' } },
-        },
-      });
-      return { ...workspace, role: 'OWNER' as const, projects: [] };
-    });
-  }
-
-  async listProjects(userId: string, workspaceId: string) {
-    await this.requireMembership(userId, workspaceId);
-    return this.database.project.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: 'asc' },
-    });
-  }
-
-  async createProject(userId: string, workspaceId: string, input: unknown) {
-    await this.requireMembership(userId, workspaceId, ['OWNER', 'ADMIN']);
+  async createProject(userId: string, input: unknown) {
     const parsed = createProjectSchema.safeParse(input);
     if (!parsed.success)
       throw new ConflictException('A valid project name and base URL are required');
     return this.database.project.create({
       data: {
-        workspaceId,
+        ownerId: userId,
         name: parsed.data.name,
         baseUrl: parsed.data.baseUrl || null,
+        memberships: { create: { userId, role: 'OWNER' } },
       },
     });
   }
@@ -183,7 +130,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
 
   async updateProject(userId: string, projectId: string, input: unknown) {
     const project = await this.requireProjectAccess(userId, projectId);
-    await this.requireMembership(userId, project.workspaceId, ['OWNER', 'ADMIN']);
+    await this.requireMembership(userId, project.id, ['OWNER', 'ADMIN']);
     const parsed = updateProjectSchema.safeParse(input);
     if (!parsed.success) throw new ConflictException('A valid project update is required');
     return this.database.project.update({
@@ -197,7 +144,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
 
   async deleteProject(userId: string, projectId: string) {
     const project = await this.requireProjectAccess(userId, projectId);
-    await this.requireMembership(userId, project.workspaceId, ['OWNER', 'ADMIN']);
+    await this.requireMembership(userId, project.id, ['OWNER', 'ADMIN']);
     const artifacts = await this.database.artifact.findMany({
       where: { submission: { projectId } },
       select: { id: true },
@@ -219,7 +166,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
 
   async createEnvironment(userId: string, projectId: string, input: unknown) {
     const project = await this.requireProjectAccess(userId, projectId);
-    await this.requireMembership(userId, project.workspaceId, ['OWNER', 'ADMIN']);
+    await this.requireMembership(userId, project.id, ['OWNER', 'ADMIN']);
     const parsed = createEnvironmentSchema.safeParse(input);
     if (!parsed.success) {
       throw new ConflictException('A valid environment name and HTTP(S) base URL are required');
@@ -242,7 +189,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
     });
     if (!environment) throw new NotFoundException('Environment not found');
     const project = await this.requireProjectAccess(userId, environment.projectId);
-    await this.requireMembership(userId, project.workspaceId, ['OWNER', 'ADMIN']);
+    await this.requireMembership(userId, project.id, ['OWNER', 'ADMIN']);
     const parsed = updateEnvironmentSchema.safeParse(input);
     if (!parsed.success) throw new ConflictException('A valid environment update is required');
     try {
@@ -261,22 +208,22 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async listMembers(userId: string, workspaceId: string) {
-    await this.requireMembership(userId, workspaceId);
+  async listMembers(userId: string, projectId: string) {
+    await this.requireMembership(userId, projectId);
     return this.database.membership.findMany({
-      where: { workspaceId },
+      where: { projectId },
       include: { user: { select: publicUserSelect } },
       orderBy: { createdAt: 'asc' },
     });
   }
 
-  async listInvitations(userId: string, workspaceId: string) {
-    await this.requireMembership(userId, workspaceId, ['OWNER', 'ADMIN']);
+  async listInvitations(userId: string, projectId: string) {
+    await this.requireMembership(userId, projectId, ['OWNER', 'ADMIN']);
     return this.database.invitation.findMany({
-      where: { workspaceId },
+      where: { projectId },
       select: {
         id: true,
-        workspaceId: true,
+        projectId: true,
         email: true,
         role: true,
         expiresAt: true,
@@ -287,20 +234,20 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async createInvitation(userId: string, workspaceId: string, input: unknown) {
-    await this.requireMembership(userId, workspaceId, ['OWNER', 'ADMIN']);
+  async createInvitation(userId: string, projectId: string, input: unknown) {
+    await this.requireMembership(userId, projectId, ['OWNER', 'ADMIN']);
     const payload = input as { email?: unknown; role?: unknown };
     const email = typeof payload.email === 'string' ? payload.email.trim().toLocaleLowerCase() : '';
     const roles = ['ADMIN', 'MEMBER', 'REPORTER'] as const;
     if (!email.includes('@') || !roles.includes(payload.role as (typeof roles)[number])) {
       throw new ConflictException('Invalid invitation');
     }
-    const workspace = await this.database.workspace.findUnique({ where: { id: workspaceId } });
-    if (!workspace) throw new NotFoundException('Workspace not found');
+    const project = await this.database.project.findUnique({ where: { id: projectId } });
+    if (!project) throw new NotFoundException('Project not found');
     const token = crypto.randomUUID();
     const invitation = await this.database.invitation.create({
       data: {
-        workspaceId,
+        projectId,
         email,
         role: payload.role as (typeof roles)[number],
         tokenHash: sha256(token),
@@ -309,7 +256,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
     });
     return {
       id: invitation.id,
-      workspaceId: invitation.workspaceId,
+      projectId: invitation.projectId,
       email: invitation.email,
       role: invitation.role,
       expiresAt: invitation.expiresAt,
@@ -330,21 +277,22 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
       throw new ForbiddenException('Invitation email does not match the signed-in account');
     }
     return this.database.$transaction(async (transaction) => {
+      const consumed = await transaction.invitation.updateMany({
+        where: { id: invitation.id, acceptedAt: null, expiresAt: { gt: new Date() } },
+        data: { acceptedAt: new Date() },
+      });
+      if (consumed.count !== 1) throw new ConflictException('Invitation is no longer available');
       const membership = await transaction.membership.upsert({
         where: {
-          workspaceId_userId: { workspaceId: invitation.workspaceId, userId },
+          projectId_userId: { projectId: invitation.projectId, userId },
         },
-        update: { role: invitation.role, status: 'ACTIVE' },
+        update: {},
         create: {
-          workspaceId: invitation.workspaceId,
+          projectId: invitation.projectId,
           userId,
           role: invitation.role,
         },
         include: { user: { select: publicUserSelect } },
-      });
-      await transaction.invitation.update({
-        where: { id: invitation.id },
-        data: { acceptedAt: new Date() },
       });
       return membership;
     });
@@ -439,7 +387,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
     await this.requireSubmissionActor(
       userId,
       artifact.submission.createdById,
-      artifact.submission.project.workspaceId,
+      artifact.submission.project.id,
     );
     if (bytes.byteLength !== artifact.size || sha256(bytes) !== artifact.sha256) {
       throw new ConflictException('Artifact checksum or size mismatch');
@@ -580,7 +528,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
     if (filters.pageUrl && !URL.canParse(filters.pageUrl))
       throw new ConflictException('Invalid page URL');
     const pageUrl = filters.pageUrl ? new URL(filters.pageUrl).href : undefined;
-    const statuses = ['OPEN', 'IN_PROGRESS', 'READY_FOR_VERIFY', 'RESOLVED', 'CLOSED'] as const;
+    const statuses = reportStatuses;
     const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
     const items = await this.database.report.findMany({
       where: {
@@ -595,6 +543,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
         ...(pageUrl ? { captureBundle: { path: ['page', 'url'], equals: pageUrl } } : {}),
       },
       include: {
+        fixAttempts: { orderBy: { createdAt: 'desc' }, take: 10 },
         assignee: { select: publicUserSelect },
         reporter: { select: publicUserSelect },
       },
@@ -616,6 +565,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
     const report = await this.database.report.findUnique({
       where: { id },
       include: {
+        fixAttempts: { orderBy: { createdAt: 'desc' }, take: 10 },
         assignee: { select: publicUserSelect },
         reporter: { select: publicUserSelect },
         comments: {
@@ -638,7 +588,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
       include: { submission: { include: { project: true } } },
     });
     if (!artifact) throw new NotFoundException('Artifact not found');
-    await this.requireMembership(userId, artifact.submission.project.workspaceId);
+    await this.requireMembership(userId, artifact.submission.project.id);
     return {
       path: join(this.artifactDirectory, `${artifact.id}.png`),
       etag: `"${artifact.sha256}"`,
@@ -677,18 +627,18 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
       include: { project: true },
     });
     if (!current) throw new NotFoundException('Report not found');
-    await this.requireMembership(userId, current.project.workspaceId, ['OWNER', 'ADMIN']);
+    await this.requireMembership(userId, current.project.id, ['OWNER', 'ADMIN']);
     if (typeof payload.assigneeId === 'string') {
       const member = await this.database.membership.findUnique({
         where: {
-          workspaceId_userId: {
-            workspaceId: current.project.workspaceId,
+          projectId_userId: {
+            projectId: current.project.id,
             userId: payload.assigneeId,
           },
         },
       });
       if (!member || member.status !== 'ACTIVE')
-        throw new ConflictException('Assignee is not an active workspace member');
+        throw new ConflictException('Assignee is not an active project member');
     }
     const priority = priorities.includes(payload.priority as (typeof priorities)[number])
       ? (payload.priority as (typeof priorities)[number])
@@ -734,7 +684,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
     const current = await this.getReportRecord(id);
     const project = await this.database.project.findUnique({ where: { id: current.projectId } });
     if (!project) throw new NotFoundException('Project not found');
-    const membership = await this.requireMembership(userId, project.workspaceId);
+    const membership = await this.requireMembership(userId, project.id);
     if (!canTransitionReport(userId, membership.role, current, payload.action)) {
       throw new ForbiddenException('Your role cannot perform this report transition');
     }
@@ -766,18 +716,18 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
 
   private async requireMembership(
     userId: string,
-    workspaceId: string,
+    projectId: string,
     roles?: Array<'OWNER' | 'ADMIN' | 'MEMBER' | 'REPORTER'>,
   ) {
     const membership = await this.database.membership.findUnique({
-      where: { workspaceId_userId: { workspaceId, userId } },
+      where: { projectId_userId: { projectId, userId } },
     });
     if (
       !membership ||
       membership.status !== 'ACTIVE' ||
       (roles && !roles.includes(membership.role))
     ) {
-      throw new ForbiddenException('You do not have access to this workspace action');
+      throw new ForbiddenException('You do not have access to this project action');
     }
     return membership;
   }
@@ -785,7 +735,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
   private async requireProjectAccess(userId: string, projectId: string) {
     const project = await this.database.project.findUnique({ where: { id: projectId } });
     if (!project) throw new NotFoundException('Project not found');
-    await this.requireMembership(userId, project.workspaceId);
+    await this.requireMembership(userId, project.id);
     return project;
   }
 
@@ -795,7 +745,7 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
       include: { project: true },
     });
     if (!report) throw new NotFoundException('Report not found');
-    await this.requireMembership(userId, report.project.workspaceId);
+    await this.requireMembership(userId, report.project.id);
     return report;
   }
 
@@ -805,20 +755,16 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
       include: { project: true },
     });
     if (!submission) throw new NotFoundException('Submission not found');
-    await this.requireSubmissionActor(
-      userId,
-      submission.createdById,
-      submission.project.workspaceId,
-    );
+    await this.requireSubmissionActor(userId, submission.createdById, submission.project.id);
     return submission;
   }
 
   private async requireSubmissionActor(
     userId: string,
     createdById: string | null,
-    workspaceId: string,
+    projectId: string,
   ) {
-    const membership = await this.requireMembership(userId, workspaceId);
+    const membership = await this.requireMembership(userId, projectId);
     if (createdById !== userId && !['OWNER', 'ADMIN'].includes(membership.role)) {
       throw new ForbiddenException('Only the submission owner or an administrator may continue it');
     }

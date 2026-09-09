@@ -42,15 +42,6 @@
   -webkit-app-region: no-drag;
 }
 
-.subscription-workspace {
-  max-width: 220px;
-  overflow: hidden;
-  color: #71717a;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .subscription-plan-card {
   overflow: hidden;
   border-color: #ddd9fe;

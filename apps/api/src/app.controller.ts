@@ -199,29 +199,15 @@ export class AppController {
     return this.auth.revokeSession(user.id, sessionId);
   }
 
-  @Get('workspaces')
-  workspaces(@CurrentUser() user: AuthenticatedUser) {
-    return this.app.listWorkspaces(user.id);
+  @Get('projects')
+  projects(@CurrentUser() user: AuthenticatedUser) {
+    return this.app.listProjects(user.id);
   }
 
-  @Post('workspaces')
-  createWorkspace(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
-    return this.app.createWorkspace(user.id, body);
-  }
-
-  @Get('workspaces/:workspaceId/projects')
-  projects(@CurrentUser() user: AuthenticatedUser, @Param('workspaceId') workspaceId: string) {
-    return this.app.listProjects(user.id, workspaceId);
-  }
-
-  @Post('workspaces/:workspaceId/projects')
-  async createProject(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('workspaceId') workspaceId: string,
-    @Body() body: unknown,
-  ) {
-    await this.subscriptions.assertCanCreateProject(user.id, workspaceId);
-    return this.app.createProject(user.id, workspaceId, body);
+  @Post('projects')
+  async createProject(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
+    await this.subscriptions.assertCanCreateProject(user.id);
+    return this.app.createProject(user.id, body);
   }
 
   @Get('projects/:projectId')
@@ -266,24 +252,24 @@ export class AppController {
     return this.app.updateEnvironment(user.id, environmentId, body);
   }
 
-  @Get('workspaces/:workspaceId/members')
-  members(@CurrentUser() user: AuthenticatedUser, @Param('workspaceId') workspaceId: string) {
-    return this.app.listMembers(user.id, workspaceId);
+  @Get('projects/:projectId/members')
+  members(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
+    return this.app.listMembers(user.id, projectId);
   }
 
-  @Get('workspaces/:workspaceId/invitations')
-  invitations(@CurrentUser() user: AuthenticatedUser, @Param('workspaceId') workspaceId: string) {
-    return this.app.listInvitations(user.id, workspaceId);
+  @Get('projects/:projectId/invitations')
+  invitations(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
+    return this.app.listInvitations(user.id, projectId);
   }
 
-  @Post('workspaces/:workspaceId/invitations')
+  @Post('projects/:projectId/invitations')
   async invite(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('workspaceId') workspaceId: string,
+    @Param('projectId') projectId: string,
     @Body() body: unknown,
   ) {
-    await this.subscriptions.assertCanInviteMember(user.id, workspaceId);
-    return this.app.createInvitation(user.id, workspaceId, body);
+    await this.subscriptions.assertCanInviteMember(user.id, projectId);
+    return this.app.createInvitation(user.id, projectId, body);
   }
 
   @Post('invitations/:token/accept')

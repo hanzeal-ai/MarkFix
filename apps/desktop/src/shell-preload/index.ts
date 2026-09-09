@@ -78,21 +78,21 @@ contextBridge.exposeInMainWorld('markfix', {
     ipcRenderer.invoke(ipcChannels.authLogin, { email, password }),
   logout: () => ipcRenderer.invoke(ipcChannels.authLogout),
   desktopBootstrap: () => ipcRenderer.invoke(ipcChannels.desktopBootstrap),
-  listWorkspaces: () => ipcRenderer.invoke(ipcChannels.listWorkspaces),
-  getSubscription: (workspaceId: string) =>
-    ipcRenderer.invoke(subscriptionIpcChannels.get, workspaceId),
-  requestSubscriptionUpgrade: (workspaceId: string) =>
-    ipcRenderer.invoke(subscriptionIpcChannels.upgrade, workspaceId),
+  getSubscription: () => ipcRenderer.invoke(subscriptionIpcChannels.get),
+  requestSubscriptionUpgrade: () => ipcRenderer.invoke(subscriptionIpcChannels.upgrade),
   listEnvironments: (projectId: string) =>
     ipcRenderer.invoke(ipcChannels.listEnvironments, projectId),
+  getProjectAgentData: (projectId: string) =>
+    ipcRenderer.invoke(ipcChannels.getProjectAgentData, projectId),
+  setProjectRepository: (
+    projectId: string,
+    binding: { repositoryId: string | null; repositoryName: string | null },
+  ) => ipcRenderer.invoke(ipcChannels.setProjectRepository, { projectId, binding }),
   listWebsiteProjects: () => ipcRenderer.invoke(ipcChannels.listWebsiteProjects),
   listProjectAnnotationReports: (projectId: string, pageUrl: string) =>
     ipcRenderer.invoke(ipcChannels.listProjectAnnotationReports, { projectId, pageUrl }),
-  createWebsiteProject: (
-    storageMode: 'LOCAL' | 'CLOUD',
-    workspaceId: string | undefined,
-    url: string,
-  ) => ipcRenderer.invoke(ipcChannels.createWebsiteProject, { storageMode, workspaceId, url }),
+  createWebsiteProject: (storageMode: 'LOCAL' | 'CLOUD', url: string) =>
+    ipcRenderer.invoke(ipcChannels.createWebsiteProject, { storageMode, url }),
   switchWebsiteProject: (projectId: string) =>
     ipcRenderer.invoke(ipcChannels.switchWebsiteProject, projectId),
   deleteWebsiteProject: (projectId: string) =>

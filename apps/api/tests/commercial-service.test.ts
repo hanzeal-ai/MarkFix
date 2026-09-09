@@ -22,9 +22,9 @@ const report = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const managerDatabase = (workspaceId: string, projectId: string) => ({
+const managerDatabase = (ownerId: string, projectId: string) => ({
   membership: { findUnique: vi.fn().mockResolvedValue(managerMembership) },
-  project: { findUnique: vi.fn().mockResolvedValue({ id: projectId, workspaceId }) },
+  project: { findUnique: vi.fn().mockResolvedValue({ id: projectId, ownerId }) },
   reportSubmission: { findMany: vi.fn().mockResolvedValue([]) },
 });
 
@@ -34,14 +34,15 @@ afterEach(() => {
 
 describe('commercial annotation management', () => {
   it('derives overview metrics from Report only', async () => {
-    const workspaceId = crypto.randomUUID();
+    const ownerId = crypto.randomUUID();
     const userId = crypto.randomUUID();
     const project = {
       id: crypto.randomUUID(),
-      workspaceId,
+      ownerId,
       name: 'Marketing site',
       baseUrl: 'https://example.test',
       category: '品牌官网',
+      memberships: [{ role: 'ADMIN' }],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -51,6 +52,8 @@ describe('commercial annotation management', () => {
         findMany: vi.fn().mockResolvedValue([
           {
             role: 'ADMIN',
+            userId,
+            projectId: project.id,
             user: { id: userId, displayName: 'Lin', email: 'lin@example.test' },
           },
         ]),
@@ -70,7 +73,7 @@ describe('commercial annotation management', () => {
       },
     } as never);
 
-    const result = await service.overview(userId, workspaceId);
+    const result = await service.overview(userId);
 
     expect(result.metrics).toEqual({ projects: 1, annotations: 2, pending: 1, rejected: 1 });
     expect(result.projects[0]).toEqual(
@@ -80,7 +83,7 @@ describe('commercial annotation management', () => {
   });
 
   it('lists, filters and paginates Report projections', async () => {
-    const workspaceId = crypto.randomUUID();
+    const ownerId = crypto.randomUUID();
     const projectId = crypto.randomUUID();
     const sources = [
       report({ projectId, title: 'First match', updatedAt: new Date('2026-09-05T02:00:00Z') }),
@@ -93,7 +96,7 @@ describe('commercial annotation management', () => {
       }),
     ];
     const service = new CommercialService({
-      ...managerDatabase(workspaceId, projectId),
+      ...managerDatabase(ownerId, projectId),
       report: { findMany: vi.fn().mockResolvedValue(sources) },
     } as never);
 
@@ -114,7 +117,7 @@ describe('commercial annotation management', () => {
   });
 
   it('returns resubmissions as one annotation with stable history and reference code', async () => {
-    const workspaceId = crypto.randomUUID();
+    const ownerId = crypto.randomUUID();
     const projectId = crypto.randomUUID();
     const sourceAnnotationId = crypto.randomUUID();
     const captureBundle = {
@@ -156,7 +159,7 @@ describe('commercial annotation management', () => {
       },
     ];
     const service = new CommercialService({
-      ...managerDatabase(workspaceId, projectId),
+      ...managerDatabase(ownerId, projectId),
       report: { findMany: vi.fn().mockResolvedValue([current]) },
       reportSubmission: { findMany: vi.fn().mockResolvedValue(submissions) },
     } as never);
@@ -189,12 +192,12 @@ describe('commercial annotation management', () => {
   });
 
   it('exposes an authenticated artifact URL for screenshot reports', async () => {
-    const workspaceId = crypto.randomUUID();
+    const ownerId = crypto.randomUUID();
     const projectId = crypto.randomUUID();
     const screenshotPath = crypto.randomUUID();
     const source = report({ projectId, screenshotPath });
     const service = new CommercialService({
-      ...managerDatabase(workspaceId, projectId),
+      ...managerDatabase(ownerId, projectId),
       report: { findMany: vi.fn().mockResolvedValue([source]) },
     } as never);
 
@@ -206,7 +209,7 @@ describe('commercial annotation management', () => {
   });
 
   it('creates admin annotations as Report records', async () => {
-    const workspaceId = crypto.randomUUID();
+    const ownerId = crypto.randomUUID();
     const projectId = crypto.randomUUID();
     const created = report({ projectId });
     const transaction = {
@@ -215,7 +218,7 @@ describe('commercial annotation management', () => {
       managedAnnotation: { delete: vi.fn() },
     };
     const service = new CommercialService({
-      ...managerDatabase(workspaceId, projectId),
+      ...managerDatabase(ownerId, projectId),
       $transaction: vi.fn((callback) => callback(transaction)),
     } as never);
 
@@ -236,13 +239,13 @@ describe('commercial annotation management', () => {
   });
 
   it('updates Report fields and capture metadata directly', async () => {
-    const workspaceId = crypto.randomUUID();
+    const ownerId = crypto.randomUUID();
     const projectId = crypto.randomUUID();
     const source = report({ projectId });
     const updated = report({ ...source, title: 'Updated title', status: 'IN_PROGRESS' });
     const update = vi.fn().mockResolvedValue(updated);
     const service = new CommercialService({
-      ...managerDatabase(workspaceId, projectId),
+      ...managerDatabase(ownerId, projectId),
       report: { findUnique: vi.fn().mockResolvedValue(source), update },
     } as never);
 
@@ -265,7 +268,7 @@ describe('commercial annotation management', () => {
   });
 
   it('rejects Report records without maintaining a second annotation source', async () => {
-    const workspaceId = crypto.randomUUID();
+    const ownerId = crypto.randomUUID();
     const projectId = crypto.randomUUID();
     const source = report({ projectId });
     const update = vi
@@ -274,7 +277,7 @@ describe('commercial annotation management', () => {
         report({ ...source, status: 'CLOSED', rejectionReason: 'Not part of this release' }),
       );
     const service = new CommercialService({
-      ...managerDatabase(workspaceId, projectId),
+      ...managerDatabase(ownerId, projectId),
       report: { findUnique: vi.fn().mockResolvedValue(source), update },
     } as never);
 

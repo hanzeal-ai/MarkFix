@@ -1,3 +1,4 @@
+import { ProjectAgentDialog } from '../ProjectAgentDialog';
 import {
   sidebarMinWidth,
   isSidebarWidth,
@@ -27,7 +28,6 @@ import {
   type Report,
   type SavedDiagnosticAnnotation,
   type WebsiteProject,
-  type WorkspaceSummary,
 } from '@markfix/contracts';
 import { hasDesktopUpdateEdits } from '../../../desktop-update';
 import { selectEditableProjectPageRecords } from '../page-records';
@@ -139,8 +139,7 @@ export function AnnotationWorkspace({
   }, []);
   const [pendingHistoricalAnnotation, setPendingHistoricalAnnotation] =
     useState<ProjectAnnotation>();
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>();
+  const [agentProject, setAgentProject] = useState<WebsiteProject>();
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
   const {
     beginCaptureMode,
@@ -213,7 +212,7 @@ export function AnnotationWorkspace({
       await window.markfix.setDiagnosticsOpen(diagnosticsOpenRef.current);
     };
     void restoreWorkspaceState().catch((error: unknown) =>
-      setNotice(error instanceof Error ? error.message : '无法恢复工作区状态。'),
+      setNotice(error instanceof Error ? error.message : '无法恢复标注界面状态。'),
     );
   }, [setNotice]);
 
@@ -499,15 +498,13 @@ export function AnnotationWorkspace({
     const requestId = ++projectSwitchRequestRef.current;
     void window.markfix
       .desktopBootstrap()
-      .then(async ({ workspaces: workspaceItems, websiteProjects: projects }) => {
+      .then(async ({ websiteProjects: projects }) => {
         if (!active || requestId !== projectSwitchRequestRef.current) return;
-        setWorkspaces(workspaceItems);
         setWebsiteProjects(projects);
         const selected = startupProjectPreference(window.localStorage, projects);
         if (!selected) return;
         selectedProjectIdRef.current = selected.id;
         setSelectedProjectId(selected.id);
-        if (selected.storageMode === 'CLOUD') setSelectedWorkspaceId(selected.workspaceId);
         setActiveView('workspace');
         setUrl(selected.currentUrl);
         setPageSessionId(selected.currentPageSessionId);
@@ -578,7 +575,7 @@ export function AnnotationWorkspace({
     window.localStorage.setItem('markfix:annotation-panel-width', String(rightPanelWidth));
     void window.markfix.setWorkspaceLayout(
       sidebarExpanded ? sidebarWidth : 0,
-      activeView === 'workspace' && !pendingDeleteProject,
+      activeView === 'workspace' && !pendingDeleteProject && !agentProject,
       sidebarMenuOpen || (!sidebarExpanded && sidebarPeek) ? sidebarWidth : 0,
       rightPanelWidth,
     );
@@ -589,6 +586,7 @@ export function AnnotationWorkspace({
     sidebarPeek,
     sidebarMenuOpen,
     pendingDeleteProject,
+    agentProject,
     rightPanelWidth,
   ]);
 
@@ -641,12 +639,6 @@ export function AnnotationWorkspace({
       active = false;
     };
   }, [selectedProjectId]);
-
-  useEffect(() => {
-    if (workspaces.length === 0) return;
-    if (workspaces.some(({ id }) => id === selectedWorkspaceId)) return;
-    setSelectedWorkspaceId(workspaces[0]?.id);
-  }, [selectedWorkspaceId, workspaces]);
 
   useEffect(() => {
     void window.markfix.syncElementComments(renderedElementComments);
@@ -776,7 +768,6 @@ export function AnnotationWorkspace({
     }
     const requestId = ++projectSwitchRequestRef.current;
     const previousProjectId = selectedProjectIdRef.current;
-    const previousWorkspaceId = selectedWorkspaceId;
     const previousActiveView = activeView;
     const previousUrl = url;
     const previousPageSessionId = pageSessionId;
@@ -784,7 +775,6 @@ export function AnnotationWorkspace({
     if (changingProject) {
       selectedProjectIdRef.current = project.id;
       setSelectedProjectId(project.id);
-      if (project.storageMode === 'CLOUD') setSelectedWorkspaceId(project.workspaceId);
       setActiveView('workspace');
       setUrl(project.currentUrl);
       setPageSessionId(project.currentPageSessionId);
@@ -803,7 +793,6 @@ export function AnnotationWorkspace({
       if (requestId !== projectSwitchRequestRef.current) return false;
       setSelectedProjectId(project.id);
       selectedProjectIdRef.current = project.id;
-      if (project.storageMode === 'CLOUD') setSelectedWorkspaceId(project.workspaceId);
       setActiveView('workspace');
       setUrl(current.currentUrl);
       setPageSessionId(current.currentPageSessionId);
@@ -816,7 +805,6 @@ export function AnnotationWorkspace({
       if (requestId === projectSwitchRequestRef.current) {
         selectedProjectIdRef.current = previousProjectId;
         setSelectedProjectId(previousProjectId);
-        setSelectedWorkspaceId(previousWorkspaceId);
         setActiveView(previousActiveView);
         setUrl(previousUrl);
         setPageSessionId(previousPageSessionId);
@@ -847,11 +835,6 @@ export function AnnotationWorkspace({
         setActiveView('new');
         await resetTransientDraft();
       }
-      if (project.storageMode === 'CLOUD')
-        void window.markfix
-          .listWorkspaces()
-          .then(setWorkspaces)
-          .catch(() => undefined);
       setNotice(`已删除项目：${project.title}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '项目删除失败。');
@@ -868,43 +851,14 @@ export function AnnotationWorkspace({
     const hadUnsavedDraft = hasUnsavedDraft();
     if (hadUnsavedDraft && !(await window.markfix.confirmDiscardDraft('new-annotation'))) return;
     if (hadUnsavedDraft) await resetTransientDraft();
-    const workspaceId = selectedWorkspaceId ?? workspaces[0]?.id;
-    if (storageMode === 'CLOUD' && !workspaceId) {
-      toast.error('当前账号没有可用工作区，请先在管理端创建工作区。');
-      return;
-    }
     setCreatingProject(true);
     if (prefillInput) setNewProjectInput(input);
     try {
-      const result = await window.markfix.createWebsiteProject(storageMode, workspaceId, input);
+      const result = await window.markfix.createWebsiteProject(storageMode, input);
       setWebsiteProjects((projects) => [
         result.project,
         ...projects.filter(({ id }) => id !== result.project.id),
       ]);
-      if (result.project.storageMode === 'CLOUD') {
-        const cloudProject = result.project;
-        setWorkspaces((items) =>
-          items.map((workspace) =>
-            workspace.id !== cloudProject.workspaceId ||
-            workspace.projects.some(({ id }) => id === cloudProject.id)
-              ? workspace
-              : {
-                  ...workspace,
-                  projects: [
-                    ...workspace.projects,
-                    {
-                      id: cloudProject.id,
-                      workspaceId: cloudProject.workspaceId,
-                      name: cloudProject.title,
-                      baseUrl: cloudProject.origin,
-                      createdAt: cloudProject.createdAt,
-                      updatedAt: cloudProject.updatedAt,
-                    },
-                  ],
-                },
-          ),
-        );
-      }
       if (!(await switchProject(result.project))) return;
       if (result.created) setNotice(`已创建项目：${result.project.title}`);
     } catch (error) {
@@ -1073,6 +1027,7 @@ export function AnnotationWorkspace({
           );
       }}
       onProject={(project) => void switchProject(project)}
+      onAgentProject={setAgentProject}
       onDeleteProject={setPendingDeleteProject}
       onOpenSettings={() => {
         void window.markfix
@@ -1171,6 +1126,7 @@ export function AnnotationWorkspace({
         <div className="window-controls">{headerNavigation}</div>
         {historyRestoreDialog}
         {deleteProjectDialog}
+        <ProjectAgentDialog project={agentProject} onClose={() => setAgentProject(undefined)} />
         <NewProjectPage
           initialValue={newProjectInput}
           busy={creatingProject}
@@ -1206,6 +1162,7 @@ export function AnnotationWorkspace({
       {resizeLayout}
       {historyRestoreDialog}
       {deleteProjectDialog}
+      <ProjectAgentDialog project={agentProject} onClose={() => setAgentProject(undefined)} />
       <header className="browser-bar">
         <BrowserToolbar
           addressInputRef={addressInputRef}

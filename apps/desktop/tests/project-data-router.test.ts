@@ -4,7 +4,6 @@ import { ProjectDataRouter } from '../src/main/project-data-router.js';
 
 const localId = '90e2a0c5-0755-49b9-9d5d-41534ed41b41';
 const cloudId = 'aa6ba68a-60ad-4116-acd8-bc42c496fa1c';
-const workspaceId = 'bb0ee545-59c0-427f-ad9c-fb976ef266d5';
 
 const project = (id: string, storageMode: 'LOCAL' | 'CLOUD'): WebsiteProject => {
   const base = {
@@ -19,7 +18,7 @@ const project = (id: string, storageMode: 'LOCAL' | 'CLOUD'): WebsiteProject => 
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  return storageMode === 'LOCAL' ? { ...base, storageMode } : { ...base, storageMode, workspaceId };
+  return storageMode === 'LOCAL' ? { ...base, storageMode } : { ...base, storageMode };
 };
 
 const annotation = (projectId: string): SavedDiagnosticAnnotation => ({

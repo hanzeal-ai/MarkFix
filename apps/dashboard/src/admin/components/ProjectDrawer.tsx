@@ -1,3 +1,4 @@
+import { ProjectRepositoryBinding } from '../../agent/ProjectRepositoryBinding.js';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -100,8 +101,7 @@ export function ProjectDrawer({
         method: 'PATCH',
         body: JSON.stringify({ category }),
       }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['commercial-overview', project?.workspaceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['commercial-overview'] }),
   });
 
   const visibleAnnotations = annotations.data?.items ?? [];
@@ -168,6 +168,7 @@ export function ProjectDrawer({
                   </form>
                 )}
               </SheetHeader>
+              <ProjectRepositoryBinding projectId={project.id} canManage={canManage} />
               <div className="sheet-toolbar">
                 <Label className="sheet-search">
                   <Search />

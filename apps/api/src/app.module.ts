@@ -1,3 +1,7 @@
+import { AgentController } from './agent/agent.controller.js';
+import { AgentAuthService } from './agent/agent-auth.service.js';
+import { AgentProjectService } from './agent/agent-project.service.js';
+import { AgentFixService } from './agent/agent-fix.service.js';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller.js';
@@ -34,8 +38,17 @@ const emailProvider = {
 };
 
 @Module({
-  controllers: [AppController, CommercialController, ProjectDataController, SubscriptionController],
+  controllers: [
+    AgentController,
+    AppController,
+    CommercialController,
+    ProjectDataController,
+    SubscriptionController,
+  ],
   providers: [
+    AgentAuthService,
+    AgentProjectService,
+    AgentFixService,
     AppService,
     AuthService,
     AuthRateLimitService,

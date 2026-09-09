@@ -1,18 +1,18 @@
-import { Controller, Get, Inject, Param, Post } from '@nestjs/common';
+import { Controller, Get, Inject, Post } from '@nestjs/common';
 import { CurrentUser, type AuthenticatedUser } from './current-user.decorator.js';
 import { SubscriptionService } from './subscription.service.js';
 
-@Controller('v1/workspaces/:workspaceId/subscription')
+@Controller('v1/me/subscription')
 export class SubscriptionController {
   constructor(@Inject(SubscriptionService) private readonly subscriptions: SubscriptionService) {}
 
   @Get()
-  subscription(@CurrentUser() user: AuthenticatedUser, @Param('workspaceId') workspaceId: string) {
-    return this.subscriptions.getSubscription(user.id, workspaceId);
+  subscription(@CurrentUser() user: AuthenticatedUser) {
+    return this.subscriptions.getSubscription(user.id);
   }
 
   @Post('upgrade')
-  upgrade(@CurrentUser() user: AuthenticatedUser, @Param('workspaceId') workspaceId: string) {
-    return this.subscriptions.requestUpgrade(user.id, workspaceId);
+  upgrade(@CurrentUser() user: AuthenticatedUser) {
+    return this.subscriptions.requestUpgrade(user.id);
   }
 }

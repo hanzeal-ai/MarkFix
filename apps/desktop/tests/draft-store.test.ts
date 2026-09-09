@@ -511,7 +511,6 @@ describe('DraftStore website projects', () => {
       ...common,
       id: crypto.randomUUID(),
       storageMode: 'CLOUD',
-      workspaceId: crypto.randomUUID(),
     };
 
     store.saveWebsiteProject(local);
@@ -530,7 +529,6 @@ describe('DraftStore website projects', () => {
     const path = join(directory, 'drafts.sqlite');
     const legacyProject = {
       id: crypto.randomUUID(),
-      workspaceId: crypto.randomUUID(),
       title: 'Legacy cloud project',
       origin: 'https://legacy.example.test',
       entryUrl: 'https://legacy.example.test/start',

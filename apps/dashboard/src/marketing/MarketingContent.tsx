@@ -64,7 +64,7 @@ export function MarketingHeroContent({
         <figure className="grida-product-frame">
           <img
             src="/marketing/element-annotation.png"
-            alt="MarkFix 桌面端网页元素批注工作区"
+            alt="MarkFix 桌面端网页元素批注项目"
             width="1440"
             height="900"
           />
@@ -89,7 +89,7 @@ export function MarketingPricingContent({
           <span>Pricing</span>
           <h1>简单、明确的版本规划。</h1>
           <p>
-            桌面端支持本地项目和云端工作区。以下云端额度按订阅区分，本地项目独立保存在本机；团队商业订阅尚未开放。
+            桌面端支持本地项目和云端项目。以下云端额度按订阅区分，本地项目独立保存在本机；团队商业订阅尚未开放。
           </p>
         </section>,
       )}

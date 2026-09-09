@@ -32,13 +32,6 @@
     padding-inline: 0;
   }
 
-  .admin-workspace-label,
-  .admin-workspace-select,
-  .admin-nav button:not(.active) > span,
-  .admin-nav button {
-    font-size: 0;
-  }
-
   .admin-brand-logo-full {
     display: none;
   }

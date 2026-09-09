@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { WorkspaceSubscription } from '@markfix/api-client';
-import type { WorkspaceSummary } from '@markfix/contracts';
-import { Badge, Button, Card, NativeSelect } from '@markfix/ui';
+import type { AccountSubscription } from '@markfix/api-client';
+import { Badge, Button, Card } from '@markfix/ui';
 import { Check, LoaderCircle, Sparkles } from '@markfix/ui/icons';
 import type { SubscriptionBridge } from '../../subscription.js';
 import './subscription-window.css';
@@ -15,39 +14,18 @@ const usagePercent = (used: number, limit: number | null): number =>
   limit === null ? 0 : Math.min(100, Math.round((used / limit) * 100));
 
 export function SubscriptionSettings(): React.JSX.Element {
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const [workspaceId, setWorkspaceId] = useState('');
-  const [subscription, setSubscription] = useState<WorkspaceSubscription>();
+  const [subscription, setSubscription] = useState<AccountSubscription>();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
-    void subscriptionBridge
-      .listWorkspaces()
-      .then((items) => {
-        if (!active) return;
-        setWorkspaces(items);
-        setWorkspaceId(items[0]?.id ?? '');
-        if (items.length === 0) setError('当前账号还没有工作区');
-      })
-      .catch((reason: unknown) => {
-        if (active) setError(reason instanceof Error ? reason.message : '无法加载工作区');
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!workspaceId) return;
-    let active = true;
     setSubscription(undefined);
     setError('');
     setMessage('');
     void subscriptionBridge
-      .getSubscription(workspaceId)
+      .getSubscription()
       .then((value) => {
         if (active) setSubscription(value);
       })
@@ -57,15 +35,15 @@ export function SubscriptionSettings(): React.JSX.Element {
     return () => {
       active = false;
     };
-  }, [workspaceId]);
+  }, []);
 
   const upgrade = async (): Promise<void> => {
-    if (!workspaceId || busy) return;
+    if (busy) return;
     setBusy(true);
     setError('');
     setMessage('');
     try {
-      const result = await subscriptionBridge.requestSubscriptionUpgrade(workspaceId);
+      const result = await subscriptionBridge.requestSubscriptionUpgrade();
       setSubscription(result);
       setMessage(result.plan === 'TEAM' ? '已升级为团队版' : '升级申请已提交，我们会尽快与你联系');
     } catch (reason) {
@@ -75,8 +53,6 @@ export function SubscriptionSettings(): React.JSX.Element {
     }
   };
 
-  const canUpgrade = workspaces.find((workspace) => workspace.id === workspaceId)?.role === 'OWNER';
-
   return (
     <section className="subscription-content settings-subscription" aria-label="订阅管理">
       <div className="subscription-heading">
@@ -84,20 +60,6 @@ export function SubscriptionSettings(): React.JSX.Element {
           <p>当前订阅</p>
           <h1>套餐与用量</h1>
         </div>
-        {workspaces.length > 1 ? (
-          <NativeSelect
-            value={workspaceId}
-            onChange={(event) => setWorkspaceId(event.target.value)}
-          >
-            {workspaces.map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>
-                {workspace.name}
-              </option>
-            ))}
-          </NativeSelect>
-        ) : (
-          <span className="subscription-workspace">{workspaces[0]?.name ?? '工作区'}</span>
-        )}
       </div>
 
       {!subscription && !error ? (
@@ -136,7 +98,7 @@ export function SubscriptionSettings(): React.JSX.Element {
                 limit={subscription.projectLimit}
               />
               <Usage
-                label="工作区成员"
+                label="项目协作者"
                 used={subscription.usage.members}
                 limit={subscription.memberLimit}
               />
@@ -155,15 +117,10 @@ export function SubscriptionSettings(): React.JSX.Element {
             {subscription.plan === 'FREE' ? (
               <Button
                 onClick={() => void upgrade()}
-                disabled={busy || Boolean(subscription.upgradeRequestedAt) || !canUpgrade}
-                title={canUpgrade ? undefined : '仅工作区所有者可升级套餐'}
+                disabled={busy || Boolean(subscription.upgradeRequestedAt)}
               >
                 {busy ? <LoaderCircle className="subscription-spin" /> : <Sparkles />}
-                {subscription.upgradeRequestedAt
-                  ? '升级申请已提交'
-                  : canUpgrade
-                    ? '升级团队版'
-                    : '联系所有者升级'}
+                {subscription.upgradeRequestedAt ? '升级申请已提交' : '升级团队版'}
               </Button>
             ) : (
               <Button variant="outline" disabled>

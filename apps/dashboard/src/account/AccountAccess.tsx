@@ -27,12 +27,12 @@ const modeForPath = (pathname: string): AccountMode => {
 };
 
 const content: Record<AccountMode, { eyebrow: string; title: string }> = {
-  login: { eyebrow: 'Management workspace', title: '登录管理后台' },
-  register: { eyebrow: 'Create workspace', title: '创建 MarkFix 账户' },
+  login: { eyebrow: 'Management', title: '登录管理后台' },
+  register: { eyebrow: 'Create account', title: '创建 MarkFix 账户' },
   verify: { eyebrow: 'Email verification', title: '验证邮箱' },
   forgot: { eyebrow: 'Account recovery', title: '找回密码' },
   reset: { eyebrow: 'Account recovery', title: '设置新密码' },
-  invite: { eyebrow: 'Team invitation', title: '加入工作区' },
+  invite: { eyebrow: 'Team invitation', title: '加入项目' },
 };
 
 export function AccountAccess() {
@@ -44,7 +44,6 @@ export function AccountAccess() {
   }, []);
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [workspaceName, setWorkspaceName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(mode === 'verify' && Boolean(token));
@@ -78,7 +77,6 @@ export function AccountAccess() {
           email,
           password,
           displayName,
-          ...(workspaceName.trim() ? { workspaceName } : {}),
         });
         if (result.verificationToken) {
           await api.verifyEmail(result.verificationToken);
@@ -145,7 +143,7 @@ export function AccountAccess() {
               ? '欢迎回来，继续推进团队的每一处改进。'
               : mode === 'forgot'
                 ? '输入注册邮箱，我们将向你发送密码重置链接。'
-                : '一个账户，连接桌面标注与团队工作区。'}
+                : '一个账户，连接桌面标注与协作项目。'}
           </p>
         </header>
 
@@ -169,7 +167,7 @@ export function AccountAccess() {
           </div>
         ) : mode === 'invite' ? (
           <div className="account-result">
-            <p>登录或注册后，即可接受邀请并加入团队工作区。</p>
+            <p>登录或注册后，即可接受邀请并加入协作项目。</p>
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -203,15 +201,6 @@ export function AccountAccess() {
                     required
                     value={displayName}
                     onChange={(event) => setDisplayName(event.target.value)}
-                  />
-                </Label>
-                <Label>
-                  工作区名称
-                  <Input
-                    maxLength={120}
-                    placeholder="选填"
-                    value={workspaceName}
-                    onChange={(event) => setWorkspaceName(event.target.value)}
                   />
                 </Label>
               </>

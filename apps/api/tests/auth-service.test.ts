@@ -53,10 +53,10 @@ describe('authentication service', () => {
     expect(result).not.toHaveProperty('refreshTokenHash');
   });
 
-  it('deletes a password-confirmed account and its private workspace', async () => {
+  it('deletes a password-confirmed account and its private project', async () => {
     const userId = crypto.randomUUID();
-    const workspaceId = crypto.randomUUID();
-    const workspaceDeleteMany = vi.fn().mockResolvedValue({ count: 1 });
+    const projectId = crypto.randomUUID();
+    const projectDeleteMany = vi.fn().mockResolvedValue({ count: 1 });
     const userDelete = vi.fn().mockResolvedValue({});
     const database = {
       user: {
@@ -65,15 +65,15 @@ describe('authentication service', () => {
           passwordHash: await hashPassword('correct-password'),
         }),
       },
-      workspace: {
+      project: {
         findMany: vi
           .fn()
-          .mockResolvedValue([{ id: workspaceId, name: 'Private', _count: { memberships: 1 } }]),
+          .mockResolvedValue([{ id: projectId, name: 'Private', _count: { memberships: 1 } }]),
       },
       artifact: { findMany: vi.fn().mockResolvedValue([]) },
       $transaction: vi.fn().mockImplementation(async (operation) =>
         operation({
-          workspace: { deleteMany: workspaceDeleteMany },
+          project: { deleteMany: projectDeleteMany },
           user: { delete: userDelete },
         }),
       ),
@@ -83,11 +83,11 @@ describe('authentication service', () => {
     await expect(service.deleteAccount(userId, { password: 'correct-password' })).resolves.toEqual({
       deleted: true,
     });
-    expect(workspaceDeleteMany).toHaveBeenCalledWith({ where: { id: { in: [workspaceId] } } });
+    expect(projectDeleteMany).toHaveBeenCalledWith({ where: { id: { in: [projectId] } } });
     expect(userDelete).toHaveBeenCalledWith({ where: { id: userId } });
   });
 
-  it('keeps accounts that still own a workspace with other members', async () => {
+  it('keeps accounts that still own a project with other members', async () => {
     const userId = crypto.randomUUID();
     const database = {
       user: {
@@ -96,7 +96,7 @@ describe('authentication service', () => {
           passwordHash: await hashPassword('correct-password'),
         }),
       },
-      workspace: {
+      project: {
         findMany: vi
           .fn()
           .mockResolvedValue([

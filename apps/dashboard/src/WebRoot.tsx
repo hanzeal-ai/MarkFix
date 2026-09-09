@@ -1,3 +1,4 @@
+import { AgentAccess } from './agent/AgentAccess.js';
 import { lazy, Suspense } from 'react';
 
 const MarketingSite = lazy(() =>
@@ -18,7 +19,9 @@ const DownloadPage = lazy(() =>
 
 export function WebRoot() {
   const pathname = window.location.pathname;
-  const page = pathname.startsWith('/app') ? (
+  const page = pathname.startsWith('/agent') ? (
+    <AgentAccess />
+  ) : pathname.startsWith('/app') ? (
     <AdminEntry />
   ) : pathname === '/docs' ? (
     <DocsPage />

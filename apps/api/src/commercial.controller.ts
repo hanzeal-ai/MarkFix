@@ -11,9 +11,9 @@ export class CommercialController {
     return this.commercial.bootstrap(user.id);
   }
 
-  @Get('workspaces/:workspaceId/overview')
-  overview(@CurrentUser() user: AuthenticatedUser, @Param('workspaceId') workspaceId: string) {
-    return this.commercial.overview(user.id, workspaceId);
+  @Get('overview')
+  overview(@CurrentUser() user: AuthenticatedUser) {
+    return this.commercial.overview(user.id);
   }
 
   @Get('projects/:projectId/annotations')

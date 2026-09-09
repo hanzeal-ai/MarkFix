@@ -20,11 +20,9 @@ import { projectProgress, type OverviewProject } from './model';
 import { ProjectLogo } from './components/ProjectLogo';
 export function ProjectsView({
   projects,
-  memberCount,
   onProject,
 }: {
   projects: OverviewProject[];
-  memberCount: number;
   onProject: (project: OverviewProject) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -87,12 +85,13 @@ export function ProjectsView({
                 </span>
                 <span>
                   <strong>{project.pendingCount}</strong>待处理
+                  {project.failedCount > 0 && <small> · {project.failedCount} 修复失败</small>}
                 </span>
                 <span className="rejected">
                   <strong>{project.rejectedCount}</strong>已驳回
                 </span>
                 <span>
-                  <strong>{memberCount}</strong>协作成员
+                  <strong>{project.memberCount}</strong>协作成员
                 </span>
               </div>
               <div className="project-progress">

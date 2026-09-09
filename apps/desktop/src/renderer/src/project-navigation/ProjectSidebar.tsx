@@ -27,6 +27,7 @@ export function ProjectSidebar({
   onHistory,
   onProject,
   onDeleteProject,
+  onAgentProject,
   onOpenSettings,
   onMenuOpenChange,
   beforeUpdate,
@@ -41,6 +42,7 @@ export function ProjectSidebar({
   onNew: () => void;
   onHistory: () => void;
   onProject: (project: WebsiteProject) => void;
+  onAgentProject: (project: WebsiteProject) => void;
   onDeleteProject: (project: WebsiteProject) => void;
   onOpenSettings: () => void;
   onMenuOpenChange: (open: boolean) => void;
@@ -95,6 +97,15 @@ export function ProjectSidebar({
                     {project.storageMode === 'LOCAL' ? '本地' : '云端'}
                   </small>
                 </span>
+              </Button>
+              <Button
+                type="button"
+                className="project-sidebar-agent"
+                aria-label={`仓库与修复：${project.title}`}
+                title="仓库与修复"
+                onClick={() => onAgentProject(project)}
+              >
+                <Settings2 />
               </Button>
               <Button
                 type="button"

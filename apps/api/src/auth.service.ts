@@ -27,7 +27,6 @@ type RegisterInput = {
   email?: unknown;
   password?: unknown;
   displayName?: unknown;
-  workspaceName?: unknown;
 };
 
 @Injectable()
@@ -51,10 +50,6 @@ export class AuthService {
     const password = typeof payload.password === 'string' ? payload.password : '';
     const displayName =
       typeof payload.displayName === 'string' ? payload.displayName.trim().slice(0, 120) : '';
-    const workspaceName =
-      typeof payload.workspaceName === 'string' && payload.workspaceName.trim()
-        ? payload.workspaceName.trim().slice(0, 120)
-        : `${displayName || 'My'} workspace`;
     if (
       !/^\S+@\S+\.\S+$/.test(email) ||
       !displayName ||
@@ -84,12 +79,11 @@ export class AuthService {
           },
         },
       });
-      await transaction.workspace.create({
+      await transaction.project.create({
         data: {
-          name: workspaceName,
-          createdById: created.id,
+          name: 'Website feedback',
+          ownerId: created.id,
           memberships: { create: { userId: created.id, role: 'OWNER' } },
-          projects: { create: { name: 'Website feedback' } },
         },
       });
       await this.email.sendVerification(email, verificationToken);
@@ -293,15 +287,11 @@ export class AuthService {
           role: true,
           status: true,
           createdAt: true,
-          workspace: {
+          project: {
             select: {
               id: true,
               name: true,
-              plan: true,
               createdAt: true,
-              projects: {
-                select: { id: true, name: true, baseUrl: true, category: true, createdAt: true },
-              },
             },
           },
         },
@@ -353,30 +343,30 @@ export class AuthService {
     if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
       throw new UnauthorizedException('Password is incorrect');
     }
-    const ownedWorkspaces = await this.database.workspace.findMany({
-      where: { createdById: userId },
+    const ownedProjects = await this.database.project.findMany({
+      where: { ownerId: userId },
       select: { id: true, name: true, _count: { select: { memberships: true } } },
     });
-    const sharedWorkspace = ownedWorkspaces.find((workspace) => workspace._count.memberships > 1);
-    if (sharedWorkspace) {
+    const sharedProject = ownedProjects.find((project) => project._count.memberships > 1);
+    if (sharedProject) {
       throw new ConflictException(
-        `Transfer or remove members from ${sharedWorkspace.name} before deleting the account`,
+        `Transfer or remove members from ${sharedProject.name} before deleting the account`,
       );
     }
-    const artifacts = ownedWorkspaces.length
+    const artifacts = ownedProjects.length
       ? await this.database.artifact.findMany({
           where: {
             submission: {
-              project: { workspaceId: { in: ownedWorkspaces.map((workspace) => workspace.id) } },
+              projectId: { in: ownedProjects.map((project) => project.id) },
             },
           },
           select: { id: true },
         })
       : [];
     await this.database.$transaction(async (transaction) => {
-      if (ownedWorkspaces.length) {
-        await transaction.workspace.deleteMany({
-          where: { id: { in: ownedWorkspaces.map((workspace) => workspace.id) } },
+      if (ownedProjects.length) {
+        await transaction.project.deleteMany({
+          where: { id: { in: ownedProjects.map((project) => project.id) } },
         });
       }
       await transaction.user.delete({ where: { id: userId } });

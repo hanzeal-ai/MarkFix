@@ -6,17 +6,21 @@ const membership = { status: 'ACTIVE', role: 'OWNER' };
 describe('SubscriptionService', () => {
   it('returns plan limits and current usage', async () => {
     const service = new SubscriptionService({
-      membership: { findUnique: vi.fn().mockResolvedValue(membership) },
-      workspace: {
+      membership: {
+        findUnique: vi.fn().mockResolvedValue(membership),
+        findMany: vi.fn().mockResolvedValue([{ userId: 'user-1' }]),
+      },
+      project: { findUnique: vi.fn().mockResolvedValue({ ownerId: 'user-1' }) },
+      user: {
         findUnique: vi.fn().mockResolvedValue({
           plan: 'FREE',
           upgradeRequestedAt: null,
-          _count: { projects: 2, memberships: 1 },
+          _count: { ownedProjects: 2, memberships: 1 },
         }),
       },
     } as never);
 
-    await expect(service.getSubscription('user-1', 'workspace-1')).resolves.toEqual({
+    await expect(service.getSubscription('user-1')).resolves.toEqual({
       plan: 'FREE',
       planName: '个人版',
       projectLimit: 3,
@@ -28,20 +32,22 @@ describe('SubscriptionService', () => {
 
   it('enforces free project and member limits', async () => {
     const service = new SubscriptionService({
-      membership: { findUnique: vi.fn().mockResolvedValue(membership) },
-      workspace: {
+      membership: {
+        findUnique: vi.fn().mockResolvedValue(membership),
+        findMany: vi.fn().mockResolvedValue([{ userId: 'user-1' }]),
+      },
+      project: { findUnique: vi.fn().mockResolvedValue({ ownerId: 'user-1' }) },
+      user: {
         findUnique: vi.fn().mockResolvedValue({
           plan: 'FREE',
           upgradeRequestedAt: null,
-          _count: { projects: 3, memberships: 1 },
+          _count: { ownedProjects: 3, memberships: 1 },
         }),
       },
     } as never);
 
-    await expect(service.assertCanCreateProject('user-1', 'workspace-1')).rejects.toThrow(
-      'Project limit reached',
-    );
-    await expect(service.assertCanInviteMember('user-1', 'workspace-1')).rejects.toThrow(
+    await expect(service.assertCanCreateProject('user-1')).rejects.toThrow('Project limit reached');
+    await expect(service.assertCanInviteMember('user-1', 'user-1')).rejects.toThrow(
       'Member limit reached',
     );
   });
@@ -55,25 +61,29 @@ describe('SubscriptionService', () => {
       .mockResolvedValueOnce({
         plan: 'FREE',
         upgradeRequestedAt: null,
-        _count: { projects: 1, memberships: 1 },
+        _count: { ownedProjects: 1, memberships: 1 },
       })
       .mockResolvedValueOnce({
         plan: 'TEAM',
         upgradeRequestedAt: null,
-        _count: { projects: 1, memberships: 1 },
+        _count: { ownedProjects: 1, memberships: 1 },
       });
     const service = new SubscriptionService({
-      membership: { findUnique: vi.fn().mockResolvedValue(membership) },
-      workspace: { findUnique, update },
+      membership: {
+        findUnique: vi.fn().mockResolvedValue(membership),
+        findMany: vi.fn().mockResolvedValue([{ userId: 'user-1' }]),
+      },
+      project: { findUnique: vi.fn().mockResolvedValue({ ownerId: 'user-1' }) },
+      user: { findUnique, update },
     } as never);
 
     try {
-      await expect(service.requestUpgrade('user-1', 'workspace-1')).resolves.toMatchObject({
+      await expect(service.requestUpgrade('user-1')).resolves.toMatchObject({
         plan: 'TEAM',
         upgraded: true,
       });
       expect(update).toHaveBeenCalledWith({
-        where: { id: 'workspace-1' },
+        where: { id: 'user-1' },
         data: { plan: 'TEAM', upgradeRequestedAt: null },
       });
     } finally {
@@ -82,16 +92,14 @@ describe('SubscriptionService', () => {
     }
   });
 
-  it('allows only the workspace owner to manage the subscription', async () => {
+  it('rejects invitations from regular project members', async () => {
     const service = new SubscriptionService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ status: 'ACTIVE', role: 'MEMBER' }),
       },
-      workspace: { findUnique: vi.fn(), update: vi.fn() },
     } as never);
-
-    await expect(service.requestUpgrade('user-1', 'workspace-1')).rejects.toThrow(
-      'Only the workspace owner',
+    await expect(service.assertCanInviteMember('user-1', 'project-1')).rejects.toThrow(
+      'Only project managers',
     );
   });
 });

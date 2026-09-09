@@ -16,6 +16,7 @@ const navigation = [
   { label: '产品', href: '/#product' },
   { label: '在线体验', href: '/#experience' },
   { label: '文档', href: '/docs' },
+  { label: 'Agent 接入', href: '/docs#agent' },
   { label: '定价', href: '/pricing' },
   { label: '下载', href: '/download' },
 ];
