@@ -15,11 +15,6 @@ import {
   Badge,
   Button,
   Card,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   Input,
   Label,
   Select,
@@ -36,6 +31,8 @@ import {
 import { commercialRequest, resolveAdminAssetUrl } from '../api';
 import { EmptyState, StatusBadge } from './AdminState';
 import { AnnotationEditor } from './AnnotationEditor';
+import { ScreenshotPreviewDialog } from './ScreenshotPreviewDialog';
+import { annotationQueryOptions } from '../annotation-query';
 import {
   formatDate,
   kindText,
@@ -44,7 +41,6 @@ import {
   type EditorState,
   type OverviewProject,
   type OverviewUser,
-  type PaginatedAnnotations,
 } from '../model';
 
 export function ProjectDrawer({
@@ -70,17 +66,8 @@ export function ProjectDrawer({
     url: string;
   } | null>(null);
   const annotations = useQuery({
-    queryKey: ['commercial-reports', project?.id, filter, debouncedQuery, page],
-    queryFn: () => {
-      const search = new URLSearchParams({ page: String(page), pageSize: '50' });
-      if (filter !== 'ALL') search.set('status', filter);
-      if (debouncedQuery) search.set('query', debouncedQuery);
-      return commercialRequest<PaginatedAnnotations>(
-        `/projects/${project?.id}/annotations?${search.toString()}`,
-      );
-    },
+    ...annotationQueryOptions(project?.id, filter, debouncedQuery, page),
     enabled: Boolean(project),
-    staleTime: 30_000,
     placeholderData: (previousData, previousQuery) =>
       previousQuery?.queryKey[1] === project?.id ? previousData : undefined,
   });
@@ -127,18 +114,9 @@ export function ProjectDrawer({
 
   useEffect(() => {
     if (!project || page >= totalPages) return;
-    const nextPage = page + 1;
-    const search = new URLSearchParams({ page: String(nextPage), pageSize: '50' });
-    if (filter !== 'ALL') search.set('status', filter);
-    if (debouncedQuery) search.set('query', debouncedQuery);
-    void queryClient.prefetchQuery({
-      queryKey: ['commercial-reports', project.id, filter, debouncedQuery, nextPage],
-      queryFn: () =>
-        commercialRequest<PaginatedAnnotations>(
-          `/projects/${project.id}/annotations?${search.toString()}`,
-        ),
-      staleTime: 30_000,
-    });
+    void queryClient.prefetchQuery(
+      annotationQueryOptions(project.id, filter, debouncedQuery, page + 1),
+    );
   }, [debouncedQuery, filter, page, project, queryClient, totalPages]);
 
   return (
@@ -342,23 +320,11 @@ export function ProjectDrawer({
         </SheetContent>
       </Sheet>
       {previewScreenshot && (
-        <Dialog open onOpenChange={(open) => !open && setPreviewScreenshot(null)}>
-          <DialogContent className="annotation-image-preview-dialog">
-            <DialogHeader>
-              <DialogTitle>截图预览</DialogTitle>
-              <DialogDescription>{previewScreenshot.title}</DialogDescription>
-            </DialogHeader>
-            <div className="annotation-image-preview-canvas">
-              <img
-                src={resolveAdminAssetUrl(previewScreenshot.url)}
-                alt={`${previewScreenshot.title}完整截图`}
-              />
-            </div>
-            <Button variant="outline" onClick={() => setPreviewScreenshot(null)}>
-              关闭预览
-            </Button>
-          </DialogContent>
-        </Dialog>
+        <ScreenshotPreviewDialog
+          title={previewScreenshot.title}
+          url={previewScreenshot.url}
+          onClose={() => setPreviewScreenshot(null)}
+        />
       )}
     </>
   );

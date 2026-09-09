@@ -21,6 +21,7 @@ import {
 } from '@markfix/ui';
 import { commercialRequest, resolveAdminAssetUrl } from '../api';
 import { StatusBadge } from './AdminState';
+import { ScreenshotPreviewDialog } from './ScreenshotPreviewDialog';
 import {
   formatDate,
   kindText,
@@ -376,23 +377,11 @@ export function AnnotationEditor({
           </form>
         )}
         {annotation && screenshotPreviewUrl && (
-          <Dialog open onOpenChange={(open) => !open && setScreenshotPreviewUrl(null)}>
-            <DialogContent className="annotation-image-preview-dialog">
-              <DialogHeader>
-                <DialogTitle>截图预览</DialogTitle>
-                <DialogDescription>{annotation.title}</DialogDescription>
-              </DialogHeader>
-              <div className="annotation-image-preview-canvas">
-                <img
-                  src={resolveAdminAssetUrl(screenshotPreviewUrl)}
-                  alt={`${annotation.title}完整截图`}
-                />
-              </div>
-              <Button variant="outline" onClick={() => setScreenshotPreviewUrl(null)}>
-                关闭预览
-              </Button>
-            </DialogContent>
-          </Dialog>
+          <ScreenshotPreviewDialog
+            title={annotation.title}
+            url={screenshotPreviewUrl}
+            onClose={() => setScreenshotPreviewUrl(null)}
+          />
         )}
       </DialogContent>
     </Dialog>

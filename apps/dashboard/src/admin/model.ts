@@ -103,13 +103,14 @@ export const kindText: Record<AnnotationKind, string> = {
   COMMENT: '文字批注',
 };
 
-export const formatDate = (value: string) =>
-  new Intl.DateTimeFormat('zh-CN', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
+const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+export const formatDate = (value: string) => dateFormatter.format(new Date(value));
 
 export const projectProgress = (project: OverviewProject) =>
   project.annotationCount ? Math.round((project.resolvedCount / project.annotationCount) * 100) : 0;
