@@ -46,6 +46,7 @@ export {
   DropdownMenuTrigger,
 } from './components/dropdown-menu.js';
 export { Input } from './components/input.js';
+export { Kbd, KbdGroup } from './components/kbd.js';
 export { Label } from './components/label.js';
 export {
   MarkFixLogo,
@@ -84,3 +85,16 @@ export { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs.js';
 export { Textarea } from './components/textarea.js';
 export { ToggleGroup, ToggleGroupItem } from './components/toggle-group.js';
 export { cn } from './lib/cn.js';
+
+export {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+  useResizablePanelRef,
+} from './components/resizable.js';
+
+export * from './components/radio-group.js';
+export * from './components/progress.js';
+export * from './components/table.js';
+export * from './components/avatar.js';
+export * from './components/empty.js';
