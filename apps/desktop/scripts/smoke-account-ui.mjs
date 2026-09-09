@@ -51,7 +51,7 @@ const server = createServer((req, res) => {
         displayName: '界面验收',
       }),
     );
-  else if (req.url === '/v1/workspaces') res.end('[]');
+  else if (req.url === '/v1/projects') res.end('[]');
   else if (req.url === '/slow-image') {
     setTimeout(() => res.end(''), 5000);
   } else if (req.url.startsWith('/site')) {
@@ -66,7 +66,7 @@ const server = createServer((req, res) => {
 });
 const timeout = setTimeout(() => {
   console.error('Smoke timeout');
-  process.exit(1);
+  return app.exit(1);
 }, 30000);
 let handled = false;
 app.on('browser-window-created', (_event, win) => {
@@ -209,8 +209,7 @@ app.on('browser-window-created', (_event, win) => {
         }
         console.log('PASS repeated sidebar toggles and new annotation address focus');
         clearTimeout(timeout);
-        process.exit(0);
-        return;
+        return app.quit();
       }
 
       if (!process.env.MARKFIX_PREVIEW_SMOKE && !process.env.MARKFIX_MENU_SMOKE) {
@@ -258,6 +257,35 @@ app.on('browser-window-created', (_event, win) => {
         `document.querySelector('#new-project-url').form.requestSubmit();qa.wait(()=>document.querySelector('[aria-label="删除项目：界面验收项目"]'))`,
       );
       await run(`qa.wait(()=>!document.querySelector('.browser-bar .spin'))`);
+      if (process.env.MARKFIX_AGENT_SMOKE) {
+        await run(
+          `document.querySelector('[aria-label="仓库与修复：界面验收项目"]').click();qa.wait(()=>document.querySelector('.repository-binding input'))`,
+        );
+        await run(
+          `qa.fill(document.querySelector('.repository-binding input'),'markfix-fixture');qa.button('保存绑定').click();qa.wait(()=>document.body.textContent.includes('绑定已保存'))`,
+        );
+        assert.equal(
+          win.contentView.children[0].getVisible(),
+          false,
+          'Target website is hidden behind project dialog',
+        );
+        writeFileSync(
+          join(output, 'repository-binding.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+        await run(
+          `qa.button('关闭').click();qa.wait(()=>!document.querySelector('.project-agent-dialog'))`,
+        );
+        await run(
+          `document.querySelector('[aria-label="仓库与修复：界面验收项目"]').click();qa.wait(()=>document.querySelector('.repository-binding input')?.value==='markfix-fixture')`,
+        );
+        console.log(
+          'PASS native project repository binding, persistence and target-page isolation',
+        );
+        clearTimeout(timeout);
+        server.close();
+        return app.quit();
+      }
       if (process.env.MARKFIX_MENU_SMOKE) {
         const website = win.contentView.children[0];
         await website.webContents.executeJavaScript(
@@ -376,8 +404,7 @@ app.on('browser-window-created', (_event, win) => {
         console.log('Screenshots: ' + output);
         clearTimeout(timeout);
         server.close();
-        process.exit(0);
-        return;
+        return app.quit();
       }
       if (process.env.MARKFIX_PREVIEW_SMOKE) {
         const pageUrl = process.env.MARKFIX_API_URL + '/site';
@@ -624,8 +651,7 @@ app.on('browser-window-created', (_event, win) => {
         console.log('Screenshots: ' + output);
         clearTimeout(timeout);
         server.close();
-        process.exit(0);
-        return;
+        return app.quit();
       }
       await webContents
         .getAllWebContents()
@@ -994,7 +1020,7 @@ app.on('browser-window-created', (_event, win) => {
       console.log('Screenshots: ' + output);
       clearTimeout(timeout);
       server.close();
-      process.exit(0);
+      return app.quit();
     } catch (e) {
       console.error(e);
       console.log(
@@ -1008,7 +1034,7 @@ app.on('browser-window-created', (_event, win) => {
       );
       clearTimeout(timeout);
       server.close();
-      process.exit(1);
+      return app.exit(1);
     }
   });
 });
@@ -1018,6 +1044,6 @@ server.listen(0, '127.0.0.1', () => {
   process.env.MARKFIX_DASHBOARD_ORIGIN = 'http://localhost:4311';
   import(join(root, 'apps/desktop/out/main/index.js')).catch((e) => {
     console.error(e);
-    process.exit(1);
+    return app.exit(1);
   });
 });

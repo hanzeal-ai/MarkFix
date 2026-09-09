@@ -18,7 +18,8 @@ const user = {
   id: 'user',
   displayName: '测试成员',
   email: 'member@example.test',
-  role: 'ADMIN',
+  projectRoles: { project: 'ADMIN' },
+  projectIds: ['project'],
   annotationCount: 2,
   rejectedCount: 0,
   projectCategories: [{ category: '网站', count: 2 }],
@@ -27,12 +28,15 @@ const user = {
 };
 const project = {
   id: 'project',
-  workspaceId: 'workspace',
+  ownerId: 'user',
+  role: 'ADMIN',
   name: '组件验收项目',
   baseUrl: 'https://example.test',
   category: '网站',
   annotationCount: 2,
   resolvedCount: 1,
+  failedCount: 0,
+  memberCount: 1,
   pendingCount: 1,
   rejectedCount: 0,
   createdAt: now,
@@ -45,10 +49,6 @@ const overview = {
 };
 const bootstrap = {
   user,
-  workspaceId: 'workspace',
-  workspaces: [
-    { id: 'workspace', name: '验收工作区', role: 'ADMIN', createdAt: now, updatedAt: now },
-  ],
   overview,
 };
 let downloadState = 'ready';
@@ -61,6 +61,16 @@ const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', '*');
   if (req.method === 'OPTIONS') {
     res.end();
+    return;
+  }
+  if (path.endsWith('/binding')) {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ repositoryId: null, repositoryName: null }));
+    return;
+  }
+  if (path.endsWith('/repositories')) {
+    res.setHeader('Content-Type', 'application/json');
+    res.end('[]');
     return;
   }
   if (path === '/v1/client-policy') {
@@ -416,7 +426,7 @@ async function main() {
     }
     await run(`document.querySelectorAll('.admin-nav button')[2].click()`);
     await waitFor(`!!document.querySelector('table')`);
-    assert.equal(await run(`document.querySelectorAll('table thead th').length`), 4);
+    assert.equal(await run(`document.querySelectorAll('table thead th').length`), 5);
     assert.equal(await run(`document.querySelectorAll('table tbody tr').length`), 1);
     assert.ok(
       await run(
@@ -437,7 +447,7 @@ async function main() {
     await setTimeout(300);
     writeFileSync(join(output, 'empty.png'), (await win.webContents.capturePage()).toPNG());
     if (process.env.MARKFIX_AUDIT_SURFACES) {
-      bootstrap.workspaces[0].role = 'REPORTER';
+      project.role = 'REPORTER';
       await win.loadURL(origin + '/app/projects');
       await waitFor(`!!document.querySelector('.project-card-open')`);
       await run(`document.querySelector('.project-card-open').click()`);

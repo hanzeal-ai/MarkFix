@@ -12,11 +12,11 @@ import { createCommercialReport } from '../src/commercial/report-writer.js';
 const url = process.env.TEST_DATABASE_URL;
 assert(url && new URL(url).hostname === '127.0.0.1' && new URL(url).pathname === '/audit');
 const db = new PrismaClient({ datasourceUrl: url });
-assert.equal(await db.workspace.count(), 0, 'Use an empty disposable audit database.');
+assert.equal(await db.project.count(), 0, 'Use an empty disposable audit database.');
 const database = db as DatabaseService;
 const dir = await mkdtemp(join(tmpdir(), 'markfix-maintenance-'));
-const workspace = await db.workspace.create({ data: { name: 'isolated maintenance audit' } });
-const project = await db.project.create({ data: { workspaceId: workspace.id, name: 'fixture' } });
+const owner = await db.user.create({ data: { email: 'audit@example.test', displayName: 'audit' } });
+const project = await db.project.create({ data: { ownerId: owner.id, name: 'fixture' } });
 async function candidate() {
   const row = await db.reportSubmission.create({
     data: {
@@ -159,7 +159,8 @@ try {
 } finally {
   await chmod(dir, 0o755);
   await db.report.deleteMany({ where: { projectId: project.id } });
-  await db.workspace.delete({ where: { id: workspace.id } });
+  await db.project.delete({ where: { id: project.id } });
+  await db.user.delete({ where: { id: owner.id } });
   await db.$disconnect();
   await rm(dir, { recursive: true, force: true });
 }
