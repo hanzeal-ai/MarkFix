@@ -6,17 +6,20 @@ import {
   MessageSquareText,
   MousePointer2,
   RefreshCw,
+  Check,
+  X,
+  Send,
+  PanelLeftClose,
+  Plus,
   Trash2,
 } from '@markfix/ui/icons';
+import { Button, MarkFixMark, Textarea, ToggleGroup, ToggleGroupItem, toast } from '@markfix/ui';
 import {
-  Badge,
-  Button,
-  MarkFixMark,
-  Textarea,
-  ToggleGroup,
-  ToggleGroupItem,
-  toast,
-} from '@markfix/ui';
+  MarketingHeroContent,
+  MarketingPricingContent,
+  type RenderMarketingTarget,
+} from './MarketingContent';
+import { SiteHeader } from './SiteChrome';
 import { CaptureDemo } from './CaptureDemo';
 
 type DemoMode = 'browse' | 'comment' | 'capture';
@@ -31,10 +34,12 @@ type DemoTarget = {
 
 type DemoAnnotation = DemoTarget & {
   annotationId: number;
+  page: DemoPage;
   note: string;
 };
 
 type AnnotatableProps = {
+  activeTarget?: string | undefined;
   annotationNumber?: number | undefined;
   children: ReactNode;
   className?: string;
@@ -44,6 +49,7 @@ type AnnotatableProps = {
 };
 
 function Annotatable({
+  activeTarget,
   annotationNumber,
   children,
   className = '',
@@ -53,8 +59,17 @@ function Annotatable({
 }: AnnotatableProps) {
   return (
     <div
-      className={`mf-demo-annotatable ${mode === 'comment' ? 'is-enabled' : ''} ${className}`}
-      onClick={(event) => {
+      className={`mf-demo-annotatable ${mode === 'comment' ? 'is-enabled' : ''} ${activeTarget === target.id ? 'is-selected' : ''} ${className}`}
+      role={mode === 'comment' ? 'button' : undefined}
+      tabIndex={mode === 'comment' ? 0 : undefined}
+      aria-label={mode === 'comment' ? `标注${target.label}` : undefined}
+      onKeyDown={(event) => {
+        if (mode === 'comment' && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          onSelect(target);
+        }
+      }}
+      onClickCapture={(event) => {
         if (mode !== 'comment') return;
         event.preventDefault();
         event.stopPropagation();
@@ -78,6 +93,8 @@ export function InteractiveDemo() {
   const [mode, setMode] = useState<DemoMode>('comment');
   const [page, setPage] = useState<DemoPage>('home');
   const [draftTarget, setDraftTarget] = useState<DemoTarget | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const [draftNote, setDraftNote] = useState('');
   const [annotations, setAnnotations] = useState<DemoAnnotation[]>([]);
   const [captureResetKey, setCaptureResetKey] = useState(0);
@@ -86,8 +103,10 @@ export function InteractiveDemo() {
     toast(message, { duration: 2600 });
   };
 
+  const pageAnnotations = annotations.filter((annotation) => annotation.page === page);
+
   const annotationNumberFor = (targetId: string) => {
-    const index = annotations.findIndex((annotation) => annotation.id === targetId);
+    const index = pageAnnotations.findIndex((annotation) => annotation.id === targetId);
     return index >= 0 ? index + 1 : undefined;
   };
 
@@ -95,30 +114,30 @@ export function InteractiveDemo() {
     setMode(nextMode);
     setDraftTarget(null);
     setDraftNote('');
+    setEditingId(null);
   };
 
   const selectTarget = (nextTarget: DemoTarget) => {
     setDraftTarget(nextTarget);
     setDraftNote('');
+    setEditingId(null);
   };
 
   const saveAnnotation = () => {
     const note = draftNote.trim();
     if (!draftTarget || !note) return;
 
-    const annotationId = nextAnnotationId.current;
-    nextAnnotationId.current += 1;
-    setAnnotations((current) => [
-      ...current,
-      {
-        ...draftTarget,
-        annotationId,
-        note,
-      },
-    ]);
+    const annotationId = editingId ?? nextAnnotationId.current++;
+    const updated = { ...draftTarget, annotationId, note, page };
+    setAnnotations((current) =>
+      editingId === null
+        ? [...current, updated]
+        : current.map((item) => (item.annotationId === editingId ? updated : item)),
+    );
     if (draftTarget.kind === 'capture') setCaptureResetKey((current) => current + 1);
     setDraftTarget(null);
     setDraftNote('');
+    setEditingId(null);
     showToast('演示批注已添加，仅在当前页面有效');
   };
 
@@ -126,6 +145,7 @@ export function InteractiveDemo() {
     setAnnotations([]);
     setDraftTarget(null);
     setDraftNote('');
+    setEditingId(null);
     setCaptureResetKey((current) => current + 1);
     setPage('home');
     nextAnnotationId.current = 1;
@@ -151,35 +171,36 @@ export function InteractiveDemo() {
     setPage(nextPage);
     setDraftTarget(null);
     setDraftNote('');
+    setEditingId(null);
     setCaptureResetKey((current) => current + 1);
   };
 
+  const renderTarget: RenderMarketingTarget = (id, label, selector, content) => (
+    <Annotatable
+      key={id}
+      activeTarget={draftTarget?.id}
+      mode={mode}
+      target={target(id, label, selector)}
+      onSelect={selectTarget}
+      annotationNumber={annotationNumberFor(id)}
+    >
+      {content}
+    </Annotatable>
+  );
+
   return (
     <div className="mf-demo-shell">
-      <aside className="mf-demo-projects" aria-label="演示项目">
-        <MarkFixMark className="mf-demo-app-mark" size={38} />
-        <button className="is-active" type="button" aria-label="Momentum 项目">
-          M
-        </button>
-        <button
-          type="button"
-          aria-label="Atlas 项目"
-          onClick={() => showToast('体验版仅开放一个示例项目')}
-        >
-          A
-        </button>
-        <button
-          type="button"
-          aria-label="Linear 项目"
-          onClick={() => showToast('体验版仅开放一个示例项目')}
-        >
-          L
-        </button>
-      </aside>
-
       <div className="mf-demo-workspace">
         <header className="mf-demo-toolbar">
           <div className="mf-demo-browser-controls">
+            <button
+              type="button"
+              aria-label="切换项目侧栏"
+              aria-expanded={projectsOpen}
+              onClick={() => setProjectsOpen(!projectsOpen)}
+            >
+              <PanelLeftClose />
+            </button>
             <button type="button" aria-label="后退" disabled>
               <ArrowLeft />
             </button>
@@ -191,171 +212,80 @@ export function InteractiveDemo() {
             </button>
           </div>
           <div className="mf-demo-address">
-            <span /> demo.markfix.app/{page === 'home' ? '' : page}
+            <span /> markfix.hanzeal.com/{page === 'home' ? '' : page}
           </div>
           <ToggleGroup
             className="mf-demo-modes"
             type="single"
-            value={mode}
+            value={mode === 'browse' ? '' : mode}
             aria-label="体验模式"
             onValueChange={(value) => {
-              if (value === 'browse' || value === 'comment' || value === 'capture')
-                chooseMode(value);
+              chooseMode(value === 'comment' || value === 'capture' ? value : 'browse');
             }}
           >
-            <ToggleGroupItem value="browse">
-              <MousePointer2 /> 浏览
-            </ToggleGroupItem>
-            <ToggleGroupItem value="comment">
+            <ToggleGroupItem value="comment" aria-label="批注模式">
               <MessageSquareText /> 批注
             </ToggleGroupItem>
-            <ToggleGroupItem value="capture">
+            <ToggleGroupItem value="capture" aria-label="截图模式">
               <Camera /> 截图
             </ToggleGroupItem>
           </ToggleGroup>
-          <Button size="sm" disabled={!annotations.length} onClick={submitDemo}>
-            完成体验 <span>{annotations.length}</span>
+          <Button
+            className="mf-demo-submit"
+            size="icon"
+            aria-label={`模拟提交 ${annotations.length} 条标注`}
+            title="模拟提交"
+            disabled={!annotations.length}
+            onClick={submitDemo}
+          >
+            <Send />
           </Button>
         </header>
 
-        <div className="mf-demo-body">
-          <div className="mf-demo-page">
-            <header className="mf-demo-site-header">
-              <button
-                className="mf-demo-site-brand"
-                type="button"
-                onClick={() => switchPage('home')}
-              >
-                <span>M</span> Momentum
+        <div
+          className={`mf-demo-body ${projectsOpen ? 'has-projects' : ''} ${mode === 'browse' ? 'is-browsing' : ''}`}
+        >
+          {projectsOpen && (
+            <aside className="mf-demo-projects" aria-label="演示项目">
+              <button type="button" onClick={resetDemo}>
+                <Plus /> 新标注
               </button>
-              <nav aria-label="示例网站导航">
-                <button type="button" onClick={() => mode === 'browse' && switchPage('home')}>
-                  首页
-                </button>
-                <button type="button" onClick={() => mode === 'browse' && switchPage('pricing')}>
-                  价格
-                </button>
-                <button type="button" onClick={() => showToast('这是体验页面中的示例按钮')}>
-                  更新日志
-                </button>
-                <button
-                  className="mf-demo-site-cta"
-                  type="button"
-                  onClick={() => showToast('这是体验页面中的示例按钮')}
-                >
-                  开始使用
-                </button>
-              </nav>
-            </header>
+              <small>项目</small>
+              <button className="is-active" type="button" onClick={() => switchPage('home')}>
+                <MarkFixMark size={24} />
+                <span>
+                  MarkFix<small>官网 · 在线体验</small>
+                </span>
+              </button>
+            </aside>
+          )}
+          <div className="mf-demo-page">
+            <div
+              className="mf-demo-site-header"
+              onClickCapture={(event) => {
+                const link = (event.target as Element).closest('a');
+                const href = link?.getAttribute('href');
+                if (href === '/pricing' || href === '/' || href?.startsWith('/#')) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  switchPage(href === '/pricing' ? 'pricing' : 'home');
+                  if (href === '/#experience') chooseMode('comment');
+                }
+              }}
+            >
+              <SiteHeader />
+            </div>
 
             {page === 'home' ? (
-              <div className="mf-demo-site-home">
-                <div className="mf-demo-site-copy">
-                  <Annotatable
-                    mode={mode}
-                    target={target('eyebrow', '引导标签', '[data-id="eyebrow"]')}
-                    onSelect={selectTarget}
-                    annotationNumber={annotationNumberFor('eyebrow')}
-                  >
-                    <span className="mf-demo-site-eyebrow">团队反馈，终于有上下文了</span>
-                  </Annotatable>
-                  <Annotatable
-                    className="mf-demo-headline-target"
-                    mode={mode}
-                    target={target('headline', '页面主标题', 'h1[data-id="headline"]')}
-                    onSelect={selectTarget}
-                    annotationNumber={annotationNumberFor('headline')}
-                  >
-                    <h3>把网页反馈变成开发者能直接修复的任务</h3>
-                  </Annotatable>
-                  <Annotatable
-                    mode={mode}
-                    target={target('description', '产品说明', 'p[data-id="description"]')}
-                    onSelect={selectTarget}
-                    annotationNumber={annotationNumberFor('description')}
-                  >
-                    <p>
-                      直接选择页面元素、标记问题并留下批注。每条反馈都带上页面位置和视觉上下文。
-                    </p>
-                  </Annotatable>
-                  <Annotatable
-                    mode={mode}
-                    target={target(
-                      'primary-action',
-                      '主要操作按钮',
-                      'button[data-id="primary-action"]',
-                    )}
-                    onSelect={selectTarget}
-                    annotationNumber={annotationNumberFor('primary-action')}
-                  >
-                    <div className="mf-demo-site-actions">
-                      <button type="button">免费开始</button>
-                      <button type="button">观看演示</button>
-                    </div>
-                  </Annotatable>
-                </div>
-                <Annotatable
-                  className="mf-demo-visual-target"
-                  mode={mode}
-                  target={target('product-visual', '产品示意图', '[data-id="product-visual"]')}
-                  onSelect={selectTarget}
-                  annotationNumber={annotationNumberFor('product-visual')}
-                >
-                  <div className="mf-demo-product-visual">
-                    <div className="mf-demo-mini-window">
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                    <div className="mf-demo-mini-content">
-                      <span className="is-strong" />
-                      <span />
-                      <span className="is-short" />
-                      <div>
-                        <span />
-                        <span />
-                      </div>
-                    </div>
-                    <div className="mf-demo-mini-panel">
-                      <b />
-                      <span />
-                      <span className="is-short" />
-                    </div>
-                  </div>
-                </Annotatable>
-              </div>
+              <section className="premium-hero mf-demo-home">
+                <MarketingHeroContent
+                  onExperience={() => chooseMode('comment')}
+                  renderTarget={renderTarget}
+                />
+              </section>
             ) : (
               <div className="mf-demo-pricing-page">
-                <Annotatable
-                  mode={mode}
-                  target={target(
-                    'pricing-headline',
-                    '价格页标题',
-                    'h1[data-id="pricing-headline"]',
-                  )}
-                  onSelect={selectTarget}
-                  annotationNumber={annotationNumberFor('pricing-headline')}
-                >
-                  <span>简单透明</span>
-                  <h3>从一次清晰的反馈开始</h3>
-                </Annotatable>
-                <div className="mf-demo-plan-row">
-                  {['个人', '团队', '企业'].map((name, index) => (
-                    <Annotatable
-                      key={name}
-                      mode={mode}
-                      target={target(`plan-${index}`, `${name}版方案`, `[data-plan="${name}"]`)}
-                      onSelect={selectTarget}
-                      annotationNumber={annotationNumberFor(`plan-${index}`)}
-                    >
-                      <div className={index === 1 ? 'mf-demo-plan is-featured' : 'mf-demo-plan'}>
-                        <span>{name}</span>
-                        <strong>{index === 0 ? '免费' : index === 1 ? '¥39' : '联系销售'}</strong>
-                        <small>{index === 1 ? '每位成员 / 月' : '适合不同规模的团队'}</small>
-                      </div>
-                    </Annotatable>
-                  ))}
-                </div>
+                <MarketingPricingContent renderTarget={renderTarget} />
               </div>
             )}
 
@@ -373,79 +303,102 @@ export function InteractiveDemo() {
             />
           </div>
 
-          <aside className="mf-demo-comments">
-            <div className="mf-demo-comments-header">
-              <div>
-                <strong>体验批注</strong>
-                <Badge variant="secondary">{annotations.length} 条</Badge>
-              </div>
-              <button type="button" onClick={resetDemo}>
-                重置
-              </button>
-            </div>
-
-            <div className="mf-demo-privacy-note">
-              <span /> 仅为产品体验，不保存或上传任何数据
-            </div>
-
-            {draftTarget ? (
-              <div className="mf-demo-draft">
-                <span>{draftTarget.kind === 'capture' ? '截图批注' : '元素批注'}</span>
-                <strong>{draftTarget.label}</strong>
-                <code>{draftTarget.selector}</code>
-                <Textarea
-                  aria-label="批注内容"
-                  autoFocus
-                  placeholder="描述问题或修改建议…"
-                  value={draftNote}
-                  onChange={(event) => setDraftNote(event.target.value)}
-                />
-                <div>
-                  <Button size="sm" variant="ghost" onClick={() => setDraftTarget(null)}>
-                    取消
-                  </Button>
-                  <Button size="sm" disabled={!draftNote.trim()} onClick={saveAnnotation}>
-                    添加批注
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="mf-demo-comment-list">
-              {annotations.map((annotation, index) => (
-                <article key={annotation.annotationId}>
+          {mode !== 'browse' && (
+            <aside className="mf-demo-comments" aria-label="标注预览">
+              {draftTarget ? (
+                <div className="mf-demo-draft">
+                  <strong className="mf-demo-draft-kicker">
+                    <MousePointer2 />
+                    {editingId !== null
+                      ? '编辑已有批注'
+                      : draftTarget.kind === 'capture'
+                        ? '已选择截图'
+                        : '已选择元素'}
+                  </strong>
+                  <code>{draftTarget.selector}</code>
+                  <Textarea
+                    aria-label="批注内容"
+                    autoFocus
+                    maxLength={2000}
+                    value={draftNote}
+                    onChange={(event) => setDraftNote(event.target.value)}
+                  />
                   <div>
-                    <span className="mf-demo-comment-number">{index + 1}</span>
-                    <strong>{annotation.kind === 'capture' ? '截图批注' : '元素批注'}</strong>
-                    <button
-                      type="button"
-                      aria-label={`删除第 ${index + 1} 条批注`}
-                      onClick={() =>
-                        setAnnotations((current) =>
-                          current.filter((item) => item.annotationId !== annotation.annotationId),
-                        )
-                      }
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      aria-label="取消批注"
+                      onClick={() => {
+                        setDraftTarget(null);
+                        setEditingId(null);
+                      }}
                     >
-                      <Trash2 />
-                    </button>
+                      <X />
+                    </Button>
+                    <Button
+                      className="mf-demo-confirm"
+                      size="icon"
+                      aria-label="保存批注"
+                      disabled={!draftNote.trim()}
+                      onClick={saveAnnotation}
+                    >
+                      <Check />
+                    </Button>
                   </div>
-                  <code>{annotation.selector}</code>
-                  <p>{annotation.note}</p>
-                </article>
-              ))}
-              {!annotations.length && !draftTarget ? (
-                <div className="mf-demo-empty">
-                  <MessageSquareText />
-                  <strong>亲手留下一条反馈</strong>
-                  <p>
-                    {mode === 'capture'
-                      ? '在左侧页面拖拽框选一个区域。'
-                      : '点击左侧页面里的标题、按钮或卡片。'}
-                  </p>
                 </div>
               ) : null}
-            </div>
-          </aside>
+
+              <div className="mf-demo-comment-list">
+                {pageAnnotations
+                  .filter((annotation) => annotation.annotationId !== editingId)
+                  .map((annotation, index) => (
+                    <article key={annotation.annotationId}>
+                      <div>
+                        <span className="mf-demo-comment-number">{index + 1}</span>
+                        <strong>{annotation.kind === 'capture' ? '截图批注' : '元素批注'}</strong>
+                        <button
+                          type="button"
+                          aria-label={`删除第 ${index + 1} 条批注`}
+                          onClick={() =>
+                            setAnnotations((current) =>
+                              current.filter(
+                                (item) => item.annotationId !== annotation.annotationId,
+                              ),
+                            )
+                          }
+                        >
+                          <Trash2 />
+                        </button>
+                      </div>
+                      <button
+                        className="mf-demo-replay"
+                        type="button"
+                        aria-label={`编辑批注：${annotation.note}`}
+                        onClick={() => {
+                          setDraftTarget(annotation);
+                          setDraftNote(annotation.note);
+                          setEditingId(annotation.annotationId);
+                        }}
+                      >
+                        <code>{annotation.selector}</code>
+                        <p>{annotation.note}</p>
+                      </button>
+                    </article>
+                  ))}
+                {!pageAnnotations.length && !draftTarget ? (
+                  <div className="mf-demo-empty">
+                    <MessageSquareText />
+                    <strong>亲手留下一条反馈</strong>
+                    <p>
+                      {mode === 'capture'
+                        ? '在左侧页面拖拽框选一个区域。'
+                        : '点击左侧页面里的标题、按钮或卡片。'}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </aside>
+          )}
         </div>
       </div>
     </div>

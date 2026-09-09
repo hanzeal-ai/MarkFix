@@ -607,8 +607,14 @@ export function CaptureDemo({ active, onComplete, resetKey, showToast }: Capture
           >
             <Download />
           </button>
-          <button className="is-finish" type="button" onClick={() => onComplete(selection)}>
-            <Check /> 完成
+          <button
+            className="is-finish"
+            type="button"
+            aria-label="完成截图"
+            title="完成截图"
+            onClick={() => onComplete(selection)}
+          >
+            <Check />
           </button>
         </div>
       ) : null}

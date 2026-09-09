@@ -1,5 +1,5 @@
 /* Neutral surfaces and a restrained brand accent across the platform. */
-.premium-site:not(.commercial-page) {
+#root .premium-site {
   --ink: #111214;
   --muted: #696c72;
   --line: #e2e3e6;
@@ -15,7 +15,7 @@
   font-family: var(--font-sans);
 }
 
-.premium-site:not(.commercial-page) .premium-header {
+.premium-site .premium-header {
   height: 88px;
   max-width: none;
   padding-inline: max(32px, calc((100vw - 1184px) / 2));
@@ -24,12 +24,12 @@
   backdrop-filter: blur(18px);
 }
 
-.premium-site:not(.commercial-page) .premium-nav > a {
+.premium-site .premium-nav > a {
   color: #202226;
   font-size: 13px;
 }
 
-.premium-site:not(.commercial-page) .premium-nav [data-slot='button'],
+.premium-site .premium-nav [data-slot='button'],
 .premium-site:not(.commercial-page) .premium-hero-actions [data-slot='button']:first-child {
   border-color: #17181a;
   background: #17181a;
@@ -440,8 +440,6 @@
 .marketing-site .final-cta,
 .premium-site .premium-admin-main,
 .premium-site .premium-capability-visual,
-.premium-site .mf-demo-mini-panel,
-.premium-site .mf-demo-plan,
 .premium-site .mf-demo-draft,
 .premium-site .mf-demo-comment-list article,
 .admin-login-page .admin-login-card,
@@ -463,7 +461,6 @@
 .premium-site .mf-demo-address,
 .premium-site .mf-demo-modes button,
 .premium-site .mf-demo-site-header nav button,
-.premium-site .mf-demo-site-actions button,
 .premium-site .mf-demo-hint,
 .premium-site .mf-demo-capture-tools,
 .premium-site .mf-demo-capture-tools button,
@@ -480,7 +477,7 @@
 }
 
 @media (max-width: 680px) {
-  .premium-site:not(.commercial-page) .premium-header {
+  .premium-site .premium-header {
     height: 66px;
   }
 

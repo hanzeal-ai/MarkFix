@@ -255,7 +255,7 @@
   margin-top: 38px;
 }
 
-.download-actions > a {
+.download-actions > a:not([data-slot='button']) {
   align-items: center;
   color: #55545f;
   display: flex;
@@ -331,4 +331,46 @@
   color: var(--purple);
   height: 17px;
   width: 17px;
+}
+
+.download-desktop-preview {
+  margin: 0 auto 80px;
+  max-width: 1200px;
+  padding: 0 24px;
+}
+.download-desktop-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #e2e4e9;
+  border-radius: 20px;
+}
+
+.download-copy h1 {
+  font-size: clamp(44px, 5vw, 64px);
+  line-height: 1.15;
+}
+.download-copy > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  color: #5b52e8;
+  font-size: 13px;
+}
+.download-copy > a svg {
+  width: 15px;
+  height: 15px;
+}
+.download-actions [data-slot='button'] {
+  background: #17181a;
+  color: white;
+  border-color: #17181a;
+}
+.download-product-card {
+  background: #fbfbfc;
+  border-color: #e2e4e9;
+}
+.download-capability-list {
+  border-color: #e2e4e9;
 }

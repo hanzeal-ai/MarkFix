@@ -21,7 +21,7 @@
 
 .mf-capture-selection-border {
   fill: transparent;
-  stroke: var(--purple);
+  stroke: #5b52e8;
   stroke-width: 2;
 }
 
@@ -29,7 +29,7 @@
   cursor: nwse-resize;
   fill: white;
   pointer-events: all;
-  stroke: var(--purple);
+  stroke: #5b52e8;
   stroke-width: 2;
 }
 
@@ -48,7 +48,8 @@
 
 .mf-capture-toolbar {
   align-items: center;
-  background: #202128;
+  background: white;
+  border: 1px solid #d9dce3;
   border-radius: 10px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
   display: flex;
@@ -74,7 +75,7 @@
   background: transparent;
   border: 0;
   border-radius: 6px;
-  color: #d1d2d8;
+  color: #31353d;
   cursor: pointer;
   display: inline-flex;
   flex: 0 0 auto;
@@ -86,8 +87,8 @@
 
 .mf-capture-toolbar button:hover,
 .mf-capture-toolbar button.is-active {
-  background: #3a3b45;
-  color: white;
+  background: #eeecff;
+  color: #5b52e8;
 }
 
 .mf-capture-toolbar button:disabled {
@@ -101,7 +102,7 @@
 }
 
 .mf-capture-toolbar > i {
-  background: #44454e;
+  background: #e2e4e9;
   flex: 0 0 auto;
   height: 20px;
   margin: 0 3px;
@@ -109,7 +110,7 @@
 }
 
 .mf-capture-toolbar button.is-finish {
-  background: var(--purple);
+  background: #5b52e8;
   color: white;
   font-size: 10px;
   gap: 4px;

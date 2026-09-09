@@ -15,10 +15,6 @@
   .mf-demo-browser-controls {
     display: none;
   }
-  .mf-demo-site-home {
-    gap: 34px;
-    padding: 48px 34px;
-  }
   .mf-demo-body {
     grid-template-columns: minmax(0, 1fr) 280px;
   }
@@ -106,7 +102,9 @@
   .mf-demo-projects {
     display: none;
   }
-  .mf-demo-body {
+  .mf-demo-body,
+  .mf-demo-body.has-projects,
+  .mf-demo-body.has-projects.is-browsing {
     grid-template-columns: 1fr;
   }
   .mf-demo-page {
@@ -326,8 +324,8 @@
   .mf-demo-address {
     font-size: 10px;
   }
-  .mf-demo-toolbar > button {
-    display: none;
+  .mf-demo-toolbar {
+    grid-template-columns: minmax(60px, 1fr) auto auto;
   }
   .mf-demo-modes button {
     font-size: 0;
@@ -349,18 +347,6 @@
   .mf-demo-site-header nav button.mf-demo-site-cta {
     display: block;
   }
-  .mf-demo-site-home {
-    align-items: start;
-    grid-template-columns: 1fr;
-    min-height: 526px;
-    padding: 56px 26px 36px;
-  }
-  .mf-demo-site-copy h3 {
-    font-size: 40px;
-  }
-  .mf-demo-visual-target {
-    display: none;
-  }
   .mf-demo-hint {
     max-width: calc(100% - 28px);
     top: 84px;
@@ -368,18 +354,6 @@
   }
   .mf-demo-pricing-page {
     padding: 40px 20px;
-  }
-  .mf-demo-plan-row {
-    grid-template-columns: 1fr;
-  }
-  .mf-demo-plan-row > .mf-demo-annotatable:nth-child(3) {
-    display: none;
-  }
-  .mf-demo-plan {
-    min-height: 120px;
-  }
-  .mf-demo-plan strong {
-    margin-top: 20px;
   }
   .mf-demo-comments {
     min-height: 360px;

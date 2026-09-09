@@ -51,6 +51,7 @@ const bootstrap = {
   ],
   overview,
 };
+let downloadState = 'ready';
 let annotationFailure = false;
 let bootstrapDelay = 0;
 const server = createServer(async (req, res) => {
@@ -60,6 +61,29 @@ const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', '*');
   if (req.method === 'OPTIONS') {
     res.end();
+    return;
+  }
+  if (path === '/v1/client-policy') {
+    res.setHeader('Content-Type', 'application/json');
+    if (downloadState === 'error') {
+      res.statusCode = 503;
+      res.end('{}');
+      return;
+    }
+    res.end(
+      JSON.stringify({
+        minimumVersion: '0.1.0',
+        recommendedVersion: '0.1.0',
+        currentVersion: '0.1.0',
+        status: 'supported',
+        features: {},
+        ...(downloadState === 'ready'
+          ? { downloadUrl: 'https://downloads.example.test/MarkFix-arm64.dmg' }
+          : downloadState === 'unsafe'
+            ? { downloadUrl: 'http://downloads.example.test/MarkFix-arm64.dmg' }
+            : {}),
+      }),
+    );
     return;
   }
   if (path === '/v1/me') {
@@ -155,7 +179,11 @@ async function main() {
       callback(url.origin === origin ? {} : { redirectURL: origin + url.pathname + url.search });
     },
   );
-  const run = (code) => win.webContents.executeJavaScript(code);
+  const run = (code) =>
+    win.webContents.executeJavaScript(code).catch((error) => {
+      console.error('Renderer expression:', code);
+      throw error;
+    });
   const waitFor = async (code) => {
     for (let attempt = 0; attempt < 150; attempt++) {
       if (await run(code)) return;
@@ -164,6 +192,142 @@ async function main() {
     throw new Error('Timed out: ' + code);
   };
   try {
+    if (process.env.MARKFIX_MARKETING_SMOKE) {
+      const click = async (selector) => {
+        await run(`document.querySelector(${JSON.stringify(selector)}).click()`);
+        await setTimeout(100);
+      };
+      const note = async (value) => {
+        await run(
+          `(()=>{const el=document.querySelector('[aria-label="批注内容"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}))})()`,
+        );
+        await setTimeout(100);
+      };
+      const screenshot = async (name) => {
+        await setTimeout(200);
+        writeFileSync(join(output, name + '.png'), (await win.webContents.capturePage()).toPNG());
+      };
+      await win.loadURL(origin);
+      await waitFor(`!!document.querySelector('.mf-demo-shell')`);
+      await run(`document.querySelectorAll('.premium-site img').forEach(img=>img.loading='eager')`);
+      await waitFor(
+        `[...document.querySelectorAll('.premium-site img')].every(img=>img.complete && img.naturalWidth>0)`,
+      );
+      await screenshot('marketing-home');
+      await run(
+        `document.querySelector('.mf-demo-shell').scrollIntoView({block:'start',behavior:'instant'})`,
+      );
+      await click('[aria-label="标注页面主标题"]');
+      await note('请调整标题间距');
+      assert.equal(
+        await run(`getComputedStyle(document.querySelector('[aria-label="批注内容"]')).fontSize`),
+        '12px',
+      );
+      await screenshot('marketing-demo-note');
+      await click('[aria-label="保存批注"]');
+      assert.equal(
+        await run(`document.querySelectorAll('.mf-demo-comment-list article').length`),
+        1,
+      );
+      await click('.mf-demo-home .premium-hero-actions button:last-child');
+      assert.equal(await run(`location.pathname`), '/');
+      await waitFor(`!!document.querySelector('[aria-label="批注内容"]')`);
+      await click('[aria-label="取消批注"]');
+      await click('.mf-demo-replay');
+      await note('修改后的标题建议');
+      await click('[aria-label="保存批注"]');
+      assert.equal(
+        await run(`document.querySelectorAll('.mf-demo-comment-list article').length`),
+        1,
+      );
+      assert.equal(
+        await run(`document.querySelector('.mf-demo-replay p').textContent`),
+        '修改后的标题建议',
+      );
+      await click('[aria-label="批注模式"]');
+      await run(`document.querySelector('.mf-demo-site-header a[href="/pricing"]').click()`);
+      await setTimeout(100);
+      await click('[aria-label="批注模式"]');
+      assert.equal(
+        await run(`document.querySelectorAll('.mf-demo-comment-list article').length`),
+        0,
+      );
+      await click('[aria-label="批注模式"]');
+      await run(`document.querySelector('.mf-demo-site-header a[href="/"]').click()`);
+      await setTimeout(100);
+      await click('[aria-label="批注模式"]');
+      assert.equal(
+        await run(`document.querySelectorAll('.mf-demo-comment-list article').length`),
+        1,
+      );
+      await click('[aria-label="截图模式"]');
+      await run(
+        `(()=>{const el=document.querySelector('.mf-capture-demo'),r=el.getBoundingClientRect();for(const [type,x,y] of [['pointerdown',30,180],['pointermove',350,400],['pointerup',350,400]])el.dispatchEvent(new PointerEvent(type,{bubbles:true,clientX:r.left+x,clientY:r.top+y,pointerId:1,button:0}))})()`,
+      );
+      await waitFor(`!!document.querySelector('.mf-capture-toolbar')`);
+      assert.equal(
+        await run(
+          `getComputedStyle(document.querySelector('.mf-capture-toolbar')).backgroundColor`,
+        ),
+        'rgb(255, 255, 255)',
+      );
+      await screenshot('marketing-demo-capture');
+      await click('.mf-capture-toolbar .is-finish');
+      await note('截图备注');
+      await click('[aria-label="保存批注"]');
+      assert.equal(
+        await run(`document.querySelectorAll('.mf-demo-comment-list article').length`),
+        2,
+      );
+      await click('[aria-label="删除第 1 条批注"]');
+      assert.equal(
+        await run(`document.querySelectorAll('.mf-demo-comment-list article').length`),
+        1,
+      );
+      for (const state of ['ready', 'unpublished', 'error', 'unsafe']) {
+        downloadState = state;
+        await win.loadURL(origin + '/download');
+        await waitFor(
+          `!!document.querySelector('.download-copy') && !document.body.textContent.includes('正在获取下载地址')`,
+        );
+        assert.equal(
+          await run(
+            `!!document.querySelector('.download-actions a[href="https://downloads.example.test/MarkFix-arm64.dmg"]')`,
+          ),
+          state === 'ready',
+        );
+        if (state !== 'ready')
+          assert.equal(
+            await run(`document.querySelector('.download-actions button').disabled`),
+            true,
+          );
+        await screenshot('marketing-download-' + state);
+      }
+      for (const route of ['/docs', '/pricing']) {
+        await win.loadURL(origin + route);
+        await waitFor(`!!document.querySelector('h1')`);
+        await screenshot('marketing' + route.replace('/', '-'));
+      }
+      win.setContentSize(390, 844);
+      await win.loadURL(origin);
+      await waitFor(`!!document.querySelector('.mf-demo-shell')`);
+      assert.equal(await run(`document.documentElement.scrollWidth <= innerWidth`), true);
+      await screenshot('marketing-mobile');
+      await run(`document.querySelector('.mf-demo-shell').scrollIntoView({behavior:'instant'})`);
+      await click('[aria-label="标注页面主标题"]');
+      await note('移动端建议');
+      await click('[aria-label="保存批注"]');
+      assert.equal(
+        await run(`document.querySelectorAll('.mf-demo-comment-list article').length`),
+        1,
+      );
+      await screenshot('marketing-mobile-demo');
+      console.log(
+        'PASS marketing: images, 12px notes, editing, page isolation, capture, deletion, download states, docs, pricing and mobile',
+      );
+      console.log('Screenshots: ' + output);
+      return;
+    }
     if (process.env.MARKFIX_AUDIT_SURFACES) {
       for (const route of [
         '/',
