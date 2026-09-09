@@ -1097,16 +1097,22 @@ const registerIpc = (): void => {
     } else if (previousPeek === 0 && websiteView && websiteContentReady) {
       layoutWebsite();
       const version = ++sidebarPreviewVersion;
-      const screenshot = await websiteView.webContents
-        .capturePage(undefined, { stayAwake: true, stayHidden: false })
+      const contents = websiteView.webContents;
+      if (!contents.debugger.isAttached()) contents.debugger.attach('1.3');
+      const screenshot = (await contents.debugger
+        .sendCommand('Page.captureScreenshot', {
+          format: 'png',
+          fromSurface: true,
+          captureBeyondViewport: false,
+        })
         .catch((error: unknown) => {
           console.warn('Unable to capture sidebar preview', error);
           return null;
-        });
+        })) as { data: string } | null;
       if (screenshot && version === sidebarPreviewVersion && sidebarPeekWidth > 0) {
         mainWindow?.webContents.send('window:sidebar-preview', {
           version,
-          dataUrl: screenshot.toDataURL(),
+          dataUrl: `data:image/png;base64,${screenshot.data}`,
           bounds: websiteView.getBounds(),
         });
       }

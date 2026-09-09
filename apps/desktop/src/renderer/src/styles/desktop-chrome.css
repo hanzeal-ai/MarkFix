@@ -405,8 +405,8 @@ button {
 }
 .sidebar-collapsed .browser-bar,
 .sidebar-collapsed .navigation-header {
-  left: 0;
-  padding-left: 178px;
+  left: 168px;
+  padding-left: 10px;
 }
 
 .window-fullscreen .window-controls {
@@ -415,8 +415,8 @@ button {
 }
 .window-fullscreen .sidebar-collapsed .browser-bar,
 .window-fullscreen .sidebar-collapsed .navigation-header {
-  left: 0;
-  padding-left: 90px;
+  left: 80px;
+  padding-left: 10px;
 }
 
 .sidebar-resize-handle {

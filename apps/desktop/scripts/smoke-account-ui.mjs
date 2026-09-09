@@ -74,6 +74,9 @@ app.on('browser-window-created', (_event, win) => {
   handled = true;
   win.webContents.once('did-finish-load', async () => {
     try {
+      win.setAlwaysOnTop(true);
+      win.show();
+      win.focus();
       assert.equal(
         win.getContentBounds().y,
         win.getBounds().y,
@@ -84,29 +87,6 @@ app.on('browser-window-created', (_event, win) => {
         const point = await win.webContents.executeJavaScript(
           `(()=>{const b=document.querySelectorAll('.header-navigation-controls button')[${index}].getBoundingClientRect();return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}})()`,
         );
-        if (process.env.MARKFIX_NATIVE_POINTER) {
-          app.focus({ steal: true });
-          win.focus();
-          await new Promise((resolve) => setTimeout(resolve, 300));
-          const bounds = win.getContentBounds();
-          await new Promise((resolve, reject) => {
-            const pointer = childProcess.spawn(
-              process.env.MARKFIX_NATIVE_POINTER,
-              [
-                String(bounds.x + point.x),
-                String(bounds.y + point.y),
-                'click',
-                String(process.pid),
-              ],
-              { stdio: 'ignore' },
-            );
-            pointer.once('error', reject);
-            pointer.once('exit', (code) =>
-              code === 0 ? resolve() : reject(new Error('Native pointer failed')),
-            );
-          });
-          return;
-        }
         win.webContents.sendInputEvent({ type: 'mouseMove', ...point });
         win.webContents.sendInputEvent({
           type: 'mouseDown',
@@ -168,16 +148,21 @@ app.on('browser-window-created', (_event, win) => {
         for (let repeat = 0; repeat < 4; repeat++) {
           await clickHeaderButton();
           await run(`qa.wait(()=>document.querySelector('.shell.sidebar-collapsed'))`);
+          assert.equal(
+            await run(
+              `document.querySelector('.navigation-header').getBoundingClientRect().left >= document.querySelector('.window-controls').getBoundingClientRect().right`,
+            ),
+            true,
+          );
           await clickHeaderButton(1);
           await run(`qa.wait(()=>document.activeElement?.id==='new-project-url')`);
           await clickHeaderButton();
           await run(`qa.wait(()=>document.querySelector('.shell.sidebar-expanded'))`);
         }
-        console.log(
-          'PASS native mouse repeatedly toggles sidebar and focuses new annotation address',
-        );
+        console.log('PASS repeated sidebar toggles and new annotation address focus');
         clearTimeout(timeout);
         process.exit(0);
+        return;
       }
 
       await run(
@@ -314,7 +299,11 @@ app.on('browser-window-created', (_event, win) => {
       const source = sources.find((source) => source.id === win.getMediaSourceId());
       if (source) writeFileSync(join(output, 'sidebar-hover-native.png'), source.thumbnail.toPNG());
       win.webContents.sendInputEvent({ type: 'mouseMove', x: 600, y: 28 });
-      await run(`qa.wait(()=>!document.querySelector('.project-sidebar'))`);
+      await run(
+        `qa.wait(()=>!document.querySelector('.project-sidebar') && !document.querySelector('body > img'))`,
+      );
+      assert.equal(win.contentView.children[0].getVisible(), true);
+      assert.equal(await run(`!!document.querySelector('.project-loading-page')`), false);
       await clickHeaderButton();
       await run(`qa.wait(()=>document.querySelector('[aria-label="收起项目侧边栏"]'))`);
       await new Promise((resolve) => setTimeout(resolve, 350));
