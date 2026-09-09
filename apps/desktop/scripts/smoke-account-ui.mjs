@@ -244,7 +244,7 @@ app.on('browser-window-created', (_event, win) => {
         await new Promise((resolve) => setTimeout(resolve, 200));
         assert.equal(
           await run(
-            `(()=>{const bar=document.querySelector('.browser-bar').getBoundingClientRect(), address=document.querySelector('.prototype-browser-bar').getBoundingClientRect(), controls=document.querySelector('.window-controls').getBoundingClientRect(), tools=document.querySelector('.tools').getBoundingClientRect();return bar.left>=controls.right && getComputedStyle(document.querySelector('.window-controls')).webkitAppRegion==='no-drag' && bar.height===56 && address.height===document.querySelector('.annotation-mode-control').getBoundingClientRect().height && address.top>=0 && address.bottom<=56 && address.left>=controls.right && address.right<=tools.left})()`,
+            `(()=>{const bar=document.querySelector('.browser-bar').getBoundingClientRect(), address=document.querySelector('.prototype-browser-bar').getBoundingClientRect(), controls=document.querySelector('.window-controls').getBoundingClientRect(), tools=document.querySelector('.tools').getBoundingClientRect();return (${expanded} ? bar.left>=controls.right : bar.left===0 && bar.right===innerWidth) && document.querySelector('.nav-buttons').getBoundingClientRect().left>=controls.right && getComputedStyle(document.querySelector('.window-controls')).webkitAppRegion==='no-drag' && bar.height===56 && address.height===document.querySelector('.annotation-mode-control').getBoundingClientRect().height && address.top>=0 && address.bottom<=56 && address.left>=controls.right && address.right<=tools.left})()`,
           ),
           true,
         );

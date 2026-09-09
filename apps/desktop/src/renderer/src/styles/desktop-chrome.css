@@ -268,19 +268,19 @@ button {
 }
 
 .project-sidebar-delete {
-  top: 50%;
-  right: 5px;
+  top: calc(50% - 5px);
+  right: 0;
   border: 0;
   border-radius: 6px;
-  background: rgba(246, 246, 247, 0.92);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: transparent;
+  box-shadow: none;
   color: #ff3b30;
 }
 
 .project-sidebar-delete:hover {
   border-color: transparent;
-  background: #ff3b30;
-  color: #fff;
+  background: transparent;
+  color: #d92d23;
 }
 
 .project-sidebar-account-area {
@@ -405,8 +405,8 @@ button {
 }
 .sidebar-collapsed .browser-bar,
 .sidebar-collapsed .navigation-header {
-  left: 168px;
-  padding-left: 10px;
+  left: 0;
+  padding-left: 178px;
 }
 
 .window-fullscreen .window-controls {
@@ -415,8 +415,7 @@ button {
 }
 .window-fullscreen .sidebar-collapsed .browser-bar,
 .window-fullscreen .sidebar-collapsed .navigation-header {
-  left: 80px;
-  padding-left: 10px;
+  padding-left: 90px;
 }
 
 .sidebar-resize-handle {
