@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      release_desktop:
+        description: Build and publish a signed macOS Apple Silicon release
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,6 +33,84 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+  release-desktop:
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.release_desktop
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      MAIN_VITE_API_URL: ${{ vars.MAIN_VITE_API_URL }}
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - name: Validate release configuration and new version
+        run: |
+          set -euo pipefail
+          for key in MAIN_VITE_API_URL CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "::error::Missing release configuration: $key"
+              exit 1
+            fi
+          done
+          node apps/desktop/scripts/check-update-release.mjs
+          version=$(node -p 'JSON.parse(require("fs").readFileSync("apps/desktop/package.json", "utf8")).version')
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo '::error::Desktop releases require a stable major.minor.patch version.'
+            exit 1
+          fi
+          tag="desktop-v$version"
+          if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "::error::Release tag $tag already exists. Published packages must not be overwritten."
+            exit 1
+          fi
+          echo "DESKTOP_VERSION=$version" >> "$GITHUB_ENV"
+          echo "DESKTOP_TAG=$tag" >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @markfix/database db:generate
+      - name: Build signed and notarized DMG and ZIP
+        run: >-
+          pnpm --filter @markfix/desktop package:mac:release --arm64
+          --config.directories.output=release
+          '--config.artifactName=MarkFix-${version}-${arch}.${ext}'
+      - name: Verify packaged application and checksums
+        run: |
+          set -euo pipefail
+          packaged_app='apps/desktop/release/mac-arm64/MarkFix.app'
+          codesign --verify --deep --strict --verbose=2 "$packaged_app"
+          spctl --assess --type execute --verbose=2 "$packaged_app"
+          xcrun stapler validate "$packaged_app"
+          actual_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$packaged_app/Contents/Info.plist")
+          test "$actual_version" = "$DESKTOP_VERSION"
+          cd apps/desktop/release
+          test -s "MarkFix-$DESKTOP_VERSION-arm64.dmg"
+          test -s "MarkFix-$DESKTOP_VERSION-arm64.zip"
+          hdiutil verify "MarkFix-$DESKTOP_VERSION-arm64.dmg"
+          unzip -tq "MarkFix-$DESKTOP_VERSION-arm64.zip"
+          shasum -a 256 "MarkFix-$DESKTOP_VERSION-arm64.dmg" "MarkFix-$DESKTOP_VERSION-arm64.zip" > SHA256SUMS.txt
+      - name: Upload packages and publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release create "$DESKTOP_TAG" \
+            "apps/desktop/release/MarkFix-$DESKTOP_VERSION-arm64.dmg" \
+            "apps/desktop/release/MarkFix-$DESKTOP_VERSION-arm64.zip" \
+            apps/desktop/release/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --title "MarkFix $DESKTOP_VERSION · macOS Apple Silicon" \
+            --notes-file docs/github-desktop-release-notes.md --draft
+          gh release edit "$DESKTOP_TAG" --draft=false
 
   publish:
     needs: verify
