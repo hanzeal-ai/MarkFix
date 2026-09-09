@@ -16,7 +16,9 @@ COPY tsconfig.json tsconfig.json
 COPY apps/api apps/api
 COPY packages/contracts packages/contracts
 COPY packages/database packages/database
-RUN pnpm --filter @markfix/database db:generate && pnpm --filter @markfix/api build
+RUN pnpm --filter @markfix/database db:generate \
+  && pnpm --filter @markfix/contracts build \
+  && pnpm --filter @markfix/api build
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
   pnpm --trust-lockfile --filter @markfix/api deploy --prod /opt/markfix-api
 RUN mkdir -p /opt/markfix-api/prisma \
@@ -24,12 +26,14 @@ RUN mkdir -p /opt/markfix-api/prisma \
   && mkdir -p /opt/markfix-api/packages \
   && cp -R packages/contracts /opt/markfix-api/packages/contracts \
   && cp -R packages/database /opt/markfix-api/packages/database \
+  && sed -i 's#"./src/index.ts"#"./dist/index.js"#' /opt/markfix-api/packages/contracts/package.json \
   && rm -rf /opt/markfix-api/node_modules/@markfix/contracts \
   && rm -rf /opt/markfix-api/node_modules/@markfix/database \
   && ln -s ../../packages/contracts /opt/markfix-api/node_modules/@markfix/contracts \
   && ln -s ../../packages/database /opt/markfix-api/node_modules/@markfix/database \
   && cd /opt/markfix-api \
-  && node node_modules/prisma/build/index.js generate --schema prisma/schema.prisma
+  && node node_modules/prisma/build/index.js generate --schema prisma/schema.prisma \
+  && node -e "import('@markfix/contracts')"
 
 FROM base AS runtime
 ENV NODE_ENV=production
