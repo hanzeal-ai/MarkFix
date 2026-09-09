@@ -1,4 +1,12 @@
 import {
+  commercialAnnotationInputSchema as annotationInputSchema,
+  commercialAnnotationListQuerySchema as annotationListQuerySchema,
+  commercialAnnotationUpdateSchema as annotationUpdateSchema,
+  commercialCategorySchema as categorySchema,
+  commercialRejectionSchema as rejectionSchema,
+} from '@markfix/contracts';
+import { Prisma } from '@markfix/database';
+import {
   BadRequestException,
   ForbiddenException,
   Inject,
@@ -6,9 +14,6 @@ import {
   NotFoundException,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
-import { Prisma } from '@markfix/database';
-import { z } from 'zod';
-import { DatabaseService } from './database.service.js';
 import {
   annotationHistoryForReport,
   reportAnnotationStatus,
@@ -21,28 +26,7 @@ import {
   createCommercialReport,
   migrateLegacyManagedAnnotations,
 } from './commercial/report-writer.js';
-
-const annotationInputSchema = z.object({
-  title: z.string().trim().min(1).max(160),
-  note: z.string().trim().min(1).max(4000),
-  kind: z.enum(['ELEMENT', 'SCREENSHOT', 'COMMENT']),
-  pageUrl: z.url(),
-  authorId: z.uuid().optional(),
-});
-
-const annotationUpdateSchema = annotationInputSchema
-  .partial()
-  .extend({ status: z.enum(['OPEN', 'IN_REVIEW', 'RESOLVED']).optional() })
-  .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
-
-const rejectionSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
-const categorySchema = z.object({ category: z.string().trim().min(1).max(40) });
-const annotationListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
-  status: z.enum(['OPEN', 'IN_REVIEW', 'RESOLVED', 'REJECTED']).optional(),
-  query: z.string().trim().max(200).optional(),
-});
+import { DatabaseService } from './database.service.js';
 
 @Injectable()
 export class CommercialService implements OnApplicationBootstrap {

@@ -318,7 +318,7 @@ describe('commercial annotation management', () => {
     const transaction = {
       reportSubmission: { create: vi.fn().mockResolvedValue({}) },
       report: { create: vi.fn().mockResolvedValue(report(legacy)) },
-      managedAnnotation: { delete: vi.fn().mockResolvedValue({}) },
+      managedAnnotation: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
     const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
     const service = new CommercialService({
@@ -340,7 +340,9 @@ describe('commercial annotation management', () => {
         }),
       }),
     );
-    expect(transaction.managedAnnotation.delete).toHaveBeenCalledWith({ where: { id: legacy.id } });
+    expect(transaction.managedAnnotation.deleteMany).toHaveBeenCalledWith({
+      where: { id: legacy.id, sourceReportId: null },
+    });
     expect(deleteMany).toHaveBeenCalledWith({ where: { sourceReportId: { not: null } } });
   });
 });

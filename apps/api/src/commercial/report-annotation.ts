@@ -1,7 +1,13 @@
 import type { Prisma } from '@markfix/database';
 
-export type CommercialAnnotationStatus = 'OPEN' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED';
-export type CommercialAnnotationKind = 'ELEMENT' | 'SCREENSHOT' | 'COMMENT';
+import type {
+  AnnotationKind as CommercialAnnotationKind,
+  AnnotationStatus as CommercialAnnotationStatus,
+} from '@markfix/contracts';
+export type {
+  AnnotationKind as CommercialAnnotationKind,
+  AnnotationStatus as CommercialAnnotationStatus,
+} from '@markfix/contracts';
 
 export type ReportAnnotationSource = {
   id: string;

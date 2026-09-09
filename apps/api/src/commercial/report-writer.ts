@@ -58,6 +58,30 @@ export const createCommercialReport = async (
   const updatedAt = input.updatedAt ?? createdAt;
 
   return database.$transaction(async (transaction) => {
+    if (legacyAnnotationId) {
+      // Claim in the same transaction as creation: concurrent migration workers wait here.
+      const claimed = await transaction.managedAnnotation.deleteMany({
+        where: { id: legacyAnnotationId, sourceReportId: null },
+      });
+      if (claimed.count === 0) {
+        const existing = await transaction.report.findUnique({
+          where: { id: reportId },
+          include: {
+            reporter: { select: { id: true, displayName: true, email: true } },
+            submission: { select: { idempotencyKey: true } },
+          },
+        });
+        if (
+          !existing ||
+          existing.projectId !== input.projectId ||
+          existing.submission.idempotencyKey !== `commercial:${reportId}`
+        )
+          throw new Error(`Legacy annotation migration invariant failed: ${legacyAnnotationId}`);
+        const { submission, ...report } = existing;
+        void submission;
+        return report;
+      }
+    }
     await transaction.reportSubmission.create({
       data: {
         id: submissionId,
@@ -92,8 +116,6 @@ export const createCommercialReport = async (
       },
       include: { reporter: { select: { id: true, displayName: true, email: true } } },
     });
-    if (legacyAnnotationId)
-      await transaction.managedAnnotation.delete({ where: { id: legacyAnnotationId } });
     return report;
   });
 };
