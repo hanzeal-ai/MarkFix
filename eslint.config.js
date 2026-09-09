@@ -5,6 +5,7 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   { ignores: ['**/dist/**', '**/out/**', '**/coverage/**', '**/generated/**'] },
   eslint.configs.recommended,
+  { files: ['apps/cli/**/*.mjs'], languageOptions: { globals: globals.node } },
   ...tseslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],
