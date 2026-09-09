@@ -18,7 +18,7 @@ COPY packages/contracts packages/contracts
 COPY packages/database packages/database
 RUN pnpm --filter @markfix/database db:generate && pnpm --filter @markfix/api build
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-  pnpm --trust-lockfile --offline --filter @markfix/api deploy --prod /opt/markfix-api
+  pnpm --trust-lockfile --filter @markfix/api deploy --prod /opt/markfix-api
 RUN mkdir -p /opt/markfix-api/prisma \
   && cp packages/database/prisma/schema.prisma /opt/markfix-api/prisma/schema.prisma \
   && mkdir -p /opt/markfix-api/packages \
