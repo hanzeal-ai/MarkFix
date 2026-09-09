@@ -49,6 +49,13 @@ export class Client {
       credential = await this.send('/token/refresh', { refreshToken: credential.refreshToken });
       await saveCredential(this.config, credential);
     }
-    return this.send(path, body, credential.accessToken, method);
+    try {
+      return await this.send(path, body, credential.accessToken, method);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 401) throw error;
+      credential = await this.send('/token/refresh', { refreshToken: credential.refreshToken });
+      await saveCredential(this.config, credential);
+      return this.send(path, body, credential.accessToken, method);
+    }
   }
 }
