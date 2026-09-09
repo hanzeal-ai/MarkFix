@@ -1,91 +1,20 @@
+import type {
+  AnnotationKind,
+  AnnotationStatus,
+  CommercialAnnotation,
+  OverviewProject,
+} from '@markfix/contracts';
+export type {
+  AnnotationKind,
+  AnnotationStatus,
+  CommercialAnnotation,
+  CommercialBootstrap,
+  CommercialOverview,
+  OverviewProject,
+  OverviewUser,
+  PaginatedAnnotations,
+} from '@markfix/contracts';
 export type AdminView = 'overview' | 'projects' | 'users';
-export type AnnotationStatus = 'OPEN' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED';
-export type AnnotationKind = 'ELEMENT' | 'SCREENSHOT' | 'COMMENT';
-
-export type CommercialAnnotation = {
-  id: string;
-  referenceCode: string;
-  projectId: string;
-  authorId: string | null;
-  author: { id: string; displayName: string; email: string } | null;
-  title: string;
-  note: string;
-  kind: AnnotationKind;
-  pageUrl: string;
-  screenshotUrl: string | null;
-  status: AnnotationStatus;
-  rejectionReason: string | null;
-  history: Array<{
-    id: string;
-    action: 'SUBMITTED' | 'REJECTED' | 'RESUBMITTED' | 'STATUS_CHANGED';
-    status: AnnotationStatus;
-    note: string | null;
-    screenshotUrl: string | null;
-    reason: string | null;
-    actor: { id: string; displayName: string; email: string } | null;
-    createdAt: string;
-  }>;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type OverviewProject = {
-  id: string;
-  workspaceId: string;
-  name: string;
-  baseUrl: string | null;
-  category: string;
-  annotationCount: number;
-  pendingCount: number;
-  rejectedCount: number;
-  resolvedCount: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type OverviewUser = {
-  id: string;
-  displayName: string;
-  email: string;
-  role: string;
-  annotationCount: number;
-  rejectedCount: number;
-  projectCategories: Array<{ category: string; count: number }>;
-};
-
-export type CommercialOverview = {
-  metrics: { projects: number; annotations: number; pending: number; rejected: number };
-  projects: OverviewProject[];
-  users: OverviewUser[];
-};
-
-export type CommercialBootstrap = {
-  user: {
-    id: string;
-    email: string;
-    displayName: string;
-    emailVerified: boolean;
-    createdAt: string;
-    updatedAt: string;
-  };
-  workspaces: Array<{
-    id: string;
-    name: string;
-    role: string;
-    createdAt: string;
-    updatedAt: string;
-  }>;
-  workspaceId: string;
-  overview: CommercialOverview;
-};
-
-export type PaginatedAnnotations = {
-  items: CommercialAnnotation[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
-
 export type EditorState =
   | { mode: 'create'; annotation?: undefined }
   | { mode: 'view' | 'edit' | 'reject'; annotation: CommercialAnnotation };

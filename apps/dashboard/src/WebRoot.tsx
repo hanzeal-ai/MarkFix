@@ -6,9 +6,6 @@ const MarketingSite = lazy(() =>
 const AdminEntry = lazy(() =>
   import('./admin/AdminEntry.js').then((module) => ({ default: module.AdminEntry })),
 );
-const AdminLogin = lazy(() =>
-  import('./admin/AdminLogin.js').then((module) => ({ default: module.AdminLogin })),
-);
 const DocsPage = lazy(() =>
   import('./marketing/CommercialPages.js').then((module) => ({ default: module.DocsPage })),
 );
@@ -23,8 +20,6 @@ export function WebRoot() {
   const pathname = window.location.pathname;
   const page = pathname.startsWith('/app') ? (
     <AdminEntry />
-  ) : pathname === '/login' ? (
-    <AdminLogin />
   ) : pathname === '/docs' ? (
     <DocsPage />
   ) : pathname === '/pricing' ? (

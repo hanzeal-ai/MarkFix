@@ -1,4 +1,4 @@
-import { Badge } from '@markfix/ui';
+import { Badge, Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@markfix/ui';
 import type { CircleDot } from '@markfix/ui/icons';
 import { statusText, type AnnotationStatus } from '../model';
 
@@ -20,10 +20,14 @@ export function EmptyState({
   description?: string;
 }) {
   return (
-    <div className="admin-empty">
-      <Icon />
-      <strong>{title}</strong>
-      {description && <p>{description}</p>}
-    </div>
+    <Empty className="admin-empty">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Icon />
+        </EmptyMedia>
+        <EmptyTitle>{title}</EmptyTitle>
+        {description && <EmptyDescription>{description}</EmptyDescription>}
+      </EmptyHeader>
+    </Empty>
   );
 }

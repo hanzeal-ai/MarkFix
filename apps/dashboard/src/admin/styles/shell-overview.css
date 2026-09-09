@@ -457,7 +457,7 @@ button.dimension-row:hover {
 .dimension-main,
 .dimension-stat,
 .progress-cell,
-.user-identity > span,
+.user-identity > span:not([data-slot='avatar']),
 .sheet-heading-line,
 .annotation-row-top,
 .annotation-row-bottom {
@@ -505,8 +505,8 @@ button.dimension-row:hover {
   gap: 9px;
 }
 
-.progress-cell > span,
-.project-progress > span {
+.progress-cell > [data-slot='progress'],
+.project-progress > [data-slot='progress'] {
   height: 5px;
   flex: 1;
   overflow: hidden;
@@ -514,8 +514,8 @@ button.dimension-row:hover {
   background: #ececf0;
 }
 
-.progress-cell i,
-.project-progress i {
+.progress-cell [data-slot='progress-indicator'],
+.project-progress [data-slot='progress-indicator'] {
   height: 100%;
   display: block;
   border-radius: inherit;

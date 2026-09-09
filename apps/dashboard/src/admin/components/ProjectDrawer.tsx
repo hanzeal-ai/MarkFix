@@ -22,6 +22,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Avatar,
+  AvatarFallback,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -202,7 +204,7 @@ export function ProjectDrawer({
                     <AlertDescription>{annotations.error.message}</AlertDescription>
                   </Alert>
                 )}
-                {!annotations.isPending && !visibleAnnotations.length && (
+                {!annotations.isPending && !annotations.isError && !visibleAnnotations.length && (
                   <EmptyState icon={MessageSquareText} title="没有符合条件的标注" />
                 )}
                 {visibleAnnotations.map((annotation) => (
@@ -249,9 +251,11 @@ export function ProjectDrawer({
                         >
                           <p className="annotation-row-note">{annotation.note}</p>
                           <div className="annotation-row-bottom">
-                            <span className="mini-avatar">
-                              {annotation.author?.displayName.slice(0, 1) ?? '?'}
-                            </span>
+                            <Avatar className="mini-avatar">
+                              <AvatarFallback className="bg-transparent text-inherit">
+                                {annotation.author?.displayName.slice(0, 1) ?? '?'}
+                              </AvatarFallback>
+                            </Avatar>
                             <span>{annotation.author?.displayName ?? '未知成员'}</span>
                             <span className="annotation-submitted-at">
                               <Clock3 />

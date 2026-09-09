@@ -1,3 +1,4 @@
+import { Avatar, AvatarFallback } from '@markfix/ui';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -14,7 +15,10 @@ import {
 } from '@markfix/ui';
 import { FolderKanban, LayoutDashboard, LogOut, Users } from '@markfix/ui/icons';
 import { adminApi, commercialRequest } from './api';
-import { OverviewView, ProjectDrawer, ProjectsView, UsersView } from './AdminViews';
+import { OverviewView } from './OverviewView';
+import { ProjectsView } from './ProjectsView';
+import { UsersView } from './UsersView';
+import { ProjectDrawer } from './components/ProjectDrawer';
 import {
   type AdminView,
   type CommercialBootstrap,
@@ -133,7 +137,11 @@ export function AdminApp() {
           </Button>
         </nav>
         <div className="admin-profile">
-          <span className="user-symbol">{bootstrap.data?.user.displayName.slice(0, 1) ?? 'M'}</span>
+          <Avatar className="user-symbol">
+            <AvatarFallback className="bg-transparent text-inherit">
+              {bootstrap.data?.user.displayName.slice(0, 1) ?? 'M'}
+            </AvatarFallback>
+          </Avatar>
           <span>
             <strong>{bootstrap.data?.user.displayName ?? 'MarkFix 用户'}</strong>
             <small>{bootstrap.data?.user.email ?? ''}</small>

@@ -87,8 +87,7 @@
     overflow-x: auto;
   }
 
-  .users-table-head,
-  .users-table-row {
+  .users-table {
     min-width: 660px;
   }
 }
