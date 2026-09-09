@@ -12,6 +12,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
   pnpm install --filter @markfix/dashboard... --frozen-lockfile --trust-lockfile
 COPY tsconfig.json tsconfig.json
 COPY apps/dashboard apps/dashboard
+COPY apps/desktop/package.json apps/desktop/package.json
 COPY packages/api-client packages/api-client
 COPY packages/contracts packages/contracts
 COPY packages/ui packages/ui
@@ -23,7 +24,8 @@ EXPOSE 4311
 CMD ["pnpm", "--filter", "@markfix/dashboard", "dev"]
 
 FROM workspace AS build
-RUN pnpm --filter @markfix/dashboard build
+# The desktop manifest is copied only for its version; do not materialize the desktop workspace.
+RUN cd apps/dashboard && ../../node_modules/.bin/tsc -b && ./node_modules/.bin/vite build
 
 FROM nginx:1.29-alpine
 COPY --from=build /app/apps/dashboard/dist /usr/share/nginx/html
