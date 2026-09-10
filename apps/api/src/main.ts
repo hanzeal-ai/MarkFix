@@ -1,3 +1,4 @@
+import { apiServiceUrls } from './service-config.js';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -18,7 +19,7 @@ app
     done(null, body),
   );
 app.enableCors({
-  origin: (process.env.MARKFIX_DASHBOARD_ORIGIN ?? 'http://localhost:4311').split(','),
+  origin: [apiServiceUrls().origin],
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,
 });

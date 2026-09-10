@@ -22,7 +22,6 @@ if [[ ! -f "$MARKFIX_ENV_FILE" ]]; then
 POSTGRES_PASSWORD=$password
 DATABASE_URL=postgresql://markfix:$password@postgres:5432/markfix?schema=public
 MARKFIX_AUTH_SECRET=$(openssl rand -hex 48)
-MARKFIX_DASHBOARD_ORIGIN=http://121.40.211.86:8766
 MARKFIX_DEMO_EMAIL=admin@markfix.local
 MARKFIX_DEMO_PASSWORD=$(openssl rand -hex 16)
 EOF

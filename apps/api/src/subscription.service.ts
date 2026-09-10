@@ -1,3 +1,4 @@
+import { apiServiceUrls } from './service-config.js';
 import { ConflictException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { DatabaseService } from './database.service.js';
 
@@ -49,7 +50,7 @@ export class SubscriptionService {
       upgraded: false,
       alreadyUpgraded: false,
       upgradeRequested: true,
-      upgradeUrl: `${process.env.MARKFIX_DASHBOARD_ORIGIN ?? 'http://localhost:4311'}/pricing`,
+      upgradeUrl: `${apiServiceUrls().origin}/pricing`,
     };
   }
 

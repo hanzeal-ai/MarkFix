@@ -626,3 +626,5 @@ export type WebsiteProject = z.infer<typeof websiteProjectSchema>;
 export * from './commercial.js';
 
 export * from './agent.js';
+
+export * from './service-config.js';

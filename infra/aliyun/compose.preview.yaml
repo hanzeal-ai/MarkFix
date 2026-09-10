@@ -38,6 +38,7 @@ services:
     env_file: ${MARKFIX_ENV_FILE:?Set MARKFIX_ENV_FILE}
     environment:
       NODE_ENV: development
+      MARKFIX_SERVICE_MODE: production
       PORT: 4310
       ARTIFACT_DIR: /data/artifacts
       MARKFIX_EXPOSE_AUTH_TOKENS: 'false'

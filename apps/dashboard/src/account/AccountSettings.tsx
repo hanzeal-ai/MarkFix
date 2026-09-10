@@ -1,3 +1,4 @@
+import { dashboardServiceUrls } from '../service-config';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { AuthUser } from '@markfix/api-client';
 import { MarkFixApi } from '@markfix/api-client';
@@ -5,7 +6,7 @@ import { Alert, AlertDescription, Button, Card, Checkbox, Input, Label } from '@
 import { ArrowLeft, Download, LoaderCircle, Trash2, UserRound } from '@markfix/ui/icons';
 import './account-settings.css';
 
-const api = new MarkFixApi(import.meta.env.VITE_API_URL ?? 'http://localhost:4310');
+const api = new MarkFixApi(dashboardServiceUrls().apiOrigin);
 
 export function AccountSettings(): React.JSX.Element {
   const [user, setUser] = useState<AuthUser>();

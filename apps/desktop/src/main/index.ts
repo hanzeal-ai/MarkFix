@@ -271,11 +271,7 @@ const desktopUpdater = new DesktopUpdater(
   () => {
     if (!app.isPackaged || process.platform !== 'darwin')
       throw new Error('自动更新仅适用于已安装的 macOS 正式版本。');
-    return desktopUpdateFeedUrl(
-      services.apiOrigin,
-      app.getVersion(),
-      process.arch,
-    );
+    return desktopUpdateFeedUrl(services.apiOrigin, app.getVersion(), process.arch);
   },
   (status) => {
     mainWindow?.webContents.send(desktopUpdateChannels.changed, status);
@@ -827,17 +823,11 @@ const registerIpc = (): void => {
   });
   ipcMain.handle('website:open-official', async (event) => {
     assertShellSender(event);
-    await promisify(execFile)('/usr/bin/open', [
-      '-a',
-      'Google Chrome',
-      services.origin,
-    ]);
+    await promisify(execFile)('/usr/bin/open', ['-a', 'Google Chrome', services.origin]);
   });
   ipcMain.handle(accountPageChannel, async (event, page: unknown) => {
     if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted account page sender');
-    await shell.openExternal(
-      accountPageUrl(page, services.origin),
-    );
+    await shell.openExternal(accountPageUrl(page, services.origin));
   });
   ipcMain.handle(ipcChannels.authStatus, async (event) => {
     assertShellSender(event);

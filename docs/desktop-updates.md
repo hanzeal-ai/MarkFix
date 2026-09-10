@@ -27,7 +27,7 @@ API 进程配置：
 ## 正式包与发布顺序
 
 1. 准备 Developer ID Application 签名身份和 Apple 公证凭据，保存在系统钥匙串或 CI Secrets 中。初装包和更新包必须使用可相互验证的同一签名身份，保持 appId `com.markfix.desktop`。不能把未签名或临时签名演示包视为自动更新验收基线。
-2. 更新 `apps/desktop/package.json` 的版本号，设置 `MAIN_VITE_API_URL` 为正式 HTTPS API，运行 `pnpm --filter @markfix/desktop package:mac:release`。此命令要求签名、启用 hardened runtime 和公证，不会上传产物；指定目标架构须使用 electron-builder 的 `--arm64` / `--x64` 参数执行同等正式构建。普通 `package:mac` 仅用于已有演示打包。
+2. 更新 `apps/desktop/package.json` 的版本号，将共享服务配置中的 `productionOrigin` 设置为正式 HTTPS 地址，运行 `pnpm --filter @markfix/desktop package:mac:release`。此命令要求签名、启用 hardened runtime 和公证，不会上传产物；指定目标架构须使用 electron-builder 的 `--arm64` / `--x64` 参数执行同等正式构建。普通 `package:mac` 仅用于已有演示打包。
 3. 验证 DMG 与 ZIP 中的应用签名、公证和实际版本。将 ZIP 上传到不可变、带版本和架构的 HTTPS 地址，验证匿名下载与完整文件大小。不得覆盖一个已发布版本的安装包。
 4. 先部署新增 API 端点并配置包地址，确认下载可用，再提升推荐版本。只在确有兼容性要求时提高最低版本。当前演示 Compose 没有转发上述变量，运维启用时须显式加入 API 容器环境，不能仅写入宿主机环境。
 5. 用已签名的旧版正式安装包进行一次真实升级：点击后不再操作，确认旧进程退出、新进程自动打开、版本提升，LOCAL 数据和 CLOUD 标注仍可访问。分别验证网络失败、错误签名、当前版本、ARM/Intel 路由。

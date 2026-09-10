@@ -1,3 +1,4 @@
+import { dashboardServiceUrls, cliSetupCommand } from '../service-config';
 import { useEffect, useState, type ReactNode } from 'react';
 import { MarkFixApi } from '@markfix/api-client';
 import { version as desktopVersion } from '../../../desktop/package.json';
@@ -132,7 +133,12 @@ export function DocsPage() {
             </figure>
           </article>
           <ShortcutGuide />
-          <CliGuide />
+          <CliGuide setupCommand={cliSetupCommand()}>
+            {new URL(dashboardServiceUrls().apiOrigin).protocol === 'http:' &&
+              !['localhost', '127.0.0.1', '[::1]'].includes(
+                new URL(dashboardServiceUrls().apiOrigin).hostname,
+              ) && <p>当前服务使用 HTTP，CLI 授权需要服务启用 HTTPS 后才能使用。</p>}
+          </CliGuide>
           <article id="projects">
             <span>05</span>
             <h2>项目管理</h2>
@@ -193,7 +199,7 @@ export function DownloadPage() {
   }>({ version: desktopVersion, state: 'loading' });
   useEffect(() => {
     let active = true;
-    const api = new MarkFixApi(import.meta.env.VITE_API_URL ?? 'http://localhost:4310');
+    const api = new MarkFixApi(dashboardServiceUrls().apiOrigin);
     void api
       .clientPolicy(desktopVersion, 'darwin', 'arm64')
       .then((policy) => {

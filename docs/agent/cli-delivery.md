@@ -67,7 +67,7 @@ Agent 检查使用真实 CLI 子进程、API 和 PostgreSQL，覆盖安装授权
 浏览器端到端验收使用隔离的 Electron 浏览器与真实 API：
 
 ```sh
-VITE_API_URL=http://127.0.0.1:14311 pnpm --filter @markfix/dashboard exec vite build --outDir /tmp/markfix-agent-ui-dist
+MARKFIX_SERVICE_ORIGIN=http://127.0.0.1:14311 pnpm --filter @markfix/dashboard exec vite build --outDir /tmp/markfix-agent-ui-dist
 MARKFIX_TEST_DASHBOARD_DIST=/tmp/markfix-agent-ui-dist MARKFIX_BROWSER_SMOKE=true TEST_DATABASE_URL=postgresql://markfix:markfix@127.0.0.1:5432/markfix_agent_audit pnpm --filter @markfix/api exec tsx scripts/verify-agent-flow.ts
 ```
 
@@ -94,7 +94,7 @@ R1：项目名右侧的 shadcn 三点菜单提供“绑定项目 / 删除项目�
 浏览器绑定写入烟测使用同源测试构建，避免测试工具的跨域重定向阻断预检请求：
 
 ```sh
-VITE_API_URL='' pnpm --filter @markfix/dashboard exec vite build --outDir /tmp/markfix-binding-ui-dist
+MARKFIX_SERVICE_ORIGIN='' pnpm --filter @markfix/dashboard exec vite build --outDir /tmp/markfix-binding-ui-dist
 MARKFIX_TEST_DASHBOARD_DIST=/tmp/markfix-binding-ui-dist MARKFIX_AUDIT_SURFACES=true pnpm --filter @markfix/desktop exec electron scripts/smoke-dashboard-components.mjs
 MARKFIX_AGENT_SMOKE=true pnpm --filter @markfix/desktop exec electron scripts/smoke-account-ui.mjs
 ```

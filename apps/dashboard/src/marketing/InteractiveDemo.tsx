@@ -1,3 +1,4 @@
+import { dashboardServiceUrls } from '../service-config';
 import { useRef, useState, type ReactNode } from 'react';
 import {
   ArrowLeft,
@@ -212,7 +213,7 @@ export function InteractiveDemo() {
             </button>
           </div>
           <div className="mf-demo-address">
-            <span /> markfix.hanzeal.com/{page === 'home' ? '' : page}
+            <span /> {new URL(dashboardServiceUrls().origin).host}/{page === 'home' ? '' : page}
           </div>
           <ToggleGroup
             className="mf-demo-modes"

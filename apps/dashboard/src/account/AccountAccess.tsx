@@ -1,3 +1,4 @@
+import { dashboardServiceUrls } from '../service-config';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ArrowRight, CheckCircle2 } from '@markfix/ui/icons';
 import {
@@ -13,7 +14,7 @@ import {
 import { MarkFixApi } from '@markfix/api-client';
 import './account-access.css';
 
-const api = new MarkFixApi(import.meta.env.VITE_API_URL ?? 'http://localhost:4310');
+const api = new MarkFixApi(dashboardServiceUrls().apiOrigin);
 
 type AccountMode = 'login' | 'register' | 'verify' | 'forgot' | 'reset' | 'invite';
 

@@ -1,3 +1,4 @@
+import { apiServiceUrls } from '../service-config.js';
 import {
   Body,
   Controller,
@@ -62,7 +63,7 @@ export class AgentController {
     @Body() body: unknown,
   ) {
     this.limits.consume('agent-decision', user.id, 30, 600_000);
-    const allowed = (process.env.MARKFIX_DASHBOARD_ORIGIN ?? 'http://localhost:4311').split(',');
+    const allowed = [apiServiceUrls().origin];
     if (!origin || !allowed.includes(origin))
       throw new ForbiddenException('Authorize from the MarkFix website');
     return this.auth.decide(user.id, body);

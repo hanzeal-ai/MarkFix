@@ -111,7 +111,7 @@ export class MarkFixApi {
   private refreshToken: string | undefined;
   private refreshInFlight: Promise<AuthTokens | { expiresIn: number }> | undefined;
 
-  constructor(private readonly baseUrl = 'http://localhost:4310') {}
+  constructor(private readonly baseUrl: string) {}
 
   setTokens(tokens?: { accessToken: string; refreshToken?: string }): void {
     this.accessToken = tokens?.accessToken;

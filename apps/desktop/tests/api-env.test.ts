@@ -1,13 +1,15 @@
-import { fileURLToPath } from 'node:url';
-import { loadEnv } from 'electron-vite';
 import { expect, it } from 'vitest';
+import { serviceConfig, serviceUrls } from '@markfix/contracts';
+import { accountPageUrl } from '../src/account-pages.js';
+import { desktopUpdateFeedUrl } from '../src/desktop-update.js';
 
-it('loads separate desktop API defaults for development and production', () => {
-  const desktopDir = fileURLToPath(new URL('..', import.meta.url));
-  expect(loadEnv('development', desktopDir, 'MAIN_VITE_').MAIN_VITE_API_URL).toBe(
-    'http://localhost:4310',
-  );
-  expect(loadEnv('production', desktopDir, 'MAIN_VITE_').MAIN_VITE_API_URL).toBe(
-    'http://121.40.211.86:8766',
+it('uses the shared deployed origin for API, account pages and updates', () => {
+  const defaults = serviceUrls('production');
+  expect(defaults.origin).toBe(serviceConfig.productionOrigin);
+  expect(defaults.apiOrigin).toBe(defaults.origin);
+  const services = serviceUrls('production', 'https://new-markfix.example');
+  expect(accountPageUrl('register', services.origin)).toBe(`${services.apiOrigin}/register`);
+  expect(desktopUpdateFeedUrl(services.apiOrigin, '0.1.0', 'arm64')).toBe(
+    `${services.origin}/v1/desktop-updates?version=0.1.0&platform=darwin&arch=arm64`,
   );
 });

@@ -1,3 +1,4 @@
+import { apiServiceUrls } from './service-config.js';
 import { AgentController } from './agent/agent.controller.js';
 import { AgentAuthService } from './agent/agent-auth.service.js';
 import { AgentProjectService } from './agent/agent-project.service.js';
@@ -27,7 +28,7 @@ const emailProvider = {
       return new WebhookEmailAdapter(
         endpoint,
         process.env.MARKFIX_EMAIL_WEBHOOK_API_KEY,
-        process.env.MARKFIX_DASHBOARD_ORIGIN ?? 'http://localhost:4311',
+        apiServiceUrls().origin,
       );
     }
     if (process.env.NODE_ENV === 'production') {

@@ -42,7 +42,6 @@ jobs:
     permissions:
       contents: write
     env:
-      MAIN_VITE_API_URL: ${{ vars.MAIN_VITE_API_URL }}
       CSC_LINK: ${{ secrets.CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -57,7 +56,7 @@ jobs:
       - name: Validate release configuration and new version
         run: |
           set -euo pipefail
-          for key in MAIN_VITE_API_URL CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+          for key in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
             if [[ -z "${!key:-}" ]]; then
               echo "::error::Missing release configuration: $key"
               exit 1
@@ -153,7 +152,6 @@ jobs:
           push: true
           # ACR personal edition rejects Buildx provenance attestations.
           provenance: false
-          build-args: VITE_API_URL=
           tags: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-dashboard:${{ github.sha }}
           cache-from: type=gha,scope=dashboard
           cache-to: type=gha,mode=max,scope=dashboard

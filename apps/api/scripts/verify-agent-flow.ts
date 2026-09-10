@@ -21,7 +21,7 @@ process.env.NODE_ENV = 'test';
 delete process.env.MARKFIX_DEMO_PASSWORD;
 const output = await mkdtemp(join(tmpdir(), 'markfix-agent-flow-'));
 process.env.ARTIFACT_DIR = join(output, 'artifacts');
-process.env.MARKFIX_DASHBOARD_ORIGIN = 'http://127.0.0.1:14311';
+process.env.MARKFIX_SERVICE_ORIGIN = 'http://127.0.0.1:14311';
 const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
   logger: false,
 });

@@ -1,6 +1,7 @@
+import { dashboardServiceUrls } from '../service-config';
 import { MarkFixApi } from '@markfix/api-client';
 
-const adminApiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:4310';
+const adminApiBaseUrl = dashboardServiceUrls().apiOrigin;
 
 export const adminApi = new MarkFixApi(adminApiBaseUrl);
 

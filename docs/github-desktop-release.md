@@ -6,7 +6,7 @@
 
 ## 仓库配置
 
-- Actions Variable `MAIN_VITE_API_URL`：正式 HTTPS API 地址。
+- `packages/contracts/src/service-config.ts` 的 `productionOrigin`：正式 HTTPS 网站/API 地址，与服务端共用。
 - Actions Secrets `CSC_LINK`：Developer ID Application 签名证书的 base64 编码 P12。
 - `CSC_KEY_PASSWORD`：P12 密码。
 - `APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`：Apple 公证凭据。

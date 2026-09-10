@@ -1,3 +1,4 @@
+import { apiServiceUrls } from '../service-config.js';
 import {
   agentRefreshSchema,
   agentTokenSchema,
@@ -44,7 +45,7 @@ export class AgentAuthService {
     await this.db.agentDeviceRequest.create({
       data: { ...data, deviceCodeHash: hashOpaqueToken(deviceCode), userCode, expiresAt },
     });
-    const origin = (process.env.MARKFIX_DASHBOARD_ORIGIN ?? 'http://localhost:4311').split(',')[0];
+    const origin = apiServiceUrls().origin;
     return {
       deviceCode,
       userCode,

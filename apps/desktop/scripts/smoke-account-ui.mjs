@@ -231,6 +231,11 @@ app.on('browser-window-created', (_event, win) => {
         });
         console.log('PASS help menu and Chrome website launch command');
       }
+      if (process.env.MARKFIX_SERVICE_SMOKE) {
+        clearTimeout(timeout);
+        server.close();
+        return app.quit();
+      }
 
       await run(
         `document.querySelector('[role="radio"][data-value="LOCAL"]').click();qa.fill(document.querySelector('#new-project-url'),'javascript:alert(1)')`,

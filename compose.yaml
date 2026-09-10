@@ -34,7 +34,6 @@ services:
       NODE_ENV: development
       PORT: 4310
       MARKFIX_AUTH_SECRET: change-this-before-production
-      MARKFIX_DASHBOARD_ORIGIN: http://localhost:4311
       MARKFIX_DEMO_EMAIL: admin@markfix.local
       MARKFIX_DEMO_PASSWORD: markfix-admin
       MARKFIX_MINIMUM_DESKTOP_VERSION: 0.1.0
@@ -63,10 +62,7 @@ services:
       context: .
       dockerfile: infra/Dockerfile.dashboard
       target: development
-      args:
-        VITE_API_URL: http://localhost:4310
     environment:
-      VITE_API_URL: http://localhost:4310
       CHOKIDAR_USEPOLLING: 'true'
     ports:
       - '4311:4311'
