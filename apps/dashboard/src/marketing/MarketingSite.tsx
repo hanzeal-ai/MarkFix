@@ -1,192 +1,244 @@
 import {
   ArrowRight,
-  Layers3,
-  Camera,
+  ArrowUpRight,
   Check,
-  Download,
-  FolderKanban,
-  MessageSquareText,
+  Code2,
+  Crosshair,
+  Layers3,
+  ShieldCheck,
 } from '@markfix/ui/icons';
-import { Badge, Button, Card } from '@markfix/ui';
-import { MarketingHeroContent } from './MarketingContent';
+import { Button } from '@markfix/ui';
 import { InteractiveDemo } from './InteractiveDemo';
 import { SiteFooter, SiteHeader } from './SiteChrome';
+import { WorkflowPreview } from './WorkflowPreview';
 import './premium-marketing.css';
-
-const capabilities = [
-  {
-    icon: MessageSquareText,
-    index: '01',
-    title: '元素级批注',
-    description:
-      '像在 Word 中批注一样，点选网页元素并写下修改建议。再次打开记录，回到对应页面位置。',
-    image: '/marketing/element-annotation.png',
-    imageAlt: 'MarkFix 元素批注界面，页面元素与右侧批注内容保持关联',
-    imageWidth: 1440,
-    imageHeight: 900,
-  },
-  {
-    icon: Camera,
-    index: '02',
-    title: '设计走查与截图标记',
-    description: '框选页面区域，使用矩形、椭圆、箭头、画笔、文字、马赛克和序号说明问题。',
-    image: '/marketing/screenshot-editor.png',
-    imageAlt: 'MarkFix 截图编辑界面，包含区域选择和完整标记工具栏',
-    imageWidth: 1440,
-    imageHeight: 900,
-  },
-  {
-    icon: FolderKanban,
-    index: '03',
-    title: '项目化管理',
-    description:
-      '从项目侧栏切换网站，为不同页面分别保留标注。本地项目在本机保存，云端项目用于项目成员协作。',
-    image: '/marketing/project-management.png',
-    imageAlt: '当前 MarkFix 桌面端项目侧栏与网站项目',
-    imageWidth: 1440,
-    imageHeight: 900,
-  },
-  {
-    icon: Layers3,
-    index: '04',
-    title: '统一预览与提交',
-    description: '元素批注、截图与调试证据在同一预览区编号。提交前勾选记录，检查内容后再确认。',
-    image: '/marketing/annotation-review.png',
-    imageAlt: '当前 MarkFix 桌面端提交预览窗口，可勾选批注与截图记录',
-    imageWidth: 1100,
-    imageHeight: 768,
-  },
-];
+import './product-home.css';
 
 export function MarketingSite() {
-  const experienceDemo = () =>
-    document.querySelector('#experience')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
   return (
-    <div className="premium-site">
+    <div className="premium-site product-home">
       <SiteHeader />
       <main>
-        <section className="premium-hero">
-          <MarketingHeroContent onExperience={experienceDemo} />
-        </section>
-
-        <section className="premium-capability-section" id="product">
-          <div className="premium-editorial-heading">
-            <span>One product, complete context</span>
-            <h2>从指出问题，到确认修复。</h2>
-            <p>每项能力都围绕同一件事：让反馈准确进入开发流程。</p>
+        <section className="home-intro">
+          <div className="home-intro-copy">
+            <a className="home-announcement" href="/docs#agent">
+              <span /> 现已支持 Codex 接入 <ArrowUpRight size={14} />
+            </a>
+            <h1>
+              网页上的问题，
+              <br />
+              在这里走向解决。
+            </h1>
+            <div className="home-intro-bottom">
+              <p>
+                直接在网页上批注、标记截图。
+                <br />
+                把准确的上下文交给研发或 Codex，让反馈有始有终。
+              </p>
+              <div className="home-actions">
+                <Button asChild>
+                  <a href="/download">
+                    下载桌面端 <ArrowRight />
+                  </a>
+                </Button>
+                <a href="#experience">
+                  在线体验 <ArrowUpRight size={16} />
+                </a>
+              </div>
+            </div>
           </div>
-          <div className="premium-capability-grid">
-            {capabilities.map(
-              ({
-                icon: Icon,
-                index,
-                title,
-                description,
-                image,
-                imageAlt,
-                imageWidth,
-                imageHeight,
-              }) => (
-                <article key={index}>
-                  <div className="premium-capability-meta">
-                    <span>{index}</span>
-                    <Icon />
-                  </div>
-                  <figure className="premium-capability-visual">
-                    <img
-                      alt={imageAlt}
-                      decoding="async"
-                      height={imageHeight}
-                      loading="lazy"
-                      src={image}
-                      width={imageWidth}
-                    />
-                  </figure>
-                  <div className="premium-capability-copy">
-                    <h3>{title}</h3>
-                    <p>{description}</p>
-                  </div>
-                </article>
-              ),
-            )}
+          <WorkflowPreview />
+          <div className="home-audience">
+            <span>为产品、设计与研发之间的协作而造</span>
+            <span>
+              网页批注 <i /> 截图标记 <i /> Agent 接入
+            </span>
           </div>
         </section>
 
-        <section className="experience-section" id="experience">
-          <div className="premium-demo-heading">
-            <span>Live product demo</span>
-            <h2>直接在这里体验。</h2>
-            <p>点选元素、输入备注，或切换截图模式拖拽标记。体验记录不会上传，刷新后清空。</p>
+        <section className="home-workflow" id="product">
+          <div className="home-section-heading">
+            <span className="home-eyebrow">01 / 从反馈到行动</span>
+            <h2>
+              少一次解释。
+              <br />
+              多一分确定。
+            </h2>
+            <p>
+              反馈不该停在聊天截图里。
+              <br />
+              从指出具体位置，到交接问题，再到查看修复结果。
+            </p>
+          </div>
+          <div className="home-steps">
+            <article>
+              <Crosshair />
+              <span>标注</span>
+              <h3>
+                问题在哪里，
+                <br />
+                就在那个位置说明。
+              </h3>
+              <p>点选页面元素写批注，或框选截图标记细节。再次打开记录，回到对应页面位置。</p>
+              <a href="#experience">
+                体验网页标注 <ArrowUpRight />
+              </a>
+            </article>
+            <article>
+              <Layers3 />
+              <span>交接</span>
+              <h3>
+                把上下文一起交付，
+                <br />
+                让研发接得住。
+              </h3>
+              <p>批注、截图与调试证据统一预览。按项目整理，检查并选择需要提交的记录。</p>
+              <a href="/docs#projects">
+                了解项目管理 <ArrowUpRight />
+              </a>
+            </article>
+            <article>
+              <Code2 />
+              <span>修复</span>
+              <h3>
+                连接代码仓库，
+                <br />
+                让反馈进入修复流程。
+              </h3>
+              <p>授权 Codex 获取对应项目的标注，处理后回传结果。未能修复的问题保留失败原因。</p>
+              <a href="/docs#agent">
+                阅读接入指南 <ArrowUpRight />
+              </a>
+            </article>
+          </div>
+        </section>
+
+        <section className="home-agent">
+          <div className="home-agent-copy">
+            <span className="home-eyebrow">02 / 与开发工具连接</span>
+            <h2>
+              反馈有上下文。
+              <br />
+              Agent 才有方向。
+            </h2>
+            <p>
+              将标注项目绑定到代码仓库，在 Codex
+              会话中获取对应问题。修复完成后，结果回到同一个项目。
+            </p>
+            <ul>
+              <li>
+                <Check /> 通过 MarkFix 授权，按项目权限访问
+              </li>
+              <li>
+                <Check /> 按仓库匹配，也可手动选择标注项目
+              </li>
+              <li>
+                <Check /> 修复成功或失败，均可追踪处理结果
+              </li>
+            </ul>
+            <a href="/docs#agent">
+              接入 Codex <ArrowRight />
+            </a>
+          </div>
+          <div className="home-agent-example" aria-label="Codex 修复流程示意">
+            <div className="home-terminal-top">
+              <Code2 size={16} />
+              <span>Codex · 当前项目</span>
+              <span>流程示例</span>
+            </div>
+            <div className="home-prompt">
+              获取当前项目的 MarkFix 标注，
+              <br />
+              修复问题并回传结果。
+            </div>
+            <ol>
+              <li>
+                <span>01</span>
+                <div>
+                  <strong>匹配项目</strong>
+                  <p>通过已绑定的仓库找到标注项目</p>
+                </div>
+              </li>
+              <li>
+                <span>02</span>
+                <div>
+                  <strong>读取问题与上下文</strong>
+                  <p>查看批注、截图和修改建议</p>
+                </div>
+              </li>
+              <li>
+                <span>03</span>
+                <div>
+                  <strong>修复并验证</strong>
+                  <p>在代码仓库中处理对应问题</p>
+                </div>
+              </li>
+              <li>
+                <Check size={16} />
+                <div>
+                  <strong>回传处理结果</strong>
+                  <p>成功标记完成，失败说明原因</p>
+                </div>
+              </li>
+            </ol>
+            <a href="/docs#cli-install">
+              查看安装与授权步骤 <ArrowUpRight size={15} />
+            </a>
+          </div>
+        </section>
+
+        <section className="home-demo" id="experience">
+          <div className="home-section-heading">
+            <span className="home-eyebrow">03 / 亲手试一次</span>
+            <h2>指向问题。留下建议。</h2>
+            <p>
+              在下方页面点选元素，或切换到截图模式拖拽标记。
+              <br />
+              这是本地交互演示，记录不会上传，刷新后清空。
+            </p>
           </div>
           <InteractiveDemo />
         </section>
 
-        <section className="premium-pricing-home" id="pricing">
-          <div className="premium-editorial-heading">
-            <span>Simple pricing</span>
-            <h2>从个人使用，到团队协作。</h2>
+        <section className="home-boundaries">
+          <div>
+            <ShieldCheck />
+            <h2>
+              按项目协作。
+              <br />
+              由你决定如何保存。
+            </h2>
           </div>
-          <div className="premium-plan-row">
-            <Card className="premium-home-plan">
-              <div>
-                <span>个人版</span>
-                <Badge variant="secondary">本地优先</Badge>
-              </div>
-              <strong>免费</strong>
-              <p>适合个人开发者与独立设计师。</p>
-              <ul>
-                <li>
-                  <Check /> 3 个云端项目
-                </li>
-                <li>
-                  <Check /> 元素与截图标注
-                </li>
-                <li>
-                  <Check /> 本地项目独立保存在本机
-                </li>
-              </ul>
-              <Button variant="outline" onClick={() => window.location.assign('/download')}>
-                查看下载
-              </Button>
-            </Card>
-            <Card className="premium-home-plan is-featured">
-              <div>
-                <span>团队版</span>
-                <Badge>即将开放</Badge>
-              </div>
-              <strong>商业订阅</strong>
-              <p>面向需要统一管理反馈与进度的团队。</p>
-              <ul>
-                <li>
-                  <Check /> 团队成员与权限
-                </li>
-                <li>
-                  <Check /> 项目与用户统计
-                </li>
-                <li>
-                  <Check /> 标注处理与驳回
-                </li>
-              </ul>
-              <Button onClick={() => window.location.assign('/pricing')}>查看完整定价</Button>
-            </Card>
-          </div>
+          <article>
+            <h3>本地项目</h3>
+            <p>标注独立保存在本机，适合个人走查与整理。</p>
+          </article>
+          <article>
+            <h3>云端项目</h3>
+            <p>按项目成员与角色协作，集中查看问题和处理进度。</p>
+          </article>
+          <a href="/pricing">
+            查看版本与额度 <ArrowUpRight size={16} />
+          </a>
         </section>
-
-        <section className="premium-download-home">
-          <div>
-            <span>Desktop app</span>
-            <h2>在任意网站上，开始标注。</h2>
-            <p>MarkFix 桌面端承载完整的网页批注、截图编辑和项目提交体验。</p>
-          </div>
-          <div>
-            <Button size="lg" onClick={() => window.location.assign('/download')}>
-              <Download /> 前往下载
+        <section className="home-start">
+          <span className="home-eyebrow">MARK IT. FIX IT.</span>
+          <h2>
+            下一条反馈，
+            <br />
+            从指出问题开始。
+          </h2>
+          <div className="home-actions">
+            <Button asChild>
+              <a href="/download">
+                下载 MarkFix <ArrowRight />
+              </a>
             </Button>
             <a href="/docs">
-              先阅读文档 <ArrowRight />
+              阅读使用文档 <ArrowUpRight size={16} />
             </a>
           </div>
+          <p>macOS 桌面端 · 支持本地与云端项目</p>
         </section>
       </main>
       <SiteFooter />
