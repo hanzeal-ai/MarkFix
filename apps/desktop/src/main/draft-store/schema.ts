@@ -1,4 +1,5 @@
 export const draftStoreSchema = `
+  CREATE TABLE IF NOT EXISTS local_agent_state (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS outbox (
     id TEXT PRIMARY KEY,
     idempotency_key TEXT NOT NULL UNIQUE,

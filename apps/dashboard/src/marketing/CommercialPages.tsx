@@ -1,4 +1,4 @@
-import { dashboardServiceUrls, cliSetupCommand } from '../service-config';
+import { dashboardServiceUrls, cliFirstUseCommand } from '../service-config';
 import { useEffect, useState, type ReactNode } from 'react';
 import { MarkFixApi } from '@markfix/api-client';
 import { version as desktopVersion } from '../../../desktop/package.json';
@@ -16,6 +16,7 @@ import { MarketingPricingContent } from './MarketingContent';
 import { SiteFooter, SiteHeader } from './SiteChrome';
 import './premium-marketing.css';
 import { CliGuide } from './CliGuide';
+import { StorageGuide, DeveloperGuide } from './EnvironmentGuide';
 import { AnnotationShortcutHint, ShortcutGuide } from './ShortcutGuide';
 
 function PageShell({ children }: { children: ReactNode }) {
@@ -40,11 +41,13 @@ export function DocsPage() {
         <aside>
           <strong>开始使用</strong>
           <a href="#quick-start">快速开始</a>
+          <a href="#storage-mode">本地与云端</a>
           <a href="#elements">元素批注</a>
           <a href="#capture">截图标注</a>
           <a href="#shortcuts">快捷键</a>
           <a href="#agent">Codex 接入</a>
           <a href="#projects">项目管理</a>
+          <a href="#development">开发与构建</a>
         </aside>
         <div className="docs-content">
           <article id="quick-start">
@@ -61,6 +64,7 @@ export function DocsPage() {
               <li>在右侧确认标注，点击右上角提交按钮勾选记录</li>
             </ol>
           </article>
+          <StorageGuide />
           <article id="elements">
             <span>02</span>
             <h2>元素批注</h2>
@@ -133,12 +137,13 @@ export function DocsPage() {
             </figure>
           </article>
           <ShortcutGuide />
-          <CliGuide setupCommand={cliSetupCommand()}>
+          <CliGuide firstUseCommand={cliFirstUseCommand()}>
             {new URL(dashboardServiceUrls().apiOrigin).protocol === 'http:' &&
               !['localhost', '127.0.0.1', '[::1]'].includes(
                 new URL(dashboardServiceUrls().apiOrigin).hostname,
               ) && <p>当前服务使用 HTTP，CLI 授权需要服务启用 HTTPS 后才能使用。</p>}
           </CliGuide>
+          <DeveloperGuide />
           <article id="projects">
             <span>05</span>
             <h2>项目管理</h2>

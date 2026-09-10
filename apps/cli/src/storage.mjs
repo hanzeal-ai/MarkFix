@@ -7,7 +7,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import process from 'node:process';
 
-export const stateDirectory = () => process.env.MARKFIX_CLI_HOME ?? join(homedir(), '.markfix');
+export const stateDirectory = () => {
+  const root = process.env.MARKFIX_CLI_HOME ?? join(homedir(), '.markfix');
+  return process.argv.includes('--local') ? join(root, 'local') : root;
+};
 export async function readJson(path, fallback) {
   try {
     return JSON.parse(await readFile(path, 'utf8'));

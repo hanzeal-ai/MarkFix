@@ -31,6 +31,8 @@ declare global {
       updateStatus(): Promise<DesktopUpdateStatus>;
       onUpdateStatus(listener: (status: DesktopUpdateStatus) => void): () => void;
       openAccountPage(page: AccountPage): Promise<void>;
+      openLocalAgentSettings(): Promise<void>;
+      enterLocalMode(): Promise<void>;
       authStatus(): Promise<{
         authenticated: boolean;
         user?: { id: string; email: string; displayName: string };

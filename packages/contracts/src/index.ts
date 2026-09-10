@@ -373,6 +373,7 @@ export const webUrlSchema = z.url().refine((value) => {
 }, 'Only HTTP and HTTPS URLs are supported');
 
 const websiteProjectBaseSchema = z.object({
+  repositoryId: z.uuid().nullable().optional(),
   repositoryName: z.string().trim().min(1).max(120).nullable().optional(),
   id: z.uuid(),
   title: z.string().min(1).max(120),
@@ -515,6 +516,8 @@ export const clientPolicySchema = z.object({
 
 export const ipcChannels = {
   authStatus: 'auth:status',
+  enterLocalMode: 'auth:enter-local',
+  openLocalAgentSettings: 'agent:local-settings',
   authLogin: 'auth:login',
   authLogout: 'auth:logout',
   desktopBootstrap: 'desktop:bootstrap',

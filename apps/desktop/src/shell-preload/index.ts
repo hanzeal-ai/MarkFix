@@ -73,6 +73,8 @@ contextBridge.exposeInMainWorld('markfix', {
   onUpdateStatus: (listener: (payload: unknown) => void) =>
     subscribe(desktopUpdateChannels.changed, listener),
   openAccountPage: (page: AccountPage) => ipcRenderer.invoke(accountPageChannel, page),
+  openLocalAgentSettings: () => ipcRenderer.invoke(ipcChannels.openLocalAgentSettings),
+  enterLocalMode: () => ipcRenderer.invoke(ipcChannels.enterLocalMode),
   authStatus: () => ipcRenderer.invoke(ipcChannels.authStatus),
   login: (email: string, password: string) =>
     ipcRenderer.invoke(ipcChannels.authLogin, { email, password }),

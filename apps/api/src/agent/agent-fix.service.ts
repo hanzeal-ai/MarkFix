@@ -1,3 +1,4 @@
+import { agentPolicy } from '@markfix/contracts';
 import { canRepairReport } from '../authorization.js';
 import {
   agentIssueQuerySchema,
@@ -17,7 +18,7 @@ import { createHash } from 'node:crypto';
 import { DatabaseService } from '../database.service.js';
 import { parseAgent } from './agent-auth.service.js';
 import { AgentProjectService } from './agent-project.service.js';
-const leaseMs = 15 * 60_000;
+const leaseMs = agentPolicy.leaseMs;
 @Injectable()
 export class AgentFixService {
   constructor(

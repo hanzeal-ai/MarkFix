@@ -142,7 +142,7 @@ export function AgentAccess() {
         </Card>
       )}
       <h2>已授权设备</h2>
-      {!loading && !grants.length && <p>暂无设备授权。在终端运行 markfix setup 发起接入。</p>}
+      {!loading && !grants.length && <p>暂无设备授权。首次使用 CLI 时会自动打开浏览器发起授权。</p>}
       {grants.map((grant) => (
         <Card key={grant.id} className="agent-access-card">
           <strong>{grant.deviceName}</strong>

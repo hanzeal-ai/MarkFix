@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { removeLocalAgentProject, type State } from './local-agent/state.js';
 import { randomUUID } from 'node:crypto';
 import {
   annotationSubmissionSchema,
@@ -31,6 +32,21 @@ export class DraftStore {
     this.database = new Database(path);
     this.database.pragma('journal_mode = WAL');
     initializeDraftStore(this.database);
+  }
+
+  readLocalAgentState(): string | undefined {
+    return (
+      this.database.prepare('SELECT payload FROM local_agent_state WHERE id = 1').get() as
+        { payload: string } | undefined
+    )?.payload;
+  }
+
+  writeLocalAgentState(payload: string): void {
+    this.database
+      .prepare(
+        'INSERT INTO local_agent_state (id, payload) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload',
+      )
+      .run(payload);
   }
 
   listWebsiteProjects(storageMode?: WebsiteProject['storageMode']): WebsiteProject[] {
@@ -88,6 +104,12 @@ export class DraftStore {
 
   deleteWebsiteProject(projectId: string): void {
     const remove = this.database.transaction(() => {
+      const agentPayload = this.readLocalAgentState();
+      if (agentPayload) {
+        const state: State = JSON.parse(agentPayload);
+        removeLocalAgentProject(state, projectId);
+        this.writeLocalAgentState(JSON.stringify(state));
+      }
       const projectPayloadMatch = "json_extract(payload, '$.projectId') = ?";
       this.database.prepare(`DELETE FROM outbox WHERE ${projectPayloadMatch}`).run(projectId);
       this.database.prepare('DELETE FROM capture_annotations WHERE project_id = ?').run(projectId);

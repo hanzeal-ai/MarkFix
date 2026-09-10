@@ -10,10 +10,10 @@ function Command({ children }: { children: string }) {
 }
 
 export function CliGuide({
-  setupCommand = 'markfix setup --server https://markfix.example.com',
+  firstUseCommand = 'markfix projects list --server https://markfix.example.com',
   children,
 }: {
-  setupCommand?: string;
+  firstUseCommand?: string;
   children?: ReactNode;
 }) {
   return (
@@ -66,10 +66,11 @@ export function CliGuide({
       <section id="cli-authorize">
         <h3>2. 授权访问 MarkFix</h3>
         <p>
-          进入准备修复的 Git 仓库，执行授权命令。下方服务地址应与标注所在的 MarkFix
+          安装不会要求授权。进入准备修复的 Git 仓库，首次执行服务命令时，CLI
+          会自动打开浏览器发起授权，完成后继续原命令。下方服务地址应与标注所在的 MarkFix
           实例一致；示例域名需替换为实际 API 地址。
         </p>
-        <Command>{`cd /path/to/your-repository\n${setupCommand}`}</Command>
+        <Command>{`cd /path/to/your-repository\n${firstUseCommand}`}</Command>
         {children}
         <ol>
           <li>在 CLI 打开的浏览器页面登录 MarkFix。</li>
@@ -77,11 +78,11 @@ export function CliGuide({
           <li>点击“授权此设备”，返回终端等待命令完成。</li>
         </ol>
         <p className="cli-guide-result">
-          预期结果：返回 JSON 中 authorized 为 true，repository 包含当前仓库，skillPath 指向已安装的
-          MarkFix Skill。repository 为 null 表示授权已保存，但仓库尚未上报，需执行 repo register。
+          预期结果：终端返回 projects 列表。授权过程中会安装 MarkFix Skill 并登记当前 Git
+          仓库；如果终端提示登记失败，进入仓库后执行 repo register。后续命令复用授权。
         </p>
         <p>
-          macOS 默认使用系统钥匙串。Linux 或 Windows 请在 setup 命令后加{' '}
+          macOS 默认使用系统钥匙串。Linux 或 Windows 请在首次命令后加{' '}
           <code>--credential-store file</code>；无法自动打开浏览器时加 <code>--no-browser</code>
           ，手动打开终端中的授权链接。
         </p>
@@ -213,7 +214,8 @@ export function CliGuide({
           <summary>下拉列表中没有我的代码项目</summary>
           <p>
             先在对应 Git 仓库执行 markfix repo register，再关闭并重新打开绑定弹窗。确认 CLI
-            与桌面端连接同一服务，并使用具有该标注项目权限的账号。本地标注项目仅支持自定义名称，不能用于云端自动绑定。
+            与桌面端连接同一服务，并使用具有该标注项目权限的账号。本机项目使用 --local
+            上报的仓库记录，不能与云端仓库混用。
           </p>
         </details>
         <details>
@@ -221,15 +223,15 @@ export function CliGuide({
           <p>
             执行 markfix projects
             list。列表同时受授权时选择的项目和当前成员权限限制。新增授权范围前，先同步未上传结果，再
-            logout 并重新 setup，选择所需项目。
+            logout 并再次执行 projects list，在浏览器中选择所需项目。
           </p>
         </details>
         <details>
           <summary>Codex 没有识别 MarkFix Skill</summary>
           <p>
-            检查 setup 返回的 skillPath 文件是否存在，然后新建会话。默认路径为
-            ~/.codex/skills/markfix/SKILL.md；设置 CODEX_HOME 时位于该目录下的 skills/markfix。setup
-            不覆盖已存在的同名 Skill，出现保留提示时请核对文件内容。
+            检查 Skill 文件是否存在，然后新建会话。默认路径为 ~/.codex/skills/markfix/SKILL.md；设置
+            CODEX_HOME 时位于该目录下的 skills/markfix。首次授权 不覆盖已存在的同名
+            Skill，出现保留提示时请核对文件内容。
           </p>
         </details>
         <details>

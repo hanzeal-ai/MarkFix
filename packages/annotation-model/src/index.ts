@@ -56,3 +56,5 @@ export const annotationBounds = (
     height: Math.max(...yValues) - minY,
   };
 };
+
+export * from './report-inputs.js';

@@ -1,10 +1,12 @@
 # MarkFix CLI
 
-将 MarkFix 云端标注接入本地 Codex 会话。CLI 负责授权、项目识别、标注读取和结果同步；Codex 负责修改代码与执行验证。
+将 MarkFix 云端或仅本机标注接入 Codex 会话。CLI 负责授权、项目识别、标注读取和结果同步；Codex 负责修改代码与执行验证。
 
 本文适用于 CLI **0.1.0**。当前支持 Codex，通过随包提供的 MarkFix Skill 接入。
 
-## 前置条件
+本机模式无需云端账号，见下方“本地与云端”；以下快速开始介绍云端服务。
+
+## 云端前置条件
 
 - Node.js 24 或更高版本、npm 和 Git。
 - 本机可用的 Codex，以及准备修复的 Git 仓库。
@@ -25,30 +27,34 @@ npm install -g ./markfix-cli-0.1.0.tgz
 markfix --version
 ```
 
-预期版本输出为 `0.1.0`。
+预期版本输出为 `0.1.0`。安装、帮助和版本查询不会发起授权。
 
-### 2. 授权
+### 2. 首次使用自动授权
 
 进入代码仓库，将示例域名替换为实际的 MarkFix **API 地址**。地址仅包含协议、主机和可选端口，不包含 `/v1`、路径或查询参数。
 
 ```sh
 cd /path/to/your-repository
-markfix setup --server https://markfix.example.com
+markfix projects list --server https://markfix.example.com
 ```
 
-1. 打开 CLI 提供的授权页面，登录 MarkFix。
+首次执行服务命令时，CLI 自动打开浏览器；授权通过后继续原命令。
+
+1. 在 CLI 打开的授权页面登录 MarkFix。
 2. 核对网页与终端中的授权码，选择允许访问的标注项目。
 3. 点击“授权此设备”，返回终端等待完成。
 
-成功返回的 JSON 包含 `authorized: true`、`repository` 和 `skillPath`。`repository: null` 表示授权已保存，但仓库登记失败；在正确的 Git 仓库中运行 `markfix repo register` 补充登记，无需重复授权。
+成功后返回原命令的 JSON（本例为 `projects` 列表）。授权会保存凭据、安装 Skill 并登记当前 Git 仓库；若 stderr 提示仓库登记失败，在正确仓库执行 `markfix repo register` 补充登记。后续命令复用授权，不重复打开浏览器。
+
+首次服务地址可通过 `--server` 或 `MARKFIX_SERVER` 提供；交互式终端未提供地址时会提示输入。非交互式调用必须明确提供地址。已授权目录使用保存的服务地址，显式传入其他服务地址会被拒绝。
 
 macOS 默认使用系统钥匙串。Linux、Windows 须显式选择文件存储：
 
 ```sh
-markfix setup --server https://markfix.example.com --credential-store file
+markfix projects list --server https://markfix.example.com --credential-store file
 ```
 
-无法自动打开浏览器时添加 `--no-browser`，手动访问终端输出的链接。授权码过期后重新执行 setup。
+无法自动打开浏览器时添加 `--no-browser`，手动访问终端输出的链接。授权码过期后重新执行原命令。授权被拒绝时命令停止，不会读取项目。
 
 ### 3. 绑定项目
 
@@ -58,7 +64,7 @@ markfix setup --server https://markfix.example.com --credential-store file
 - **自定义**：仅保存仓库名称。仓库上报后需通过“从已有选择”确认关联，同名不会自动匹配。
 - **不绑定**：Codex 会在没有唯一匹配时请求选择标注项目；该选择仅用于当前会话。
 
-首次 setup 登记当前 Git 仓库。处理其他仓库时，Skill 会先执行 `repo register`；也可以在对应仓库手动执行该命令。
+首次授权登记当前 Git 仓库。处理其他仓库时，Skill 会先执行 `repo register`；也可以在对应仓库手动执行该命令。
 
 ### 4. 验证
 
@@ -93,24 +99,24 @@ Skill 默认安装在 `~/.codex/skills/markfix/SKILL.md`；设置 `CODEX_HOME` �
 
 所有命令在当前目录运行。`PROJECT_ID`、`ISSUE_ID`、`RUN_ID`、`CURSOR_ID` 均为服务端返回的 UUID；示例中的大写占位符需要替换。
 
-| 命令                                                         | 用途                                     |
-| ------------------------------------------------------------ | ---------------------------------------- |
-| `markfix setup --server URL`                                 | 发起浏览器授权、安装 Skill、登记当前仓库 |
-| `markfix auth status`                                        | 检查授权                                 |
-| `markfix repo register`                                      | 上报当前仓库；重复执行更新同一记录       |
-| `markfix projects list`                                      | 列出授权范围内且仍有权限的标注项目       |
-| `markfix projects resolve`                                   | 查找当前仓库已绑定的标注项目             |
-| `markfix issues list --project PROJECT_ID`                   | 分页读取待处理标注                       |
-| `markfix issues get ISSUE_ID`                                | 读取完整上下文和修复历史                 |
-| `markfix issues screenshot ISSUE_ID --output ./issue.png`    | 下载截图；不覆盖已有文件                 |
-| `markfix issues claim ISSUE_ID`                              | 领取问题并取得修复任务 ID                |
-| `markfix fixes renew RUN_ID`                                 | 续期任务租约                             |
-| `markfix fixes release RUN_ID`                               | 放弃当前任务                             |
-| `markfix fixes complete RUN_ID --result-file ./success.json` | 提交验证成功的结果                       |
-| `markfix fixes fail RUN_ID --result-file ./failure.json`     | 提交失败原因                             |
-| `markfix sync`                                               | 重传本机待同步结果                       |
-| `markfix logout`                                             | 撤销当前授权并删除本机凭据               |
-| `markfix --help`                                             | 查看全部参数                             |
+| 命令                                                         | 用途                                 |
+| ------------------------------------------------------------ | ------------------------------------ |
+| `markfix setup --server URL`                                 | 可选的显式初始化；日常命令会自动授权 |
+| `markfix auth status`                                        | 检查授权                             |
+| `markfix repo register`                                      | 上报当前仓库；重复执行更新同一记录   |
+| `markfix projects list`                                      | 列出授权范围内且仍有权限的标注项目   |
+| `markfix projects resolve`                                   | 查找当前仓库已绑定的标注项目         |
+| `markfix issues list --project PROJECT_ID`                   | 分页读取待处理标注                   |
+| `markfix issues get ISSUE_ID`                                | 读取完整上下文和修复历史             |
+| `markfix issues screenshot ISSUE_ID --output ./issue.png`    | 下载截图；不覆盖已有文件             |
+| `markfix issues claim ISSUE_ID`                              | 领取问题并取得修复任务 ID            |
+| `markfix fixes renew RUN_ID`                                 | 续期任务租约                         |
+| `markfix fixes release RUN_ID`                               | 放弃当前任务                         |
+| `markfix fixes complete RUN_ID --result-file ./success.json` | 提交验证成功的结果                   |
+| `markfix fixes fail RUN_ID --result-file ./failure.json`     | 提交失败原因                         |
+| `markfix sync`                                               | 重传本机待同步结果                   |
+| `markfix logout`                                             | 撤销当前授权并删除本机凭据           |
+| `markfix --help`                                             | 查看全部参数                         |
 
 `issues list --status` 支持 `OPEN`、`FIX_FAILED`、`IN_PROGRESS`、`RESOLVED`。重试失败记录时先读取最新内容，再执行 `issues claim ISSUE_ID --retry`。同一领取请求需要安全重试时，可预先指定 `--run-id UUID` 并重复使用该 ID。
 
@@ -181,11 +187,11 @@ Skill 默认安装在 `~/.codex/skills/markfix/SKILL.md`；设置 `CODEX_HOME` �
 
 **下拉列表没有刚登记的项目**
 
-在对应 Git 仓库执行 `markfix repo register`，关闭并重开绑定弹窗。核对桌面与 CLI 的服务地址、账号和项目权限。本地标注项目仅支持自定义名称。
+在对应 Git 仓库执行 `markfix repo register`，关闭并重开绑定弹窗。核对桌面与 CLI 的服务地址、账号和项目权限。本机项目需要在每条 CLI 命令上添加 `--local`，上报和绑定都留在本机。
 
 **授权成功，但项目列表为空**
 
-授权时必须选中目标项目，且账号现在仍需是该项目的有效成员。扩大授权范围前，先同步待上传结果，再 logout、重新 setup 并选择所需项目。
+授权时必须选中目标项目，且账号现在仍需是该项目的有效成员。扩大授权范围前，先同步待上传结果，再 logout、重新执行 `projects list` 并在浏览器选择所需项目。
 
 **无法重复执行 setup**
 
@@ -196,10 +202,27 @@ Skill 默认安装在 `~/.codex/skills/markfix/SKILL.md`；设置 `CODEX_HOME` �
 仅回环地址可显式启用 HTTP：
 
 ```sh
-markfix setup --server http://127.0.0.1:4310 --allow-local-http
+markfix projects list --server http://127.0.0.1:4310 --allow-local-http
 ```
 
 远程 HTTP 服务需要先配置 HTTPS，不能通过此参数跳过限制。
+
+## 本地与云端
+
+桌面端“仅本机”项目保存在本机 SQLite。登录页选择“仅在本机使用”，不需要云端账号。创建项目、保存标注后提交选中记录；保持桌面运行，在代码仓库执行：
+
+```sh
+markfix projects list --local
+markfix repo register --local
+markfix projects resolve --local
+markfix issues list --project PROJECT_ID --local
+```
+
+首次命令会打开本机浏览器授权页，选择允许访问的本机项目。macOS 默认使用钥匙串；其他平台须显式加 `--credential-store file`。每条命令都带 `--local`，包括 `fixes`、`sync` 和 `logout`；本机授权和 outbox 保存在 CLI 数据目录的 `local` 子目录，与云端隔离。关闭桌面后本机接口不可用；重启后可复用授权。标注与结果均不上传云端。
+
+桌面项目菜单支持从本机 CLI 上报的仓库中选择绑定；修复完成或失败及原因显示在桌面批注面板（重新聚焦或最多等待 30 秒刷新）。`markfix logout --local` 撤销授权；也可在桌面「设置 → 通用 → 管理本机授权」中撤销设备，丢失 CLI 配置时仍可操作。授权有效期 30 天，领取租约 15 分钟；本机管理员就是当前系统用户，不沿用云端项目成员角色。
+
+若需要开发和验证云端协作流程，可启动本地 API、数据库和管理后台，再在桌面端创建“云端协作”项目并提交标注。此时数据位于你自己的本地服务，仍按服务端项目权限授权，不会读取或上传已有的仅本机项目。完整启动、构建命令见 [开发与本地使用](../../docs/local-development.md)。
 
 ## 从源码打包
 

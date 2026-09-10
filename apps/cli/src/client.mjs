@@ -1,3 +1,4 @@
+import { localConnection } from './local.mjs';
 import { loadCredential, saveCredential } from './storage.mjs';
 
 export function serverUrl(input, allowLocal = false) {
@@ -28,12 +29,16 @@ export class Client {
     this.config = config;
   }
   async send(path, body, token, method = body === undefined ? 'GET' : 'POST') {
-    const response = await fetch(`${this.config.server}/v1/agent${path}`, {
+    const connection = this.config.local ? await localConnection() : this.config;
+    if (connection.server !== this.config.server)
+      throw new Error('Local desktop profile changed; authorization cannot be reused');
+    const response = await fetch(`${connection.endpoint ?? connection.server}/v1/agent${path}`, {
       method,
       redirect: 'error',
       signal: AbortSignal.timeout(20_000),
       headers: {
         'Content-Type': 'application/json',
+        ...(connection.localSecret ? { 'X-MarkFix-Local-Secret': connection.localSecret } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),

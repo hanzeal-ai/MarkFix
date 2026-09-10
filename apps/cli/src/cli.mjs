@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import process from 'node:process';
 import console from 'node:console';
+import { createInterface } from 'node:readline/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { hostname, homedir } from 'node:os';
@@ -19,10 +20,12 @@ import {
   loadCredential,
   removeCredential,
 } from './storage.mjs';
+import { localConnection } from './local.mjs';
 const exec = promisify(execFile);
 const help = `MarkFix CLI 0.1.0 — authorized project annotation repairs
 setup --server <https-origin> [--credential-store keychain|file] [--no-browser] [--allow-local-http]
-auth status | logout
+auth status
+logout
 repo register [--name <repository-name>]
 projects list | projects resolve
 issues list --project <id> [--status OPEN|FIX_FAILED|IN_PROGRESS|RESOLVED] [--cursor <id>]
@@ -32,6 +35,10 @@ fixes renew <run-id> | fixes release <run-id>
 fixes complete <run-id> --result-file <path>
 fixes fail <run-id> --result-file <path>
 sync
+Use --local on every command to access desktop LOCAL projects (desktop must be running).
+On first use, a service command opens browser authorization, then continues.
+Pass --server <https-origin> or set MARKFIX_SERVER; an interactive terminal can prompt for it.
+--help and --version never authorize. Installation does not authorize.
 All successful responses are JSON; --json is accepted. Git commands run in the current directory.`;
 function parseArgs(argv) {
   const positional = [],
@@ -40,9 +47,15 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (!arg.startsWith('--')) positional.push(arg);
     else if (
-      ['--json', '--no-browser', '--allow-local-http', '--retry', '--help', '--version'].includes(
-        arg,
-      )
+      [
+        '--local',
+        '--json',
+        '--no-browser',
+        '--allow-local-http',
+        '--retry',
+        '--help',
+        '--version',
+      ].includes(arg)
     )
       options[arg.slice(2)] = true;
     else {
@@ -82,6 +95,21 @@ async function localRepository() {
   return repository;
 }
 async function setup(options) {
+  const local = options.local ? await localConnection() : undefined;
+  if (options.local && options.server) throw new Error('--local and --server cannot be combined');
+  options = { ...options, server: local?.server ?? options.server ?? process.env.MARKFIX_SERVER };
+  if (!options.server && process.stdin.isTTY && process.stderr.isTTY) {
+    const prompt = createInterface({ input: process.stdin, output: process.stderr });
+    try {
+      options.server = (await prompt.question('MarkFix API address: ')).trim();
+    } finally {
+      prompt.close();
+    }
+  }
+  if (!options.server)
+    throw new Error(
+      'First use requires the MarkFix API address: pass --server <https-origin> or set MARKFIX_SERVER',
+    );
   const directory = await initializeStorage();
   const credentialStore =
     options['credential-store'] ?? (process.platform === 'darwin' ? 'keychain' : undefined);
@@ -91,7 +119,9 @@ async function setup(options) {
   )
     throw new Error('Choose --credential-store file on this platform');
   const config = {
-    server: serverUrl(required(options.server, '--server'), options['allow-local-http']),
+    server:
+      local?.server ?? serverUrl(required(options.server, '--server'), options['allow-local-http']),
+    ...(local ? { local: true } : {}),
     credentialStore,
   };
   const oldConfig = await readJson(join(directory, 'config.json'), null);
@@ -103,15 +133,22 @@ async function setup(options) {
   if (
     verify.protocol !== 'https:' &&
     !(
-      options['allow-local-http'] &&
-      ['127.0.0.1', 'localhost'].includes(verify.hostname) &&
+      (options['allow-local-http'] || local) &&
+      ['127.0.0.1', 'localhost', '[::1]'].includes(verify.hostname) &&
       verify.protocol === 'http:'
     )
   )
     throw new Error('Unsafe authorization address');
+  if (local && verify.origin !== local.endpoint)
+    throw new Error('Unexpected local authorization origin');
   console.error(`Authorize this device in MarkFix: ${verify.href}\nCode: ${device.userCode}`);
   if (!options['no-browser']) {
-    const command = process.platform === 'darwin' ? 'open' : 'xdg-open';
+    const command =
+      process.platform === 'darwin'
+        ? 'open'
+        : process.platform === 'win32'
+          ? 'explorer.exe'
+          : 'xdg-open';
     await exec(command, [verify.href]).catch(() =>
       console.error('Open the authorization address manually.'),
     );
@@ -126,7 +163,7 @@ async function setup(options) {
     }
     if (response.status !== 'PENDING') throw new Error('Unexpected authorization response');
   }
-  if (!tokens) throw new Error('Authorization expired; run setup again');
+  if (!tokens) throw new Error('Authorization expired; run the command again');
   await saveCredential(config, tokens);
   await writeJson(join(directory, 'config.json'), config);
   const skillDirectory = join(
@@ -195,8 +232,45 @@ async function main() {
     return;
   }
   if (command === 'setup') return setup(options);
-  const config = await readJson(join(stateDirectory(), 'config.json'), null);
-  if (!config) throw new Error('Authorization required: run markfix setup --server <https-origin>');
+  const validCommand =
+    (command === 'auth' && action === 'status') ||
+    command === 'logout' ||
+    (command === 'repo' && action === 'register') ||
+    (command === 'projects' && ['list', 'resolve'].includes(action)) ||
+    (command === 'issues' && ['list', 'get', 'claim', 'screenshot'].includes(action)) ||
+    (command === 'fixes' && ['renew', 'release', 'complete', 'fail'].includes(action)) ||
+    command === 'sync';
+  if (!validCommand) throw new Error(`Unknown command.\n${help}`);
+  if (command === 'issues' && action === 'list') {
+    identifier(options.project);
+    if (options.cursor) identifier(options.cursor);
+  } else if (command === 'issues' || command === 'fixes') identifier(id);
+  if (options['run-id']) identifier(options['run-id']);
+  if (options.status && !['OPEN', 'FIX_FAILED', 'IN_PROGRESS', 'RESOLVED'].includes(options.status))
+    throw new Error('Invalid issue status');
+  let resultInput;
+  if (command === 'fixes' && ['complete', 'fail'].includes(action)) {
+    const text = await readFile(required(options['result-file'], '--result-file'), 'utf8');
+    if (text.length > 150_000) throw new Error('Result file is too large');
+    resultInput = JSON.parse(text);
+  }
+  if (command === 'issues' && action === 'screenshot') required(options.output, '--output');
+  if (command === 'fixes' && ['complete', 'fail'].includes(action))
+    required(options['result-file'], '--result-file');
+  if (options.local && options.server) throw new Error('--local and --server cannot be combined');
+  let config = await readJson(join(stateDirectory(), 'config.json'), null);
+  if (!config) {
+    if (command === 'logout') return { loggedOut: true, serverRevocationConfirmed: false };
+    await setup(options);
+    config = await readJson(join(stateDirectory(), 'config.json'), null);
+  } else if (
+    options.server &&
+    serverUrl(options.server, options['allow-local-http']) !== config.server
+  ) {
+    throw new Error(
+      'This installation is authorized for another server. Use a separate MARKFIX_CLI_HOME or logout first.',
+    );
+  }
   const client = new Client(config);
   if (command === 'auth' && action === 'status') return client.request('/status');
   if (command === 'logout') {
@@ -241,11 +315,19 @@ async function main() {
   if (command === 'issues' && action === 'screenshot') {
     await client.request('/status');
     const token = await loadCredential(config);
-    const response = await fetch(`${config.server}/v1/agent/issues/${identifier(id)}/screenshot`, {
-      redirect: 'error',
-      signal: AbortSignal.timeout(20_000),
-      headers: { Authorization: `Bearer ${token.accessToken}` },
-    });
+    const connection = config.local ? await localConnection() : config;
+    if (connection.server !== config.server) throw new Error('Local desktop profile changed');
+    const response = await fetch(
+      `${connection.endpoint ?? config.server}/v1/agent/issues/${identifier(id)}/screenshot`,
+      {
+        redirect: 'error',
+        signal: AbortSignal.timeout(20_000),
+        headers: {
+          Authorization: `Bearer ${token.accessToken}`,
+          ...(connection.localSecret ? { 'X-MarkFix-Local-Secret': connection.localSecret } : {}),
+        },
+      },
+    );
     if (!response.ok) throw new ApiError(response.status, { message: 'Screenshot request failed' });
     if (!response.headers.get('content-type')?.startsWith('image/png'))
       throw new Error('Invalid screenshot response');
@@ -262,9 +344,7 @@ async function main() {
   if (command === 'fixes' && ['renew', 'release'].includes(action))
     return client.request(`/fixes/${identifier(id)}/${action}`, {});
   if (command === 'fixes' && ['complete', 'fail'].includes(action)) {
-    const text = await readFile(required(options['result-file'], '--result-file'), 'utf8');
-    if (text.length > 150_000) throw new Error('Result file is too large');
-    return submitResult(client, config, identifier(id), action, JSON.parse(text));
+    return submitResult(client, config, identifier(id), action, resultInput);
   }
   if (command === 'sync') {
     const directory = join(await initializeStorage(), 'outbox');

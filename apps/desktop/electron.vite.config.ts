@@ -11,7 +11,11 @@ export default defineConfig(({ mode }) => ({
         serviceUrls(mode, loadEnv(mode, process.cwd(), 'MARKFIX_').MARKFIX_SERVICE_ORIGIN),
       ),
     },
-    plugins: [externalizeDepsPlugin({ exclude: ['@markfix/api-client', '@markfix/contracts'] })],
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: ['@markfix/api-client', '@markfix/contracts', '@markfix/annotation-model'],
+      }),
+    ],
   },
   preload: {
     plugins: [

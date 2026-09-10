@@ -219,7 +219,7 @@ async function main() {
     await waitFor(`!!document.querySelector('#cli-authorize pre code')`);
     assert.equal(
       await run(`document.querySelector('#cli-authorize pre code').textContent`),
-      `cd /path/to/your-repository\nmarkfix setup --server ${origin} --allow-local-http`,
+      `cd /path/to/your-repository\nmarkfix projects list --server ${origin} --allow-local-http`,
     );
     await run(
       `document.querySelector('#agent').scrollIntoView({block:'start',behavior:'instant'})`,
@@ -229,7 +229,14 @@ async function main() {
       join(output, 'cli-service-origin.png'),
       (await win.webContents.capturePage()).toPNG(),
     );
-    console.log('PASS CLI setup command uses the current website origin');
+    console.log('PASS CLI first-use command uses the current website origin');
+    for (const id of ['storage-mode', 'development']) {
+      await run(
+        `document.getElementById('${id}').scrollIntoView({block:'start',behavior:'instant'})`,
+      );
+      await setTimeout(250);
+      writeFileSync(join(output, id + '.png'), (await win.webContents.capturePage()).toPNG());
+    }
     if (process.env.MARKFIX_MARKETING_SMOKE) {
       const click = async (selector) => {
         await run(`document.querySelector(${JSON.stringify(selector)}).click()`);

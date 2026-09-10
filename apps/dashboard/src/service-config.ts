@@ -8,10 +8,10 @@ export const dashboardServiceUrls = () =>
       (import.meta.env.PROD ? window.location.origin : undefined),
   );
 
-export function cliSetupCommand() {
+export function cliFirstUseCommand() {
   const { apiOrigin } = dashboardServiceUrls();
   const url = new URL(apiOrigin);
   const localHttp =
     url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-  return `markfix setup --server ${apiOrigin}${localHttp ? ' --allow-local-http' : ''}`;
+  return `markfix projects list --server ${apiOrigin}${localHttp ? ' --allow-local-http' : ''}`;
 }

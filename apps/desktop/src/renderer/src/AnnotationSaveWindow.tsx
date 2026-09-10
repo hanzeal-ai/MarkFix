@@ -10,7 +10,7 @@ import { AnnotationSaveDialog } from './AnnotationSaveDialog';
 import {
   annotationSelectionReportInputs,
   type AnnotationSelection,
-} from './annotation-submission/report-inputs';
+} from '@markfix/annotation-model';
 
 export function AnnotationSaveWindow(): React.JSX.Element {
   const projectId = new URLSearchParams(window.location.search).get('projectId');

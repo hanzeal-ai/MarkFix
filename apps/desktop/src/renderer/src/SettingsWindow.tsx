@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import {
+  Button,
+  toast,
   Kbd,
   KbdGroup,
   Label,
@@ -52,6 +54,20 @@ export function SettingsWindow(): React.JSX.Element {
         </TabsList>
         <section className="settings-window-content">
           <TabsContent value="general" className="settings-general" aria-label="通用设置">
+            <h2>本机 CLI</h2>
+            <p>管理已授权设备，随时撤销对本机项目的访问。</p>
+            <Button
+              variant="outline"
+              onClick={() =>
+                void window.markfix
+                  .openLocalAgentSettings()
+                  .catch((error: unknown) =>
+                    toast.error(error instanceof Error ? error.message : '无法打开设备管理'),
+                  )
+              }
+            >
+              管理本机授权
+            </Button>
             <h2>启动与新标注</h2>
             <div className="settings-option-list">
               <div className="settings-option-row">

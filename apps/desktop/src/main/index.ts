@@ -42,6 +42,9 @@ import { anchorsEqual } from './anchor-state.js';
 import { CdpInspector } from './cdp-inspector.js';
 import { CaptureService } from './capture-service.js';
 import { DraftStore } from './draft-store.js';
+import { homedir } from 'node:os';
+import { LocalAgentService } from './local-agent/service.js';
+import { startLocalAgentServer } from './local-agent/server.js';
 import { DiagnosticConsole } from './diagnostic-console.js';
 import { isWebsiteUrlAllowed, normalizeWebsiteUrl } from './url.js';
 import { subscriptionIpcChannels } from '../subscription.js';
@@ -88,6 +91,13 @@ let inspector: CdpInspector | undefined;
 let captureService: CaptureService | undefined;
 let diagnosticConsole: DiagnosticConsole | undefined;
 let draftStore: DraftStore | undefined;
+let localAgent: LocalAgentService | undefined;
+let localAgentServer: Awaited<ReturnType<typeof startLocalAgentServer>> | undefined;
+let localMode = false;
+const requireLocalAgent = () => {
+  if (!localAgent) throw new Error('本机 CLI 服务未初始化');
+  return localAgent;
+};
 let shellWebContentsId: number | undefined;
 let currentElementComments: SavedElementComment[] = [];
 let currentAnchor: Anchor | undefined;
@@ -129,7 +139,7 @@ const clearRefreshToken = () => desktopSession.clearRefreshToken();
 const restoreSession = async () => {
   if (authenticatedUser) return authenticatedUser;
   const user = await desktopSession.restore();
-  if (user) {
+  if (user && !localMode) {
     authenticatedUser = user;
     layoutWebsite();
     return authenticatedUser;
@@ -300,7 +310,7 @@ const layoutWebsite = (): void => {
     height: Math.max(200, height - toolbarHeight - bottomPanelHeight),
   });
   websiteView.setVisible(
-    Boolean(authenticatedUser) &&
+    (Boolean(authenticatedUser) || localMode) &&
       workspaceViewVisible &&
       websiteContentReady &&
       !sidebarPreviewReady &&
@@ -829,14 +839,36 @@ const registerIpc = (): void => {
     if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted account page sender');
     await shell.openExternal(accountPageUrl(page, services.origin));
   });
+  ipcMain.handle(ipcChannels.openLocalAgentSettings, async (event) => {
+    assertSubscriptionSender(event);
+    if (!localAgentServer) throw new Error('本机 CLI 服务不可用，请重启桌面');
+    await shell.openExternal(localAgentServer.managementUrl);
+  });
+  ipcMain.handle(ipcChannels.enterLocalMode, (event) => {
+    if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted local mode sender');
+    localMode = true;
+    authenticatedUser = undefined;
+    api.setTokens();
+    cloudSessionGeneration++;
+    for (const [id, project] of websiteProjectsById)
+      if (project.storageMode === 'CLOUD') websiteProjectsById.delete(id);
+    cloudProjectStates.clear();
+    cloudStateSaveQueues.clear();
+    layoutWebsite();
+  });
   ipcMain.handle(ipcChannels.authStatus, async (event) => {
     assertShellSender(event);
     const policy = await loadClientPolicy(true).catch(() => undefined);
+    if (localMode) return { authenticated: false };
     if (policy?.status === 'upgrade-required') {
       websiteView?.setVisible(false);
       return { authenticated: false, policy };
     }
     const user = await restoreSession();
+    if (localMode) {
+      api.setTokens();
+      return { authenticated: false };
+    }
     return {
       authenticated: Boolean(user),
       ...(user ? { user } : {}),
@@ -854,12 +886,18 @@ const registerIpc = (): void => {
     api.setTokens(tokens);
     await saveRefreshToken(tokens.refreshToken);
     authenticatedUser = await api.me();
+    localMode = false;
     layoutWebsite();
     void reportOutbox.flush();
     return authenticatedUser;
   });
   ipcMain.handle(ipcChannels.authLogout, async (event) => {
     assertShellSender(event);
+    if (localMode) {
+      localMode = false;
+      websiteView?.setVisible(false);
+      return true;
+    }
     if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Desktop window is unavailable');
     const { response } = await dialog.showMessageBox(mainWindow, {
       type: 'question',
@@ -893,7 +931,7 @@ const registerIpc = (): void => {
   });
   ipcMain.handle(ipcChannels.desktopBootstrap, async (event) => {
     assertShellSender(event);
-    if (!authenticatedUser) throw new Error('Sign in to load projects');
+    if (!authenticatedUser && !localMode) throw new Error('请选择本机模式或登录');
     const websiteProjects = await ensureWebsiteProjects();
     return { websiteProjects };
   });
@@ -920,11 +958,8 @@ const registerIpc = (): void => {
     if (!project) throw new Error('Project not found');
     if (project.storageMode === 'LOCAL')
       return {
-        binding: {
-          repositoryId: null,
-          repositoryName: draftStore?.getWebsiteProject(projectId)?.repositoryName ?? null,
-        },
-        repositories: [],
+        binding: requireLocalAgent().binding(projectId),
+        repositories: requireLocalAgent().repositories(projectId),
         canManage: true,
       };
     const remote = (await api.listProjects()).find(({ id }) => id === projectId);
@@ -948,15 +983,10 @@ const registerIpc = (): void => {
     const project = websiteProjectsById.get(payload.projectId);
     if (!project) throw new Error('Project not found');
     if (project.storageMode === 'LOCAL') {
-      if (binding.repositoryId) throw new Error('Local projects only support repository names');
-      const updated = {
-        ...project,
-        repositoryName: binding.repositoryName,
-        updatedAt: new Date().toISOString(),
-      };
-      draftStore?.saveWebsiteProject(updated);
-      websiteProjectsById.set(project.id, updated);
-      return binding;
+      const result = requireLocalAgent().bind(project.id, binding);
+      const updated = draftStore?.getWebsiteProject(project.id);
+      if (updated) websiteProjectsById.set(project.id, updated);
+      return result;
     }
     return api.requestJson(`/v1/agent/projects/${project.id}/binding`, {
       method: 'PATCH',
@@ -1048,7 +1078,7 @@ const registerIpc = (): void => {
   });
   ipcMain.handle(ipcChannels.listProjectAnnotationReports, async (event, input: unknown) => {
     assertShellSender(event);
-    if (!authenticatedUser) throw new Error('请先登录后再加载标注');
+    if (!authenticatedUser && !localMode) throw new Error('请选择本机模式或登录');
     const payload = input as { projectId?: unknown; pageUrl?: unknown };
     if (typeof payload.projectId !== 'string' || typeof payload.pageUrl !== 'string')
       throw new Error('无效的项目或页面地址');
@@ -1056,7 +1086,7 @@ const registerIpc = (): void => {
     if (!project) throw new Error('项目不存在或已被移除');
     return project.storageMode === 'CLOUD'
       ? api.listAllReports(payload.projectId, { pageUrl: payload.pageUrl })
-      : [];
+      : requireLocalAgent().reports(payload.projectId, payload.pageUrl);
   });
   ipcMain.handle(ipcChannels.switchWebsiteProject, (event, input: unknown) => {
     assertShellSender(event);
@@ -1372,13 +1402,28 @@ const registerIpc = (): void => {
   });
 };
 
+const singleInstance = app.requestSingleInstanceLock();
+if (!singleInstance) app.quit();
 app.whenReady().then(async () => {
+  if (!singleInstance) return;
   const websiteSession = session.fromPartition('persist:markfix-profile-default');
   websiteSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(['clipboard-sanitized-write'].includes(permission));
   });
   draftStore = new DraftStore(join(app.getPath('userData'), 'markfix.sqlite'));
   draftStore.recoverInterrupted();
+  try {
+    localAgent = new LocalAgentService(draftStore, (report) =>
+      sendShell(ipcChannels.syncStatus, { status: 'completed', report }),
+    );
+    localAgentServer = await startLocalAgentServer(
+      localAgent,
+      process.env.MARKFIX_LOCAL_AGENT_FILE ?? join(homedir(), '.markfix-desktop', 'agent.json'),
+    );
+  } catch (error) {
+    console.error('本机 CLI 接口启动失败', error);
+  }
+
   registerIpc();
   await createWindow();
   void reportOutbox.flush();
@@ -1386,6 +1431,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', () => {
+  void localAgentServer?.close();
   if (syncTimer) clearInterval(syncTimer);
   inspector?.detach();
   draftStore?.close();

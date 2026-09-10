@@ -7,12 +7,14 @@ import { desktopPreferenceKeys, newAnnotationStorageModePreference } from '../de
 import { WebsiteShortcuts } from './WebsiteShortcuts';
 export function NewProjectPage({
   initialValue,
+  localOnly = false,
   busy,
   projects,
   onSubmit,
   onShortcut,
 }: {
   initialValue: string;
+  localOnly?: boolean;
   busy: boolean;
   projects: WebsiteProject[];
   onSubmit: (url: string, storageMode: ProjectStorageMode) => void;
@@ -20,17 +22,17 @@ export function NewProjectPage({
 }): React.JSX.Element {
   const [value, setValue] = useState(initialValue);
   const [storageMode, setStorageMode] = useState<ProjectStorageMode>(() =>
-    newAnnotationStorageModePreference(window.localStorage),
+    localOnly ? 'LOCAL' : newAnnotationStorageModePreference(window.localStorage),
   );
   useEffect(() => setValue(initialValue), [initialValue]);
   useEffect(() => {
     const syncDefaultStorageMode = (event: StorageEvent): void => {
-      if (event.key === desktopPreferenceKeys.newAnnotationStorageMode)
+      if (!localOnly && event.key === desktopPreferenceKeys.newAnnotationStorageMode)
         setStorageMode(newAnnotationStorageModePreference(window.localStorage));
     };
     window.addEventListener('storage', syncDefaultStorageMode);
     return () => window.removeEventListener('storage', syncDefaultStorageMode);
-  }, []);
+  }, [localOnly]);
   const submit = (event: FormEvent): void => {
     event.preventDefault();
     if (value.trim() && !busy) onSubmit(value.trim(), storageMode);
@@ -74,7 +76,7 @@ export function NewProjectPage({
               if (value === 'LOCAL' || value === 'CLOUD') setStorageMode(value);
             }}
           >
-            {(['LOCAL', 'CLOUD'] as const).map((mode) => (
+            {(localOnly ? (['LOCAL'] as const) : (['LOCAL', 'CLOUD'] as const)).map((mode) => (
               <Label key={mode}>
                 <RadioGroupItem
                   value={mode}

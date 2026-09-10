@@ -373,3 +373,20 @@ p.annotation-rejection {
     animation: none;
   }
 }
+
+.repair-result-card {
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.repair-result-card strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.repair-result-card p {
+  margin: 0;
+  color: var(--muted-foreground);
+}

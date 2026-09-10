@@ -14,7 +14,7 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
-import { toast } from '@markfix/ui';
+import { toast, Card, Badge } from '@markfix/ui';
 import { WorkspaceResizeLayout } from './WorkspaceResizeLayout';
 import {
   diagnosticEvidenceSchema,
@@ -65,10 +65,12 @@ const firstAnnotationGuideKeys = {
 export function AnnotationWorkspace({
   policy,
   user,
+  localMode = false,
   onLoggedOut,
 }: {
   policy: ClientPolicy | undefined;
   user: DesktopUser;
+  localMode?: boolean;
   onLoggedOut: () => Promise<void>;
 }) {
   const [url, setUrl] = useState('');
@@ -1128,6 +1130,7 @@ export function AnnotationWorkspace({
         {deleteProjectDialog}
         <ProjectAgentDialog project={agentProject} onClose={() => setAgentProject(undefined)} />
         <NewProjectPage
+          localOnly={localMode}
           initialValue={newProjectInput}
           busy={creatingProject}
           projects={websiteProjects}
@@ -1190,6 +1193,27 @@ export function AnnotationWorkspace({
       {mode !== 'browse' && (
         <aside className="comment-panel capture-panel" aria-label="批注预览">
           <div className="capture-panel-body annotation-preview-body">
+            {projectReports
+              .filter(
+                (report) =>
+                  report.status === 'FIX_FAILED' ||
+                  report.status === 'RESOLVED' ||
+                  report.status === 'IN_PROGRESS',
+              )
+              .map((report) => (
+                <Card key={report.id} className="repair-result-card" aria-label="标注修复结果">
+                  <strong>{report.title}</strong>
+                  <Badge variant={report.status === 'FIX_FAILED' ? 'destructive' : 'secondary'}>
+                    {report.status === 'RESOLVED'
+                      ? '修复完成'
+                      : report.status === 'FIX_FAILED'
+                        ? '修复失败'
+                        : '修复中'}
+                  </Badge>
+                  {report.fixAttempts?.[0]?.reason && <p>{report.fixAttempts[0].reason}</p>}
+                  {report.fixAttempts?.[0]?.summary && <p>{report.fixAttempts[0].summary}</p>}
+                </Card>
+              ))}
             <CapturePanel
               active={mode === 'capture'}
               numberOffset={

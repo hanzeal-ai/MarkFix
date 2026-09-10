@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { annotationSelectionReportInputs } from '../src/renderer/src/annotation-submission/report-inputs';
+import { annotationSelectionReportInputs } from '@markfix/annotation-model';
 
 const projectId = '90e2a0c5-0755-49b9-9d5d-41534ed41b41';
 const pageSessionId = '60bba625-07f2-40f6-8eef-1ddb681f8513';

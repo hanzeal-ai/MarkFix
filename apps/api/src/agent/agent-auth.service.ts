@@ -1,3 +1,4 @@
+import { agentPolicy } from '@markfix/contracts';
 import { apiServiceUrls } from '../service-config.js';
 import {
   agentRefreshSchema,
@@ -93,7 +94,7 @@ export class AgentAuthService {
             projectIds,
             deviceName: request.deviceName,
             agentType: request.agentType,
-            expiresAt: new Date(Date.now() + 30 * 86400_000),
+            expiresAt: new Date(Date.now() + agentPolicy.grantMs),
           },
         });
         await tx.agentDeviceRequest.update({
@@ -107,7 +108,7 @@ export class AgentAuthService {
   private tokens() {
     const accessToken = `mfa_${createOpaqueToken()}`;
     const refreshToken = `mfr_${createOpaqueToken()}`;
-    const accessExpiresAt = new Date(Date.now() + 15 * 60_000);
+    const accessExpiresAt = new Date(Date.now() + agentPolicy.accessTokenMs);
     return { accessToken, refreshToken, accessExpiresAt };
   }
   async poll(input: unknown) {

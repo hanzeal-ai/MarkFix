@@ -6,8 +6,10 @@ import { defaultDesktopPassword } from './login-defaults';
 
 export function DesktopLogin({
   onAuthenticated,
+  onLocal,
 }: {
   onAuthenticated: (user: DesktopUser) => void;
+  onLocal: () => void;
 }) {
   const [email, setEmail] = useState(import.meta.env.DEV ? 'admin@markfix.local' : '');
   const [password, setPassword] = useState(() => defaultDesktopPassword(import.meta.env.DEV));
@@ -74,6 +76,9 @@ export function DesktopLogin({
             {busy ? '正在登录…' : '登录'}
           </Button>
         </form>
+        <Button variant="outline" onClick={onLocal}>
+          仅在本机使用
+        </Button>
         <div className="desktop-auth-links">
           <button type="button" onClick={() => void openAccountPage('forgot-password')}>
             忘记密码

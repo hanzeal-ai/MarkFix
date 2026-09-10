@@ -1,4 +1,10 @@
 import { z } from 'zod';
+
+export const agentPolicy = {
+  accessTokenMs: 15 * 60_000,
+  leaseMs: 15 * 60_000,
+  grantMs: 30 * 86400_000,
+} as const;
 export const agentTypeSchema = z.literal('codex');
 export const deviceAuthorizationSchema = z.object({
   deviceName: z.string().trim().min(1).max(120),
