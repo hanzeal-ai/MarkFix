@@ -14,6 +14,7 @@ import { Badge, Button, MarkFixMark } from '@markfix/ui';
 import { MarketingPricingContent } from './MarketingContent';
 import { SiteFooter, SiteHeader } from './SiteChrome';
 import './premium-marketing.css';
+import { CliGuide } from './CliGuide';
 
 function PageShell({ children }: { children: ReactNode }) {
   return (
@@ -86,38 +87,7 @@ export function DocsPage() {
               )}
             </div>
           </article>
-          <article id="agent">
-            <span>CLI</span>
-            <h2>让 Codex 修复标注问题</h2>
-            <p>
-              安装 MarkFix CLI 后，在终端运行 setup，前往 MarkFix
-              授权页面核对设备并选择允许访问的项目。CLI 使用你的项目权限，不上传源码或会话记录。
-            </p>
-            <pre>
-              <code>
-                {
-                  'npm install -g /path/to/markfix-cli-0.1.0.tgz\nmarkfix setup --server https://你的服务地址'
-                }
-              </code>
-            </pre>
-            <ol>
-              <li>在代码仓库中完成授权并登记仓库名称。</li>
-              <li>在桌面端“仓库与修复”或管理后台绑定对应标注项目。</li>
-              <li>
-                告诉 Codex“修复当前项目的 MarkFix 标注”。未绑定或匹配多个项目时，在会话中选择。
-              </li>
-              <li>
-                Codex 逐条领取、修改、验证并回写；失败原因在桌面端和后台可见，成功显示已完成。
-              </li>
-            </ol>
-            <p>
-              CLI 安装包由你的 MarkFix 服务维护者提供。需要 Node.js 24；当前接入
-              Codex，仅处理已提交到服务器的标注。本地项目验证通过表示修复完成，不表示已经发布上线。
-            </p>
-            <Button variant="outline" onClick={() => window.location.assign('/agent')}>
-              管理 Agent 授权
-            </Button>
-          </article>
+          <CliGuide />
           <article id="projects">
             <span>04</span>
             <h2>项目管理</h2>

@@ -1,0 +1,109 @@
+.cli-guide section {
+  margin-top: 36px;
+  scroll-margin-top: 110px;
+}
+.cli-guide h3 {
+  font-size: 21px;
+  font-weight: 600;
+  margin: 0 0 14px;
+  letter-spacing: -0.02em;
+}
+.cli-guide section p {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.8;
+  margin: 12px 0;
+}
+.cli-guide-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin: 24px 0;
+}
+.cli-guide a {
+  color: var(--purple);
+  text-underline-offset: 4px;
+}
+.cli-guide-toc a {
+  font-size: 13px;
+}
+.cli-guide pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 18px 20px;
+  margin: 18px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f5f4f8;
+  line-height: 1.8;
+  font-size: 13px;
+}
+.cli-guide code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+}
+.cli-guide pre code {
+  font-size: inherit;
+  overflow-wrap: normal;
+}
+.cli-guide ul {
+  list-style: disc;
+  padding-left: 22px;
+}
+.cli-guide ol {
+  list-style: decimal;
+  background: none;
+  border: 0;
+  margin: 16px 0;
+  padding: 0 0 0 22px;
+}
+.cli-guide li + li {
+  margin-top: 8px;
+}
+.cli-guide .cli-guide-result {
+  padding-left: 14px;
+  border-left: 2px solid var(--purple);
+  font-size: 13px;
+}
+.cli-guide blockquote {
+  margin: 18px 0;
+  padding: 18px 20px;
+  background: #efedff;
+  border-left: 3px solid var(--purple);
+  line-height: 1.8;
+  font-size: 15px;
+}
+.cli-guide-table {
+  overflow-x: auto;
+}
+.cli-guide table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.cli-guide th,
+.cli-guide td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.cli-guide th {
+  background: #f5f4f8;
+  font-weight: 600;
+}
+.cli-guide td:first-child {
+  min-width: 100px;
+}
+.cli-guide details {
+  border-bottom: 1px solid var(--line);
+  padding: 16px 0;
+}
+.cli-guide summary {
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 1.6;
+}
