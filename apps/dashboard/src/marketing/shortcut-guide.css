@@ -1,0 +1,77 @@
+.docs-content .annotation-shortcut-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin: 20px 0;
+  color: #696873;
+}
+.annotation-shortcut-hint > span:first-child {
+  margin-right: 4px;
+}
+.annotation-shortcut-hint a {
+  margin-left: 8px;
+  color: #6553c7;
+  text-decoration: none;
+}
+.shortcut-hint-divider {
+  color: #b5b1bf;
+  margin: 0 4px;
+}
+.shortcut-table-scroll {
+  overflow-x: auto;
+  margin: 24px 0;
+  border: 1px solid #e2e1e8;
+  border-radius: 8px;
+}
+.shortcut-guide table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.shortcut-guide th,
+.shortcut-guide td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e9e7ed;
+  vertical-align: top;
+}
+.shortcut-guide thead {
+  background: #f7f6fa;
+}
+.shortcut-guide th {
+  font-weight: 550;
+  color: #3c3744;
+}
+.shortcut-guide td {
+  color: #77717f;
+}
+.shortcut-guide td:nth-child(2) {
+  white-space: nowrap;
+}
+.shortcut-guide tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.shortcut-guide th:first-child {
+  min-width: 146px;
+}
+.shortcut-guide td:last-child {
+  min-width: 220px;
+}
+.shortcut-table-scroll:focus-visible {
+  outline: 2px solid #7164cc;
+  outline-offset: 3px;
+}
+.shortcut-guide [data-slot='kbd'],
+.annotation-shortcut-hint [data-slot='kbd'] {
+  background: #f4f3f7;
+  color: #494151;
+  border: 1px solid #ddd9e4;
+  border-bottom-width: 2px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  font-size: 12px;
+}

@@ -15,6 +15,7 @@ import { MarketingPricingContent } from './MarketingContent';
 import { SiteFooter, SiteHeader } from './SiteChrome';
 import './premium-marketing.css';
 import { CliGuide } from './CliGuide';
+import { AnnotationShortcutHint, ShortcutGuide } from './ShortcutGuide';
 
 function PageShell({ children }: { children: ReactNode }) {
   return (
@@ -40,6 +41,7 @@ export function DocsPage() {
           <a href="#quick-start">快速开始</a>
           <a href="#elements">元素批注</a>
           <a href="#capture">截图标注</a>
+          <a href="#shortcuts">快捷键</a>
           <a href="#agent">Codex 接入</a>
           <a href="#projects">项目管理</a>
         </aside>
@@ -61,6 +63,7 @@ export function DocsPage() {
           <article id="elements">
             <span>02</span>
             <h2>元素批注</h2>
+            <AnnotationShortcutHint mode="element" />
             <p>
               切换到批注模式后，将鼠标移到页面元素上。MarkFix
               会显示当前可选择范围。点击后在右侧填写备注，再点击勾号保存；点击已有记录可以重新编辑。
@@ -76,6 +79,7 @@ export function DocsPage() {
           <article id="capture">
             <span>03</span>
             <h2>截图标注</h2>
+            <AnnotationShortcutHint mode="capture" />
             <p>
               在截图模式中拖拽建立选区，再使用移动、矩形、椭圆、箭头、画笔、文字、马赛克和序号工具完成说明。
             </p>
@@ -87,9 +91,10 @@ export function DocsPage() {
               )}
             </div>
           </article>
+          <ShortcutGuide />
           <CliGuide />
           <article id="projects">
-            <span>04</span>
+            <span>05</span>
             <h2>项目管理</h2>
             <p>
               项目侧栏用于切换网站，历史标注用于回看记录。本地项目和标注保存在本机；云端项目按项目成员授权，可在管理后台处理与驳回。不同页面的标注独立显示。
