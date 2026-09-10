@@ -58,6 +58,12 @@
   text-decoration: none;
 }
 
+.premium-site .premium-nav > .premium-nav-download {
+  border-left: 1px solid #e2e1e8;
+  margin-left: 16px;
+  padding-left: 24px;
+}
+
 .premium-nav > a:hover {
   color: var(--ink);
 }

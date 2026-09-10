@@ -12,7 +12,9 @@ export function MarketingSite() {
       <main>
         <section className="home-hero" aria-labelledby="home-title">
           <div className="home-hero-copy">
-            <h1 id="home-title">Mark It! Fix It!</h1>
+            <h1 id="home-title">
+              Mark It! <span>Fix It!</span>
+            </h1>
             <p>
               像在 Word 里写批注一样，在网页上选中问题、标记截图，
               <br className="home-desktop-break" />
@@ -34,14 +36,6 @@ export function MarketingSite() {
               支持 Codex 接入 <ArrowRight size={13} />
             </a>
           </div>
-          <figure className="home-hero-image">
-            <img
-              src="/marketing/project-management.png"
-              alt="MarkFix 桌面端：从页面标注，在右侧填写批注"
-              width="1440"
-              height="900"
-            />
-          </figure>
           <nav className="home-product-links" aria-label="产品能力">
             <a href="#product">
               <Crosshair /> 网页标注 <ArrowRight />

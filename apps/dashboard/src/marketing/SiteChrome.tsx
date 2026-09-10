@@ -14,11 +14,8 @@ import {
 
 const navigation = [
   { label: '产品', href: '/#product' },
-  { label: '在线体验', href: '/#experience' },
   { label: '文档', href: '/docs' },
-  { label: 'Agent 接入', href: '/docs#agent' },
   { label: '定价', href: '/pricing' },
-  { label: '下载', href: '/download' },
 ];
 
 export function SiteHeader() {
@@ -35,6 +32,9 @@ export function SiteHeader() {
             {item.label}
           </a>
         ))}
+        <a className="premium-nav-download" href="/download">
+          下载
+        </a>
         <Button onClick={() => window.location.assign('/login')}>登录</Button>
       </nav>
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -54,6 +54,9 @@ export function SiteHeader() {
                 <a href={item.href}>{item.label}</a>
               </SheetClose>
             ))}
+            <SheetClose asChild>
+              <a href="/download">下载</a>
+            </SheetClose>
             <SheetClose asChild>
               <Button onClick={() => window.location.assign('/login')}>登录</Button>
             </SheetClose>
@@ -84,6 +87,7 @@ export function SiteFooter() {
           <strong>资源</strong>
           <a href="/docs">使用文档</a>
           <a href="/docs#capture">截图标注</a>
+          <a href="/docs#agent">Agent 接入</a>
           <a href="/docs#projects">项目管理</a>
         </section>
         <section>
