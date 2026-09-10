@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { AgentRepository, Report, WebsiteProject } from '@markfix/contracts';
+import type { AgentRepository, WebsiteProject } from '@markfix/contracts';
 import {
   Alert,
   AlertDescription,
-  Button,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   RepositoryBinding,
 } from '@markfix/ui';
 export function ProjectAgentDialog({
@@ -21,7 +19,6 @@ export function ProjectAgentDialog({
   const [data, setData] = useState<{
     binding: { repositoryId: string | null; repositoryName: string | null };
     repositories: AgentRepository[];
-    reports: Report[];
     canManage: boolean;
   }>();
   const [error, setError] = useState('');
@@ -43,18 +40,15 @@ export function ProjectAgentDialog({
           if (active) setError(cause instanceof Error ? cause.message : '无法读取项目接入信息');
         });
     refresh();
-    const timer = window.setInterval(refresh, 10_000);
     return () => {
       active = false;
-      window.clearInterval(timer);
     };
   }, [project]);
   return (
     <Dialog open={Boolean(project)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="project-agent-dialog">
+      <DialogContent className="project-agent-dialog" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>{project?.title} · Agent 接入</DialogTitle>
-          <DialogDescription>绑定代码仓库，查看标注修复结果。</DialogDescription>
+          <DialogTitle>绑定项目</DialogTitle>
         </DialogHeader>
         {error && (
           <Alert variant="destructive">
@@ -70,44 +64,11 @@ export function ProjectAgentDialog({
               readOnly={!data.canManage}
               onSave={async (binding) => {
                 await window.markfix.setProjectRepository(project.id, binding);
-                setData(await window.markfix.getProjectAgentData(project.id));
+                onClose();
               }}
             />
-            {project.storageMode === 'LOCAL' ? (
-              <p>本地项目仅保存仓库名称；CLI 处理已提交到服务器的云端标注。</p>
-            ) : (
-              <section>
-                <h3>标注修复</h3>
-                {!data.reports.length && <p>暂无已提交的标注。</p>}
-                {data.reports.map((report) => (
-                  <article key={report.id} className="agent-report-row">
-                    <strong>{report.title}</strong>
-                    <span>
-                      {report.status === 'FIX_FAILED'
-                        ? '修复失败'
-                        : ['RESOLVED', 'CLOSED'].includes(report.status) && !report.rejectionReason
-                          ? '修复完成'
-                          : report.status === 'IN_PROGRESS'
-                            ? '修复中'
-                            : report.rejectionReason
-                              ? '已驳回'
-                              : '待修复'}
-                    </span>
-                    {report.fixAttempts?.map((run) => (
-                      <p key={run.id}>
-                        {run.status === 'FAILED' ? '失败原因：' : ''}
-                        {run.reason ?? run.summary}
-                      </p>
-                    ))}
-                  </article>
-                ))}
-              </section>
-            )}
           </>
         )}
-        <Button variant="outline" onClick={onClose}>
-          关闭
-        </Button>
       </DialogContent>
     </Dialog>
   );

@@ -12,7 +12,8 @@ import { setTimeout } from 'node:timers/promises';
 const output = mkdtempSync(join(tmpdir(), 'markfix-dashboard-components-'));
 app.setPath('userData', join(output, 'profile'));
 app.disableHardwareAcceleration();
-const dist = resolve(import.meta.dirname, '../../dashboard/dist');
+const dist =
+  process.env.MARKFIX_TEST_DASHBOARD_DIST ?? resolve(import.meta.dirname, '../../dashboard/dist');
 const now = new Date().toISOString();
 const user = {
   id: 'user',
@@ -52,6 +53,7 @@ const bootstrap = {
   overview,
 };
 let downloadState = 'ready';
+let repositoryBinding = { repositoryId: null, repositoryName: null };
 let annotationFailure = false;
 let bootstrapDelay = 0;
 const server = createServer(async (req, res) => {
@@ -59,18 +61,29 @@ const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin ?? '*');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
     res.end();
     return;
   }
   if (path.endsWith('/binding')) {
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ repositoryId: null, repositoryName: null }));
+    if (req.method === 'PATCH') {
+      let body = '';
+      for await (const chunk of req) body += chunk.toString();
+      repositoryBinding = JSON.parse(body);
+      assert.equal(repositoryBinding.repositoryId, '22222222-2222-4222-8222-222222222222');
+    }
+    res.end(JSON.stringify(repositoryBinding));
     return;
   }
   if (path.endsWith('/repositories')) {
     res.setHeader('Content-Type', 'application/json');
-    res.end('[]');
+    res.end(
+      JSON.stringify([
+        { id: '22222222-2222-4222-8222-222222222222', name: 'markfix-ui', deviceName: 'QA Mac' },
+      ]),
+    );
     return;
   }
   if (path === '/v1/client-policy') {
@@ -398,6 +411,28 @@ async function main() {
     if (process.env.MARKFIX_AUDIT_SURFACES) {
       await run(`document.querySelector('.project-card-open').click()`);
       await waitFor(`!!document.querySelector('.annotation-row')`);
+      await waitFor(`!!document.querySelector('.repository-binding [role="combobox"]')`);
+      assert.equal(
+        await run(
+          `document.querySelector('.repository-binding [role="radio"][value="existing"]').getAttribute('aria-checked')`,
+        ),
+        'true',
+      );
+      await run(`document.querySelector('.repository-binding [role="combobox"]').click()`);
+      await waitFor(`!!document.querySelector('[role="option"]')`);
+      await run(`document.querySelector('[role="option"]').click()`);
+      assert.ok(
+        await run(
+          `document.querySelector('.repository-binding [role="combobox"]').textContent.includes('markfix-ui')`,
+        ),
+      );
+      await run(
+        `[...document.querySelectorAll('.repository-binding button')].find(button=>button.textContent==='保存').click()`,
+      );
+      await waitFor(
+        `document.querySelector('.repository-binding [role="status"]')?.textContent === '绑定已保存'`,
+      );
+
       await setTimeout(300);
       writeFileSync(
         join(output, 'project-drawer.png'),

@@ -122,7 +122,7 @@ app.on('browser-window-created', (_event, win) => {
       ]) {
         await run(`qa.button(${JSON.stringify(label)}).click()`);
         await new Promise((r) => setTimeout(r, 80));
-        assert.equal(links.at(-1), `http://localhost:4311/${path}`);
+        assert.equal(links.at(-1), `${process.env.MARKFIX_SERVICE_ORIGIN}/${path}`);
       }
       await run(
         `document.querySelectorAll('[data-close-button]').forEach(button=>button.click());qa.wait(()=>!document.querySelector('[data-sonner-toast]'))`,
@@ -227,7 +227,7 @@ app.on('browser-window-created', (_event, win) => {
         await new Promise((resolve) => setTimeout(resolve, 100));
         assert.deepEqual(chromeLaunches.at(-1), {
           file: '/usr/bin/open',
-          args: ['-a', 'Google Chrome', 'https://markfix.hanzeal.com'],
+          args: ['-a', 'Google Chrome', process.env.MARKFIX_SERVICE_ORIGIN],
         });
         console.log('PASS help menu and Chrome website launch command');
       }
@@ -251,37 +251,94 @@ app.on('browser-window-created', (_event, win) => {
         `document.querySelectorAll('[data-close-button]').forEach(button=>button.click());qa.wait(()=>!document.querySelector('[data-sonner-toast]'))`,
       );
       await run(
-        `qa.fill(document.querySelector('#new-project-url'),${JSON.stringify(process.env.MARKFIX_API_URL + '/site')})`,
+        `qa.fill(document.querySelector('#new-project-url'),${JSON.stringify(process.env.MARKFIX_SERVICE_ORIGIN + '/site')})`,
       );
       await run(
-        `document.querySelector('#new-project-url').form.requestSubmit();qa.wait(()=>document.querySelector('[aria-label="删除项目：界面验收项目"]'))`,
+        `document.querySelector('#new-project-url').form.requestSubmit();qa.wait(()=>document.querySelector('[aria-label="项目操作：界面验收项目"]'))`,
       );
       await run(`qa.wait(()=>!document.querySelector('.browser-bar .spin'))`);
       if (process.env.MARKFIX_AGENT_SMOKE) {
+        const openBinding = async () => {
+          await run(
+            `document.querySelector('[aria-label="项目操作：界面验收项目"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menu"]'))`,
+          );
+          assert.equal(await run(`document.querySelectorAll('[role="menuitem"]').length`), 2);
+          await run(
+            `[...document.querySelectorAll('[role="menuitem"]')].find(e=>e.textContent.includes('绑定项目')).click();qa.wait(()=>document.querySelector('[aria-label="绑定方式"]'))`,
+          );
+        };
         await run(
-          `document.querySelector('[aria-label="仓库与修复：界面验收项目"]').click();qa.wait(()=>document.querySelector('.repository-binding input'))`,
+          `document.querySelector('[aria-label="项目操作：界面验收项目"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menu"]'))`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        writeFileSync(
+          join(output, 'project-menu.png'),
+          (await win.webContents.capturePage()).toPNG(),
         );
         await run(
-          `qa.fill(document.querySelector('.repository-binding input'),'markfix-fixture');qa.button('保存绑定').click();qa.wait(()=>document.body.textContent.includes('绑定已保存'))`,
+          `document.querySelector('[role="menu"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));qa.wait(()=>!document.querySelector('[role="menu"]'))`,
         );
+        await openBinding();
+        assert.equal(
+          await run(
+            `document.querySelector('[role="radio"][value="existing"]').getAttribute('aria-checked')`,
+          ),
+          'true',
+        );
+        assert.equal(await run(`document.querySelectorAll('.repository-binding input').length`), 0);
         assert.equal(
           win.contentView.children[0].getVisible(),
           false,
           'Target website is hidden behind project dialog',
         );
         writeFileSync(
+          join(output, 'repository-existing.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+        await run(
+          `document.querySelector('[role="radio"][value="custom"]').click();qa.wait(()=>document.querySelector('.repository-binding input'))`,
+        );
+        await run(`qa.fill(document.querySelector('.repository-binding input'),'markfix-fixture')`);
+        writeFileSync(
           join(output, 'repository-binding.png'),
           (await win.webContents.capturePage()).toPNG(),
         );
         await run(
-          `qa.button('关闭').click();qa.wait(()=>!document.querySelector('.project-agent-dialog'))`,
+          `qa.button('保存').click();qa.wait(()=>!document.querySelector('.project-agent-dialog'))`,
+        );
+        await openBinding();
+        await run(
+          `document.querySelector('[role="radio"][value="custom"]').click();qa.wait(()=>document.querySelector('.repository-binding input')?.value==='markfix-fixture')`,
         );
         await run(
-          `document.querySelector('[aria-label="仓库与修复：界面验收项目"]').click();qa.wait(()=>document.querySelector('.repository-binding input')?.value==='markfix-fixture')`,
+          `document.querySelector('[role="dialog"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));qa.wait(()=>!document.querySelector('.project-agent-dialog'))`,
+        );
+        await run(
+          `document.querySelector('[aria-label="项目操作：界面验收项目"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menu"]'))`,
+        );
+        await run(
+          `[...document.querySelectorAll('[role="menuitem"]')].find(e=>e.textContent.includes('删除项目')).click();qa.wait(()=>document.querySelector('[role="alertdialog"]'))`,
+        );
+        await run(
+          `qa.button('取消').click();qa.wait(()=>!document.querySelector('[role="alertdialog"]'))`,
+        );
+        assert.equal(
+          await run(`!!document.querySelector('[aria-label="项目操作：界面验收项目"]')`),
+          true,
+        );
+        await run(
+          `document.querySelector('[aria-label="项目操作：界面验收项目"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menu"]'))`,
+        );
+        await run(
+          `[...document.querySelectorAll('[role="menuitem"]')].find(e=>e.textContent.includes('删除项目')).click();qa.wait(()=>document.querySelector('[role="alertdialog"]'))`,
+        );
+        await run(
+          `qa.button('删除项目').click();qa.wait(()=>!document.querySelector('[aria-label="项目操作：界面验收项目"]'))`,
         );
         console.log(
-          'PASS native project repository binding, persistence and target-page isolation',
+          'PASS project menu, default existing mode, custom binding persistence, native isolation, delete cancellation and confirmed deletion',
         );
+        console.log('Screenshots: ' + output);
         clearTimeout(timeout);
         server.close();
         return app.quit();
@@ -407,7 +464,7 @@ app.on('browser-window-created', (_event, win) => {
         return app.quit();
       }
       if (process.env.MARKFIX_PREVIEW_SMOKE) {
-        const pageUrl = process.env.MARKFIX_API_URL + '/site';
+        const pageUrl = process.env.MARKFIX_SERVICE_ORIGIN + '/site';
         const projectId = await run(
           `window.markfix.listWebsiteProjects().then(items=>items[0].id)`,
         );
@@ -899,10 +956,10 @@ app.on('browser-window-created', (_event, win) => {
       }
       const target = webContents
         .getAllWebContents()
-        .find((contents) => contents.getURL() === process.env.MARKFIX_API_URL + '/site');
+        .find((contents) => contents.getURL() === process.env.MARKFIX_SERVICE_ORIGIN + '/site');
       assert.ok(target);
       for (const path of ['/site', '/site?reload=1']) {
-        if (path !== '/site') await target.loadURL(process.env.MARKFIX_API_URL + path);
+        if (path !== '/site') await target.loadURL(process.env.MARKFIX_SERVICE_ORIGIN + path);
         await new Promise((resolve) => setTimeout(resolve, 100));
         assert.equal(
           await target.executeJavaScript('innerHeight - document.documentElement.clientHeight'),
@@ -932,7 +989,7 @@ app.on('browser-window-created', (_event, win) => {
       );
       const captureId = '22222222-2222-4222-8222-222222222222';
       const dataUrl = (await win.webContents.capturePage()).toDataURL();
-      const pageUrl = process.env.MARKFIX_API_URL + '/site';
+      const pageUrl = process.env.MARKFIX_SERVICE_ORIGIN + '/site';
       await run(
         `window.markfix.saveCaptureRecord(${JSON.stringify({
           id: captureId,
@@ -987,9 +1044,9 @@ app.on('browser-window-created', (_event, win) => {
       console.log('PASS integrated main header and native child title bars');
       if (await run(`!!document.querySelector('[aria-label="展开项目侧边栏"]')`))
         await clickHeaderButton();
-      await run(`qa.wait(()=>document.querySelector('[aria-label="删除项目：界面验收项目"]'))`);
+      await run(`qa.wait(()=>document.querySelector('[aria-label="项目操作：界面验收项目"]'))`);
       await run(
-        `document.querySelector('[aria-label="删除项目：界面验收项目"]').click();qa.wait(()=>document.querySelector('[role="alertdialog"]'))`,
+        `document.querySelector('[aria-label="项目操作：界面验收项目"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menu"]')).then(()=>{[...document.querySelectorAll('[role="menuitem"]')].find(e=>e.textContent.includes('删除项目')).click();return qa.wait(()=>document.querySelector('[role="alertdialog"]'));})`,
       );
       await run(`qa.wait(()=>document.activeElement?.textContent==='取消')`);
       assert.equal(
@@ -1005,14 +1062,14 @@ app.on('browser-window-created', (_event, win) => {
         `qa.button('取消').click();qa.wait(()=>!document.querySelector('[role="alertdialog"]'))`,
       );
       assert.equal(
-        await run(`!!document.querySelector('[aria-label="删除项目：界面验收项目"]')`),
+        await run(`!!document.querySelector('[aria-label="项目操作：界面验收项目"]')`),
         true,
       );
       await run(
-        `document.querySelector('[aria-label="删除项目：界面验收项目"]').click();qa.wait(()=>document.querySelector('[role="alertdialog"]'))`,
+        `document.querySelector('[aria-label="项目操作：界面验收项目"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menu"]')).then(()=>{[...document.querySelectorAll('[role="menuitem"]')].find(e=>e.textContent.includes('删除项目')).click();return qa.wait(()=>document.querySelector('[role="alertdialog"]'));})`,
       );
       await run(
-        `qa.button('删除项目').click();qa.wait(()=>!document.querySelector('[aria-label="删除项目：界面验收项目"]'))`,
+        `qa.button('删除项目').click();qa.wait(()=>!document.querySelector('[aria-label="项目操作：界面验收项目"]'))`,
       );
       console.log(
         'PASS error message, red confirmation, cancel, and disposable local project deletion',
@@ -1039,9 +1096,8 @@ app.on('browser-window-created', (_event, win) => {
   });
 });
 server.listen(0, '127.0.0.1', () => {
-  process.env.MARKFIX_API_URL = `http://127.0.0.1:${server.address().port}`;
+  process.env.MARKFIX_SERVICE_ORIGIN = `http://127.0.0.1:${server.address().port}`;
   process.env.MARKFIX_ALLOW_HTTP = 'true';
-  process.env.MARKFIX_DASHBOARD_ORIGIN = 'http://localhost:4311';
   import(join(root, 'apps/desktop/out/main/index.js')).catch((e) => {
     console.error(e);
     return app.exit(1);

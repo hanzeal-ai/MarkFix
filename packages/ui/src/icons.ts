@@ -24,6 +24,8 @@ export {
   Eye,
   EyeOff,
   EllipsisVertical,
+  Ellipsis,
+  Link2,
   ExternalLink,
   Filter,
   FolderKanban,

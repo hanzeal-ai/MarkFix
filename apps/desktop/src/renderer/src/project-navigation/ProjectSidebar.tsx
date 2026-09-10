@@ -12,7 +12,17 @@ import {
   DropdownMenuTrigger,
   toast,
 } from '@markfix/ui';
-import { CircleHelp, Gift, History, LogOut, Plus, Settings2, Trash2 } from '@markfix/ui/icons';
+import {
+  CircleHelp,
+  Gift,
+  History,
+  LogOut,
+  Plus,
+  Settings2,
+  Trash2,
+  Ellipsis,
+  Link2,
+} from '@markfix/ui/icons';
 import { useEffect, useState } from 'react';
 import { DesktopUpdateButton } from '../DesktopUpdateButton';
 import { WebsiteLogo } from './WebsiteLogo';
@@ -52,10 +62,11 @@ export function ProjectSidebar({
 }): React.JSX.Element | null {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [helpMenuOpen, setHelpMenuOpen] = useState(false);
+  const [projectMenuId, setProjectMenuId] = useState<string | null>(null);
   useEffect(() => {
-    onMenuOpenChange(expanded && (accountMenuOpen || helpMenuOpen));
+    onMenuOpenChange(expanded && (accountMenuOpen || helpMenuOpen || projectMenuId !== null));
     return () => onMenuOpenChange(false);
-  }, [expanded, accountMenuOpen, helpMenuOpen, onMenuOpenChange]);
+  }, [expanded, accountMenuOpen, helpMenuOpen, projectMenuId, onMenuOpenChange]);
   const initials = Array.from(user.displayName.trim() || user.email)
     .slice(0, 2)
     .join('')
@@ -98,24 +109,36 @@ export function ProjectSidebar({
                   </small>
                 </span>
               </Button>
-              <Button
-                type="button"
-                className="project-sidebar-agent"
-                aria-label={`仓库与修复：${project.title}`}
-                title="仓库与修复"
-                onClick={() => onAgentProject(project)}
+              <DropdownMenu
+                open={projectMenuId === project.id}
+                onOpenChange={(open) => setProjectMenuId(open ? project.id : null)}
               >
-                <Settings2 />
-              </Button>
-              <Button
-                type="button"
-                className="project-sidebar-delete"
-                aria-label={`删除项目：${project.title}`}
-                title={`删除 ${project.title}`}
-                onClick={() => onDeleteProject(project)}
-              >
-                <Trash2 />
-              </Button>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="project-sidebar-more"
+                    aria-label={`项目操作：${project.title}`}
+                    title="项目操作"
+                  >
+                    <Ellipsis />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={4} aria-label="项目操作">
+                  <DropdownMenuItem onSelect={() => onAgentProject(project)}>
+                    <Link2 />
+                    绑定项目
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onSelect={() => onDeleteProject(project)}
+                  >
+                    <Trash2 />
+                    删除项目
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           );
         })}

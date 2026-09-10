@@ -98,7 +98,7 @@
 }
 .project-sidebar-action:focus-visible,
 .project-sidebar-item:focus-visible,
-.project-sidebar-delete:focus-visible,
+.project-sidebar-more:focus-visible,
 .history-project-card:focus-visible,
 .project-history-page button:focus-visible,
 .new-project-page button:focus-visible {
@@ -164,38 +164,28 @@
 .project-sidebar-item-shell {
   position: relative;
 }
-.project-sidebar-delete {
+.project-sidebar-more {
   position: absolute;
-  z-index: 2;
-  top: calc(50% - 2px);
-  right: 8px;
+  top: 6px;
+  right: 6px;
   width: 26px;
   height: 26px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  transform: translateY(-50%);
-  border: 1px solid #eddddd;
-  border-radius: 7px;
-  background: #fff;
-  color: #b04444;
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease;
+  padding: 4px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
 }
-.project-sidebar-delete svg {
-  width: 13px;
-  height: 13px;
+.project-sidebar-more:hover,
+.project-sidebar-more[data-state='open'] {
+  background: var(--surface-3);
+  color: var(--text);
 }
-.project-sidebar-item-shell:hover .project-sidebar-delete,
-.project-sidebar-delete:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
+.project-sidebar-more svg {
+  width: 16px;
+  height: 16px;
 }
-.project-sidebar-delete:hover {
-  border-color: #d9baba;
-  background: #fff2f2;
+.project-sidebar-item {
+  padding-right: 38px;
 }
 .website-logo {
   width: 30px;
@@ -391,12 +381,6 @@
   height: 14px;
 }
 
-.project-sidebar-agent {
-  width: 28px;
-  height: 28px;
-  padding: 4px;
-  flex-shrink: 0;
-}
 .project-agent-dialog {
   max-height: 85vh;
   overflow-y: auto;
@@ -410,9 +394,12 @@
   display: grid;
   gap: 8px;
 }
-.agent-report-row {
-  display: grid;
+.repository-binding .repository-binding-modes {
+  display: flex;
+  gap: 24px;
+}
+.repository-binding .repository-binding-choice {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
 }

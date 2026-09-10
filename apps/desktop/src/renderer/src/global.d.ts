@@ -48,7 +48,6 @@ declare global {
       getProjectAgentData(projectId: string): Promise<{
         binding: { repositoryId: string | null; repositoryName: string | null };
         repositories: AgentRepository[];
-        reports: Report[];
         canManage: boolean;
       }>;
       setProjectRepository(

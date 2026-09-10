@@ -181,3 +181,13 @@
   display: grid;
   gap: 8px;
 }
+
+.repository-binding .repository-binding-modes {
+  display: flex;
+  gap: 24px;
+}
+.repository-binding .repository-binding-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

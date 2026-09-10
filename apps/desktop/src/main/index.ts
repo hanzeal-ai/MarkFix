@@ -1,3 +1,4 @@
+import { serviceUrls } from '@markfix/contracts';
 import { repositoryBindingSchema, type AgentRepository } from '@markfix/contracts';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -72,7 +73,10 @@ const macWindowMaterial =
         visualEffectState: 'followWindow',
       } as const)
     : {};
-const api = new MarkFixApi(process.env.MARKFIX_API_URL ?? import.meta.env.MAIN_VITE_API_URL);
+const services = process.env.MARKFIX_SERVICE_ORIGIN
+  ? serviceUrls('production', process.env.MARKFIX_SERVICE_ORIGIN)
+  : import.meta.env.MAIN_VITE_SERVICE_URLS;
+const api = new MarkFixApi(services.apiOrigin);
 const desktopSession = new DesktopSessionManager(api);
 let mainWindow: BrowserWindow | undefined;
 let websiteView: WebContentsView | undefined;
@@ -268,7 +272,7 @@ const desktopUpdater = new DesktopUpdater(
     if (!app.isPackaged || process.platform !== 'darwin')
       throw new Error('自动更新仅适用于已安装的 macOS 正式版本。');
     return desktopUpdateFeedUrl(
-      process.env.MARKFIX_API_URL ?? import.meta.env.MAIN_VITE_API_URL,
+      services.apiOrigin,
       app.getVersion(),
       process.arch,
     );
@@ -826,13 +830,13 @@ const registerIpc = (): void => {
     await promisify(execFile)('/usr/bin/open', [
       '-a',
       'Google Chrome',
-      'https://markfix.hanzeal.com',
+      services.origin,
     ]);
   });
   ipcMain.handle(accountPageChannel, async (event, page: unknown) => {
     if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted account page sender');
     await shell.openExternal(
-      accountPageUrl(page, process.env.MARKFIX_DASHBOARD_ORIGIN ?? 'https://markfix.hanzeal.com'),
+      accountPageUrl(page, services.origin),
     );
   });
   ipcMain.handle(ipcChannels.authStatus, async (event) => {
@@ -931,7 +935,6 @@ const registerIpc = (): void => {
           repositoryName: draftStore?.getWebsiteProject(projectId)?.repositoryName ?? null,
         },
         repositories: [],
-        reports: [],
         canManage: true,
       };
     const remote = (await api.listProjects()).find(({ id }) => id === projectId);
@@ -945,8 +948,7 @@ const registerIpc = (): void => {
         ? api.requestJson<AgentRepository[]>(`/v1/agent/projects/${projectId}/repositories`)
         : [],
     ]);
-    const reports = await api.listAllReports(projectId);
-    return { binding, repositories, reports, canManage };
+    return { binding, repositories, canManage };
   });
   ipcMain.handle(ipcChannels.setProjectRepository, async (event, input: unknown) => {
     assertShellSender(event);

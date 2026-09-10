@@ -82,3 +82,19 @@ MARKFIX_TEST_DASHBOARD_DIST=/tmp/markfix-agent-ui-dist MARKFIX_BROWSER_SMOKE=tru
 签名、公证、安装包公开发布、实际 Codex 会话自动修复和生产迁移均未验证。
 
 最终证据日志位于 `/tmp/markfix-final-{format,lint,types,tests,build}.log`、`/tmp/markfix-agent-negative-final2.log`、`/tmp/markfix-project-final.log`、`/tmp/markfix-native-quit.log`、`/tmp/markfix-preview-quit.log`、`/tmp/markfix-surfaces-final3.log`。截图为本地隔离测试产物；已直接观察授权、失败与完成详情、项目绑定、成员与账户页面。其他页面有行为烟测与截图，未逐张进行人工式视觉检查。
+
+## 2026-09-10 绑定界面调整
+
+R1：项目名右侧的 shadcn 三点菜单提供“绑定项目 / 删除项目”。绑定弹窗默认“从已有选择”，
+仅显示 CLI 上报项目下拉或自定义名称输入框，以及保存按钮。移除旧独立按钮、弹窗修复列表及其无用数据请求。
+权限与服务端绑定契约不变。原生烟测验证默认选项、自定义保存/重开、网页隔离、删除取消与确认；
+浏览器烟测验证已上报项目选择及保存请求。全仓格式、lint、类型检查、测试和构建通过。
+原生退出仍有已知的目标关闭后截图中断日志。
+
+浏览器绑定写入烟测使用同源测试构建，避免测试工具的跨域重定向阻断预检请求：
+
+```sh
+VITE_API_URL='' pnpm --filter @markfix/dashboard exec vite build --outDir /tmp/markfix-binding-ui-dist
+MARKFIX_TEST_DASHBOARD_DIST=/tmp/markfix-binding-ui-dist MARKFIX_AUDIT_SURFACES=true pnpm --filter @markfix/desktop exec electron scripts/smoke-dashboard-components.mjs
+MARKFIX_AGENT_SMOKE=true pnpm --filter @markfix/desktop exec electron scripts/smoke-account-ui.mjs
+```
