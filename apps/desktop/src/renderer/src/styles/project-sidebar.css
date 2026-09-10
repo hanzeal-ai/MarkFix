@@ -164,7 +164,7 @@
 .project-sidebar-item-shell {
   position: relative;
 }
-.project-sidebar-more {
+.project-sidebar-item-shell .project-sidebar-more {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -174,9 +174,18 @@
   border-radius: 6px;
   background: transparent;
   color: var(--text-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
 }
-.project-sidebar-more:hover,
-.project-sidebar-more[data-state='open'] {
+.project-sidebar-item-shell:hover .project-sidebar-more,
+.project-sidebar-item-shell:has(:focus-visible) .project-sidebar-more,
+.project-sidebar-item-shell .project-sidebar-more[data-state='open'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+.project-sidebar-item-shell .project-sidebar-more:hover,
+.project-sidebar-item-shell .project-sidebar-more[data-state='open'] {
   background: var(--surface-3);
   color: var(--text);
 }
