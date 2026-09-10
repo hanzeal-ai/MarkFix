@@ -374,3 +374,35 @@
 .download-capability-list {
   border-color: #e2e4e9;
 }
+
+.docs-content .docs-effect-image {
+  margin: 28px 0 0;
+}
+.docs-effect-image > a {
+  display: block;
+  border: 1px solid #e2e0e9;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.docs-effect-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.docs-effect-image figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #77717f;
+}
+.docs-effect-image figcaption > span {
+  color: #938b9d;
+}
+.docs-effect-image > a:focus-visible {
+  outline: 2px solid #7164cc;
+  outline-offset: 4px;
+}

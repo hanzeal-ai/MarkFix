@@ -75,6 +75,26 @@ export function DocsPage() {
                 <small>批注会关联页面地址、元素选择器和视觉位置。</small>
               </span>
             </div>
+            <figure className="docs-effect-image">
+              <a
+                href="/marketing/element-annotation.png"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="查看元素批注效果图原图"
+              >
+                <img
+                  src="/marketing/element-annotation.png"
+                  alt="元素批注效果：网页标题高亮选中，右侧填写修改建议并确认保存"
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </a>
+              <figcaption>
+                元素批注：选中页面元素，在右侧填写修改建议。<span>点击图片查看原图</span>
+              </figcaption>
+            </figure>
           </article>
           <article id="capture">
             <span>03</span>
@@ -90,6 +110,26 @@ export function DocsPage() {
                 ),
               )}
             </div>
+            <figure className="docs-effect-image">
+              <a
+                href="/marketing/screenshot-editor.png"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="查看截图标注效果图原图"
+              >
+                <img
+                  src="/marketing/screenshot-editor.png"
+                  alt="截图标注效果：框选网页区域，使用顶部工具栏标记并在右侧填写备注"
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </a>
+              <figcaption>
+                截图标注：框选区域，使用标记工具说明问题。<span>点击图片查看原图</span>
+              </figcaption>
+            </figure>
           </article>
           <ShortcutGuide />
           <CliGuide />
