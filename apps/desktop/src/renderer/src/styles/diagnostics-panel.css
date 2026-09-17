@@ -26,7 +26,7 @@
 .diagnostics-content {
   min-height: 0;
   display: grid;
-  grid-template-rows: 36px minmax(0, 1fr) auto;
+  grid-template-rows: 36px minmax(0, 1fr);
 }
 .diagnostics-header {
   display: flex;
@@ -75,7 +75,7 @@
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: #9c3f3f;
+  background: var(--brand-orange);
   color: #fff;
   font-size: 9px;
   font-style: normal;
@@ -130,7 +130,7 @@
   overflow: auto;
 }
 .diagnostics-empty {
-  height: 100%;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -157,20 +157,20 @@
     monospace;
 }
 .diagnostic-entry.warning {
-  background: rgba(171, 123, 34, 0.08);
+  background: color-mix(in srgb, var(--brand-orange) 8%, transparent);
 }
 .diagnostic-entry.error {
-  background: rgba(179, 59, 59, 0.11);
+  background: color-mix(in srgb, var(--brand-orange) 11%, transparent);
 }
 .diagnostic-level {
   padding-top: 2px;
   color: #78808d;
 }
 .diagnostic-entry.warning .diagnostic-level {
-  color: #d5a54e;
+  color: var(--brand-orange);
 }
 .diagnostic-entry.error .diagnostic-level {
-  color: #e26a62;
+  color: var(--brand-orange);
 }
 .diagnostic-level svg {
   width: 13px;
@@ -241,13 +241,11 @@
   height: 11px;
 }
 .diagnostics-command {
-  min-height: 54px;
   display: grid;
-  grid-template-columns: 94px minmax(180px, 1fr) 76px;
+  grid-template-columns: 94px minmax(0, 1fr) 76px;
   gap: 7px;
   padding: 7px 9px;
-  border-top: 1px solid #30343c;
-  background: #202329;
+  background: transparent;
 }
 .diagnostics-command select,
 .diagnostics-command textarea,
@@ -270,6 +268,11 @@
 }
 .diagnostics-command textarea {
   min-width: 0;
+  min-height: 32px;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   resize: none;
   padding: 7px 9px;
   outline: none;
@@ -301,5 +304,5 @@
   font-size: 9px;
 }
 .diagnostics-command-error {
-  color: #f08b82;
+  color: var(--brand-orange);
 }

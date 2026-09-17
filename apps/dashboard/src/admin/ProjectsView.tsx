@@ -11,12 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@markfix/ui';
-import { ChevronRight, FolderKanban, Search } from '@markfix/ui/icons';
+import { ChevronRight, FolderKanban, Search, Settings2 } from '@markfix/ui/icons';
 import { useState } from 'react';
 import './admin.css';
 import { EmptyState } from './components/AdminState';
-import { projectProgress, type OverviewProject } from './model';
+import { projectProgress, statusText, type OverviewProject } from './model';
 
+import { ProjectSettingsDialog } from './components/ProjectSettingsDialog';
 import { ProjectLogo } from './components/ProjectLogo';
 export function ProjectsView({
   projects,
@@ -25,6 +26,8 @@ export function ProjectsView({
   projects: OverviewProject[];
   onProject: (project: OverviewProject) => void;
 }) {
+  const [settingsProjectId, setSettingsProjectId] = useState<string>();
+  const settingsProject = projects.find(({ id }) => id === settingsProjectId);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('ALL');
   const categories = [...new Set(projects.map((project) => project.category))];
@@ -66,6 +69,18 @@ export function ProjectsView({
       <section className="projects-grid">
         {visible.map((project) => (
           <Card className="project-card" key={project.id}>
+            {(project.role === 'OWNER' || project.role === 'ADMIN') && (
+              <Button
+                className="project-card-settings"
+                variant="ghost"
+                size="icon-sm"
+                title="项目设置"
+                aria-label={`设置${project.name}`}
+                onClick={() => setSettingsProjectId(project.id)}
+              >
+                <Settings2 />
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -83,12 +98,21 @@ export function ProjectsView({
                 <span>
                   <strong>{project.annotationCount}</strong>全部标注
                 </span>
-                <span>
-                  <strong>{project.pendingCount}</strong>待处理
-                  {project.failedCount > 0 && <small> · {project.failedCount} 修复失败</small>}
+                <span className="status-open">
+                  <strong>{project.pendingCount}</strong>
+                  {statusText.OPEN}
                 </span>
-                <span className="rejected">
-                  <strong>{project.rejectedCount}</strong>已驳回
+                <span className="status-rejected">
+                  <strong>{project.rejectedCount}</strong>
+                  {statusText.REJECTED}
+                </span>
+                <span className="status-resolved">
+                  <strong>{project.resolvedCount}</strong>
+                  {statusText.RESOLVED}
+                </span>
+                <span className="status-fix_failed">
+                  <strong>{project.failedCount}</strong>
+                  {statusText.FIX_FAILED}
                 </span>
                 <span>
                   <strong>{project.memberCount}</strong>协作成员
@@ -105,6 +129,14 @@ export function ProjectsView({
           </Card>
         ))}
       </section>
+      {settingsProject &&
+        (settingsProject.role === 'OWNER' || settingsProject.role === 'ADMIN') && (
+          <ProjectSettingsDialog
+            key={settingsProject.id}
+            project={settingsProject}
+            onClose={() => setSettingsProjectId(undefined)}
+          />
+        )}
       {!visible.length && <EmptyState icon={FolderKanban} title="没有找到项目" />}
     </>
   );

@@ -1,12 +1,12 @@
 /* Sink dashboard visual contract, scoped to the Web admin surface. */
 #root .admin-shell {
   --admin-sidebar: oklch(98.5% 0 0);
-  --admin-accent: var(--primary);
-  --admin-accent-soft: var(--secondary);
+  --admin-accent: var(--brand-purple);
+  --admin-accent-soft: var(--brand-purple-soft);
   --admin-border: oklch(92% 0.004 286.32);
   --admin-muted: oklch(55.2% 0.016 285.938);
   min-height: 100vh;
-  grid-template-columns: 256px minmax(0, 1fr);
+  grid-template-columns: 208px minmax(0, 1fr);
   gap: 0;
   padding: 0;
   background: var(--admin-sidebar);
@@ -58,7 +58,7 @@
 #root .admin-nav button:hover,
 #root .admin-nav button.active {
   background: var(--admin-accent-soft);
-  color: oklch(14.1% 0.005 285.823);
+  color: var(--brand-purple-strong);
   box-shadow: none;
 }
 
@@ -73,10 +73,12 @@
 }
 
 #root .admin-profile {
+  display: flex;
+  min-width: 0;
   gap: 9px;
   border: 0;
   border-radius: 0;
-  padding: 12px;
+  padding: 8px 0;
   background: transparent;
 }
 
@@ -148,17 +150,36 @@
   box-shadow: none;
 }
 
-#root .admin-main [data-slot='button'],
-.project-sheet [data-slot='button'],
-.annotation-dialog [data-slot='button'] {
+#root
+  .admin-main
+  [data-slot='button']:not(
+    .annotation-thumbnail-button,
+    .annotation-screenshot-button,
+    .annotation-history-thumbnail,
+    .project-card-open
+  ),
+.project-details-page
+  [data-slot='button']:not(
+    .annotation-thumbnail-button,
+    .annotation-screenshot-button,
+    .annotation-history-thumbnail,
+    .project-card-open
+  ),
+.annotation-dialog
+  [data-slot='button']:not(
+    .annotation-thumbnail-button,
+    .annotation-screenshot-button,
+    .annotation-history-thumbnail,
+    .project-card-open
+  ) {
   border-radius: 999px;
 }
 
 #root .admin-main [data-slot='input'],
 #root .admin-main [data-slot='native-select'],
 #root .admin-main [data-slot='select-trigger'],
-.project-sheet [data-slot='input'],
-.project-sheet [data-slot='select-trigger'],
+.project-details-page [data-slot='input'],
+.project-details-page [data-slot='select-trigger'],
 .annotation-dialog [data-slot='input'] {
   border-color: var(--admin-border);
   border-radius: 999px;
@@ -194,13 +215,13 @@
 }
 
 #root .metric-card.warning .metric-icon {
-  background: #fff4df;
-  color: #a76009;
+  background: var(--brand-orange-soft);
+  color: var(--brand-orange);
 }
 
 #root .metric-card.danger .metric-icon {
-  background: #fff0ed;
-  color: #b13e34;
+  background: var(--brand-orange-soft);
+  color: var(--brand-orange);
 }
 
 #root .metric-card > strong {
@@ -235,7 +256,6 @@
   padding: 18px;
 }
 
-#root .project-card-open:hover,
 #root button.dimension-row:hover {
   background: oklch(98.5% 0 0);
 }
@@ -285,32 +305,32 @@
   color: var(--admin-accent);
 }
 
-.project-sheet {
+.project-details-page {
   --admin-border: oklch(92% 0.004 286.32);
   border-color: oklch(92% 0.004 286.32);
   background: oklch(98.5% 0 0);
   font-family: var(--font-sans);
 }
 
-.project-sheet > header,
-.project-sheet .sheet-toolbar,
-.project-sheet .sheet-pagination {
+.project-details-page > header,
+.project-details-page .project-details-toolbar,
+.project-details-page .project-annotations-pagination {
   border-color: oklch(92% 0.004 286.32);
   background: oklch(100% 0 0);
 }
 
-.project-sheet .sheet-content-list {
+.project-details-page .project-annotations-list {
   gap: 12px;
   background: oklch(98.5% 0 0);
 }
 
-.project-sheet .annotation-row {
+.project-details-page .annotation-row {
   border-color: oklch(92% 0.004 286.32);
   border-radius: 16px;
   background: oklch(100% 0 0);
 }
 
-.project-sheet .annotation-summary:hover {
+.project-details-page .annotation-summary:hover {
   background: oklch(98.5% 0 0);
 }
 
@@ -338,8 +358,8 @@
 }
 
 .annotation-dialog .rejection-detail {
-  border-color: #f2d2cd;
-  background: #fff3f1;
+  border-color: var(--brand-orange-soft);
+  background: var(--brand-orange-soft);
 }
 
 body:has(#root .admin-shell) [data-slot='dialog-overlay'],
@@ -348,22 +368,16 @@ body:has(#root .admin-shell) [data-slot='sheet-overlay'] {
   backdrop-filter: blur(6px);
 }
 
-/* SheetOverlay predates the shared data-slot contract and is portalled under body. */
-body:has(.project-sheet[data-state='open']) > .fixed.inset-0.z-50 {
-  background: rgb(0 0 0 / 76%);
-  backdrop-filter: blur(6px);
-}
-
-.project-sheet .category-editor [data-slot='button'][type='submit'],
-.project-sheet .sheet-toolbar > [data-slot='button'],
+.project-details-page .category-editor [data-slot='button'][type='submit'],
+.project-details-page .project-details-toolbar > [data-slot='button'],
 .annotation-dialog .dialog-actions [data-slot='button'][type='submit'] {
   border-color: var(--primary);
   background: var(--primary);
   color: var(--primary-foreground);
 }
 
-.project-sheet .category-editor [data-slot='button'][type='submit']:hover,
-.project-sheet .sheet-toolbar > [data-slot='button']:hover,
+.project-details-page .category-editor [data-slot='button'][type='submit']:hover,
+.project-details-page .project-details-toolbar > [data-slot='button']:hover,
 .annotation-dialog .dialog-actions [data-slot='button'][type='submit']:hover {
   background: color-mix(in oklab, var(--primary) 90%, transparent);
 }
@@ -494,5 +508,48 @@ body:has(.project-sheet[data-state='open']) > .fixed.inset-0.z-50 {
 
   #root .projects-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+#root .admin-main .project-card-open[data-slot='button'],
+#root .admin-main .project-card-open[data-slot='button']:hover {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#root .admin-profile .admin-profile-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  padding: 8px;
+  border-radius: 10px;
+  text-align: left;
+}
+.admin-profile-identity {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.admin-profile-identity strong,
+.admin-profile-identity small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 820px) {
+  #root .admin-profile .admin-profile-trigger {
+    justify-content: center;
+  }
+  #root .admin-profile .admin-profile-trigger .user-symbol {
+    display: flex;
+  }
+  #root .admin-profile .admin-profile-identity {
+    display: none;
   }
 }

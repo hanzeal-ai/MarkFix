@@ -58,23 +58,26 @@ describe('diagnostic console', () => {
       'Log.enable',
       'Network.enable',
     ]);
-    expect(diagnostics.list()).toEqual([
-      expect.objectContaining({
-        kind: 'console',
-        level: 'error',
-        message: 'Authorization: [REDACTED]',
-        pageUrl: 'https://example.test/page?token=%5BREDACTED%5D',
-      }),
-      expect.objectContaining({
-        kind: 'network',
-        level: 'error',
-        request: expect.objectContaining({
-          method: 'POST',
-          url: 'https://api.example.test/items?api_key=%5BREDACTED%5D',
-          durationMs: 250,
+    await vi.waitFor(() => expect(diagnostics.list()).toHaveLength(2));
+    expect(diagnostics.list()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'console',
+          level: 'error',
+          message: 'Authorization: [REDACTED]',
+          pageUrl: 'https://example.test/page?token=%5BREDACTED%5D',
         }),
-      }),
-    ]);
+        expect.objectContaining({
+          kind: 'network',
+          level: 'error',
+          request: expect.objectContaining({
+            method: 'POST',
+            url: 'https://api.example.test/items?api_key=%5BREDACTED%5D',
+            durationMs: 250,
+          }),
+        }),
+      ]),
+    );
     expect(onEntry).toHaveBeenCalledTimes(2);
 
     diagnostics.clear('console');

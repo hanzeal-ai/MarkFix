@@ -15,3 +15,9 @@ export const inlineNoteActionSchema = z.object({
   note: z.string().max(2000),
 });
 export type InlineNoteAction = z.infer<typeof inlineNoteActionSchema>;
+
+export const elementReselectSchema = z.object({
+  documentUrl: z.string().max(8192),
+  x: z.number().int().nonnegative().max(100000),
+  y: z.number().int().nonnegative().max(100000),
+});

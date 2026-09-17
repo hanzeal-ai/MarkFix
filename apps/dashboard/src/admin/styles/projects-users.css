@@ -7,14 +7,14 @@
 }
 
 .admin-search,
-.sheet-search {
+.project-details-search {
   position: relative;
   width: min(360px, 100%);
   display: block;
 }
 
 .admin-search > svg,
-.sheet-search > svg {
+.project-details-search > svg {
   position: absolute;
   z-index: 1;
   top: 50%;
@@ -25,7 +25,7 @@
 }
 
 .admin-search input,
-.sheet-search input {
+.project-details-search input {
   padding-left: 34px;
   background: #fff;
 }
@@ -116,7 +116,7 @@
 .project-card-stats {
   margin-top: 24px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
@@ -132,8 +132,21 @@
   font-size: 16px;
 }
 
-.project-card-stats span.rejected strong {
-  color: #bd493d;
+.project-card-stats .status-open,
+.project-card-stats .status-open strong {
+  color: #6b7280;
+}
+.project-card-stats .status-rejected,
+.project-card-stats .status-rejected strong {
+  color: #a16207;
+}
+.project-card-stats .status-resolved,
+.project-card-stats .status-resolved strong {
+  color: #15803d;
+}
+.project-card-stats .status-fix_failed,
+.project-card-stats .status-fix_failed strong {
+  color: #dc2626;
 }
 
 .project-progress {
@@ -260,4 +273,17 @@
 .admin-loading-page {
   min-height: 100vh;
   background: #f6f7f9;
+}
+
+.project-card {
+  position: relative;
+}
+#root .project-card-settings {
+  position: absolute;
+  z-index: 1;
+  top: 12px;
+  right: 12px;
+}
+.project-card:has(.project-card-settings) .project-card-top {
+  padding-right: 32px;
 }

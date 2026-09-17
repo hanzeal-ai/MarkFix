@@ -140,6 +140,8 @@ test(
     assert.deepEqual(JSON.parse(result.stdout), { projects: [{ id: 'test-project' }] });
     assert.deepEqual(JSON.parse(await readFile(f.browserLog, 'utf8')), [`${f.origin}/authorize`]);
     assert.match(result.stderr, /Code: ABCD1234/);
+    assert.match(result.stderr, /Waiting for browser authorization/);
+    assert.match(result.stderr, /Authorization complete. Continuing/);
     assert.equal(f.calls.filter((path) => path === '/v1/agent/device').length, 1);
     assert.ok(f.calls.includes('/v1/agent/repositories'));
     assert.ok(

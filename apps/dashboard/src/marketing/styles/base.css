@@ -564,7 +564,7 @@
   background: var(--brand-accent);
 }
 .premium-admin-activity p span.is-blue {
-  background: #3988f5;
+  background: var(--brand-purple);
 }
 .premium-admin-activity p span.is-dark {
   background: #292932;

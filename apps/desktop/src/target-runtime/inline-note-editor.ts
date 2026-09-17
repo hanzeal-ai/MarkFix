@@ -3,7 +3,8 @@ import type { InlineNote, InlineNoteAction } from '../inline-note';
 export class InlineNoteEditor {
   private state: InlineNote | null = null;
   private readonly form = document.createElement('form');
-  private readonly input = document.createElement('textarea');
+  private readonly input = document.createElement('input');
+  private composing = false;
   private readonly submit = document.createElement('button');
   constructor(
     root: ShadowRoot,
@@ -28,7 +29,8 @@ export class InlineNoteEditor {
     this.input.setAttribute('aria-label', '备注');
     this.input.placeholder = '填写备注';
     this.input.maxLength = 2000;
-    this.input.rows = 1;
+    this.input.type = 'text';
+    this.input.autocomplete = 'off';
     Object.assign(this.input.style, {
       flex: '1',
       minWidth: '0',
@@ -61,14 +63,24 @@ export class InlineNoteEditor {
     cancel.addEventListener('click', (event) => {
       if (event.isTrusted) this.emit('cancel');
     });
+    this.input.addEventListener('compositionstart', () => {
+      this.composing = true;
+      this.updateButton();
+    });
+    this.input.addEventListener('compositionend', () => {
+      this.composing = false;
+      this.updateButton();
+      this.emit('change');
+    });
     this.input.addEventListener('input', (event) => {
       if (!event.isTrusted) return;
       this.updateButton();
-      this.emit('change');
+      if (!this.composing && !(event as InputEvent).isComposing) this.emit('change');
     });
     this.input.addEventListener('keydown', (event) => {
       if (!event.isTrusted) return;
       event.stopPropagation();
+      if (this.composing || event.isComposing || event.keyCode === 229) return;
       if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
         event.preventDefault();
         if (!this.submit.disabled) this.emit('submit');
@@ -95,7 +107,7 @@ export class InlineNoteEditor {
     });
   }
   private updateButton(): void {
-    this.submit.disabled = !this.state?.ready || !this.input.value.trim();
+    this.submit.disabled = this.composing || !this.state?.ready || !this.input.value.trim();
     this.submit.style.opacity = this.submit.disabled ? '0.45' : '1';
   }
   setState(state: InlineNote | null): void {
@@ -105,10 +117,19 @@ export class InlineNoteEditor {
       JSON.stringify(this.state.anchor) !== JSON.stringify(state?.anchor);
     this.state = state;
     if (!state || state.anchor.documentUrl !== location.href) {
+      this.composing = false;
       this.form.style.display = 'none';
       return;
     }
-    if (this.input.value !== state.note) this.input.value = state.note;
+    // The active editor owns its value. IPC echoes may arrive after newer keystrokes.
+    if (
+      opening ||
+      (!this.composing &&
+        this.input.getRootNode() instanceof ShadowRoot &&
+        (this.input.getRootNode() as ShadowRoot).activeElement !== this.input)
+    ) {
+      if (this.input.value !== state.note) this.input.value = state.note;
+    }
     this.form.style.display = 'flex';
     this.updateButton();
     this.position();

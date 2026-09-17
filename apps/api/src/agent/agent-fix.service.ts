@@ -1,4 +1,4 @@
-import { agentPolicy } from '@markfix/contracts';
+import { agentPolicy, groupAgentIssueDelivery } from '@markfix/contracts';
 import { canRepairReport } from '../authorization.js';
 import {
   agentIssueQuerySchema,
@@ -38,13 +38,54 @@ export class AgentFixService {
         status: true,
         version: true,
         updatedAt: true,
+        environmentId: true,
+        reporterId: true,
+        assigneeId: true,
+        description: true,
+        priority: true,
+        captureBundle: true,
+        screenshotPath: true,
       },
       orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
     });
-    const items = rows.slice(0, query.limit);
-    return { items, nextCursor: rows.length > query.limit ? items.at(-1)?.id : null };
+    const page = rows.slice(0, query.limit);
+    const screenshotIds = [
+      ...new Set(page.flatMap((row) => (row.screenshotPath ? [row.screenshotPath] : []))),
+    ];
+    const screenshotHashes = new Map<string, string>();
+    if (screenshotIds.length) {
+      try {
+        const artifacts = await this.db.artifact.findMany({
+          where: { id: { in: screenshotIds } },
+          select: { id: true, sha256: true },
+        });
+        for (const artifact of artifacts) screenshotHashes.set(artifact.id, artifact.sha256);
+      } catch {
+        // Optional image comparison cannot prevent delivery of the original task list.
+      }
+    }
+    const items = page.map(({ id, projectId, title, status, version, updatedAt }) => ({
+      id,
+      projectId,
+      title,
+      status,
+      version,
+      updatedAt,
+    }));
+    return {
+      items,
+      nextCursor: rows.length > query.limit ? items.at(-1)?.id : null,
+      delivery: groupAgentIssueDelivery(
+        page.map((row) => ({
+          ...row,
+          screenshotSha256: row.screenshotPath
+            ? (screenshotHashes.get(row.screenshotPath) ?? null)
+            : null,
+        })),
+      ),
+    };
   }
   async get(grant: AgentGrant, id: string) {
     const report = await this.db.report.findUnique({

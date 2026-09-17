@@ -10,6 +10,7 @@ describe('CdpInspector', () => {
       if (method === 'Overlay.setInspectMode' && !parameters?.highlightConfig) {
         throw new Error('Internal error: highlight configuration parameter is missing');
       }
+      if (method === 'DOM.getNodeForLocation') return { backendNodeId: 8 };
       if (method === 'DOM.describeNode') {
         return {
           node: {
@@ -94,7 +95,12 @@ describe('CdpInspector', () => {
     });
     messageListener?.(undefined, 'Overlay.inspectNodeRequested', { backendNodeId: 7 });
     await vi.waitFor(() => expect(onSelection).toHaveBeenCalledOnce());
-    messageListener?.(undefined, 'Overlay.inspectNodeRequested', { backendNodeId: 8 });
+    await inspector.selectAt(20, 40);
+    expect(sendCommand).toHaveBeenCalledWith('DOM.getNodeForLocation', {
+      x: 20,
+      y: 40,
+      includeUserAgentShadowDOM: false,
+    });
     await vi.waitFor(() => expect(onSelection).toHaveBeenCalledTimes(2));
 
     expect(onFailure).not.toHaveBeenCalled();

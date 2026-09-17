@@ -80,7 +80,6 @@ declare global {
         peekWidth: number,
         panelWidth: number,
       ): Promise<void>;
-      openMoreMenu(x: number, y: number): Promise<void>;
       openSettings(): Promise<void>;
       openOfficialWebsite(): Promise<void>;
       navigate(url: string): Promise<string>;

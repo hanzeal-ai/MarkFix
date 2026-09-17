@@ -78,13 +78,15 @@ app.on('browser-window-created', (_event, win) => {
         };
         const node = find(root);
         if (!node) return null;
-        const { object } = await command('DOM.resolveNode', { nodeId: node.nodeId });
+        const { object } = await command('DOM.resolveNode', { backendNodeId: node.backendNodeId });
         const expression =
-          operation === 'value'
-            ? 'this.value'
-            : operation === 'disabled'
-              ? 'this.disabled'
-              : '(()=>{const r=this.getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),width:r.width,height:r.height}})()';
+          operation === 'inputState'
+            ? '({value:this.value, end:this.selectionEnd, scrollLeft:this.scrollLeft, scrollWidth:this.scrollWidth, clientWidth:this.clientWidth})'
+            : operation === 'value'
+              ? 'this.value'
+              : operation === 'disabled'
+                ? 'this.disabled'
+                : '(()=>{const r=this.getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),width:r.width,height:r.height}})()';
         const { result } = await command('Runtime.callFunctionOn', {
           objectId: object.objectId,
           functionDeclaration: `function(){return ${expression}}`,
@@ -109,16 +111,58 @@ app.on('browser-window-created', (_event, win) => {
         writeFileSync(join(output, name), (await win.webContents.capturePage()).toPNG());
         writeFileSync(join(output, 'target-' + name), (await target.capturePage()).toPNG());
       };
+      assert.equal(
+        await run(`document.querySelectorAll('.annotation-mode-control button').length`),
+        3,
+      );
       await mode('capture');
+      const frozen = await run(`window.markfix.capture({mode:'visible'})`);
+      assert.equal(
+        frozen.viewportWidthCssPx,
+        await target.executeJavaScript('innerWidth'),
+        'Frozen frame and visible viewport use the same coordinates',
+      );
+      await target.executeJavaScript(
+        `document.querySelector('#subject').textContent='临时状态已消失';document.body.style.background='#ff0000'`,
+      );
+      await delay(150);
+      assert.equal(
+        (await run(`window.markfix.capture({mode:'visible'})`)).dataUrl,
+        frozen.dataUrl,
+        'Frame is fixed before selecting a region',
+      );
       target.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, x: 30, y: 80 });
       target.sendInputEvent({ type: 'mouseMove', x: 900, y: 300 });
       target.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, x: 900, y: 300 });
-      await wait(async () => (await field('TEXTAREA'))?.width > 0);
+      await wait(async () => (await field('INPUT'))?.width > 0);
+      target.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, x: 900, y: 220 });
+      target.sendInputEvent({ type: 'mouseMove', x: 940, y: 220 });
+      target.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, x: 940, y: 220 });
+      await delay(150);
+      target.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, x: 100, y: 140 });
+      target.sendInputEvent({ type: 'mouseMove', x: 240, y: 210 });
+      target.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, x: 240, y: 210 });
       await delay(350);
       target.focus();
-      await click(await field('TEXTAREA'));
+      await click(await field('INPUT'));
+      await command('Input.imeSetComposition', {
+        text: 'jie tu',
+        selectionStart: 6,
+        selectionEnd: 6,
+      });
+      await delay(200);
+      assert.equal(await field('INPUT', 'value'), 'jie tu', 'Composition survives state echoes');
+      await command('Input.insertText', { text: '截图备注验收' });
+      await delay(200);
+      assert.equal(await field('INPUT', 'value'), '截图备注验收');
+      await target.insertText('连续输入的历史文字'.repeat(12));
+      await delay(150);
+      const typing = await field('INPUT', 'inputState');
+      assert.equal(typing.value, '截图备注验收' + '连续输入的历史文字'.repeat(12));
+      assert.equal(typing.end, typing.value.length);
+      assert.ok(typing.scrollLeft > 0, 'Single-line input follows the latest text');
+      target.selectAll();
       await target.insertText('截图备注验收');
-      assert.equal(await field('TEXTAREA', 'value'), '截图备注验收');
       await wait(async () => (await field('BUTTON', 'disabled')) === false);
       assert.equal(
         (await field('FORM')).height,
@@ -136,19 +180,25 @@ app.on('browser-window-created', (_event, win) => {
       await wait(() =>
         run(`document.querySelector('aside.comment-panel')?.textContent.includes('截图备注验收')`),
       );
+      const captures = await run(
+        `window.markfix.desktopBootstrap().then(({websiteProjects}) => window.markfix.listCaptureRecords(websiteProjects[0].id))`,
+      );
+      assert.equal(
+        captures[0].selection.widthCssPx,
+        910,
+        'Drag selection edge resizes without a mouse tool',
+      );
+      assert.equal(captures[0].marks[0].type, 'rectangle', 'Rectangle is selected by default');
+      assert.equal(captures[0].note, '截图备注验收', 'No intermediate pinyin is saved');
       await screenshot('capture-preview.png');
       await mode('capture');
-      assert.equal(
-        (await field('TEXTAREA'))?.width ?? 0,
-        0,
-        'A new capture requires a new selection',
-      );
+      assert.equal((await field('INPUT'))?.width ?? 0, 0, 'A new capture requires a new selection');
       await mode('comment');
       await click({ x: 120, y: 150 });
-      await wait(async () => (await field('TEXTAREA'))?.width > 0);
+      await wait(async () => (await field('INPUT'))?.width > 0);
       await delay(350);
       target.focus();
-      await click(await field('TEXTAREA'));
+      await click(await field('INPUT'));
       await target.insertText('元素备注验收');
       await wait(async () => (await field('BUTTON', 'disabled')) === false);
       await screenshot('element-inline.png');
@@ -162,34 +212,34 @@ app.on('browser-window-created', (_event, win) => {
       );
       await screenshot('element-preview.png');
       await run(`document.querySelector('.element-note-select').click()`);
-      await wait(async () => (await field('TEXTAREA', 'value')) === '元素备注验收');
+      await wait(async () => (await field('INPUT', 'value')) === '元素备注验收');
       await target.executeJavaScript('scrollTo(0,100)');
       await delay(200);
       await screenshot('element-scroll.png');
       await delay(350);
       target.focus();
-      await click(await field('TEXTAREA'));
+      await click(await field('INPUT'));
       target.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
       target.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
       await delay(100);
       await target.loadURL(url + '?other=1');
       await delay(250);
+      await run(`document.querySelector('.preview-toggle-button').click()`);
+      await wait(() => run(`!!document.querySelector('aside.comment-panel')`));
       assert.equal(
         await run(`document.body.textContent.includes('元素备注验收')`),
-        false,
-        'Different page isolates annotations',
+        true,
+        'Project preview includes records from other pages',
       );
       await target.loadURL(url);
       await delay(300);
-      await run(
-        `document.querySelector('.annotation-panel-resize-handle').dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}))`,
-      );
+
       await wait(() =>
         run(`document.querySelector('aside.comment-panel')?.textContent.includes('元素备注验收')`),
       );
       await screenshot('replayed-preview.png');
       console.log(
-        'PASS fresh capture, inline Enter and click submission, automatic preview visibility, editing, scrolling, route isolation and saved replay',
+        'PASS fresh capture, inline Enter and click submission, automatic preview visibility, editing, scrolling, project-wide preview and saved replay',
       );
       console.log('Evidence: ' + output);
       clearTimeout(timeout);

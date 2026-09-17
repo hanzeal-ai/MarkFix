@@ -1,3 +1,4 @@
+import { diagnosticEvidenceSections } from '@markfix/contracts';
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -5,6 +6,7 @@ import {
   AlertDescription,
   Badge,
   Button,
+  DiagnosticDetails,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -83,7 +85,7 @@ export function AnnotationEditor({
         kind,
         pageUrl,
         ...(authorId ? { authorId } : {}),
-        ...(state.mode === 'edit' ? { status } : {}),
+        ...(state.mode === 'edit' && status !== state.annotation.status ? { status } : {}),
       };
       if (state.mode === 'create') {
         return commercialRequest(`/projects/${project.id}/annotations`, {
@@ -128,6 +130,13 @@ export function AnnotationEditor({
               : `${project.name} · ${project.category}`}
           </DialogDescription>
         </DialogHeader>
+        {annotation?.evidence?.map((entry) => (
+          <DiagnosticDetails
+            key={entry.id}
+            title={entry.title}
+            sections={diagnosticEvidenceSections(entry)}
+          />
+        ))}
         {readOnly ? (
           <div className="annotation-detail-grid">
             <div className="annotation-detail-badges">
@@ -222,7 +231,7 @@ export function AnnotationEditor({
                   {run.status === 'SUCCEEDED'
                     ? '已完成'
                     : run.status === 'FAILED'
-                      ? '修复失败'
+                      ? '失败'
                       : run.status === 'RUNNING'
                         ? '修复中'
                         : '执行中断'}
@@ -354,9 +363,9 @@ export function AnnotationEditor({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="OPEN">待处理</SelectItem>
-                        <SelectItem value="IN_REVIEW">处理中</SelectItem>
-                        <SelectItem value="RESOLVED">已解决</SelectItem>
+                        <SelectItem value="OPEN">未处理</SelectItem>
+                        <SelectItem value="FIX_FAILED">失败</SelectItem>
+                        <SelectItem value="RESOLVED">已完成</SelectItem>
                       </SelectContent>
                     </Select>
                   </Label>

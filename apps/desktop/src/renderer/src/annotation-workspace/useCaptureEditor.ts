@@ -208,6 +208,9 @@ export function useCaptureEditor({
   const resetLocal = useCallback((): void => {
     captureRequestIdRef.current = undefined;
     captureRestoreRef.current = undefined;
+    activeRestoreRequestRef.current = undefined;
+    setCaptureLoading(false);
+    setCaptureRendering(false);
     setCaptureSelection(undefined);
     setCaptureSource(undefined);
     setCaptureMarks([]);
@@ -219,7 +222,7 @@ export function useCaptureEditor({
 
   const beginCaptureMode = useCallback((): void => {
     resetLocal();
-    void window.markfix.setCaptureTool('select');
+    void window.markfix.setCaptureTool('rectangle');
   }, [resetLocal]);
 
   const restoreActiveCapture = useCallback(async (): Promise<void> => {
@@ -327,7 +330,7 @@ export function useCaptureEditor({
     setEditingCaptureId(undefined);
     try {
       await window.markfix.clearCaptureSelection();
-      await window.markfix.setCaptureTool('select');
+      await window.markfix.setCaptureTool('rectangle');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '截图批注已保存，但截图工具未能重置。');
     }
@@ -335,12 +338,9 @@ export function useCaptureEditor({
   };
 
   const cancelCapture = async (): Promise<void> => {
-    setCaptureNote('');
-    setCaptureEvidence([]);
-    setCaptureMarks([]);
-    setEditingCaptureId(undefined);
+    resetLocal();
     await window.markfix.clearCaptureSelection();
-    await window.markfix.setCaptureTool('select');
+    await window.markfix.setCaptureTool('rectangle');
   };
 
   const deleteSavedCapture = async (id: string): Promise<void> => {
@@ -396,11 +396,12 @@ export function useCaptureEditor({
   const resetAfterSubmission = useCallback((): void => {
     resetLocal();
     void window.markfix.clearCaptureSelection();
-    void window.markfix.setCaptureTool('select');
+    void window.markfix.setCaptureTool('rectangle');
   }, [resetLocal]);
 
   return {
     beginCaptureMode,
+    resetCaptureDraft: resetLocal,
     cancelCapture,
     captureEvidence,
     captureLoading,

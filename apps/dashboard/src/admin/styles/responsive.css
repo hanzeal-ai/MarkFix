@@ -184,15 +184,15 @@
     flex-direction: column;
   }
 
-  .project-sheet {
+  .project-details-page {
     max-width: 100%;
   }
 
-  .sheet-toolbar {
+  .project-details-toolbar {
     grid-template-columns: 1fr 118px;
   }
 
-  .sheet-toolbar > button {
+  .project-details-toolbar > button {
     grid-column: 1 / -1;
   }
 

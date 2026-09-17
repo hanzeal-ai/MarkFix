@@ -81,16 +81,16 @@
   font-style: normal;
 }
 .draft {
-  background: #fff4d8;
-  color: #8a6416;
+  background: var(--brand-orange-soft);
+  color: var(--brand-orange);
 }
 .submitted {
-  background: #e5f5eb;
-  color: #287348;
+  background: var(--brand-purple-soft);
+  color: var(--brand-purple);
 }
 .rejected {
-  background: #fde9e7;
-  color: #ad4038;
+  background: var(--brand-orange-soft);
+  color: var(--brand-orange);
 }
 .history-empty {
   min-height: 300px;

@@ -15,9 +15,12 @@ import { registerCaptureIpc } from '../src/main/ipc/register-capture-ipc';
 describe('inline note action boundary', () => {
   const frame = {};
   const sendShell = vi.fn();
+  const reselectElement = vi.fn();
   beforeEach(() => {
     sendShell.mockClear();
+    reselectElement.mockClear();
     registerCaptureIpc({
+      reselectElement,
       assertSender: vi.fn(),
       captureService: () => undefined,
       mainWindow: () => undefined as BrowserWindow | undefined,
@@ -40,6 +43,21 @@ describe('inline note action boundary', () => {
       payload,
     );
     expect(sendShell).toHaveBeenCalledWith('annotation:inline-note-action', payload);
+  });
+  it('accepts direct reselection only from the current page main frame', () => {
+    const handler = handlers.get('markfix:reselect-element');
+    const point = { documentUrl: payload.documentUrl, x: 20, y: 40 };
+    handler?.({ sender: { id: 5 }, senderFrame: frame }, point);
+    expect(reselectElement).toHaveBeenCalledWith(20, 40);
+    reselectElement.mockClear();
+    handler?.({ sender: { id: 8 }, senderFrame: frame }, point);
+    handler?.({ sender: { id: 5 }, senderFrame: {} }, point);
+    handler?.({ sender: { id: 5 }, senderFrame: frame }, { ...point, x: -1 });
+    handler?.(
+      { sender: { id: 5 }, senderFrame: frame },
+      { ...point, documentUrl: 'https://example.com/old' },
+    );
+    expect(reselectElement).not.toHaveBeenCalled();
   });
   it('rejects other senders, subframes, stale pages and invalid notes', () => {
     const handler = handlers.get('markfix:inline-note-action');

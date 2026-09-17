@@ -19,6 +19,12 @@ describe('desktop mode shortcuts', () => {
     expect(modeForShortcut(input({ code: 'KeyW' }))).toBe('comment');
   });
 
+  it('maps Option+B to preview without the old Command modifier', () => {
+    expect(modeForShortcut(input({ code: 'KeyB' }))).toBe('preview');
+    expect(modeForShortcut(input({ code: 'KeyB', meta: true }))).toBeUndefined();
+    expect(modeForShortcut(input({ code: 'KeyB', isAutoRepeat: true }))).toBeUndefined();
+  });
+
   it('maps Command+Shift+C to diagnostics', () => {
     expect(modeForShortcut(input({ code: 'KeyC', alt: false, meta: true, shift: true }))).toBe(
       'diagnostics',

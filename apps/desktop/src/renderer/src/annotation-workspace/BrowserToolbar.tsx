@@ -6,7 +6,8 @@ import {
   Camera,
   LoaderCircle,
   MessageSquareText,
-  MoreHorizontal,
+  Eye,
+  MousePointer2,
   RotateCw,
   Send,
 } from '@markfix/ui/icons';
@@ -16,7 +17,8 @@ import type { BrowserState } from './model';
 type BrowserToolbarProps = {
   addressInputRef: RefObject<HTMLInputElement | null>;
   browserState: BrowserState;
-  diagnosticErrorCount: number;
+  previewOpen: boolean;
+  onTogglePreview: () => void;
   isSubmitting: boolean;
   mode: BrowserMode;
   unsubmittedCount: number;
@@ -30,7 +32,8 @@ type BrowserToolbarProps = {
 export function BrowserToolbar({
   addressInputRef,
   browserState,
-  diagnosticErrorCount,
+  previewOpen,
+  onTogglePreview,
   isSubmitting,
   mode,
   unsubmittedCount,
@@ -40,6 +43,11 @@ export function BrowserToolbar({
   onToggleMode,
   onUrlChange,
 }: BrowserToolbarProps) {
+  const selectedMode = previewOpen
+    ? 'preview'
+    : mode === 'comment' || mode === 'capture'
+      ? mode
+      : '';
   return (
     <>
       <div className="nav-buttons">
@@ -96,40 +104,46 @@ export function BrowserToolbar({
         </form>
       </div>
       <div className="tools">
-        <ToggleGroup
-          className="annotation-mode-control"
-          type="single"
-          value={mode === 'comment' || mode === 'capture' ? mode : ''}
-          aria-label="标注工具"
-          onValueChange={(value) => {
-            if (value === 'comment' || value === 'capture') onToggleMode(value);
-            else if (mode === 'comment' || mode === 'capture') onToggleMode(mode);
-          }}
+        <div
+          className="annotation-mode-switcher"
+          data-mode={selectedMode || 'browse'}
+          tabIndex={0}
+          aria-label="切换浏览、批注、截图或预览模式"
         >
-          <ToggleGroupItem value="comment" aria-keyshortcuts="Alt+W" title="批注（⌥W）">
-            <MessageSquareText /> 批注 <Kbd>⌥W</Kbd>
-          </ToggleGroupItem>
-          <ToggleGroupItem value="capture" aria-keyshortcuts="Alt+A" title="截图（⌥A）">
-            <Camera /> 截图 <Kbd>⌥A</Kbd>
-          </ToggleGroupItem>
-        </ToggleGroup>
-        <Button
-          className="more-menu-trigger diagnostics-button"
-          aria-label="更多"
-          title="更多"
-          aria-haspopup="menu"
-          onClick={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            void window.markfix
-              .openMoreMenu(rect.left, rect.bottom)
-              .catch((error: unknown) =>
-                onError(error instanceof Error ? error.message : '无法打开更多菜单。'),
-              );
-          }}
-        >
-          <MoreHorizontal />
-          {diagnosticErrorCount > 0 && <i>{Math.min(99, diagnosticErrorCount)}</i>}
-        </Button>
+          {!selectedMode && (
+            <span className="annotation-browse-label">
+              <MousePointer2 /> 浏览
+            </span>
+          )}
+          <ToggleGroup
+            className="annotation-mode-control"
+            type="single"
+            value={selectedMode}
+            aria-label="标注工具"
+            onValueChange={(value) => {
+              if (value === 'preview' || (!value && previewOpen)) onTogglePreview();
+              else if (value === 'comment' || value === 'capture') onToggleMode(value);
+              else if (mode === 'comment' || mode === 'capture') onToggleMode(mode);
+            }}
+          >
+            <ToggleGroupItem value="comment" aria-keyshortcuts="Alt+W" title="批注（⌥W）">
+              <MessageSquareText /> 批注 <Kbd>⌥W</Kbd>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="capture" aria-keyshortcuts="Alt+A" title="截图（⌥A）">
+              <Camera /> 截图 <Kbd>⌥A</Kbd>
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="preview"
+              className="preview-toggle-button"
+              aria-label="预览"
+              aria-pressed={previewOpen}
+              aria-keyshortcuts="Alt+B"
+              title="预览（⌥B）"
+            >
+              <Eye /> 预览 <Kbd>⌥B</Kbd>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         <Button
           className="save-annotations-button"
           size="icon"
@@ -139,6 +153,11 @@ export function BrowserToolbar({
           onClick={onOpenReview}
         >
           {isSubmitting ? <LoaderCircle className="spin" /> : <Send />}
+          {unsubmittedCount > 0 && (
+            <span className="submission-count-badge">
+              {unsubmittedCount > 99 ? '99+' : unsubmittedCount}
+            </span>
+          )}
         </Button>
       </div>
     </>

@@ -1,5 +1,5 @@
 import type { ProjectStorageMode, WebsiteProject } from '@markfix/contracts';
-import { Button, Input, Label, MarkFixStackedLogo, RadioGroup, RadioGroupItem } from '@markfix/ui';
+import { Button, Input, Label, MarkFixLogo, RadioGroup, RadioGroupItem } from '@markfix/ui';
 import { CornerDownLeft, Search } from '@markfix/ui/icons';
 import { useEffect, useState, type FormEvent } from 'react';
 import { desktopPreferenceKeys, newAnnotationStorageModePreference } from '../desktop-preferences';
@@ -42,7 +42,7 @@ export function NewProjectPage({
     <main className="navigation-page new-project-page">
       <section className="new-project-home">
         <header className="new-project-hero">
-          <MarkFixStackedLogo />
+          <MarkFixLogo width={280} height={90} />
         </header>
 
         <form className="new-project-form" aria-label="新建标注" onSubmit={submit}>

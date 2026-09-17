@@ -1,6 +1,7 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import {
   Button,
+  DiagnosticDetails,
   Input,
   NativeSelect,
   Tabs,
@@ -19,7 +20,7 @@ import {
   Trash2,
   X,
 } from '@markfix/ui/icons';
-import type { DiagnosticEvidence } from '@markfix/contracts';
+import { diagnosticEvidenceSections, type DiagnosticEvidence } from '@markfix/contracts';
 
 type DiagnosticsPanelProps = {
   entries: DiagnosticEvidence[];
@@ -71,6 +72,8 @@ const matchesText = (entry: DiagnosticEvidence, input: string): boolean => {
     entry.request?.statusText,
     entry.command?.input,
     entry.command?.output,
+    entry.request?.body,
+    entry.response?.body,
   ]
     .filter(Boolean)
     .some((value) => value?.toLocaleLowerCase().includes(query));
@@ -280,6 +283,10 @@ export function DiagnosticsPanel({
                         <pre>{entry.stack}</pre>
                       </details>
                     )}
+                    <DiagnosticDetails
+                      title="查看完整引用内容"
+                      sections={diagnosticEvidenceSections(entry)}
+                    />
                     <small title={entryContext(entry)}>{entryContext(entry)}</small>
                   </div>
                   <Button
@@ -293,42 +300,48 @@ export function DiagnosticsPanel({
                 </article>
               ))
             )}
-          </div>
 
-          {tab === 'console' && (
-            <footer className="diagnostics-command">
-              <NativeSelect
-                aria-label="命令类型"
-                value={commandMode}
-                onChange={(event) => {
-                  const nextMode = event.target.value as 'javascript' | 'curl';
-                  setCommandMode(nextMode);
-                  setCommand(
-                    nextMode === 'javascript' ? 'document.title' : "curl 'https://example.com'",
-                  );
-                  setError(undefined);
-                }}
-              >
-                <option value="javascript">JavaScript</option>
-                <option value="curl">cURL</option>
-              </NativeSelect>
-              <Textarea
-                value={command}
-                aria-label="控制台命令"
-                spellCheck={false}
-                onChange={(event) => setCommand(event.target.value)}
-                onKeyDown={handleCommandKeyDown}
-              />
-              <Button className="run" disabled={busy || !command.trim()} onClick={() => void run()}>
-                <Play /> {busy ? '运行中' : '运行'}
-              </Button>
-              {error && <span className="diagnostics-command-error">{error}</span>}
-              <small>
-                ⌘/Ctrl + Enter 执行；cURL
-                可访问当前设备网络，请仅运行可信命令。不会读取本地文件或自动携带页面 Cookie。
-              </small>
-            </footer>
-          )}
+            {tab === 'console' && (
+              <div className="diagnostics-command">
+                <NativeSelect
+                  aria-label="命令类型"
+                  value={commandMode}
+                  onChange={(event) => {
+                    const nextMode = event.target.value as 'javascript' | 'curl';
+                    setCommandMode(nextMode);
+                    setCommand(
+                      nextMode === 'javascript' ? 'document.title' : "curl 'https://example.com'",
+                    );
+                    setError(undefined);
+                  }}
+                >
+                  <option value="javascript">JavaScript</option>
+                  <option value="curl">cURL</option>
+                </NativeSelect>
+                <Textarea
+                  value={command}
+                  rows={1}
+                  placeholder="输入命令，⌘/Ctrl + Enter 执行"
+                  aria-label="控制台命令"
+                  spellCheck={false}
+                  onChange={(event) => setCommand(event.target.value)}
+                  onKeyDown={handleCommandKeyDown}
+                />
+                <Button
+                  className="run"
+                  disabled={busy || !command.trim()}
+                  onClick={() => void run()}
+                >
+                  <Play /> {busy ? '运行中' : '运行'}
+                </Button>
+                {error && <span className="diagnostics-command-error">{error}</span>}
+                <small>
+                  ⌘/Ctrl + Enter 执行；cURL
+                  可访问当前设备网络，请仅运行可信命令。不会读取本地文件或自动携带页面 Cookie。
+                </small>
+              </div>
+            )}
+          </div>
         </TabsContent>
       </aside>
     </Tabs>

@@ -508,6 +508,20 @@ export class CdpInspector {
     this.state = 'READY';
   }
 
+  async selectAt(x: number, y: number): Promise<void> {
+    if (!this.active || this.state !== 'READY') return;
+    try {
+      const node = await this.webContents.debugger.sendCommand('DOM.getNodeForLocation', {
+        x,
+        y,
+        includeUserAgentShadowDOM: false,
+      });
+      if (this.active) await this.captureSelection(node);
+    } catch (error) {
+      this.onFailure(error instanceof Error ? error.message : 'Unable to select this element');
+    }
+  }
+
   private async captureSelection(parameters: DebuggerMessage): Promise<void> {
     if (typeof parameters.backendNodeId !== 'number') return;
     try {

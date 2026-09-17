@@ -1,5 +1,5 @@
-import type { DiagnosticEvidence } from '@markfix/contracts';
-import { Button } from '@markfix/ui';
+import { diagnosticEvidenceSections, type DiagnosticEvidence } from '@markfix/contracts';
+import { Button, DiagnosticDetails } from '@markfix/ui';
 import { Paperclip, X } from '@markfix/ui/icons';
 
 export function EvidenceReferences({
@@ -13,13 +13,24 @@ export function EvidenceReferences({
   return (
     <div className="evidence-references" aria-label="已引用的调试证据">
       {items.map((item) => (
-        <span key={item.id} className={item.level}>
+        <div
+          key={item.id}
+          className={item.level}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '16px minmax(0, 1fr) auto',
+            gap: 6,
+            width: '100%',
+            alignItems: 'center',
+          }}
+        >
           <Paperclip />
           <b>{item.title}</b>
           <Button type="button" title="移除引用" onClick={() => onRemove(item.id)}>
             <X />
           </Button>
-        </span>
+          <DiagnosticDetails title="查看引用详情" sections={diagnosticEvidenceSections(item)} />
+        </div>
       ))}
     </div>
   );

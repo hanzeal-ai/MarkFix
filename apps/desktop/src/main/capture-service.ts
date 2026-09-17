@@ -14,6 +14,31 @@ type CaptureResult = CaptureContext & {
 type LayoutMetrics = { cssContentSize?: { width: number; height: number } };
 
 export class CaptureService {
+  private snapshot: CaptureResult | undefined;
+  private snapshotGeneration = 0;
+  private pendingSnapshot: Promise<CaptureResult> | undefined;
+
+  async freeze(): Promise<CaptureResult> {
+    this.clearSnapshot();
+    const generation = this.snapshotGeneration;
+    const pending = this.captureLive({ mode: 'visible' });
+    this.pendingSnapshot = pending;
+    try {
+      const snapshot = await pending;
+      if (generation !== this.snapshotGeneration) throw new Error('Capture was canceled');
+      this.snapshot = snapshot;
+      return snapshot;
+    } finally {
+      if (this.pendingSnapshot === pending) this.pendingSnapshot = undefined;
+    }
+  }
+
+  clearSnapshot(): void {
+    this.snapshotGeneration += 1;
+    this.snapshot = undefined;
+    this.pendingSnapshot = undefined;
+  }
+
   constructor(
     private readonly webContents: WebContents,
     private readonly getViewport: () => { width: number; height: number },
@@ -22,13 +47,44 @@ export class CaptureService {
   ) {}
 
   async capture(request: CaptureRequest): Promise<CaptureResult> {
+    if (this.pendingSnapshot) await this.pendingSnapshot;
+    if (this.snapshot && (request.mode === 'visible' || request.mode === 'region')) {
+      const snapshot = this.snapshot;
+      if (request.mode !== 'region' || request.anchor?.kind !== 'region') return snapshot;
+      const image = nativeImage.createFromDataURL(snapshot.dataUrl);
+      const rect = this.pixelRectangle(
+        {
+          x: request.anchor.xCssPx,
+          y: request.anchor.yCssPx,
+          width: request.anchor.widthCssPx,
+          height: request.anchor.heightCssPx,
+        },
+        snapshot.captureScale,
+        image,
+      );
+      const cropped = image.crop(rect);
+      return {
+        ...snapshot,
+        mode: 'region',
+        dataUrl: cropped.toDataURL(),
+        imageWidthPx: rect.width,
+        imageHeightPx: rect.height,
+        widthCssPx: rect.width / snapshot.captureScale,
+        heightCssPx: rect.height / snapshot.captureScale,
+        originCssPx: { x: rect.x / snapshot.captureScale, y: rect.y / snapshot.captureScale },
+      };
+    }
+    return this.captureLive(request);
+  }
+
+  private async captureLive(request: CaptureRequest): Promise<CaptureResult> {
     const revision = this.getPageRevision();
-    const viewport = this.getViewport();
     const scroll = (await this.webContents.executeJavaScript(
       '({ x: window.scrollX, y: window.scrollY, deviceScaleFactor: window.devicePixelRatio })',
       true,
     )) as { x: number; y: number; deviceScaleFactor: number };
     await this.setOverlayHidden(true);
+    const viewport = this.getViewport();
     let image: NativeImage;
     let mode = request.mode;
     let originCssPx = { x: 0, y: 0 };

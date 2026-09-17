@@ -97,7 +97,7 @@ export class CommercialService implements OnApplicationBootstrap {
     for (const group of groups) {
       const count = group.count;
       metrics.annotations += count;
-      if (group.status === 'OPEN' || group.status === 'IN_REVIEW') metrics.pending += count;
+      if (group.status === 'OPEN') metrics.pending += count;
       if (group.status === 'REJECTED') metrics.rejected += count;
 
       const projectCount = projectCounts.get(group.projectId) ?? {
@@ -108,7 +108,7 @@ export class CommercialService implements OnApplicationBootstrap {
         failed: 0,
       };
       projectCount.annotations += count;
-      if (group.status === 'OPEN' || group.status === 'IN_REVIEW') projectCount.pending += count;
+      if (group.status === 'OPEN') projectCount.pending += count;
       if (group.status === 'REJECTED') projectCount.rejected += count;
       if (group.status === 'RESOLVED') projectCount.resolved += count;
       if (group.status === 'FIX_FAILED') projectCount.failed += count;
@@ -283,6 +283,12 @@ export class CommercialService implements OnApplicationBootstrap {
     return reportToCommercialAnnotation(updated);
   }
 
+  async deleteAnnotation(userId: string, annotationId: string) {
+    const target = await this.requireAnnotationManager(userId, annotationId);
+    await this.database.report.delete({ where: { id: target.id } });
+    return { deleted: true };
+  }
+
   async rejectAnnotation(userId: string, annotationId: string, input: unknown) {
     const target = await this.requireAnnotationManager(userId, annotationId);
     const parsed = rejectionSchema.safeParse(input);
@@ -432,12 +438,12 @@ export class CommercialService implements OnApplicationBootstrap {
             note: '补充无限项目和成员管理说明。',
             kind: 'COMMENT',
             pageUrl: 'https://markfix.local/#pricing',
-            status: 'IN_REVIEW',
+            status: 'OPEN',
           },
           {
             projectId: dashboard.id,
             authorId: owner.id,
-            title: '项目列表需要展示待处理数量',
+            title: '项目列表需要展示未处理数量',
             note: '无需进入详情即可判断项目处理压力。',
             kind: 'SCREENSHOT',
             pageUrl: 'https://app.markfix.local/projects',
@@ -447,7 +453,7 @@ export class CommercialService implements OnApplicationBootstrap {
             projectId: dashboard.id,
             authorId: lin.id,
             title: '状态筛选命名不清晰',
-            note: '“全部”与“待处理”同时出现时容易误解统计口径。',
+            note: '“全部”与“未处理”同时出现时容易误解统计口径。',
             kind: 'ELEMENT',
             pageUrl: 'https://app.markfix.local/overview',
             status: 'REJECTED',

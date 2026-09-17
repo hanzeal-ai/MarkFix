@@ -10,9 +10,9 @@
   --text-3: #a1a1aa;
   --line: var(--border);
   --line-strong: #d4d4d8;
-  --accent: var(--primary);
+  --accent: var(--brand-purple);
   --accent-soft: var(--accent-color);
-  --accent-strong: #09090b;
+  --accent-strong: var(--brand-purple-strong);
   font-family: var(--font-sans);
   color: var(--text);
   background: var(--bg);
@@ -443,6 +443,7 @@ textarea {
   width: 100%;
   border: 0;
   outline: 0;
+  box-shadow: none;
   background: transparent;
   color: #61656f;
   font-size: 13px;
@@ -453,7 +454,7 @@ textarea {
   height: 8px;
   margin: 0 7px 0 6px;
   border-radius: 50%;
-  background: #27835c;
+  background: var(--brand-purple);
 }
 .tools {
   justify-content: flex-end;
@@ -527,7 +528,7 @@ textarea {
   place-items: center;
   border-radius: 999px;
   padding: 0 4px;
-  background: #d94b4b;
+  background: var(--brand-orange);
   color: #fff;
   font-size: 9px;
   font-style: normal;

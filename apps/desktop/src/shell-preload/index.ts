@@ -117,7 +117,6 @@ contextBridge.exposeInMainWorld('markfix', {
       peekWidth: peekWidth ?? 0,
       panelWidth,
     }),
-  openMoreMenu: (x: number, y: number) => ipcRenderer.invoke(ipcChannels.openMoreMenu, { x, y }),
   openSettings: () => ipcRenderer.invoke(ipcChannels.openSettings),
   navigate: (url: string) => ipcRenderer.invoke(ipcChannels.navigate, { url }),
   back: () => ipcRenderer.invoke(ipcChannels.goBack),

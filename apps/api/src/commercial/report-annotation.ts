@@ -1,3 +1,4 @@
+import { diagnosticEvidenceSchema } from '@markfix/contracts';
 import type { Prisma } from '@markfix/database';
 
 import type {
@@ -66,6 +67,7 @@ type ReportBundle = {
   anchor?: { kind?: unknown };
   annotations?: unknown[];
   annotationKind?: unknown;
+  evidence?: unknown;
 };
 
 const bundleOf = (report: Pick<ReportAnnotationSource, 'captureBundle'>): ReportBundle =>
@@ -105,9 +107,11 @@ const activityPayload = (activity: ReportActivitySource): Record<string, unknown
     : {};
 
 const historyStatus = (value: unknown): CommercialAnnotationStatus | undefined =>
-  value === 'OPEN' || value === 'IN_REVIEW' || value === 'RESOLVED' || value === 'REJECTED'
-    ? value
-    : undefined;
+  value === 'IN_REVIEW'
+    ? 'OPEN'
+    : value === 'OPEN' || value === 'RESOLVED' || value === 'REJECTED' || value === 'FIX_FAILED'
+      ? value
+      : undefined;
 
 export const annotationHistoryForReport = (
   report: ReportAnnotationSource & { activities?: ReportActivitySource[] },
@@ -162,7 +166,7 @@ export const reportAnnotationStatus = (
 ): CommercialAnnotationStatus => {
   if (report.rejectionReason) return 'REJECTED';
   if (report.status === 'FIX_FAILED') return 'FIX_FAILED';
-  if (report.status === 'IN_PROGRESS' || report.status === 'READY_FOR_VERIFY') return 'IN_REVIEW';
+  if (report.status === 'IN_PROGRESS' || report.status === 'READY_FOR_VERIFY') return 'OPEN';
   if (report.status === 'RESOLVED' || report.status === 'CLOSED') return 'RESOLVED';
   return 'OPEN';
 };
@@ -206,6 +210,13 @@ export const reportToCommercialAnnotation = (
   status: reportAnnotationStatus(report),
   rejectionReason: report.rejectionReason,
   history,
+  evidence: (Array.isArray(bundleOf(report).evidence)
+    ? (bundleOf(report).evidence as unknown[])
+    : []
+  ).flatMap((item) => {
+    const parsed = diagnosticEvidenceSchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  }),
   fixAttempts: report.fixAttempts ?? [],
   createdAt: report.createdAt,
   updatedAt: report.updatedAt,
@@ -213,7 +224,7 @@ export const reportToCommercialAnnotation = (
 
 export const reportStatusForAnnotation = (
   status: Exclude<CommercialAnnotationStatus, 'REJECTED'>,
-) => (status === 'IN_REVIEW' ? ('IN_PROGRESS' as const) : status);
+) => status;
 
 export const updateReportBundle = (
   captureBundle: unknown,

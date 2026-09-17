@@ -61,9 +61,9 @@ export function OverviewView({
   const rejectedPercent = total ? Math.round((overview.metrics.rejected / total) * 100) : 0;
   const donutStyle = {
     background: total
-      ? `conic-gradient(#e2a33b 0 ${pendingShare}%, var(--primary) ${pendingShare}% ${
+      ? `conic-gradient(var(--brand-orange) 0 ${pendingShare}%, var(--brand-purple) ${pendingShare}% ${
           pendingShare + resolvedShare
-        }%, #d46055 ${pendingShare + resolvedShare}% 100%)`
+        }%, var(--foreground) ${pendingShare + resolvedShare}% 100%)`
       : '#ececf1',
   } satisfies CSSProperties;
   const chartProjects = [...overview.projects]
@@ -79,7 +79,7 @@ export function OverviewView({
           label="全部标注"
           value={overview.metrics.annotations}
         />
-        <MetricCard icon={Clock3} label="待处理" value={overview.metrics.pending} tone="warning" />
+        <MetricCard icon={Clock3} label="未处理" value={overview.metrics.pending} tone="warning" />
         <MetricCard
           icon={CircleDot}
           label="已驳回"
@@ -103,13 +103,13 @@ export function OverviewView({
             <ul className="chart-legend">
               <li>
                 <i className="pending" />
-                <span>待处理</span>
+                <span>未处理</span>
                 <strong>{overview.metrics.pending}</strong>
                 <small>{pendingPercent}%</small>
               </li>
               <li>
                 <i className="resolved" />
-                <span>已解决</span>
+                <span>已完成</span>
                 <strong>{resolved}</strong>
                 <small>{resolvedPercent}%</small>
               </li>
@@ -129,11 +129,11 @@ export function OverviewView({
             <div className="compact-legend" aria-label="图表图例">
               <span>
                 <i className="pending" />
-                待处理
+                未处理
               </span>
               <span>
                 <i className="resolved" />
-                已解决
+                已完成
               </span>
               <span>
                 <i className="rejected" />
@@ -209,7 +209,7 @@ export function OverviewView({
                 </span>
                 <span className="dimension-stat">
                   <strong>{project.pendingCount}</strong>
-                  <small>待处理</small>
+                  <small>未处理</small>
                 </span>
                 <span className="dimension-stat is-rejected">
                   <strong>{project.rejectedCount}</strong>

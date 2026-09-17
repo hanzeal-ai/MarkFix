@@ -9,8 +9,12 @@ describe('commercial annotation contracts', () => {
   it('keeps rejection out of ordinary edits while permitting rejection as a list filter', () => {
     expect(commercialAnnotationUpdateSchema.safeParse({ status: 'REJECTED' }).success).toBe(false);
     expect(commercialAnnotationUpdateSchema.safeParse({}).success).toBe(false);
-    expect(commercialAnnotationUpdateSchema.parse({ status: 'IN_REVIEW' })).toEqual({
-      status: 'IN_REVIEW',
+    expect(commercialAnnotationUpdateSchema.safeParse({ status: 'IN_REVIEW' }).success).toBe(false);
+    expect(commercialAnnotationListQuerySchema.safeParse({ status: 'IN_REVIEW' }).success).toBe(
+      false,
+    );
+    expect(commercialAnnotationUpdateSchema.parse({ status: 'RESOLVED' })).toEqual({
+      status: 'RESOLVED',
     });
     expect(commercialAnnotationListQuerySchema.parse({ status: 'REJECTED' })).toEqual({
       status: 'REJECTED',

@@ -133,7 +133,7 @@ export const migrateLegacyManagedAnnotations = async (database: DatabaseService)
         note: annotation.note,
         kind: annotation.kind,
         pageUrl: annotation.pageUrl,
-        status: annotation.status,
+        status: annotation.status === 'IN_REVIEW' ? 'OPEN' : annotation.status,
         rejectionReason: annotation.rejectionReason,
         createdAt: annotation.createdAt,
         updatedAt: annotation.updatedAt,

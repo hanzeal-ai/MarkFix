@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
 import { CommercialService } from './commercial.service.js';
 import { CurrentUser, type AuthenticatedUser } from './current-user.decorator.js';
 
@@ -41,6 +41,14 @@ export class CommercialController {
     @Body() body: unknown,
   ) {
     return this.commercial.updateAnnotation(user.id, annotationId, body);
+  }
+
+  @Delete('annotations/:annotationId')
+  deleteAnnotation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('annotationId') annotationId: string,
+  ) {
+    return this.commercial.deleteAnnotation(user.id, annotationId);
   }
 
   @Post('annotations/:annotationId/reject')

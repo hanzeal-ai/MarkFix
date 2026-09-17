@@ -1,8 +1,8 @@
 /* Grida-inspired desktop treatment: neutral canvas chrome, not a marketing-page theme. */
 .shell {
-  --accent: var(--primary);
-  --accent-soft: var(--secondary);
-  --accent-strong: #000;
+  --accent: var(--brand-purple);
+  --accent-soft: var(--brand-purple-soft);
+  --accent-strong: var(--brand-purple-strong);
   font-family: var(--font-sans);
 }
 
@@ -31,8 +31,8 @@
 
 .shell .annotation-mode-control [data-state='on'] {
   border-radius: var(--radius-control);
-  background: #fff;
-  color: #17181a;
+  background: var(--brand-purple-soft);
+  color: var(--brand-purple-strong);
   box-shadow: 0 1px 4px rgba(24, 24, 27, 0.12);
 }
 
@@ -40,16 +40,16 @@
   width: 34px;
   height: 34px;
   padding: 0;
-  border-color: #17181a;
+  border-color: var(--brand-purple);
   border-radius: 999px;
-  background: #17181a;
+  background: var(--brand-purple);
   color: #fff;
   box-shadow: none;
 }
 
 .shell .save-annotations-button:hover:not(:disabled) {
-  border-color: #000;
-  background: #000;
+  border-color: var(--brand-purple-strong);
+  background: var(--brand-purple-strong);
 }
 
 .shell .comment-panel,
@@ -60,8 +60,8 @@
 .shell .project-sidebar-action.active,
 .shell .project-sidebar-item.active {
   border-color: #d6d9df;
-  background: #eceef1;
-  color: #17181a;
+  background: var(--brand-purple-soft);
+  color: var(--brand-purple-strong);
 }
 
 .shell .new-project-page {
@@ -81,8 +81,8 @@
 }
 
 .shell .new-project-submit {
-  border-color: #17181a;
-  background: #17181a;
+  border-color: var(--brand-purple);
+  background: var(--brand-purple);
 }
 
 .shell .panel-heading h1 {
@@ -156,4 +156,25 @@ p.annotation-rejection,
 .project-history-stats > span,
 .history-project-counts i {
   border-radius: 999px;
+}
+
+.settings-sidebar button.active,
+.navigation-page-icon,
+.history-record-icon {
+  background: var(--brand-purple-soft);
+  color: var(--brand-purple);
+}
+.shell .prototype-browser-bar:focus-within {
+  border-color: var(--brand-purple);
+  box-shadow: 0 0 0 3px var(--brand-purple-soft);
+}
+
+.desktop-auth-stage {
+  background:
+    radial-gradient(ellipse at 30% 20%, var(--brand-purple-soft), transparent 55%),
+    radial-gradient(ellipse at 90% 85%, var(--brand-orange-soft), transparent 45%);
+}
+.desktop-auth-switch button,
+.desktop-auth-legal button {
+  color: var(--brand-purple);
 }

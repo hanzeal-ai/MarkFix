@@ -1,5 +1,7 @@
 import { useId, type SVGProps } from 'react';
 
+const brandColor = 'var(--brand-purple, #7357d9)';
+
 export type MarkFixMarkProps = Omit<SVGProps<SVGSVGElement>, 'height' | 'width'> & {
   size?: number | string;
   title?: string;
@@ -38,7 +40,7 @@ function MarkFixSymbol({ maskId }: { maskId: string }): React.JSX.Element {
         strokeLinejoin="round"
       >
         <path d="M18 76V40C18 18 40 16 50 39L62 60" mask={`url(#${maskId})`} />
-        <path d="M82 76V40C82 18 60 16 50 39L38 60" />
+        <path d="M82 76V40C82 18 60 16 50 39L38 60" stroke={brandColor} />
       </g>
     </g>
   );
@@ -97,7 +99,7 @@ export function MarkFixLogo({
         fontWeight="700"
         letterSpacing="-1.6"
       >
-        MarkFix
+        Mark<tspan fill={brandColor}>Fix</tspan>
       </text>
     </svg>
   );
@@ -137,7 +139,7 @@ export function MarkFixStackedLogo({
         fontWeight="700"
         letterSpacing="-1.6"
       >
-        MarkFix
+        Mark<tspan fill={brandColor}>Fix</tspan>
       </text>
       <text
         x="120"

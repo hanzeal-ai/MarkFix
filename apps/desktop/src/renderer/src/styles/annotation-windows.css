@@ -10,10 +10,10 @@
   flex: 0 0 auto;
   margin: 12px 14px 0;
   padding: 9px 12px;
-  border: 1px solid #f0c7ba;
+  border: 1px solid var(--brand-orange);
   border-radius: 9px;
-  background: #fff2ed;
-  color: #97492e;
+  background: var(--brand-orange-soft);
+  color: var(--brand-orange);
   font-size: 12px;
 }
 .annotation-review-loading {

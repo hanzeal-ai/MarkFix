@@ -10,8 +10,8 @@
   --line: rgba(60, 60, 67, 0.16);
   --line-strong: rgba(60, 60, 67, 0.24);
   --accent: var(--primary);
-  --accent-soft: rgba(24, 24, 27, 0.12);
-  --accent-strong: var(--primary);
+  --accent-soft: var(--brand-purple-soft);
+  --accent-strong: var(--brand-purple-strong);
   font-family: var(--font-sans);
   background: transparent;
 }
@@ -106,8 +106,8 @@ button {
 .secure-dot {
   width: 7px;
   height: 7px;
-  background: #30a46c;
-  box-shadow: 0 0 0 1px rgba(20, 92, 57, 0.12);
+  background: #22a06b;
+  box-shadow: 0 0 0 1px #22a06b1f;
 }
 
 .tools {
@@ -274,13 +274,13 @@ button {
   border-radius: 6px;
   background: transparent;
   box-shadow: none;
-  color: #ff3b30;
+  color: var(--brand-orange);
 }
 
 .project-sidebar-delete:hover {
   border-color: transparent;
   background: transparent;
-  color: #d92d23;
+  color: var(--brand-orange);
 }
 
 .project-sidebar-account-area {
@@ -353,7 +353,7 @@ button {
 .account-menu .account-menu-logout:hover svg,
 .account-menu .account-menu-logout:focus-visible,
 .account-menu .account-menu-logout:focus-visible svg {
-  background: #ff3b30;
+  background: var(--brand-orange);
   color: #fff;
 }
 
@@ -515,4 +515,100 @@ button {
 
 .shell:has(.browser-bar) {
   background: #fff;
+}
+
+.tools button.save-annotations-button {
+  position: relative;
+  overflow: visible;
+}
+.submission-count-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 2px solid #fff;
+  border-radius: 10px;
+  background: var(--brand-orange);
+  color: #fff;
+  font: 600 10px/14px system-ui;
+  text-align: center;
+  pointer-events: none;
+}
+.tools .preview-toggle-button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--primary-foreground);
+}
+
+.annotation-mode-switcher {
+  display: flex;
+  align-items: center;
+  border-radius: 14px;
+  outline: none;
+}
+.annotation-mode-switcher:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.annotation-browse-label {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--secondary);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.annotation-browse-label svg {
+  width: 16px;
+  height: 16px;
+}
+.annotation-mode-switcher .annotation-mode-control,
+.annotation-mode-switcher .annotation-browse-label,
+.annotation-mode-switcher .annotation-mode-control button {
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    max-width 200ms ease,
+    padding 200ms ease,
+    border-width 200ms ease,
+    opacity 150ms ease;
+}
+.annotation-mode-switcher .annotation-mode-control {
+  max-width: 420px;
+  gap: 0;
+}
+.annotation-mode-switcher .annotation-browse-label,
+.annotation-mode-switcher .annotation-mode-control button {
+  max-width: 140px;
+  flex-shrink: 0;
+  opacity: 1;
+}
+.annotation-mode-switcher:not(:hover):not(:focus-visible):not(:has(:focus-visible))
+  .annotation-mode-control
+  [data-state='off'],
+.annotation-mode-switcher[data-mode='browse']:not(:hover):not(:focus-visible):not(
+    :has(:focus-visible)
+  )
+  .annotation-mode-control,
+.annotation-mode-switcher:hover .annotation-browse-label,
+.annotation-mode-switcher:focus-visible .annotation-browse-label,
+.annotation-mode-switcher:has(:focus-visible) .annotation-browse-label {
+  max-width: 0;
+  min-width: 0;
+  padding-inline: 0;
+  border-width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .annotation-mode-switcher .annotation-mode-control,
+  .annotation-mode-switcher .annotation-browse-label,
+  .annotation-mode-switcher .annotation-mode-control button {
+    transition: none;
+  }
 }

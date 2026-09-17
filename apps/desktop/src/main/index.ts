@@ -2,12 +2,7 @@ import { serviceUrls } from '@markfix/contracts';
 import { repositoryBindingSchema, type AgentRepository } from '@markfix/contracts';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import {
-  isSidebarWidth,
-  annotationPanelDefaultWidth,
-  annotationPanelWidth,
-  websiteMinWidth,
-} from '../sidebar-layout';
+import { isSidebarWidth, annotationPanelWidth, websiteMinWidth } from '../sidebar-layout';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import {
@@ -22,6 +17,7 @@ import {
   WebContentsView,
   type IpcMainInvokeEvent,
   type WebContents,
+  type MenuItemConstructorOptions,
 } from 'electron';
 import {
   anchorSchema,
@@ -55,6 +51,7 @@ import {
   desktopUpdateActive,
 } from '../desktop-update.js';
 import { DesktopUpdater } from './desktop-updater.js';
+import { projectRefreshForShortcut, routeProjectRefreshMenu } from './project-refresh.js';
 import { modeForShortcut } from './mode-shortcuts.js';
 import { windowActionForShortcut, type WindowShortcutAction } from './window-shortcuts.js';
 import { DesktopSessionManager } from './session-manager.js';
@@ -68,8 +65,9 @@ import { ProjectDataRouter } from './project-data-router.js';
 import { desktopPasswordChangeInput, desktopRegistrationInput } from './desktop-auth-input.js';
 
 const toolbarHeight = 56;
-let panelWidth = annotationPanelDefaultWidth;
+let panelWidth = 0;
 const diagnosticsPanelHeight = 300;
+const diagnosticsPanelInset = 14;
 const macWindowMaterial =
   process.platform === 'darwin'
     ? ({
@@ -208,10 +206,25 @@ const performWindowShortcut = (
   else browserWindow.close();
 };
 
+const refreshCurrentProject = (ignoreCache = false): void => {
+  if (!websiteView || websiteView.webContents.isDestroyed() || !activeWebsiteProjectId) return;
+  navigationWebsiteProjectId = activeWebsiteProjectId;
+  websiteContentReady = false;
+  layoutWebsite();
+  if (ignoreCache) websiteView.webContents.reloadIgnoringCache();
+  else websiteView.webContents.reload();
+};
+
 const registerMainShortcuts = (browserWindow: BrowserWindow, webContents: WebContents): void => {
   webContents.on('before-input-event', (event, input) => {
     if (desktopUpdateActive(desktopUpdater.getStatus())) {
       event.preventDefault();
+      return;
+    }
+    const refresh = projectRefreshForShortcut(input);
+    if (refresh) {
+      event.preventDefault();
+      refreshCurrentProject(refresh === 'ignore-cache');
       return;
     }
     const windowAction = windowActionForShortcut(input, 'main');
@@ -229,6 +242,12 @@ const registerMainShortcuts = (browserWindow: BrowserWindow, webContents: WebCon
 
 const registerChildShortcuts = (browserWindow: BrowserWindow): void => {
   browserWindow.webContents.on('before-input-event', (event, input) => {
+    const refresh = projectRefreshForShortcut(input);
+    if (refresh) {
+      event.preventDefault();
+      refreshCurrentProject(refresh === 'ignore-cache');
+      return;
+    }
     const action = windowActionForShortcut(input, 'child');
     if (!action) return;
     event.preventDefault();
@@ -245,6 +264,7 @@ const childWindows = new ChildWindowManager({
 
 const updatePageRevision = (): void => {
   pageRevision = randomUUID();
+  captureService?.clearSnapshot();
 };
 
 const setOverlayHidden = async (hidden: boolean): Promise<void> => {
@@ -276,6 +296,18 @@ const setOverlayHidden = async (hidden: boolean): Promise<void> => {
   }
 };
 
+const refreshCaptureSnapshot = async (): Promise<void> => {
+  if (currentBrowserMode !== 'capture' || !captureService) return;
+  try {
+    const snapshot = await captureService.freeze();
+    if (currentBrowserMode === 'capture')
+      websiteView?.webContents.send('markfix:capture-snapshot', snapshot.dataUrl);
+  } catch (error) {
+    if (currentBrowserMode === 'capture')
+      sendBrowserState({ error: error instanceof Error ? error.message : '无法固定截图画面' });
+  }
+};
+
 const desktopUpdater = new DesktopUpdater(
   autoUpdater,
   () => {
@@ -300,7 +332,10 @@ const layoutWebsite = (): void => {
   const [width = 1060, height = 680] = mainWindow.getContentSize();
   const sidebarWidth =
     panelWidth === 0 ? 0 : annotationPanelWidth(panelWidth, navigationSidebarWidth, width);
-  const bottomPanelHeight = diagnosticsOpen ? diagnosticsPanelHeight : 0;
+  // Match the renderer panel's bottom inset and leave a gap above its rounded corners.
+  const bottomPanelHeight = diagnosticsOpen
+    ? diagnosticsPanelHeight + diagnosticsPanelInset * 2
+    : 0;
   websiteView.setBounds({
     x: navigationSidebarWidth,
     y: toolbarHeight,
@@ -671,6 +706,7 @@ const createWindow = async (): Promise<void> => {
       ...(project ? { pageSessionId: project.currentPageSessionId } : {}),
     });
     updatePageRevision();
+    void refreshCaptureSnapshot();
   });
   websiteView.webContents.on('page-title-updated', (_event, title) => {
     currentPageTitle = title.trim();
@@ -734,6 +770,7 @@ const createWindow = async (): Promise<void> => {
         ...(project ? { pageSessionId: project.currentPageSessionId } : {}),
       });
     websiteView?.webContents.send('markfix:set-mode', currentBrowserMode);
+    void refreshCaptureSnapshot();
     websiteView?.webContents.send('markfix:render-element-comments', currentElementComments);
     if (currentAnchor?.kind === 'element')
       websiteView?.webContents.send('markfix:resolve-anchor', {
@@ -805,6 +842,9 @@ const registerIpc = (): void => {
     sendShell,
   });
   registerCaptureIpc({
+    reselectElement: (x, y) => {
+      if (currentBrowserMode === 'comment') void inspector?.selectAt(x, y);
+    },
     assertSender: assertShellSender,
     captureService: () => captureService,
     mainWindow: () => mainWindow,
@@ -816,6 +856,8 @@ const registerIpc = (): void => {
     console: () => diagnosticConsole,
     setOpen: (open) => {
       diagnosticsOpen = open;
+      const consoleMenu = Menu.getApplicationMenu()?.getMenuItemById('project-console');
+      if (consoleMenu) consoleMenu.checked = open;
       layoutWebsite();
     },
   });
@@ -1220,33 +1262,6 @@ const registerIpc = (): void => {
     }
     layoutWebsite();
   });
-  ipcMain.handle(ipcChannels.openMoreMenu, (event, input: unknown) => {
-    assertShellSender(event);
-    if (!mainWindow) throw new Error('Desktop window is unavailable');
-    const payload = input as { x?: unknown; y?: unknown };
-    if (
-      typeof payload.x !== 'number' ||
-      !Number.isFinite(payload.x) ||
-      typeof payload.y !== 'number' ||
-      !Number.isFinite(payload.y)
-    ) {
-      throw new Error('无效的菜单位置');
-    }
-    const menu = Menu.buildFromTemplate([
-      {
-        label: '控制台',
-        type: 'checkbox',
-        checked: diagnosticsOpen,
-        accelerator: 'Command+Shift+C',
-        click: () => sendShell(ipcChannels.modeShortcut, 'diagnostics'),
-      },
-    ]);
-    menu.popup({
-      window: mainWindow,
-      x: Math.round(payload.x),
-      y: Math.round(payload.y),
-    });
-  });
   ipcMain.handle(ipcChannels.openSettings, async (event) => {
     assertShellSender(event);
     await childWindows.openSettings();
@@ -1285,15 +1300,21 @@ const registerIpc = (): void => {
   });
   ipcMain.handle(ipcChannels.reload, (event) => {
     assertShellSender(event);
-    navigationWebsiteProjectId = activeWebsiteProjectId;
-    websiteContentReady = false;
-    layoutWebsite();
-    websiteView?.webContents.reload();
+    refreshCurrentProject();
   });
   ipcMain.handle(ipcChannels.setMode, async (event, input: unknown) => {
     assertShellSender(event);
     const mode = browserModeSchema.parse(input);
     if (currentBrowserMode === 'comment') await inspector?.stop();
+    const enteringCapture = mode === 'capture' && currentBrowserMode !== 'capture';
+    if (enteringCapture) {
+      const snapshot = await captureService?.freeze();
+      if (!snapshot) throw new Error('Capture service is unavailable');
+      websiteView?.webContents.send('markfix:capture-snapshot', snapshot.dataUrl);
+    } else if (mode !== 'capture') {
+      captureService?.clearSnapshot();
+      websiteView?.webContents.send('markfix:capture-snapshot', null);
+    }
     currentBrowserMode = mode;
     layoutWebsite();
     websiteView?.webContents.send('markfix:set-mode', mode);
@@ -1440,6 +1461,34 @@ app.whenReady().then(async () => {
 
   registerIpc();
   await createWindow();
+  const applicationMenu = Menu.getApplicationMenu();
+  const menuTemplate = applicationMenu
+    ? routeProjectRefreshMenu(applicationMenu.items, refreshCurrentProject)
+    : [];
+  const consoleItem: MenuItemConstructorOptions = {
+    id: 'project-console',
+    label: '控制台',
+    type: 'checkbox',
+    checked: diagnosticsOpen,
+    accelerator: 'CommandOrControl+Shift+C',
+    click: () => sendShell(ipcChannels.modeShortcut, 'diagnostics'),
+  };
+  const clearDiagnosticsItem: MenuItemConstructorOptions = {
+    label: '清空 Console 和 Network',
+    accelerator: 'CommandOrControl+K',
+    click: () => sendShell(ipcChannels.modeShortcut, 'clear-diagnostics'),
+  };
+  const viewMenuIndex =
+    applicationMenu?.items.findIndex(
+      (item) => item.role === 'viewMenu' || item.label.replaceAll('&', '').toLowerCase() === 'view',
+    ) ?? -1;
+  const viewMenu = menuTemplate[viewMenuIndex];
+  if (viewMenu && Array.isArray(viewMenu.submenu)) {
+    viewMenu.submenu.push({ type: 'separator' }, consoleItem, clearDiagnosticsItem);
+  } else {
+    menuTemplate.push({ label: '视图', submenu: [consoleItem, clearDiagnosticsItem] });
+  }
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
   void reportOutbox.flush();
   syncTimer = setInterval(() => void reportOutbox.flush(), 15_000);
 });

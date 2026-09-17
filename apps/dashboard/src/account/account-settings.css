@@ -97,7 +97,7 @@
 
 .account-settings-danger {
   align-items: start;
-  border-color: #f4c7c2;
+  border-color: var(--brand-orange-soft);
 }
 
 .account-settings-danger form {
@@ -190,4 +190,21 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.account-agent-authorizations .agent-access-content {
+  width: 100%;
+  max-width: none;
+  display: grid;
+  gap: 12px;
+}
+.account-agent-authorizations h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.account-agent-authorizations .agent-access-card {
+  padding: 20px;
+}
+.account-agent-authorizations p {
+  overflow-wrap: anywhere;
 }

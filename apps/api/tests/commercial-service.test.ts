@@ -242,7 +242,7 @@ describe('commercial annotation management', () => {
     const ownerId = crypto.randomUUID();
     const projectId = crypto.randomUUID();
     const source = report({ projectId });
-    const updated = report({ ...source, title: 'Updated title', status: 'IN_PROGRESS' });
+    const updated = report({ ...source, title: 'Updated title', status: 'RESOLVED' });
     const update = vi.fn().mockResolvedValue(updated);
     const service = new CommercialService({
       ...managerDatabase(ownerId, projectId),
@@ -251,7 +251,7 @@ describe('commercial annotation management', () => {
 
     const result = await service.updateAnnotation('admin-1', source.id, {
       title: 'Updated title',
-      status: 'IN_REVIEW',
+      status: 'RESOLVED',
       pageUrl: 'https://example.test/updated',
     });
 
@@ -259,12 +259,12 @@ describe('commercial annotation management', () => {
       where: { id: source.id },
       data: expect.objectContaining({
         title: 'Updated title',
-        status: 'IN_PROGRESS',
+        status: 'RESOLVED',
         version: { increment: 1 },
       }),
       include: { reporter: { select: { id: true, displayName: true, email: true } } },
     });
-    expect(result.status).toBe('IN_REVIEW');
+    expect(result.status).toBe('RESOLVED');
   });
 
   it('rejects Report records without maintaining a second annotation source', async () => {

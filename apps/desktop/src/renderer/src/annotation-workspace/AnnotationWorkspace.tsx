@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import { ProjectAgentDialog } from '../ProjectAgentDialog';
 import {
   sidebarMinWidth,
@@ -14,7 +15,7 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
-import { toast, Card, Badge } from '@markfix/ui';
+import { toast } from '@markfix/ui';
 import { WorkspaceResizeLayout } from './WorkspaceResizeLayout';
 import {
   diagnosticEvidenceSchema,
@@ -34,17 +35,15 @@ import { selectEditableProjectPageRecords } from '../page-records';
 import { projectReportOverlays } from '../project-report-overlays';
 import { latestReportRejections, rejectedRecordUpdates } from '../report-reconciliation';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
-import { CapturePanel } from './CapturePanel';
+import { AnnotationPreview } from './AnnotationPreview';
 import { BrowserToolbar } from './BrowserToolbar';
-import { ElementCommentPanel } from './ElementCommentPanel';
-import { firstAnnotationGuideStep } from './FirstAnnotationGuide';
 import { HistoryRestoreDialog } from './HistoryRestoreDialog';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { projectErrorMessage } from '../project-error';
 import { ProjectLoadState } from './ProjectLoadState';
 import { useCaptureEditor } from './useCaptureEditor';
 import { useElementCommentEditor } from './useElementCommentEditor';
-import { numberedVisibleRecords, type BrowserState, type DesktopUser } from './model';
+import { type BrowserState, type DesktopUser } from './model';
 import {
   browserModeFromSession,
   browserModeSessionKey,
@@ -54,7 +53,11 @@ import {
 import { HeaderNavigationControls } from '../project-navigation/HeaderNavigationControls';
 import { NewProjectPage } from '../project-navigation/NewProjectPage';
 import { ProjectSidebar } from '../project-navigation/ProjectSidebar';
-import { projectAnnotations, type ProjectAnnotation } from '../project-navigation/model';
+import {
+  previewAnnotations,
+  projectAnnotations,
+  type ProjectAnnotation,
+} from '../project-navigation/model';
 import { desktopPreferenceKeys, startupProjectPreference } from '../desktop-preferences';
 
 const firstAnnotationGuideKeys = {
@@ -143,8 +146,10 @@ export function AnnotationWorkspace({
     useState<ProjectAnnotation>();
   const [agentProject, setAgentProject] = useState<WebsiteProject>();
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
+  useEffect(() => setPreviewOpen(false), [selectedProjectId]);
   const {
     beginCaptureMode,
+    resetCaptureDraft,
     cancelCapture,
     captureEvidence,
     captureLoading,
@@ -167,7 +172,6 @@ export function AnnotationWorkspace({
     selectSavedCapture,
     setCaptureEvidence,
     setCaptureNote,
-    updateCaptureText,
   } = useCaptureEditor({ pageSessionId, pageTitle, projectId: selectedProjectId, setNotice });
   const {
     anchor,
@@ -271,18 +275,11 @@ export function AnnotationWorkspace({
     [selectedProjectId, websiteProjects],
   );
   const currentPageUrl = browserState.url ?? url;
-  const pageCaptures = useMemo(
-    () => selectEditableProjectPageRecords(savedCaptures, selectedProjectId, pageSessionId),
-    [pageSessionId, savedCaptures, selectedProjectId],
-  );
   const pageElementComments = useMemo(
     () => selectEditableProjectPageRecords(elementComments, selectedProjectId, pageSessionId),
     [elementComments, pageSessionId, selectedProjectId],
   );
-  const pageDiagnosticAnnotations = useMemo(
-    () => selectEditableProjectPageRecords(diagnosticAnnotations, selectedProjectId, pageSessionId),
-    [diagnosticAnnotations, pageSessionId, selectedProjectId],
-  );
+  const previewVisible = previewOpen && activeView === 'workspace';
   const currentProjectAnnotations = useMemo(
     () =>
       selectedProjectId
@@ -342,6 +339,10 @@ export function AnnotationWorkspace({
     ],
     [pageElementComments, serverOverlays.elementComments],
   );
+  const currentPreviewAnnotations = useMemo(
+    () => previewAnnotations(currentProjectAnnotations),
+    [currentProjectAnnotations],
+  );
   const unsubmittedCount = useMemo(
     () => currentProjectAnnotations.filter(({ record }) => record.status === 'draft').length,
     [currentProjectAnnotations],
@@ -367,6 +368,10 @@ export function AnnotationWorkspace({
         if (state.error) setNotice(state.error);
       }),
       window.markfix.onModeShortcut((payload) => {
+        if (payload === 'clear-diagnostics') {
+          void clearDiagnostics('all');
+          return;
+        }
         if (payload === 'toggle-sidebar') {
           setSidebarExpanded((expanded) => !expanded);
           return;
@@ -375,20 +380,32 @@ export function AnnotationWorkspace({
           setActiveView('new');
           return;
         }
+        if (payload === 'preview') {
+          modeRef.current = 'browse';
+          setModeState('browse');
+          void window.markfix.setMode('browse');
+          setPreviewOpen((open) => !open);
+          return;
+        }
         if (payload === 'diagnostics') {
           void setDiagnosticsVisibility(!diagnosticsOpenRef.current);
           return;
         }
         if (payload !== 'capture' && payload !== 'comment') return;
         const destination = modeRef.current === payload ? 'browse' : payload;
-        if (destination !== 'browse') setPreviewOpen(false);
-        if (destination === 'comment') clearElementSelection();
-        else if (destination === 'capture') {
-          beginCaptureMode();
-        }
-        if (shouldCollapseSidebarForMode(destination)) setSidebarExpanded(false);
-        modeRef.current = destination;
-        setModeState(destination);
+        flushSync(() => {
+          if (destination !== 'browse') setPreviewOpen(false);
+          if (destination === 'comment') {
+            resetCaptureDraft();
+            clearElementSelection();
+          } else if (destination === 'capture') {
+            clearElementSelection();
+            beginCaptureMode();
+          }
+          if (shouldCollapseSidebarForMode(destination)) setSidebarExpanded(false);
+          modeRef.current = destination;
+          setModeState(destination);
+        });
         void window.markfix.setMode(destination);
       }),
       window.markfix.onSyncStatus((payload) => {
@@ -465,6 +482,7 @@ export function AnnotationWorkspace({
     return () => cleanups.forEach((cleanup) => cleanup());
   }, [
     beginCaptureMode,
+    resetCaptureDraft,
     clearElementSelection,
     markCapturesSubmitted,
     markElementCommentsSubmitted,
@@ -580,7 +598,7 @@ export function AnnotationWorkspace({
       sidebarExpanded ? sidebarWidth : 0,
       activeView === 'workspace' && !pendingDeleteProject && !agentProject,
       sidebarMenuOpen || (!sidebarExpanded && sidebarPeek) ? sidebarWidth : 0,
-      previewOpen ? rightPanelWidth : 0,
+      previewVisible ? rightPanelWidth : 0,
     );
   }, [
     activeView,
@@ -591,7 +609,7 @@ export function AnnotationWorkspace({
     pendingDeleteProject,
     agentProject,
     rightPanelWidth,
-    previewOpen,
+    previewVisible,
   ]);
 
   useEffect(() => {
@@ -648,15 +666,20 @@ export function AnnotationWorkspace({
   }, [renderedElementComments]);
 
   const setMode = async (nextMode: BrowserMode): Promise<void> => {
-    if (nextMode !== 'browse') setPreviewOpen(false);
-    if (shouldCollapseSidebarForMode(nextMode)) setSidebarExpanded(false);
-    modeRef.current = nextMode;
-    setModeState(nextMode);
+    // Commit the native-view layout before the main process takes the entry snapshot.
+    flushSync(() => {
+      if (nextMode !== 'browse') setPreviewOpen(false);
+      if (nextMode === 'comment') resetCaptureDraft();
+      if (nextMode === 'capture') clearElementSelection();
+      if (shouldCollapseSidebarForMode(nextMode)) setSidebarExpanded(false);
+      modeRef.current = nextMode;
+      setModeState(nextMode);
+    });
     await window.markfix.setMode(nextMode);
   };
 
   const toggleMode = (nextMode: 'comment' | 'capture'): Promise<void> => {
-    const destination = mode === nextMode ? 'browse' : nextMode;
+    const destination = !previewOpen && mode === nextMode ? 'browse' : nextMode;
     if (destination === 'comment') clearElementSelection();
     if (destination === 'capture') beginCaptureMode();
     return setMode(destination);
@@ -666,13 +689,15 @@ export function AnnotationWorkspace({
     await setDiagnosticsVisibility(!diagnosticsOpenRef.current);
   };
 
-  const clearDiagnostics = async (scope: 'console' | 'network'): Promise<void> => {
+  const clearDiagnostics = async (scope: 'all' | 'console' | 'network'): Promise<void> => {
     try {
       await window.markfix.clearDiagnostics(scope);
       setDiagnosticEntries((entries) =>
-        entries.filter((entry) =>
-          scope === 'network' ? entry.kind !== 'network' : entry.kind === 'network',
-        ),
+        scope === 'all'
+          ? []
+          : entries.filter((entry) =>
+              scope === 'network' ? entry.kind !== 'network' : entry.kind === 'network',
+            ),
       );
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '无法清空网站控制台。');
@@ -726,21 +751,6 @@ export function AnnotationWorkspace({
     ...activeEvidence.map(({ id }) => id),
     ...diagnosticAnnotations.map(({ evidence }) => evidence.id),
   ]);
-  const diagnosticErrorCount = diagnosticEntries.filter(({ level }) => level === 'error').length;
-  const commentGuideStep = firstAnnotationGuideStep({
-    active: mode === 'comment',
-    editing: Boolean(editingElementCommentId),
-    enabled: firstAnnotationGuides.comment,
-    hasDescription: Boolean(elementCommentNote.trim()),
-    hasSelection: Boolean(anchor),
-  });
-  const captureGuideStep = firstAnnotationGuideStep({
-    active: mode === 'capture',
-    editing: Boolean(editingCaptureId),
-    enabled: firstAnnotationGuides.capture,
-    hasDescription: Boolean(captureNote.trim()),
-    hasSelection: Boolean(captureSelection),
-  });
   const inlineSubmitting = useRef(false);
   const completeElementCommentWithGuide = async (note = elementCommentNote): Promise<void> => {
     if (inlineSubmitting.current) return;
@@ -976,7 +986,8 @@ export function AnnotationWorkspace({
   const restoreHistoricalAnnotation = async (annotation: ProjectAnnotation): Promise<void> => {
     const project = websiteProjects.find(({ id }) => id === annotation.record.projectId);
     if (!project || !(await switchProject(project))) return;
-    await window.markfix.navigate(annotation.record.pageUrl);
+    if (annotation.record.pageUrl !== browserState.url)
+      await window.markfix.navigate(annotation.record.pageUrl);
     setUrl(annotation.record.pageUrl);
     setPageSessionId(annotation.record.pageSessionId);
     if (annotation.type === 'element') {
@@ -1141,7 +1152,7 @@ export function AnnotationWorkspace({
     <WorkspaceResizeLayout
       key="workspace-resize-layout"
       leftWidth={sidebarExpanded ? sidebarWidth : 0}
-      rightWidth={activeView === 'workspace' && previewOpen ? rightPanelWidth : 0}
+      rightWidth={previewVisible ? rightPanelWidth : 0}
       workspaceVisible={activeView === 'workspace'}
       onLeftResize={(width, dragStartWidth) => {
         setSidebarExpanded(width > 0);
@@ -1161,7 +1172,7 @@ export function AnnotationWorkspace({
     />
   );
   const shellStyle = {
-    '--annotation-panel-width': `${annotationPanelWidth(rightPanelWidth, sidebarExpanded ? sidebarWidth : 0, viewportWidth)}px`,
+    '--annotation-panel-width': `${previewVisible ? annotationPanelWidth(rightPanelWidth, sidebarExpanded ? sidebarWidth : 0, viewportWidth) : 0}px`,
     '--sidebar-peek-width': `${sidebarWidth}px`,
     '--sidebar-width': `${sidebarExpanded ? sidebarWidth : 0}px`,
   } as CSSProperties;
@@ -1233,7 +1244,11 @@ export function AnnotationWorkspace({
         <BrowserToolbar
           addressInputRef={addressInputRef}
           browserState={browserState}
-          diagnosticErrorCount={diagnosticErrorCount}
+          previewOpen={previewVisible}
+          onTogglePreview={() => {
+            void setMode('browse');
+            setPreviewOpen((open) => !open);
+          }}
           isSubmitting={isSubmitting}
           mode={mode}
           unsubmittedCount={unsubmittedCount}
@@ -1253,90 +1268,20 @@ export function AnnotationWorkspace({
           onRetry={retryProjectLoad}
         />
       )}
-      {previewOpen && (
+      {previewVisible && (
         <aside className="comment-panel capture-panel" aria-label="批注预览">
           <div className="capture-panel-body annotation-preview-body">
-            {projectReports
-              .filter(
-                (report) =>
-                  report.status === 'FIX_FAILED' ||
-                  report.status === 'RESOLVED' ||
-                  report.status === 'IN_PROGRESS',
-              )
-              .map((report) => (
-                <Card key={report.id} className="repair-result-card" aria-label="标注修复结果">
-                  <strong>{report.title}</strong>
-                  <Badge variant={report.status === 'FIX_FAILED' ? 'destructive' : 'secondary'}>
-                    {report.status === 'RESOLVED'
-                      ? '修复完成'
-                      : report.status === 'FIX_FAILED'
-                        ? '修复失败'
-                        : '修复中'}
-                  </Badge>
-                  {report.fixAttempts?.[0]?.reason && <p>{report.fixAttempts[0].reason}</p>}
-                  {report.fixAttempts?.[0]?.summary && <p>{report.fixAttempts[0].summary}</p>}
-                </Card>
-              ))}
-            <CapturePanel
-              active={mode === 'capture'}
-              numberOffset={
-                mode === 'comment'
-                  ? pageDiagnosticAnnotations.length +
-                    numberedVisibleRecords(pageElementComments, editingElementCommentId).length
-                  : 0
-              }
-              pageCaptures={pageCaptures}
-              captureSelection={captureSelection}
-              captureLoading={captureLoading}
-              screenshot={screenshot}
-              captureMarks={captureMarks}
-              captureNote={captureNote}
-              captureEvidence={captureEvidence}
-              captureRendering={captureRendering}
-              editingCaptureId={editingCaptureId}
-              setCaptureNote={setCaptureNote}
-              setCaptureEvidence={setCaptureEvidence}
-              updateCaptureText={updateCaptureText}
-              cancelCapture={cancelCapture}
-              completeCapture={completeCaptureWithGuide}
-              deleteSavedCapture={deleteSavedCapture}
-              selectSavedCapture={async (capture) => {
-                await setMode('capture');
-                await selectSavedCapture(capture);
+            <AnnotationPreview
+              annotations={currentPreviewAnnotations}
+              onSelect={editHistoricalAnnotation}
+              onDelete={async (annotation) => {
+                if (annotation.type === 'capture') await deleteSavedCapture(annotation.record.id);
+                else if (annotation.type === 'element')
+                  await deleteElementComment(annotation.record.id);
+                else await deleteDiagnosticAnnotation(annotation.record.id);
               }}
               copyCapture={copyCapture}
               saveCapture={saveCapture}
-              guideStep={captureGuideStep}
-              dismissGuide={() => dismissFirstAnnotationGuide('capture')}
-            />
-            <ElementCommentPanel
-              active={mode === 'comment'}
-              numberOffset={
-                mode === 'comment'
-                  ? 0
-                  : numberedVisibleRecords(pageCaptures, editingCaptureId).length
-              }
-              anchor={anchor}
-              editingElementCommentId={editingElementCommentId}
-              elementCommentNote={elementCommentNote}
-              elementEvidence={elementEvidence}
-              pageElementComments={pageElementComments}
-              pageDiagnosticAnnotations={pageDiagnosticAnnotations}
-              setElementCommentNote={setElementCommentNote}
-              setElementEvidence={setElementEvidence}
-              clearElementSelection={clearElementSelection}
-              completeElementComment={completeElementCommentWithGuide}
-              deleteDiagnosticAnnotation={deleteDiagnosticAnnotation}
-              deleteElementComment={deleteElementComment}
-              selectElementComment={(comment) => {
-                void setMode('comment')
-                  .then(() => selectElementComment(comment))
-                  .catch((error: unknown) =>
-                    setNotice(error instanceof Error ? error.message : '无法打开批注。'),
-                  );
-              }}
-              guideStep={commentGuideStep}
-              dismissGuide={() => dismissFirstAnnotationGuide('comment')}
             />
           </div>
         </aside>
@@ -1345,7 +1290,7 @@ export function AnnotationWorkspace({
         <DiagnosticsPanel
           entries={diagnosticEntries}
           selectedEvidenceIds={selectedEvidenceIds}
-          withSidebar={mode !== 'browse'}
+          withSidebar={previewVisible}
           onClear={clearDiagnostics}
           onClose={() => void toggleDiagnostics()}
           onQuote={quoteDiagnostic}

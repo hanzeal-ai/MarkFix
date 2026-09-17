@@ -73,11 +73,11 @@
 }
 .diagnostic-annotation-content.error strong,
 .diagnostic-annotation-content.error svg {
-  color: #c43f35;
+  color: var(--brand-orange);
 }
 .diagnostic-annotation-content.warning strong,
 .diagnostic-annotation-content.warning svg {
-  color: #a86c00;
+  color: var(--brand-orange);
 }
 .diagnostic-annotation-content p {
   max-height: 72px;
@@ -131,8 +131,8 @@
   color: #90949d;
 }
 .capture-note-head button:hover {
-  color: #d44848;
-  background: #fff0f0;
+  color: var(--brand-orange);
+  background: var(--brand-orange-soft);
 }
 .capture-note-head svg {
   width: 14px;
@@ -147,9 +147,9 @@
 p.annotation-rejection {
   margin: 0 0 10px;
   border-radius: 8px;
-  background: #fde9e7;
+  background: var(--brand-orange-soft);
   padding: 8px 10px;
-  color: #ad4038;
+  color: var(--brand-orange);
   font-size: 11px;
   line-height: 1.45;
   white-space: pre-wrap;

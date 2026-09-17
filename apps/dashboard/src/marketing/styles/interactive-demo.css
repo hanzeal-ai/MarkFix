@@ -112,7 +112,7 @@
   white-space: nowrap;
 }
 .mf-demo-address span {
-  background: #2c9c6b;
+  background: var(--brand-purple);
   border-radius: 50%;
   flex: 0 0 auto;
   height: 7px;

@@ -5,7 +5,7 @@
   --line: #e2e3e6;
   --soft: #f5f6f8;
   --paper: #fff;
-  --brand-accent: #111214;
+  --brand-accent: var(--brand-purple);
   color: var(--ink);
   background: var(--background);
   font-family: var(--font-sans);
@@ -31,8 +31,8 @@
 
 .premium-site .premium-nav [data-slot='button'],
 .premium-site:not(.commercial-page) .premium-hero-actions [data-slot='button']:first-child {
-  border-color: #17181a;
-  background: #17181a;
+  border-color: var(--brand-purple);
+  background: var(--brand-purple);
   color: #fff;
   box-shadow: none;
 }
@@ -71,7 +71,7 @@
 
 .premium-site:not(.commercial-page) .premium-hero h1 span {
   display: inline;
-  color: inherit;
+  color: var(--brand-purple);
 }
 
 .premium-site:not(.commercial-page) .premium-hero > p {
@@ -129,8 +129,8 @@
 }
 
 .premium-site:not(.commercial-page) .premium-home-plan.is-featured {
-  border-color: #17181a;
-  background: #17181a;
+  border-color: var(--brand-purple);
+  background: var(--brand-purple);
   color: #fff;
 }
 
@@ -142,8 +142,8 @@
 /* The admin keeps its familiar layout and borrows Grida's neutral workspace language. */
 .admin-shell {
   --admin-sidebar: var(--card);
-  --admin-accent: #17181a;
-  --admin-accent-soft: var(--secondary);
+  --admin-accent: var(--brand-purple);
+  --admin-accent-soft: var(--brand-purple-soft);
   --admin-border: #e1e3e7;
   --admin-muted: #74777e;
   background: #f6f7f9;
@@ -278,7 +278,7 @@
 }
 
 #root .admin-nav button.active {
-  background: #17181a;
+  background: var(--brand-purple);
   color: #fff;
   box-shadow: 0 8px 20px rgba(17, 18, 20, 0.14);
 }
@@ -541,4 +541,32 @@
   #root .projects-grid {
     grid-template-columns: 1fr;
   }
+}
+
+#root .admin-nav button.active {
+  background: var(--brand-purple-soft);
+  color: var(--brand-purple-strong);
+  box-shadow: inset 3px 0 var(--brand-purple);
+}
+#root .admin-nav button.active svg {
+  color: var(--brand-purple);
+}
+#root .metric-icon {
+  background: var(--brand-purple-soft);
+  color: var(--brand-purple);
+}
+#root .metric-card.warning .metric-icon,
+#root .metric-card.danger .metric-icon {
+  background: var(--brand-orange-soft);
+  color: var(--brand-orange);
+}
+#root .premium-site .premium-hero h1 span {
+  color: var(--brand-purple);
+}
+#root .premium-site .premium-hero {
+  background-image: radial-gradient(ellipse at 80% 15%, var(--brand-purple-soft), transparent 55%);
+}
+#root .premium-site .premium-kicker,
+#root .premium-site .premium-section-label {
+  color: var(--brand-purple);
 }

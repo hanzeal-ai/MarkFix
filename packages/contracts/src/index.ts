@@ -187,6 +187,15 @@ export const screenshotMarkSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
+const diagnosticBodyStateSchema = z.enum([
+  'captured',
+  'empty',
+  'truncated',
+  'unavailable',
+  'omitted',
+]);
+const diagnosticHeadersSchema = z.record(z.string().max(200), z.string().max(2000));
+
 export const diagnosticEvidenceSchema = z.object({
   id: z.uuid(),
   kind: z.enum(['console', 'exception', 'network', 'command', 'system']),
@@ -198,8 +207,21 @@ export const diagnosticEvidenceSchema = z.object({
   message: z.string().max(20_000),
   source: z.string().max(4096).optional(),
   stack: z.string().max(20_000).optional(),
+  arguments: z.array(z.string().max(20_000)).max(50).optional(),
+  captureNotes: z.array(z.string().max(500)).max(50).optional(),
+  response: z
+    .object({
+      headers: diagnosticHeadersSchema.optional(),
+      body: z.string().max(20_000).optional(),
+      bodyState: diagnosticBodyStateSchema.optional(),
+      mimeType: z.string().max(200).optional(),
+    })
+    .optional(),
   request: z
     .object({
+      headers: diagnosticHeadersSchema.optional(),
+      body: z.string().max(20_000).optional(),
+      bodyState: diagnosticBodyStateSchema.optional(),
       requestId: z.string().max(500).optional(),
       method: z.string().min(1).max(32),
       url: z.string().max(4096),
@@ -532,7 +554,6 @@ export const ipcChannels = {
   deleteWebsiteProject: 'website-project:delete',
   confirmDiscardDraft: 'desktop-dialog:confirm-discard-draft',
   setWorkspaceLayout: 'workspace-layout:set',
-  openMoreMenu: 'desktop-menu:open-more',
   openSettings: 'settings:open',
   navigate: 'browser:navigate',
   goBack: 'browser:back',
@@ -632,3 +653,5 @@ export * from './commercial.js';
 export * from './agent.js';
 
 export * from './service-config.js';
+
+export { diagnosticEvidenceSections } from './diagnostic-display.js';

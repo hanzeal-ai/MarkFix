@@ -1,3 +1,4 @@
+import { AgentAccess } from '../agent/AgentAccess';
 import { dashboardServiceUrls } from '../service-config';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { AuthUser } from '@markfix/api-client';
@@ -62,9 +63,6 @@ export function AccountSettings(): React.JSX.Element {
         <a className="account-settings-back" href="/app">
           <ArrowLeft /> 返回管理后台
         </a>
-        <a className="account-settings-back" href="/agent">
-          Agent 接入与授权设备
-        </a>
       </nav>
       <section className="account-settings-content">
         <header>
@@ -72,7 +70,7 @@ export function AccountSettings(): React.JSX.Element {
             <UserRound />
           </span>
           <div>
-            <p>账户</p>
+            <p>设置</p>
             <h1>{user?.displayName ?? '账户设置'}</h1>
             <span>{user?.email ?? '正在加载…'}</span>
           </div>
@@ -83,6 +81,8 @@ export function AccountSettings(): React.JSX.Element {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
+
+        {user && <AgentAccess embedded />}
 
         <Card className="account-settings-card">
           <div>

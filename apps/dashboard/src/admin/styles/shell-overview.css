@@ -172,13 +172,13 @@
 }
 
 .metric-card.warning .metric-icon {
-  background: #fff4df;
-  color: #c77918;
+  background: var(--brand-orange-soft);
+  color: var(--brand-orange);
 }
 
 .metric-card.danger .metric-icon {
-  background: #fff0ed;
-  color: #c04338;
+  background: var(--brand-orange-soft);
+  color: var(--brand-orange);
 }
 
 .overview-charts {
@@ -277,7 +277,7 @@
 }
 
 .chart-card .pending {
-  background: #e2a33b;
+  background: var(--brand-orange);
 }
 
 .chart-card .resolved {
@@ -285,7 +285,7 @@
 }
 
 .chart-card .rejected {
-  background: #d46055;
+  background: var(--foreground);
 }
 
 .compact-legend {
@@ -441,7 +441,7 @@ button.dimension-row:hover {
 .dimension-stat,
 .progress-cell,
 .user-identity > span:not([data-slot='avatar']),
-.sheet-heading-line,
+.project-heading-line,
 .annotation-row-top,
 .annotation-row-bottom {
   display: flex;
@@ -481,7 +481,7 @@ button.dimension-row:hover {
 
 .dimension-stat.is-rejected strong,
 .rejected-number {
-  color: #bd493d;
+  color: var(--brand-orange);
 }
 
 .progress-cell {
@@ -520,7 +520,7 @@ button.dimension-row:hover {
   color: #a0a1aa;
   font-size: 10px;
 }
-.project-sheet .repository-binding {
+.project-details-page .repository-binding {
   padding: 20px 24px;
   border-bottom: 1px solid var(--border);
 }

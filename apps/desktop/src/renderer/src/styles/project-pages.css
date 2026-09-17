@@ -43,9 +43,9 @@
 .history-page > header > span svg {
   width: 20px;
 }
-.new-project-hero .markfix-logo-stacked {
+.new-project-hero .markfix-logo-horizontal {
   display: block;
-  width: clamp(154px, 18vw, 190px);
+  width: clamp(220px, 28vw, 280px);
   height: auto;
 }
 .new-project-form {
@@ -161,7 +161,7 @@
 }
 .new-project-form > p {
   margin: 8px 0 0 20px;
-  color: #b6443e;
+  color: var(--brand-orange);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -251,7 +251,7 @@
   font-size: 12px;
 }
 .new-project-shortcut-menu [data-slot='dropdown-menu-item'].danger {
-  color: #d02f2f;
+  color: var(--brand-orange);
 }
 .new-project-shortcut-menu [data-slot='dropdown-menu-item'] svg {
   width: 14px;
@@ -349,7 +349,7 @@
 }
 .shortcut-dialog form > p {
   margin: -5px 0 0;
-  color: #c03535;
+  color: var(--brand-orange);
   font-size: 12px;
 }
 .shortcut-dialog footer {

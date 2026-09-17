@@ -155,6 +155,7 @@ async function setup(options) {
       console.error('Open the authorization address manually.'),
     );
   }
+  console.error('Waiting for browser authorization; this command will continue automatically.');
   let tokens;
   while (Date.now() < Date.parse(device.expiresAt)) {
     await delay(Math.max(5, Number(device.interval) || 5) * 1000);
@@ -168,6 +169,7 @@ async function setup(options) {
   if (!tokens) throw new Error('Authorization expired; run the command again');
   await saveCredential(config, tokens);
   await writeJson(join(directory, 'config.json'), config);
+  console.error('Authorization complete. Continuing the requested command.');
   return finishSetup(client);
 }
 async function finishSetup(client) {

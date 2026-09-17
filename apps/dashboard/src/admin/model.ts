@@ -20,10 +20,9 @@ export type EditorState =
   | { mode: 'view' | 'edit' | 'reject'; annotation: CommercialAnnotation };
 
 export const statusText: Record<AnnotationStatus, string> = {
-  OPEN: '待处理',
-  IN_REVIEW: '处理中',
+  OPEN: '未处理',
   RESOLVED: '已完成',
-  FIX_FAILED: '修复失败',
+  FIX_FAILED: '失败',
   REJECTED: '已驳回',
 };
 

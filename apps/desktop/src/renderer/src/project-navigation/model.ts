@@ -33,3 +33,8 @@ export const annotationCounts = (annotations: readonly ProjectAnnotation[]) => (
   submitted: annotations.filter(({ record }) => record.status === 'submitted').length,
   rejected: annotations.filter(({ record }) => record.status === 'rejected').length,
 });
+
+export const previewAnnotations = (
+  annotations: readonly ProjectAnnotation[],
+): ProjectAnnotation[] =>
+  annotations.filter(({ record }) => record.status === 'draft' || record.status === 'rejected');

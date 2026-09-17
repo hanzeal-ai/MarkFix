@@ -1,0 +1,104 @@
+.agent-access-shell {
+  background: var(--background);
+}
+.agent-access-content {
+  width: min(640px, 100%);
+  margin: 0 auto;
+}
+.agent-access-heading {
+  margin: 48px 0 28px;
+}
+.agent-access-heading > span {
+  color: var(--brand-purple);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+}
+.agent-access-heading h1 {
+  margin: 14px 0 10px;
+  font-size: clamp(26px, 5vw, 34px);
+  letter-spacing: -0.04em;
+}
+.agent-access-heading p,
+.agent-access-card p {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 0;
+}
+.agent-access-card {
+  padding: 28px;
+  gap: 20px;
+  box-shadow: 0 12px 36px #00000006;
+}
+.agent-access-card h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.agent-device-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.agent-user-code {
+  color: var(--brand-purple-strong);
+  background: var(--brand-purple-soft);
+  padding: 4px 12px;
+  border-radius: 8px;
+  letter-spacing: 0.12em;
+  font-family: monospace;
+}
+.agent-access-card fieldset {
+  border: 0;
+  padding: 0;
+  margin: 4px 0;
+  min-width: 0;
+}
+.agent-access-card legend {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.agent-access-card .agent-project-choice {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 8px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.agent-project-choice:has([data-state='checked']) {
+  background: var(--brand-purple-soft);
+  border-color: var(--brand-purple);
+}
+.agent-actions {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.agent-actions > button:first-child {
+  flex: 1;
+}
+.agent-access-result {
+  text-align: center;
+  justify-items: center;
+  padding: 40px 28px;
+}
+.agent-result-symbol {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  color: var(--brand-purple);
+  background: var(--brand-purple-soft);
+  font-size: 28px;
+}
+@media (max-width: 480px) {
+  .agent-access-shell {
+    padding: 24px 16px;
+  }
+  .agent-access-card {
+    padding: 20px;
+  }
+}

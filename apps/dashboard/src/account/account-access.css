@@ -65,7 +65,7 @@
 
 .account-result > svg {
   width: 30px;
-  color: #32865a;
+  color: var(--brand-purple);
 }
 
 .account-result p {

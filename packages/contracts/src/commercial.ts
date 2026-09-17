@@ -1,3 +1,4 @@
+import type { DiagnosticEvidence } from './index.js';
 import { z } from 'zod';
 import type { FixAttempt } from './agent.js';
 
@@ -11,7 +12,7 @@ export const commercialAnnotationInputSchema = z.object({
 
 export const commercialAnnotationUpdateSchema = commercialAnnotationInputSchema
   .partial()
-  .extend({ status: z.enum(['OPEN', 'IN_REVIEW', 'RESOLVED']).optional() })
+  .extend({ status: z.enum(['OPEN', 'RESOLVED', 'FIX_FAILED']).optional() })
   .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
 
 export const commercialRejectionSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
@@ -19,7 +20,7 @@ export const commercialCategorySchema = z.object({ category: z.string().trim().m
 export const commercialAnnotationListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
-  status: z.enum(['OPEN', 'IN_REVIEW', 'RESOLVED', 'REJECTED', 'FIX_FAILED']).optional(),
+  status: z.enum(['OPEN', 'RESOLVED', 'REJECTED', 'FIX_FAILED']).optional(),
   query: z.string().trim().max(200).optional(),
 });
 
@@ -41,6 +42,7 @@ export type CommercialAnnotation = {
   status: AnnotationStatus;
   rejectionReason: string | null;
   fixAttempts?: FixAttempt[];
+  evidence?: DiagnosticEvidence[];
   history: Array<{
     id: string;
     action: 'SUBMITTED' | 'REJECTED' | 'RESUBMITTED' | 'STATUS_CHANGED';

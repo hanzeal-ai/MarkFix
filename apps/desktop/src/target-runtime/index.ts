@@ -2,6 +2,7 @@ import { ipcRenderer } from 'electron';
 import type { InlineNote } from '../inline-note';
 import { InlineNoteEditor } from './inline-note-editor.js';
 let inlineNoteEditor: InlineNoteEditor | undefined;
+let hasSelectedElement = false;
 import type {
   ElementAnchor,
   SavedElementComment,
@@ -15,6 +16,7 @@ import {
   type CaptureBounds,
   type CaptureHandle,
 } from './capture-selection.js';
+import { editScreenshotRectangle, type RectangleMark } from './screenshot-rectangle-edit.js';
 import { AnchorTracker } from './anchor-tracker.js';
 import { ElementCommentOverlay } from './element-comment-overlay.js';
 
@@ -26,6 +28,7 @@ const captureGroupId = 'markfix-capture-selection';
 let mode: Mode = 'browse';
 let root: ShadowRoot | undefined;
 let surface: SVGSVGElement | undefined;
+let frozenImage: HTMLImageElement | undefined;
 let captureToolbar: HTMLDivElement | undefined;
 let restoreCount = 0;
 let captureBounds: CaptureBounds | undefined;
@@ -34,11 +37,14 @@ let captureGesture:
   | { kind: 'move'; start: Point; original: CaptureBounds }
   | { kind: 'resize'; start: Point; original: CaptureBounds; handle: CaptureHandle }
   | undefined;
-let screenshotTool: ScreenshotTool = 'select';
+let screenshotTool: ScreenshotTool = 'rectangle';
 let screenshotColor = '#ef4444';
 let screenshotStrokeWidth: 2 | 4 | 6 = 4;
 let screenshotMarks: ScreenshotMark[] = [];
 let screenshotRedoMarks: ScreenshotMark[] = [];
+let selectedRectangleId: string | undefined;
+let rectangleEdit:
+  { original: RectangleMark; start: Point; handle: CaptureHandle | undefined } | undefined;
 let screenshotGesture:
   | {
       tool: Exclude<ScreenshotTool, 'select'>;
@@ -176,6 +182,38 @@ const renderScreenshotMark = (mark: ScreenshotMark, group: SVGGElement): void =>
       ...(mark.type === 'mosaic' ? { 'stroke-dasharray': '4 3' } : {}),
     });
     group.append(shape);
+    if (mark.type === 'rectangle' && screenshotMarks.some(({ id }) => id === mark.id)) {
+      const hit = shape.cloneNode() as SVGRectElement;
+      setAttributes(hit, {
+        fill: 'none',
+        stroke: 'transparent',
+        'stroke-width': '12',
+        'data-mark-id': mark.id,
+      });
+      hit.style.pointerEvents = 'stroke';
+      hit.style.cursor = 'move';
+      group.append(hit);
+      if (selectedRectangleId === mark.id) {
+        captureHandlePositions(mark).forEach(({ handle, x, y, cursor }) => {
+          const grip = svgElement('rect');
+          setAttributes(grip, {
+            x: String(x - 4),
+            y: String(y - 4),
+            width: '8',
+            height: '8',
+            rx: '1',
+            fill: 'white',
+            stroke: mark.color,
+            'stroke-width': '1.5',
+            'data-mark-id': mark.id,
+            'data-mark-handle': handle,
+          });
+          grip.style.pointerEvents = 'all';
+          grip.style.cursor = cursor;
+          group.append(grip);
+        });
+      }
+    }
     return;
   }
   if (mark.type === 'arrow') {
@@ -347,17 +385,7 @@ const renderCaptureToolbar = (): void => {
     return;
   }
   captureToolbar.style.display = 'flex';
-  const toolLabel = document.createElement('span');
-  toolLabel.textContent = '截图';
-  Object.assign(toolLabel.style, {
-    flex: '0 0 auto',
-    padding: '0 5px 0 2px',
-    color: '#90949d',
-    font: '400 11px Inter, system-ui, sans-serif',
-  });
-  captureToolbar.append(toolLabel);
   const tools: ReadonlyArray<{ tool: ScreenshotTool; title: string }> = [
-    { tool: 'select', title: '移动选区' },
     { tool: 'rectangle', title: '矩形' },
     { tool: 'ellipse', title: '椭圆' },
     { tool: 'arrow', title: '箭头' },
@@ -535,9 +563,33 @@ const renderCaptureSelection = (): void => {
       'data-capture-body': '',
     });
     body.style.filter = 'drop-shadow(0 0 1px white)';
-    body.style.cursor = screenshotTool === 'select' ? 'move' : 'crosshair';
-    body.style.pointerEvents = screenshotTool === 'select' ? 'all' : 'none';
+    body.style.cursor = 'move';
+    body.style.pointerEvents = 'stroke';
     group.append(body);
+
+    // Selection edges remain directly resizable while a drawing tool is selected.
+    const { x, y, width, height } = captureBounds;
+    const edges = [
+      { handle: 'n', x1: x, y1: y, x2: x + width, y2: y, cursor: 'ns-resize' },
+      { handle: 's', x1: x, y1: y + height, x2: x + width, y2: y + height, cursor: 'ns-resize' },
+      { handle: 'w', x1: x, y1: y, x2: x, y2: y + height, cursor: 'ew-resize' },
+      { handle: 'e', x1: x + width, y1: y, x2: x + width, y2: y + height, cursor: 'ew-resize' },
+    ];
+    for (const edge of edges) {
+      const line = svgElement('line');
+      setAttributes(line, {
+        x1: String(edge.x1),
+        y1: String(edge.y1),
+        x2: String(edge.x2),
+        y2: String(edge.y2),
+        stroke: 'transparent',
+        'stroke-width': '10',
+        'data-capture-handle': edge.handle,
+      });
+      line.style.pointerEvents = 'stroke';
+      line.style.cursor = edge.cursor;
+      group.append(line);
+    }
 
     captureHandlePositions(captureBounds).forEach(({ handle, x, y, cursor }) => {
       const item = svgElement('rect');
@@ -553,7 +605,7 @@ const renderCaptureSelection = (): void => {
         'data-capture-handle': handle,
       });
       item.style.cursor = cursor;
-      item.style.pointerEvents = screenshotTool === 'select' ? 'all' : 'none';
+      item.style.pointerEvents = 'all';
       group.append(item);
     });
 
@@ -624,8 +676,24 @@ const mount = (): void => {
   surface.setAttribute('width', '100%');
   surface.setAttribute('height', '100%');
   surface.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
-  Object.assign(surface.style, { position: 'fixed', inset: '0', overflow: 'visible' });
-  root.append(surface);
+  Object.assign(surface.style, {
+    position: 'fixed',
+    inset: '0',
+    width: '100vw',
+    height: '100vh',
+    overflow: 'visible',
+  });
+  frozenImage = document.createElement('img');
+  frozenImage.alt = '';
+  Object.assign(frozenImage.style, {
+    position: 'fixed',
+    inset: '0',
+    width: '100vw',
+    height: '100vh',
+    display: 'none',
+    pointerEvents: 'none',
+  });
+  root.append(frozenImage, surface);
   captureToolbar = document.createElement('div');
   captureToolbar.setAttribute('aria-label', '截图工具栏');
   Object.assign(captureToolbar.style, {
@@ -653,14 +721,38 @@ const mount = (): void => {
   renderCaptureSelection();
 
   surface.addEventListener('pointerdown', (event) => {
+    if (event.isTrusted && event.button === 0 && mode === 'capture' && captureBounds) {
+      const target = event.target instanceof Element ? event.target : undefined;
+      const mark = screenshotMarks.find(({ id }) => id === target?.getAttribute('data-mark-id'));
+      if (mark?.type === 'rectangle') {
+        selectedRectangleId = mark.id;
+        rectangleEdit = {
+          original: mark,
+          start: { x: event.clientX, y: event.clientY },
+          handle: (target?.getAttribute('data-mark-handle') ?? undefined) as
+            CaptureHandle | undefined,
+        };
+        surface?.setPointerCapture(event.pointerId);
+        renderCaptureSelection();
+        return;
+      }
+      selectedRectangleId = undefined;
+    }
+
     if (
       event.isTrusted &&
       event.button === 0 &&
       mode === 'capture' &&
-      screenshotTool !== 'select'
+      screenshotTool !== 'select' &&
+      captureBounds &&
+      pointInsideCapture({ x: event.clientX, y: event.clientY }) &&
+      !(
+        event.target instanceof Element &&
+        (event.target.hasAttribute('data-capture-handle') ||
+          event.target.hasAttribute('data-capture-body'))
+      )
     ) {
       const start = { x: event.clientX, y: event.clientY };
-      if (!pointInsideCapture(start)) return;
       const clipped = clipToCapture(start);
       screenshotGesture = {
         tool: screenshotTool,
@@ -702,6 +794,21 @@ const mount = (): void => {
     }
   });
   surface.addEventListener('pointermove', (event) => {
+    if (event.isTrusted && mode === 'capture' && rectangleEdit && captureBounds) {
+      const edited = editScreenshotRectangle(
+        rectangleEdit.original,
+        {
+          x: event.clientX - rectangleEdit.start.x,
+          y: event.clientY - rectangleEdit.start.y,
+        },
+        captureBounds,
+        rectangleEdit.handle,
+      );
+      screenshotMarks = screenshotMarks.map((mark) => (mark.id === edited.id ? edited : mark));
+      renderCaptureSelection();
+      return;
+    }
+
     if (event.isTrusted && mode === 'capture' && screenshotGesture) {
       const current = clipToCapture({ x: event.clientX, y: event.clientY });
       screenshotGesture.current = current;
@@ -730,7 +837,24 @@ const mount = (): void => {
       return;
     }
   });
+  surface.addEventListener('pointercancel', () => {
+    if (!rectangleEdit) return;
+    const original = rectangleEdit.original;
+    rectangleEdit = undefined;
+    screenshotMarks = screenshotMarks.map((mark) => (mark.id === original.id ? original : mark));
+    renderCaptureSelection();
+  });
   surface.addEventListener('pointerup', (event) => {
+    if (event.isTrusted && mode === 'capture' && rectangleEdit) {
+      rectangleEdit = undefined;
+      screenshotRedoMarks = [];
+      emitScreenshotMarks();
+      if (surface?.hasPointerCapture(event.pointerId))
+        surface.releasePointerCapture(event.pointerId);
+      renderCaptureSelection();
+      return;
+    }
+
     if (event.isTrusted && mode === 'capture' && screenshotGesture) {
       const gesture = screenshotGesture;
       screenshotGesture = undefined;
@@ -786,24 +910,46 @@ document.addEventListener(
   },
   true,
 );
-window.addEventListener('wheel', () => elementCommentOverlay.schedule(), {
-  capture: true,
-  passive: true,
-});
+window.addEventListener(
+  'wheel',
+  (event) => {
+    if (mode === 'capture') event.preventDefault();
+    else elementCommentOverlay.schedule();
+  },
+  { capture: true, passive: false },
+);
 window.addEventListener('touchmove', () => elementCommentOverlay.schedule(), {
   capture: true,
   passive: true,
 });
 ipcRenderer.on('markfix:inline-note', (_event, payload: InlineNote | null) => {
+  hasSelectedElement = payload?.mode === 'comment';
   inlineNoteEditor?.setState(payload);
   inlineNoteEditor?.position(captureToolbar);
+});
+ipcRenderer.on('markfix:capture-snapshot', (_event, dataUrl: unknown) => {
+  if (!frozenImage) return;
+  if (typeof dataUrl === 'string' && dataUrl.startsWith('data:image/png;base64,')) {
+    frozenImage.src = dataUrl;
+    frozenImage.style.display = 'block';
+  } else {
+    frozenImage.removeAttribute('src');
+    frozenImage.style.display = 'none';
+  }
 });
 ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
   if (!['browse', 'comment', 'capture'].includes(String(requestedMode))) return;
   const leavingCapture = mode === 'capture' && requestedMode !== 'capture';
+  selectedRectangleId = undefined;
+  rectangleEdit = undefined;
   mode = requestedMode as Mode;
+  hasSelectedElement = false;
   inlineNoteEditor?.setState(null);
   if (leavingCapture) {
+    if (frozenImage) {
+      frozenImage.removeAttribute('src');
+      frozenImage.style.display = 'none';
+    }
     captureBounds = undefined;
     captureGesture = undefined;
     emitCaptureSelection();
@@ -818,6 +964,8 @@ ipcRenderer.on('markfix:set-capture-tool', (_event, requestedTool: unknown) => {
       String(requestedTool),
     )
   ) {
+    selectedRectangleId = undefined;
+    rectangleEdit = undefined;
     screenshotTool = requestedTool as ScreenshotTool;
     screenshotGesture = undefined;
     renderCaptureSelection();
@@ -841,12 +989,14 @@ ipcRenderer.on('markfix:render-element-comments', (_event, payload: unknown) => 
   elementCommentOverlay.setComments(payload as SavedElementComment[]);
 });
 ipcRenderer.on('markfix:clear-capture-selection', () => {
+  selectedRectangleId = undefined;
+  rectangleEdit = undefined;
   captureBounds = undefined;
   captureGesture = undefined;
   screenshotGesture = undefined;
   screenshotMarks = [];
   screenshotRedoMarks = [];
-  screenshotTool = 'select';
+  screenshotTool = 'rectangle';
   renderCaptureSelection();
   emitCaptureSelection();
   emitScreenshotMarks();
@@ -884,7 +1034,7 @@ ipcRenderer.on('markfix:restore-capture-selection', (_event, payload: unknown) =
   );
   screenshotMarks = candidate.marks as ScreenshotMark[];
   screenshotRedoMarks = [];
-  screenshotTool = 'select';
+  screenshotTool = 'rectangle';
   screenshotGesture = undefined;
   renderCaptureSelection();
   emitCaptureSelection();
@@ -927,4 +1077,25 @@ window.addEventListener(
   'DOMContentLoaded',
   () => observer.observe(document.documentElement, { childList: true, subtree: true }),
   { once: true },
+);
+
+document.addEventListener(
+  'click',
+  (event) => {
+    if (!event.isTrusted || event.button !== 0 || mode !== 'comment' || !hasSelectedElement) return;
+    if (
+      event
+        .composedPath()
+        .some((node) => node instanceof Element && node.hasAttribute(hostAttribute))
+    )
+      return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    ipcRenderer.send('markfix:reselect-element', {
+      documentUrl: location.href,
+      x: Math.round(event.clientX),
+      y: Math.round(event.clientY),
+    });
+  },
+  true,
 );
