@@ -1,10 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="356" height="96" viewBox="0 0 356 96" role="img" aria-labelledby="title desc">
-  <title id="title">MarkFix monochrome logo</title>
-  <desc id="desc">A single-color version of the MarkFix logo.</desc>
-  <g fill="#191A1D">
-    <rect x="8" y="8" width="80" height="80" rx="23"/>
-    <text x="111" y="61" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-size="43" font-weight="750" letter-spacing="-1.8">MarkFix</text>
-  </g>
-  <path fill="#fff" fill-rule="evenodd" d="M27 25h42a8 8 0 0 1 8 8v27a8 8 0 0 1-8 8H56l-9.7 8.1A3.2 3.2 0 0 1 41 73.6V68H27a8 8 0 0 1-8-8V33a8 8 0 0 1 8-8Zm34.8 12.7a4 4 0 0 0-5.6.5L43.7 53.1l-5.9-5a4 4 0 1 0-5.2 6.1l9 7.6a4 4 0 0 0 5.7-.5l15-18a4 4 0 0 0-.5-5.6Z"/>
-  <circle cx="76" cy="22" r="6" fill="#191A1D" stroke="#fff" stroke-width="3"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100" viewBox="0 0 300 100" role="img" aria-label="MarkFix Ribbon M horizontal black"><title>MarkFix Ribbon M horizontal black</title><desc>双拱构成 M，中央交叠沿用 CarryOn 的丝带留白。</desc><defs><mask id="01-ribbon-m-black-horizontal" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect width="100" height="100" fill="white"/><path d="M82 76V40C82 18 60 16 50 39L38 60" fill="none" stroke="black" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/></mask></defs><g fill="none" stroke="#000000" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"><path d="M18 76V40C18 18 40 16 50 39L62 60" mask="url(#01-ribbon-m-black-horizontal)"/><path d="M82 76V40C82 18 60 16 50 39L38 60"/></g><text x="116" y="65" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="46" font-weight="700" letter-spacing="-1.6" fill="#000000" text-anchor="start">MarkFix</text></svg>

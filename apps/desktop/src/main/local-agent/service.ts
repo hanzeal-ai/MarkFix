@@ -1,10 +1,8 @@
-import { removeLocalAgentProject, type State, type Grant, type Run } from './state.js';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { removeLocalAgentProject, type State, type Run } from './state.js';
+import { randomUUID } from 'node:crypto';
 import {
   agentPolicy,
   agentIssueQuerySchema,
-  deviceAuthorizationSchema,
-  deviceDecisionSchema,
   fixClaimSchema,
   fixSuccessSchema,
   fixFailureSchema,
@@ -16,8 +14,6 @@ import {
 import { annotationSelectionReportInputs } from '@markfix/annotation-model';
 import type { DraftStore } from '../draft-store.js';
 
-const hash = (value: string) => createHash('sha256').update(value).digest('hex');
-const secret = () => randomBytes(32).toString('hex');
 const now = () => new Date().toISOString();
 const leaseMs = agentPolicy.leaseMs;
 export class LocalAgentError extends Error {
@@ -31,17 +27,7 @@ export class LocalAgentError extends Error {
 const fail = (status: number, message: string): never => {
   throw new LocalAgentError(status, message);
 };
-type Pending = {
-  code: string;
-  deviceName: string;
-  expires: number;
-  csrf: string;
-  decision?: boolean;
-  grantId?: string;
-};
-
 export class LocalAgentService {
-  private pending = new Map<string, Pending>();
   private state: State;
   constructor(
     private store: DraftStore,
@@ -52,7 +38,6 @@ export class LocalAgentService {
       ? JSON.parse(saved)
       : {
           identity: randomUUID(),
-          grants: [],
           repositories: [],
           issues: {},
           runs: {},
@@ -65,27 +50,9 @@ export class LocalAgentService {
   private save() {
     const projectIds = new Set([
       ...Object.values(this.state.issues).map(({ report }) => report.projectId),
-      ...this.state.grants.flatMap((grant) => grant.projectIds),
     ]);
     for (const id of projectIds) if (!this.exists(id)) removeLocalAgentProject(this.state, id);
     this.store.writeLocalAgentState(JSON.stringify(this.state));
-  }
-  grants() {
-    this.save();
-    return this.state.grants
-      .filter((grant) => !grant.revoked && grant.expires > Date.now())
-      .map((grant) => ({
-        id: grant.id,
-        deviceName: grant.deviceName,
-        projectIds: grant.projectIds,
-        expiresAt: new Date(grant.expires).toISOString(),
-      }));
-  }
-  revoke(id: string) {
-    const grant = this.state.grants.find((item) => item.id === id);
-    if (!grant) return fail(404, '设备不存在');
-    grant.revoked = true;
-    this.save();
   }
   projects() {
     return this.store.listWebsiteProjects('LOCAL');
@@ -93,104 +60,8 @@ export class LocalAgentService {
   private exists(id: string) {
     return this.store.getWebsiteProject(id)?.storageMode === 'LOCAL';
   }
-  private allowed(grant: Grant, id: string) {
-    if (!this.exists(id) || !grant.projectIds.includes(id)) fail(403, '本机项目未授权或已删除');
-  }
-  authorize(token: string | undefined): Grant {
-    const grant = this.state.grants.find((item) => item.access === hash(token ?? ''));
-    if (!grant || grant.revoked || grant.expires <= Date.now() || grant.accessUntil <= Date.now())
-      return fail(401, '本机授权已失效');
-    return grant;
-  }
-  private tokens(grant: Grant) {
-    const accessToken = secret(),
-      refreshToken = secret();
-    grant.access = hash(accessToken);
-    grant.refresh = hash(refreshToken);
-    grant.accessUntil = Date.now() + agentPolicy.accessTokenMs;
-    this.save();
-    return {
-      status: 'AUTHORIZED',
-      grantId: grant.id,
-      accessToken,
-      refreshToken,
-      accessExpiresAt: new Date(grant.accessUntil).toISOString(),
-    };
-  }
-  device(input: unknown, origin: string) {
-    const parsed = deviceAuthorizationSchema.parse(input);
-    for (const [id, pending] of this.pending)
-      if (pending.expires < Date.now()) this.pending.delete(id);
-    if (this.pending.size >= 20) fail(429, '待授权请求过多');
-    const deviceCode = secret(),
-      userCode = randomBytes(4).toString('hex').toUpperCase();
-    const entry = {
-      code: userCode,
-      deviceName: parsed.deviceName,
-      expires: Date.now() + 10 * 60_000,
-      csrf: secret(),
-    };
-    this.pending.set(deviceCode, entry);
-    return {
-      deviceCode,
-      userCode,
-      verificationUrl: `${origin}/authorize?ticket=${deviceCode}`,
-      expiresAt: new Date(entry.expires).toISOString(),
-      interval: 5,
-    };
-  }
-  page(ticket: string) {
-    const pending = this.pending.get(ticket);
-    if (!pending || pending.expires <= Date.now() || pending.decision !== undefined)
-      return fail(410, '授权链接已失效');
-    return { ...pending, projects: this.projects() };
-  }
-  decide(ticket: string, csrf: string, input: unknown) {
-    const pending = this.page(ticket);
-    if (csrf !== pending.csrf) fail(403, '无效的授权确认');
-    const decision = deviceDecisionSchema.parse(input);
-    if (decision.userCode !== pending.code) fail(403, '授权码不匹配');
-    if (
-      decision.approve &&
-      (!decision.projectIds.length || decision.projectIds.some((id) => !this.exists(id)))
-    )
-      fail(400, '请选择有效的本机项目');
-    const entry = this.pending.get(ticket) ?? fail(410, '授权已过期');
-    entry.decision = decision.approve;
-    if (decision.approve) {
-      const grant: Grant = {
-        id: randomUUID(),
-        deviceName: pending.deviceName,
-        projectIds: [...new Set(decision.projectIds)],
-        access: '',
-        refresh: '',
-        accessUntil: 0,
-        expires: Date.now() + agentPolicy.grantMs,
-        revoked: false,
-      };
-      this.state.grants.push(grant);
-      entry.grantId = grant.id;
-      this.save();
-    }
-    return { approved: decision.approve };
-  }
-  token(deviceCode: string) {
-    const pending = this.pending.get(deviceCode);
-    if (!pending || pending.expires <= Date.now()) return fail(410, '授权已过期');
-    if (pending.decision === false) {
-      this.pending.delete(deviceCode);
-      return fail(403, '用户拒绝授权');
-    }
-    if (pending.decision === undefined) return { status: 'PENDING' };
-    this.pending.delete(deviceCode);
-    return this.tokens(
-      this.state.grants.find(({ id }) => id === pending.grantId) ?? fail(401, '授权不存在'),
-    );
-  }
-  refresh(refreshToken: string) {
-    const grant = this.state.grants.find((item) => item.refresh === hash(refreshToken));
-    if (!grant || grant.revoked || grant.expires <= Date.now()) return fail(401, '本机授权已失效');
-    return this.tokens(grant);
+  private allowed(id: string) {
+    if (!this.exists(id)) fail(403, '本机项目不存在');
   }
   binding(projectId: string) {
     const project = this.store.getWebsiteProject(projectId);
@@ -201,15 +72,8 @@ export class LocalAgentService {
     };
   }
   repositories(projectId: string) {
-    return this.state.repositories.filter((repo) =>
-      this.state.grants.some(
-        (grant) =>
-          grant.id === repo.grantId &&
-          !grant.revoked &&
-          grant.expires > Date.now() &&
-          grant.projectIds.includes(projectId),
-      ),
-    );
+    this.allowed(projectId);
+    return this.state.repositories;
   }
   bind(projectId: string, input: unknown) {
     this.binding(projectId);
@@ -217,7 +81,7 @@ export class LocalAgentService {
     const repo = binding.repositoryId
       ? this.repositories(projectId).find(({ id }) => id === binding.repositoryId)
       : undefined;
-    if (binding.repositoryId && !repo) fail(400, '仓库未获该项目授权');
+    if (binding.repositoryId && !repo) fail(400, '本机仓库不存在');
     const project = this.store.getWebsiteProject(projectId);
     if (!project || project.storageMode !== 'LOCAL') return fail(404, '本机项目不存在');
     const result = {
@@ -289,15 +153,15 @@ export class LocalAgentService {
           (!pageUrl || report.captureBundle.page.url === pageUrl),
       );
   }
-  private issue(grant: Grant, id: string) {
+  private issue(id: string) {
     this.reconcile();
     const issue = this.state.issues[id];
     if (!issue) return fail(404, '标注不存在');
-    this.allowed(grant, issue.report.projectId);
+    this.allowed(issue.report.projectId);
     return issue.report;
   }
-  screenshot(grant: Grant, id: string) {
-    const report = this.issue(grant, id);
+  screenshot(id: string) {
+    const report = this.issue(id);
     let data: string | undefined;
     for (const submission of this.store.listAnnotationSubmissions()) {
       if (submission.projectId !== report.projectId) continue;
@@ -311,20 +175,14 @@ export class LocalAgentService {
     if (!data?.startsWith('data:image/png;base64,')) return fail(404, '该标注没有 PNG 截图');
     return Buffer.from(data.slice('data:image/png;base64,'.length), 'base64');
   }
-  request(grant: Grant, method: string, url: URL, input: unknown): unknown {
+  request(method: string, url: URL, input: unknown): unknown {
     const path = url.pathname.replace('/v1/agent', '');
     if (method === 'GET' && path === '/status')
       return {
         authorized: true,
         storageMode: 'LOCAL',
-        grantId: grant.id,
-        projectIds: grant.projectIds.filter((id) => this.exists(id)),
+        projectIds: this.projects().map(({ id }) => id),
       };
-    if (method === 'POST' && path === '/logout') {
-      grant.revoked = true;
-      this.save();
-      return { loggedOut: true };
-    }
     if (method === 'POST' && path === '/repositories') {
       const parsed = repositoryRegistrationSchema.parse(input);
       let repo = this.state.repositories.find((item) => item.localId === parsed.localId);
@@ -333,22 +191,22 @@ export class LocalAgentService {
           id: randomUUID(),
           localId: parsed.localId,
           name: parsed.name,
-          grantId: grant.id,
-          deviceName: grant.deviceName,
+          deviceName: 'Local CLI',
           agentType: 'codex',
           updatedAt: now(),
         };
         this.state.repositories.push(repo);
       }
-      repo.grantId = grant.id;
       repo.name = parsed.name;
       repo.updatedAt = now();
       this.save();
       return repo;
     }
-    const projects = this.projects()
-      .filter(({ id }) => grant.projectIds.includes(id))
-      .map((project) => ({ id: project.id, name: project.title, storageMode: 'LOCAL' }));
+    const projects = this.projects().map((project) => ({
+      id: project.id,
+      name: project.title,
+      storageMode: 'LOCAL',
+    }));
     if (method === 'GET' && path === '/projects') return projects;
     const resolve = /^\/repositories\/([^/]+)\/projects$/.exec(path);
     if (method === 'GET' && resolve) {
@@ -360,7 +218,7 @@ export class LocalAgentService {
     }
     if (method === 'GET' && path === '/issues') {
       const query = agentIssueQuerySchema.parse(Object.fromEntries(url.searchParams));
-      this.allowed(grant, query.projectId);
+      this.allowed(query.projectId);
       const rows = this.reports(query.projectId)
         .filter(({ status }) => status === query.status)
         .sort((a, b) => a.id.localeCompare(b.id))
@@ -370,14 +228,13 @@ export class LocalAgentService {
     }
     const issueMatch = /^\/issues\/([^/]+)(\/claim)?$/.exec(path);
     if (issueMatch) {
-      const report = this.issue(grant, issueMatch[1] ?? '');
+      const report = this.issue(issueMatch[1] ?? '');
       if (method === 'GET' && !issueMatch[2]) return report;
       if (method === 'POST' && issueMatch[2]) {
         const claim = fixClaimSchema.parse(input);
         const previous = this.state.runs[claim.runId];
         if (previous) {
           if (
-            previous.grantId !== grant.id ||
             previous.reportId !== report.id ||
             previous.status !== 'RUNNING' ||
             previous.leaseUntil <= Date.now() ||
@@ -419,7 +276,6 @@ export class LocalAgentService {
         const run: Run = {
           id: claim.runId,
           reportId: report.id,
-          grantId: grant.id,
           version: report.version,
           leaseUntil: Date.now() + leaseMs,
           status: 'RUNNING',
@@ -450,8 +306,8 @@ export class LocalAgentService {
     const fix = /^\/fixes\/([^/]+)\/(renew|release|complete|fail)$/.exec(path);
     if (method === 'POST' && fix) {
       const run = this.state.runs[fix[1] ?? ''];
-      if (!run || run.grantId !== grant.id) return fail(404, '任务不存在');
-      const report = this.issue(grant, run.reportId);
+      if (!run) return fail(404, '任务不存在');
+      const report = this.issue(run.reportId);
       const action = fix[2] ?? '';
       const result =
         action === 'complete'

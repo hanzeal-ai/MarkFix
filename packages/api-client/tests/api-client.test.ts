@@ -4,6 +4,25 @@ import { MarkFixApi } from '../src/index.js';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('MarkFixApi request coordination', () => {
+  it('sends password changes through the authenticated account endpoint', async () => {
+    const fetchMock = vi.fn(async () => Response.json({ changed: true }));
+    vi.stubGlobal('fetch', fetchMock);
+    const api = new MarkFixApi('https://api.example.test');
+    api.setTokens({ accessToken: 'access' });
+
+    await expect(api.changePassword('current-password', 'next-password')).resolves.toEqual({
+      changed: true,
+    });
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe('https://api.example.test/v1/me/password');
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: 'PATCH',
+      body: JSON.stringify({
+        currentPassword: 'current-password',
+        newPassword: 'next-password',
+      }),
+    });
+  });
   it('requests only reports for the active page when building overlays', async () => {
     const fetchMock = vi.fn(async () => Response.json({ items: [] }));
     vi.stubGlobal('fetch', fetchMock);

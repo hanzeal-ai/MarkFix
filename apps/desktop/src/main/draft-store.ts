@@ -18,6 +18,14 @@ import { retryDelayMs } from './sync-policy.js';
 import { captureStorage, hydrateCapture, type StoredCapture } from './draft-store/capture-codec.js';
 import { initializeDraftStore } from './draft-store/migrations.js';
 
+// Older desktop profiles stored workspace ownership before project-scoped ownership.
+// Adapt only that retired field at the local read boundary; current writes stay strict.
+const readWebsiteProject = (payload: string): WebsiteProject => {
+  const stored = JSON.parse(payload) as Record<string, unknown>;
+  delete stored.workspaceId;
+  return websiteProjectSchema.parse(stored);
+};
+
 export type OutboxEntry = {
   id: string;
   idempotencyKey: string;
@@ -57,14 +65,14 @@ export class DraftStore {
          ORDER BY updated_at DESC`,
       )
       .all(...(storageMode ? [storageMode] : [])) as Array<{ payload: string }>;
-    return rows.map(({ payload }) => websiteProjectSchema.parse(JSON.parse(payload)));
+    return rows.map(({ payload }) => readWebsiteProject(payload));
   }
 
   getWebsiteProject(projectId: string): WebsiteProject | undefined {
     const row = this.database
       .prepare('SELECT payload FROM website_projects WHERE id = ?')
       .get(projectId) as { payload: string } | undefined;
-    return row ? websiteProjectSchema.parse(JSON.parse(row.payload)) : undefined;
+    return row ? readWebsiteProject(row.payload) : undefined;
   }
 
   findWebsiteProjectByOrigin(
@@ -78,7 +86,7 @@ export class DraftStore {
          ORDER BY updated_at DESC LIMIT 1`,
       )
       .get(...(storageMode ? [origin, storageMode] : [origin])) as { payload: string } | undefined;
-    return row ? websiteProjectSchema.parse(JSON.parse(row.payload)) : undefined;
+    return row ? readWebsiteProject(row.payload) : undefined;
   }
 
   saveWebsiteProject(project: WebsiteProject): void {

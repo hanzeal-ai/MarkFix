@@ -61,7 +61,7 @@ export function OverviewView({
   const rejectedPercent = total ? Math.round((overview.metrics.rejected / total) * 100) : 0;
   const donutStyle = {
     background: total
-      ? `conic-gradient(#e2a33b 0 ${pendingShare}%, #5b52e8 ${pendingShare}% ${
+      ? `conic-gradient(#e2a33b 0 ${pendingShare}%, var(--primary) ${pendingShare}% ${
           pendingShare + resolvedShare
         }%, #d46055 ${pendingShare + resolvedShare}% 100%)`
       : '#ececf1',

@@ -517,8 +517,9 @@ export const clientPolicySchema = z.object({
 export const ipcChannels = {
   authStatus: 'auth:status',
   enterLocalMode: 'auth:enter-local',
-  openLocalAgentSettings: 'agent:local-settings',
+  authRegister: 'auth:register',
   authLogin: 'auth:login',
+  authChangePassword: 'auth:change-password',
   authLogout: 'auth:logout',
   desktopBootstrap: 'desktop:bootstrap',
   listEnvironments: 'environment:list',

@@ -1,6 +1,6 @@
 /* Homepage layout; preserve the original MarkFix brand treatment. */
 #root .premium-site.product-home {
-  --home-border: #e8e7ed;
+  --home-border: var(--secondary);
   background: #fff;
   color: #17171b;
 }
@@ -8,7 +8,7 @@
   height: 76px;
   padding-inline: max(24px, calc((100vw - 1184px) / 2));
   background: #ffffffed;
-  border-bottom: 1px solid #f0eff3;
+  border-bottom: 1px solid var(--secondary);
 }
 .product-home main {
   max-width: 1280px;
@@ -32,7 +32,11 @@
   z-index: -1;
   inset: 0 -48px auto;
   height: 640px;
-  background: radial-gradient(ellipse 600px 430px at 50% 210px, #eeecfc 0%, transparent 78%);
+  background: radial-gradient(
+    ellipse 600px 430px at 50% 210px,
+    var(--secondary) 0%,
+    transparent 78%
+  );
   pointer-events: none;
 }
 .home-hero-copy {
@@ -84,11 +88,11 @@
 }
 .home-actions [data-slot='button']:last-child {
   background: #ffffff80;
-  border: 1px solid #e5e3eb;
+  border: 1px solid var(--border);
   color: #17171b;
 }
 .home-actions [data-slot='button']:last-child:hover {
-  background: #f4f3f8;
+  background: var(--secondary);
 }
 .home-agent-link {
   display: inline-flex;
@@ -100,7 +104,7 @@
   text-decoration: none;
 }
 .home-hero h1 > span {
-  color: #5b4bf1;
+  color: var(--primary);
 }
 .home-product-links {
   display: grid;
@@ -121,7 +125,7 @@
   font-size: 13px;
 }
 .home-product-links a:hover {
-  color: #5b4bf1;
+  color: var(--primary);
 }
 .home-product-links svg {
   width: 15px;
@@ -158,7 +162,7 @@
   display: block;
   width: 100%;
   height: auto;
-  border: 1px solid #e4e2eb;
+  border: 1px solid var(--border);
   border-radius: 16px;
 }
 .home-annotation-image figcaption {
@@ -201,7 +205,7 @@
   display: inline-flex;
   gap: 10px;
   align-items: center;
-  color: #655683;
+  color: var(--primary);
   font-size: 13px;
   text-decoration: none;
   margin-top: 26px;
@@ -243,7 +247,7 @@
 .home-review-image {
   height: 252px;
   margin-top: 28px;
-  border: 1px solid #e3e1ea;
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   background: #f6f7f9;
@@ -257,15 +261,15 @@
 .home-cli {
   margin-top: 28px;
   height: 252px;
-  border: 1px solid #e4e1eb;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: #faf9fc;
+  background: var(--card);
   overflow: hidden;
 }
 .home-cli > div {
   display: flex;
   justify-content: space-between;
-  border-bottom: 1px solid #e9e6ee;
+  border-bottom: 1px solid var(--secondary);
   padding: 12px 16px;
   font-size: 11px;
   color: #8b8196;
@@ -359,7 +363,7 @@
 }
 .product-home a:focus-visible,
 .home-demo-disclosure > summary:focus-visible {
-  outline: 2px solid #7164cc;
+  outline: 2px solid var(--primary);
   outline-offset: 4px;
 }
 @media (max-width: 900px) {

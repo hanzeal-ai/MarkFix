@@ -74,7 +74,7 @@
   flex-direction: column;
   overflow: hidden;
   margin: 14px;
-  border: 1px solid #dddff0;
+  border: 1px solid var(--border);
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 10px 34px rgba(25, 26, 29, 0.08);
@@ -100,8 +100,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 22px;
-  border-bottom: 1px solid #eeeff3;
-  background: #fafaff;
+  border-bottom: 1px solid var(--secondary);
+  background: var(--card);
   color: #6a6e78;
   font-size: 12px;
 }
@@ -117,7 +117,7 @@
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: #5b52e8;
+  accent-color: var(--primary);
 }
 .annotation-save-list {
   flex: 1 1 auto;
@@ -141,9 +141,9 @@
   background: #fff;
 }
 .annotation-save-item.selected {
-  border-color: #b8b3ff;
-  background: #f8f7ff;
-  box-shadow: 0 0 0 1px rgba(91, 82, 232, 0.08);
+  border-color: var(--border);
+  background: var(--card);
+  box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.08);
 }
 .annotation-save-preview-button,
 .annotation-save-item-icon {
@@ -188,8 +188,8 @@
 .annotation-save-item-icon {
   display: grid;
   place-items: center;
-  background: #eeecff;
-  color: #5b52e8;
+  background: var(--secondary);
+  color: var(--primary);
 }
 .annotation-save-item-icon svg {
   width: 26px;
@@ -253,7 +253,7 @@
 .annotation-save-empty svg {
   width: 36px;
   height: 36px;
-  color: #aaa5f3;
+  color: var(--input);
 }
 .annotation-save-empty strong {
   color: #4b4e57;
@@ -264,7 +264,7 @@
 .annotation-save-dialog > footer {
   justify-content: flex-end;
   gap: 10px;
-  border-top: 1px solid #e7e8ee;
+  border-top: 1px solid var(--secondary);
 }
 .annotation-save-dialog > footer button {
   min-width: 84px;
@@ -276,8 +276,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border-color: #5b52e8;
-  background: #5b52e8;
+  border-color: var(--primary);
+  background: var(--primary);
   color: #fff;
 }
 .annotation-save-dialog > footer button.primary svg {

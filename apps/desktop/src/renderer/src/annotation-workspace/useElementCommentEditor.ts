@@ -133,9 +133,8 @@ export function useElementCommentEditor({
     setEditingElementCommentId(undefined);
   }, []);
 
-  const completeElementComment = async (): Promise<boolean> => {
-    if (anchor?.kind !== 'element' || !elementCommentNote.trim() || !projectId || !pageSessionId)
-      return false;
+  const completeElementComment = async (note = elementCommentNote): Promise<boolean> => {
+    if (anchor?.kind !== 'element' || !note.trim() || !projectId || !pageSessionId) return false;
     await elementCapturePromiseRef.current;
     const elementCapture = elementCaptureRef.current;
     const now = new Date().toISOString();
@@ -151,7 +150,7 @@ export function useElementCommentEditor({
       pageUrl: anchor.documentUrl,
       pageTitle: pageTitle || anchor.documentUrl,
       anchor,
-      note: elementCommentNote.trim(),
+      note: note.trim(),
       status: 'draft',
       ...(elementEvidence.length > 0 ? { evidence: elementEvidence } : {}),
       ...(elementCapture

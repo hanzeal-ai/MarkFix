@@ -112,16 +112,24 @@ MARKFIX_AGENT_SMOKE=true pnpm --filter @markfix/desktop exec electron scripts/sm
 
 风险 R2。用户明确授权新增本机 CLI、免服务的本机使用路径和切换审查模型；本次只运行隔离测试数据，没有操作已有应用数据库或真实设备授权。
 
-权威边界：标注提交仍由 DraftStore 保存，Report 输入转换移到 packages/annotation-model，云端与本机共用。仅本机已提交快照形成本机 Report，修复状态、尝试与版本只在该 Report 更新；草稿状态不充当修复结果，不写入云端。采用 contracts 的领取、结果、查询与授权输入校验。桌面接口只绑定 127.0.0.1，私有发现文件传输密钥、Host/Origin 校验、CSRF、浏览器项目确认与令牌共同限制访问。云端登录、项目权限和报告队列没有被本机入口绕过。
+权威边界：标注提交仍由 DraftStore 保存，Report 输入转换移到 packages/annotation-model，云端与本机共用。仅本机已提交快照形成本机 Report，修复状态、尝试与版本只在该 Report 更新；草稿状态不充当修复结果，不写入云端。采用 contracts 的领取、结果、查询输入校验。桌面接口只绑定 127.0.0.1，私有发现文件传输密钥与 Host/Origin 校验限制连接；同一系统用户的 CLI 自动访问全部本地项目，无需手动授权。云端登录、项目权限和报告队列没有被本机入口绕过。
 
-本机 SQLite 增加 local_agent_state 表，存储本机授权哈希、已上报仓库与报告/任务状态；项目绑定的 repositoryId/repositoryName 统一由 WebsiteProject 保存；初始化为增量建表，不重写已有标注。单实例桌面负责唯一写入，CLI 不直接读写 SQLite。CLI 的 local 子目录隔离本机凭据和 outbox，稳定 profile identity 防止切换桌面数据库后复用授权。
+本机 SQLite 增加 local_agent_state 表，存储已上报仓库与报告/任务状态；项目绑定的 repositoryId/repositoryName 统一由 WebsiteProject 保存；初始化为增量建表，不重写已有标注。单实例桌面负责唯一写入，CLI 不直接读写 SQLite。CLI 的 local 子目录隔离本机连接配置和 outbox，稳定 profile identity 防止切换桌面数据库后提交旧结果。
 
 恢复：关闭桌面并备份完整 SQLite 数据文件及 WAL/SHM 后再升级现有安装。本次增加 WebsiteProject.repositoryId，旧版严格校验可能拒绝该字段，因此不能直接降级后连接新数据。优先前向修复；必须回退时恢复完整备份和匹配构建，并先保存升级后的新增数据、制定重放方案。不得删除 Agent 状态或以旧备份直接覆盖新增标注。测试仅创建临时数据库，验证重新实例化后修复结果仍存在、原标注不变、CLOUD 数据不参与本机流程。
 
-自动化覆盖：本机 HTTP/CLI 子进程验证项目隔离、拒绝与撤销、领取冲突、失败重试、完成幂等、截图读取，以及桌面关闭后结果进入 outbox、重启后补传确认。Electron 隔离烟测覆盖云端请求挂起时进入本机、拒绝创建云项目、真实浏览器项目授权、绑定、失败原因展示、重试完成和撤销。
+自动化覆盖：本机 HTTP/CLI 子进程验证本地与云端隔离、跨站与无密钥拒绝、领取冲突、失败重试、完成幂等、截图读取，以及桌面关闭后结果进入 outbox、重启后补传确认。Electron 隔离烟测覆盖云端请求挂起时进入本机、拒绝创建云项目、免授权本机访问、绑定、失败原因展示、重试完成和设置入口清理。
 
 复现：使用 Node 24，运行全仓 format:check、lint、typecheck、test、build；随后运行 `pnpm --filter @markfix/desktop exec electron scripts/smoke-local-agent.mjs`。临时数据与截图路径由烟测输出，不使用真实用户凭据。
 
 剩余限制：local_agent_state 尚无独立结构版本与损坏恢复工具；初始化失败会禁用本机 CLI 并保留原始数据库，桌面窗口仍可启动。Windows 浏览器调用、真实系统钥匙串授权、DMG 签名公证、真实 Codex 自动修复和生产部署未验证。
 
 最终验证：Node 24 下全仓 format:check、lint、typecheck、test、build 通过；本机 Electron 与官网/后台组件烟测正常退出（exit 0），授权页、失败/完成状态、设备撤销、设置子窗口及本地/开发文档截图已检查。系统退出存在 macOS task_policy_set 日志；预期云项目创建拒绝日志属于负向用例。GPT-5.6 Sol 独立 R2 审查通过，无 P0/P1/P2 遗留缺陷。证据日志：`/tmp/markfix-local-{format,lint,types,tests,build}.log`、`/tmp/markfix-local-native-final2.log`、`/tmp/markfix-local-docs-smoke.log`。
+
+### 本地 CLI 默认完整权限
+
+仅调整 LOCAL 的授权策略；云端登录、成员权限与令牌流程不变。保留私有发现文件、环回监听、Host/Origin 拦截和修复版本/租约校验。旧库中已有的授权字段不再参与权限判断；已有项目绑定、报告、任务与待同步结果保留。旧 outbox 按桌面 identity 隔离，允许在同一桌面补传。
+
+恢复：本次不对真实用户数据库执行迁移或清理。验证使用临时数据库；重新启用旧版需先停止桌面、保全完整数据库及待同步结果，匹配旧版构建和升级前备份；不得将新写入数据直接覆盖。优先前向修复。
+
+该权限变更按 R2 验证。独立审查仍需由未参与实现的审查者执行；侧边会话不启动其他 Agent，不将自审视为独立审查。

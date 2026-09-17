@@ -126,7 +126,7 @@ export class ElementCommentOverlay {
         cx: String(x),
         cy: String(y),
         r: '11',
-        fill: '#5b52e8',
+        fill: '#202023',
         stroke: '#fff',
         'stroke-width': '2',
       });

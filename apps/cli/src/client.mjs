@@ -30,8 +30,7 @@ export class Client {
   }
   async send(path, body, token, method = body === undefined ? 'GET' : 'POST') {
     const connection = this.config.local ? await localConnection() : this.config;
-    if (connection.server !== this.config.server)
-      throw new Error('Local desktop profile changed; authorization cannot be reused');
+    if (connection.server !== this.config.server) throw new Error('Local desktop profile changed');
     const response = await fetch(`${connection.endpoint ?? connection.server}/v1/agent${path}`, {
       method,
       redirect: 'error',
@@ -48,6 +47,7 @@ export class Client {
     return result;
   }
   async request(path, body, method) {
+    if (this.config.local) return this.send(path, body, undefined, method);
     let credential = await loadCredential(this.config);
     if (!credential) throw new Error('Authorization required: run markfix setup');
     if (Date.parse(credential.accessExpiresAt) <= Date.now() + 30_000) {

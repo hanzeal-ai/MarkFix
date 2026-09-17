@@ -9,10 +9,10 @@
   --text-3: #8e8e93;
   --line: rgba(60, 60, 67, 0.16);
   --line-strong: rgba(60, 60, 67, 0.24);
-  --accent: #6558e8;
-  --accent-soft: rgba(101, 88, 232, 0.12);
-  --accent-strong: #5044ce;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --accent: var(--primary);
+  --accent-soft: rgba(24, 24, 27, 0.12);
+  --accent-strong: var(--primary);
+  font-family: var(--font-sans);
   background: transparent;
 }
 
@@ -183,7 +183,7 @@ button {
   background: var(--accent);
   box-shadow:
     inset 0 1px rgba(255, 255, 255, 0.2),
-    0 1px 2px rgba(52, 42, 161, 0.18);
+    0 1px 2px rgba(24, 24, 27, 0.18);
   font-weight: 600;
 }
 
@@ -254,8 +254,8 @@ button {
 .project-sidebar-action.active,
 .project-sidebar-item.active {
   border-color: transparent;
-  background: rgba(101, 88, 232, 0.14);
-  color: #3f35bc;
+  background: rgba(24, 24, 27, 0.14);
+  color: var(--primary);
 }
 
 .project-sidebar-action:focus-visible,
@@ -306,7 +306,7 @@ button {
   width: 30px;
   height: 30px;
   flex-basis: 30px;
-  background: linear-gradient(145deg, #776beb, #584bcd);
+  background: linear-gradient(145deg, var(--primary), var(--primary));
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.2);
 }
 

@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew public IP certificate and reload Nginx
+After=network-online.target nginx.service
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/opt/certbot-ip/bin/certbot renew --quiet
+ExecStartPost=/bin/sh -c '/usr/sbin/nginx -t && /usr/bin/systemctl reload nginx'

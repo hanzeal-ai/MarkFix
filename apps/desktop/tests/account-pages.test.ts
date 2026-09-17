@@ -31,14 +31,14 @@ describe('account page boundary', () => {
 });
 
 describe('project error messages', () => {
-  it('translates HTTPS failures without exposing the IPC implementation', () => {
+  it('translates website URL failures without exposing the IPC implementation', () => {
     expect(
       projectErrorMessage(
         new Error(
-          "Error invoking remote method 'website-project:create': Error: Enter a valid HTTPS website address",
+          "Error invoking remote method 'website-project:create': Error: Enter a valid HTTP or HTTPS website address",
         ),
       ),
-    ).toBe('请输入有效的 HTTPS 网站地址，例如 https://example.com。');
+    ).toBe('请输入有效的 HTTP 或 HTTPS 网站地址，例如 https://example.com。');
     expect(projectErrorMessage(new Error('fetch failed'))).toBe('无法连接服务，请检查网络后重试。');
     expect(
       projectErrorMessage(

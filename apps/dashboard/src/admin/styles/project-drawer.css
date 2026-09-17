@@ -1,5 +1,5 @@
 .project-sheet {
-  background: #f7f7f9;
+  background: var(--secondary);
 }
 
 .project-sheet > header {
@@ -33,7 +33,7 @@
 }
 
 .project-url-button:hover {
-  color: var(--admin-purple);
+  color: var(--admin-accent);
   text-decoration: underline;
 }
 
@@ -106,7 +106,7 @@
 }
 
 .annotation-summary:hover {
-  background: #fafaff;
+  background: var(--card);
 }
 
 .annotation-row-top {
@@ -116,7 +116,7 @@
 }
 
 .annotation-reference-code {
-  color: var(--admin-purple);
+  color: var(--admin-accent);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 10px;
   font-weight: 700;
@@ -148,7 +148,7 @@
   overflow: hidden;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
-  background: #f4f4f7;
+  background: var(--secondary);
   padding: 0;
   cursor: zoom-in;
 }
@@ -267,7 +267,7 @@
 }
 
 .status-open {
-  background: #f0eff4;
+  background: var(--secondary);
   color: #666872;
 }
 
@@ -361,7 +361,7 @@
   min-height: 180px;
   border: 1px solid #dedee5;
   border-radius: 9px;
-  background: #eeeef2;
+  background: var(--secondary);
   padding: 0;
   cursor: zoom-in;
 }

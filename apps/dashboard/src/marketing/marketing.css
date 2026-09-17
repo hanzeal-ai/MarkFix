@@ -1,17 +1,15 @@
 .marketing-site {
   --marketing-ink: #17171d;
   --marketing-muted: #666772;
-  --marketing-purple: #5b52e8;
-  --marketing-purple-dark: #4338ca;
-  --marketing-purple-soft: #efedff;
+  --marketing-accent: var(--primary);
+  --marketing-accent-dark: var(--primary);
+  --marketing-accent-soft: var(--secondary);
   --marketing-line: #e6e5ea;
   min-height: 100vh;
   overflow: hidden;
-  background: #fbfbfc;
+  background: var(--card);
   color: var(--marketing-ink);
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Helvetica Neue', Arial,
-    sans-serif;
+  font-family: var(--font-sans);
 }
 
 .marketing-header {
@@ -40,7 +38,7 @@
   display: grid;
   place-items: center;
   border-radius: 9px;
-  background: var(--marketing-purple);
+  background: var(--marketing-accent);
   color: #fff;
   font-size: 15px;
 }
@@ -59,7 +57,7 @@
 }
 
 .marketing-nav > a:hover {
-  color: var(--marketing-purple);
+  color: var(--marketing-accent);
 }
 
 .marketing-menu-button {
@@ -127,7 +125,7 @@
 
 .hero-proof svg {
   width: 14px;
-  color: var(--marketing-purple);
+  color: var(--marketing-accent);
 }
 
 .product-stage {
@@ -140,13 +138,13 @@
   position: absolute;
   inset: 0 32px 0 0;
   border-radius: 32px;
-  background: var(--marketing-purple-soft);
+  background: var(--marketing-accent-soft);
 }
 
 .browser-frame {
   position: relative;
   overflow: hidden;
-  border: 1px solid #d7d5e1;
+  border: 1px solid var(--border);
   border-radius: 18px;
   background: #fff;
   box-shadow: 0 24px 65px rgb(54 48 103 / 14%);
@@ -159,7 +157,7 @@
   gap: 7px;
   padding: 0 14px;
   border-bottom: 1px solid #e9e8ed;
-  background: #fafafd;
+  background: var(--card);
 }
 
 .window-dot {
@@ -175,7 +173,7 @@
   flex: 1;
   overflow: hidden;
   border-radius: 7px;
-  background: #f0eff4;
+  background: var(--secondary);
   color: #8b8993;
   padding: 7px 11px;
   font-size: 10px;
@@ -196,7 +194,7 @@
 }
 
 .demo-kicker {
-  color: var(--marketing-purple);
+  color: var(--marketing-accent);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -233,8 +231,8 @@
 }
 
 .demo-buttons span:first-child {
-  border-color: var(--marketing-purple);
-  background: var(--marketing-purple);
+  border-color: var(--marketing-accent);
+  background: var(--marketing-accent);
   color: #fff;
 }
 
@@ -244,7 +242,7 @@
   left: 34px;
   width: 118px;
   height: 42px;
-  border: 2px solid var(--marketing-purple);
+  border: 2px solid var(--marketing-accent);
   border-radius: 8px;
 }
 
@@ -258,7 +256,7 @@
   place-items: center;
   border: 3px solid #fff;
   border-radius: 50%;
-  background: var(--marketing-purple);
+  background: var(--marketing-accent);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -266,7 +264,7 @@
 
 .comment-rail {
   padding: 18px 12px;
-  border-left: 1px solid #e7e6ec;
+  border-left: 1px solid var(--secondary);
   background: #fff;
 }
 
@@ -286,13 +284,13 @@
 .comment-card {
   margin-bottom: 10px;
   padding: 12px;
-  border-color: #e7e6ec;
+  border-color: var(--secondary);
   box-shadow: none;
 }
 
 .comment-card.is-active {
-  border-color: #bdb8ff;
-  background: #faf9ff;
+  border-color: var(--border);
+  background: var(--card);
 }
 
 .comment-meta {
@@ -307,8 +305,8 @@
   display: grid;
   place-items: center;
   border-radius: 6px;
-  background: #e9e7ff;
-  color: var(--marketing-purple-dark);
+  background: var(--secondary);
+  color: var(--marketing-accent-dark);
   font-size: 9px;
 }
 
@@ -332,16 +330,16 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  border: 1px solid #dedce7;
+  border: 1px solid var(--border);
   border-radius: 12px;
   background: #fff;
   padding: 13px 16px;
-  box-shadow: 0 15px 35px rgb(49 44 91 / 14%);
+  box-shadow: 0 15px 35px rgb(24 24 27 / 14%);
 }
 
 .floating-status > svg {
   width: 22px;
-  color: var(--marketing-purple);
+  color: var(--marketing-accent);
 }
 
 .floating-status div {
@@ -395,7 +393,7 @@
 .section-heading > span,
 .feature-copy > span,
 .final-cta > div > span {
-  color: var(--marketing-purple);
+  color: var(--marketing-accent);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -443,7 +441,7 @@
 
 .workflow-topline svg {
   width: 26px;
-  color: var(--marketing-purple);
+  color: var(--marketing-accent);
 }
 
 .workflow-grid h3 {
@@ -470,7 +468,7 @@
   display: grid;
   grid-template-columns: 64px 1fr;
   overflow: hidden;
-  border: 1px solid #dbd9e4;
+  border: 1px solid var(--border);
   border-radius: 20px;
   background: #fff;
   box-shadow: 0 26px 70px rgb(46 41 86 / 10%);
@@ -482,7 +480,7 @@
   align-items: center;
   gap: 22px;
   padding: 20px 0;
-  background: #1d1c25;
+  background: var(--foreground);
 }
 
 .preview-logo {
@@ -491,7 +489,7 @@
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: var(--marketing-purple);
+  background: var(--marketing-accent);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -506,7 +504,7 @@
 }
 
 .preview-sidebar i.active {
-  background: #6a61eb;
+  background: var(--primary);
 }
 
 .preview-main {
@@ -572,7 +570,7 @@
 .preview-chart i {
   flex: 1;
   border-radius: 6px 6px 0 0;
-  background: var(--marketing-purple);
+  background: var(--marketing-accent);
   opacity: 0.78;
 }
 
@@ -596,10 +594,10 @@
 .feature-list > div > svg {
   width: 40px;
   height: 40px;
-  border: 1px solid #dddaf7;
+  border: 1px solid var(--secondary);
   border-radius: 10px;
-  background: var(--marketing-purple-soft);
-  color: var(--marketing-purple);
+  background: var(--marketing-accent-soft);
+  color: var(--marketing-accent);
   padding: 10px;
 }
 
@@ -637,8 +635,8 @@
 }
 
 .pricing-card.is-featured {
-  border-color: #b8b3fa;
-  background: #f9f8ff;
+  border-color: var(--border);
+  background: var(--card);
 }
 
 .pricing-name {
@@ -683,7 +681,7 @@
 
 .pricing-card li svg {
   width: 15px;
-  color: var(--marketing-purple);
+  color: var(--marketing-accent);
 }
 
 .pricing-card > button {
@@ -699,7 +697,7 @@
   justify-content: space-between;
   gap: 32px;
   border-radius: 22px;
-  background: #1d1c25;
+  background: var(--foreground);
   color: #fff;
 }
 

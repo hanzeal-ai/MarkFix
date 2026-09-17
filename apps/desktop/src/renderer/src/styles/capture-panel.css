@@ -34,7 +34,7 @@
   color: #849087;
 }
 .panel-heading h1 {
-  font-family: Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 27px;
   letter-spacing: -0.03em;
   margin: 5px 0 0;
@@ -55,16 +55,16 @@
 .capture-selection-card {
   margin-bottom: 12px;
   padding: 12px;
-  border: 1px solid #d6d2ff;
+  border: 1px solid var(--secondary);
   border-radius: 12px;
-  background: #eeecff;
+  background: var(--secondary);
 }
 .capture-selection-kicker {
   display: flex;
   align-items: center;
   gap: 7px;
   margin-bottom: 9px;
-  color: #5b52e8;
+  color: var(--primary);
   font-size: 12px;
   font-weight: 500;
 }
@@ -109,8 +109,8 @@
   place-items: center;
   margin-bottom: 16px;
   border-radius: 14px;
-  color: #5b52e8;
-  background: #eeecff;
+  color: var(--primary);
+  background: var(--secondary);
 }
 .capture-empty-icon svg {
   width: 23px;
@@ -144,13 +144,13 @@
 .capture-text-list input {
   min-width: 0;
   height: 30px;
-  border: 1px solid #ded9eb;
+  border: 1px solid var(--border);
   border-radius: 7px;
   padding: 0 8px;
   outline: none;
 }
 .capture-text-list input:focus {
-  border-color: #5b52e8;
+  border-color: var(--primary);
 }
 .capture-note-input {
   width: 100%;
@@ -165,7 +165,7 @@
   line-height: 1.55;
 }
 .capture-note-input:focus {
-  border-color: #5b52e8;
+  border-color: var(--primary);
 }
 .evidence-references {
   display: flex;
@@ -180,10 +180,10 @@
   align-items: center;
   gap: 5px;
   padding: 0 4px 0 8px;
-  border: 1px solid #d8d5f6;
+  border: 1px solid var(--border);
   border-radius: 7px;
-  background: #f5f3ff;
-  color: #5149b8;
+  background: var(--card);
+  color: var(--primary);
   font-size: 10px;
 }
 .evidence-references > span.error {
@@ -216,7 +216,7 @@
   cursor: pointer;
 }
 .evidence-references button:hover {
-  background: rgba(91, 82, 232, 0.1);
+  background: rgba(24, 24, 27, 0.1);
 }
 .evidence-references button svg {
   width: 12px;
@@ -226,7 +226,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #655dc0;
+  color: var(--primary);
   font-size: 10px;
 }
 .saved-evidence-count svg {

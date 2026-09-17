@@ -14,7 +14,7 @@
 
 1. 启动桌面，在登录页选择「仅在本机使用」。不需要启动 Docker、API 或 PostgreSQL。
 2. 创建本机项目，完成标注后，在预览窗口勾选记录并提交。未提交草稿不会被 CLI 领取。
-3. 安装 CLI 后，在代码仓库执行以下命令；首次使用自动打开本机浏览器授权页，由你选择项目并确认。
+3. 安装 CLI 后，在代码仓库执行以下命令；本机 CLI 自动连接桌面，对所有本地项目拥有完整访问权限，无需配置或手动授权。
 
 ```sh
 markfix projects list --local
@@ -25,7 +25,7 @@ markfix issues list --project PROJECT_ID --local
 
 项目三点菜单的「绑定项目」可选择本机 CLI 上报的仓库。将 `PROJECT_ID` 替换为返回的项目 ID。要求 Codex 使用本机模式，并在每条 MarkFix 命令上添加 `--local`；领取、续租和结果 JSON 与 [CLI 手册](../apps/cli/README.md) 相同。
 
-保持桌面运行；关闭时接口不可用，重新启动可复用授权。结果只写回本机，桌面批注面板显示修复完成或失败原因，重新聚焦或等待最多 30 秒刷新。云端后台不显示本机记录。授权有效期 30 天，`markfix logout --local` 可撤销，也可在桌面「设置 → 通用 → 管理本机授权」中撤销设备。CLI 的本机配置和待同步结果保存在其数据目录的 `local` 子目录，与云端隔离。
+保持桌面运行；关闭时接口不可用，重新启动后自动连接。结果只写回本机，桌面批注面板显示修复完成或失败原因，重新聚焦或等待最多 30 秒刷新。云端后台不显示本机记录。本机 CLI 无需授权、钥匙串或令牌，不限制项目范围。CLI 的本机配置和待同步结果保存在其数据目录的 `local` 子目录，与云端隔离。
 
 默认发现文件是 `~/.markfix-desktop/agent.json`，权限仅限当前系统用户，不要分享或手动修改。开发时如需隔离多个桌面测试配置，在桌面与 CLI 两端设置同一个 `MARKFIX_LOCAL_AGENT_FILE` 绝对路径。CLI 不直接打开 SQLite；接口只监听 127.0.0.1，不对局域网提供服务。
 
@@ -71,10 +71,10 @@ docker compose down
 pnpm install
 pnpm --filter @markfix/database db:generate
 pnpm --filter @markfix/desktop rebuild:native
-MARKFIX_ALLOW_HTTP=true pnpm dev:desktop
+pnpm dev:desktop
 ```
 
-开发桌面默认连接上述本地服务。`MARKFIX_ALLOW_HTTP=true` 允许桌面打开本地 HTTP 测试网页，不会放宽 CLI 的授权传输要求。
+开发桌面默认连接上述本地服务。桌面默认支持 HTTP 和 HTTPS 网站；CLI 的授权传输要求不变。
 
 只需本机保存标注时，可跳过上面的 Docker 服务启动，完成依赖安装后直接启动桌面，选择「仅在本机使用」。本机操作不要求云端账号。
 

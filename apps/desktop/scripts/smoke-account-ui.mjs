@@ -26,6 +26,7 @@ childProcess.execFile = (file, args, callback) => {
 };
 syncBuiltinESMExports();
 const links = [];
+let passwordChanges = 0;
 shell.openExternal = async (url) => {
   links.push(url);
 };
@@ -42,8 +43,26 @@ const server = createServer((req, res) => {
       }),
     );
   else if (req.url === '/v1/auth/login')
-    res.end(JSON.stringify({ accessToken: 'test', refreshToken: 'test', expiresIn: 3600 }));
-  else if (req.url === '/v1/me')
+    setTimeout(
+      () => res.end(JSON.stringify({ accessToken: 'test', refreshToken: 'test', expiresIn: 3600 })),
+      250,
+    );
+  else if (req.url === '/v1/auth/register')
+    res.end(
+      JSON.stringify({
+        user: {
+          id: '22222222-2222-4222-8222-222222222222',
+          email: 'registered@example.test',
+          displayName: '新账户',
+          emailVerified: false,
+        },
+        verificationRequired: true,
+      }),
+    );
+  else if (req.url === '/v1/me/password' && req.method === 'PATCH') {
+    passwordChanges += 1;
+    res.end(JSON.stringify({ changed: true }));
+  } else if (req.url === '/v1/me')
     res.end(
       JSON.stringify({
         id: '11111111-1111-4111-8111-111111111111',
@@ -108,14 +127,75 @@ app.on('browser-window-created', (_event, win) => {
           throw error;
         });
       await run(
-        `window.qa={wait:async(fn)=>{const end=Date.now()+8000;while(!fn()){if(Date.now()>end)throw Error('UI condition timed out: '+fn);await new Promise(r=>setTimeout(r,50));}},button:(name)=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===name),fill:(el,v)=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));}};qa.wait(()=>document.querySelector('h1')?.textContent==='登录 MarkFix')`,
+        `window.qa={wait:async(fn)=>{const end=Date.now()+8000;while(!fn()){if(Date.now()>end)throw Error('UI condition timed out: '+fn);await new Promise(r=>setTimeout(r,50));}},button:(name)=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===name),fill:(el,v)=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));}};qa.wait(()=>document.querySelector('form button[type="submit"]')?.textContent.trim()==='登录')`,
+      );
+      await run(
+        `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
       );
       writeFileSync(
         join(output, 'desktop-login.png'),
         (await win.webContents.capturePage()).toPNG(),
       );
+      if (process.env.MARKFIX_LOCAL_ENTRY_SMOKE === 'login') {
+        await run(`document.querySelector('.desktop-auth-local').click()`);
+        await run(`qa.wait(()=>document.querySelector('[aria-label="新标注"]'))`);
+        writeFileSync(
+          join(output, 'desktop-local-entry.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+        console.log('PASS local text entry opens the desktop workspace directly');
+        console.log('Screenshots: ' + output);
+        clearTimeout(timeout);
+        server.close();
+        return app.quit();
+      }
+      await run(
+        `qa.button('点击创建').click();qa.wait(()=>document.querySelector('input[autocomplete="name"]'))`,
+      );
+      writeFileSync(
+        join(output, 'desktop-register-form.png'),
+        (await win.webContents.capturePage()).toPNG(),
+      );
+      if (process.env.MARKFIX_LOCAL_ENTRY_SMOKE === 'register') {
+        assert.equal(
+          await run(
+            `(()=>{const card=document.querySelector('.desktop-auth-card').getBoundingClientRect(),local=document.querySelector('.desktop-auth-local').getBoundingClientRect();return card.bottom<=local.top})()`,
+          ),
+          true,
+          'register card does not overlap the local entry',
+        );
+        await run(`document.querySelector('.desktop-auth-local').click()`);
+        await run(`qa.wait(()=>document.querySelector('[aria-label="新标注"]'))`);
+        writeFileSync(
+          join(output, 'desktop-local-entry-register.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+        console.log('PASS empty register form opens the local workspace directly');
+        console.log('Screenshots: ' + output);
+        clearTimeout(timeout);
+        server.close();
+        return app.quit();
+      }
+      assert.equal(
+        await run(`document.querySelector('[data-slot="password-field"] input').value`),
+        '',
+        'switching account modes clears the password',
+      );
+      await run(
+        `const inputs=[...document.querySelectorAll('input')];qa.fill(inputs.find(i=>i.autocomplete==='name'),'新账户');qa.fill(inputs.find(i=>i.type==='email'),'registered@example.test');document.querySelectorAll('[data-slot="password-field"] input').forEach(i=>qa.fill(i,'registered-password'));qa.button('创建账户').click();qa.wait(()=>document.querySelector('[role="status"]'))`,
+      );
+      assert.match(
+        await run(`document.querySelector('[role="status"]').textContent`),
+        /验证邮件已发送/,
+      );
+      writeFileSync(
+        join(output, 'desktop-register.png'),
+        (await win.webContents.capturePage()).toPNG(),
+      );
+      await run(
+        `qa.button('返回登录').click();qa.wait(()=>document.querySelector('form button[type="submit"]')?.textContent.trim()==='登录')`,
+      );
       for (const [label, path] of [
-        ['立即注册', 'register'],
         ['忘记密码', 'forgot-password'],
         ['隐私政策', 'privacy'],
         ['服务条款', 'terms'],
@@ -141,9 +221,18 @@ app.on('browser-window-created', (_event, win) => {
       await run(
         `qa.fill(document.querySelector('input[type="email"]'),'fixture@example.test');qa.fill(document.querySelector('[data-slot="password-field"] input'),'fixture-password');`,
       );
+      await run(`document.querySelector('form button[type="submit"]').click()`);
       await run(
-        `qa.button('登录').click();qa.wait(()=>document.querySelector('[aria-label="新标注"]'))`,
+        `qa.wait(()=>qa.button('点击创建').disabled && document.querySelector('.desktop-auth-local').disabled)`,
       );
+      assert.equal(
+        await run(
+          `qa.button('点击创建').disabled && document.querySelector('.desktop-auth-local').disabled`,
+        ),
+        true,
+        'slow authentication disables mode and local-mode switches',
+      );
+      await run(`qa.wait(()=>document.querySelector('[aria-label="新标注"]'))`);
       console.log('PASS desktop login and account page links');
       if (process.env.MARKFIX_MENU_SMOKE) {
         await run(
@@ -241,7 +330,7 @@ app.on('browser-window-created', (_event, win) => {
         `document.querySelector('[role="radio"][data-value="LOCAL"]').click();qa.fill(document.querySelector('#new-project-url'),'javascript:alert(1)')`,
       );
       await run(
-        `document.querySelector('#new-project-url').form.requestSubmit();qa.wait(()=>document.body.textContent.includes('请输入有效的 HTTPS 网站地址'))`,
+        `document.querySelector('#new-project-url').form.requestSubmit();qa.wait(()=>document.body.textContent.includes('请输入有效的 HTTP 或 HTTPS 网站地址'))`,
       );
       assert.equal(await run(`!!document.querySelector('#new-project-error')`), false);
       await run(
@@ -455,6 +544,28 @@ app.on('browser-window-created', (_event, win) => {
             `document.querySelector('[role="tab"][data-state="active"]').textContent.trim()`,
           ),
           '通用',
+        );
+        await settingsWindow.webContents.executeJavaScript(
+          `document.querySelector('[role="tab"][data-state="active"]').focus()`,
+        );
+        settingsWindow.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Up' });
+        settingsWindow.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Up' });
+        await settingsWindow.webContents.executeJavaScript(
+          `(async()=>{const end=Date.now()+5000;while(!document.querySelector('.settings-account form')){if(Date.now()>end)throw Error('Account settings did not load: '+document.body.innerText);await new Promise(r=>setTimeout(r,50));}const fields=[...document.querySelectorAll('.settings-account input')];const set=(el,value)=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));};set(fields[0],'fixture-password');set(fields[1],'updated-password');set(fields[2],'updated-password');})()`,
+        );
+        writeFileSync(
+          join(output, 'settings-account-form.png'),
+          (await settingsWindow.webContents.capturePage()).toPNG(),
+        );
+        await settingsWindow.webContents.executeJavaScript(
+          `[...document.querySelectorAll('button')].find(button=>button.textContent.trim()==='更新密码').click()`,
+        );
+        for (let attempt = 0; attempt < 50 && passwordChanges === 0; attempt++)
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        assert.equal(passwordChanges, 1, 'settings changes the authenticated account password');
+        writeFileSync(
+          join(output, 'settings-account.png'),
+          (await settingsWindow.webContents.capturePage()).toPNG(),
         );
         writeFileSync(
           join(output, 'settings-kbd.png'),
@@ -1102,7 +1213,7 @@ app.on('browser-window-created', (_event, win) => {
 });
 server.listen(0, '127.0.0.1', () => {
   process.env.MARKFIX_SERVICE_ORIGIN = `http://127.0.0.1:${server.address().port}`;
-  process.env.MARKFIX_ALLOW_HTTP = 'true';
+  delete process.env.MARKFIX_ALLOW_HTTP;
   import(join(root, 'apps/desktop/out/main/index.js')).catch((e) => {
     console.error(e);
     return app.exit(1);

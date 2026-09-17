@@ -1,6 +1,6 @@
 .account-settings-shell {
   min-height: 100vh;
-  background: #f7f7f9;
+  background: var(--secondary);
   color: #1c1d22;
   padding: 36px 24px 72px;
 }
@@ -45,8 +45,8 @@
   height: 48px;
   place-items: center;
   border-radius: 14px;
-  background: #e9e7ff;
-  color: #5b52e8;
+  background: var(--secondary);
+  color: var(--primary);
 }
 
 .account-settings-icon svg {
@@ -60,7 +60,7 @@
 }
 
 .account-settings-content > header p {
-  color: #5b52e8;
+  color: var(--primary);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -132,7 +132,7 @@
 }
 
 .account-settings-legal a {
-  color: #6861cf;
+  color: var(--primary);
 }
 
 @keyframes account-settings-spin {

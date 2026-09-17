@@ -13,8 +13,8 @@
   justify-content: center;
   padding: 56px 48px 24px;
   background:
-    radial-gradient(circle at 50% 5%, rgba(91, 82, 232, 0.11), transparent 32%),
-    linear-gradient(180deg, #fafaff 0%, #f5f6fa 100%);
+    radial-gradient(circle at 50% 5%, rgba(24, 24, 27, 0.11), transparent 32%),
+    linear-gradient(180deg, var(--card) 0%, var(--secondary) 100%);
 }
 .new-project-home {
   width: min(860px, 100%);
@@ -34,7 +34,7 @@
   height: 42px;
   display: grid;
   place-items: center;
-  border: 1px solid #d8d4ff;
+  border: 1px solid var(--secondary);
   border-radius: 11px;
   background: var(--accent-soft);
   color: var(--accent);
@@ -86,17 +86,17 @@
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow:
-    0 12px 32px rgba(31, 35, 48, 0.11),
-    0 1px 2px rgba(31, 35, 48, 0.06);
+    0 12px 32px rgba(24, 24, 27, 0.11),
+    0 1px 2px rgba(24, 24, 27, 0.06);
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease;
 }
 .new-project-search:focus-within {
-  border-color: rgba(91, 82, 232, 0.62);
+  border-color: rgba(24, 24, 27, 0.62);
   box-shadow:
-    0 14px 38px rgba(31, 35, 48, 0.13),
-    0 0 0 3px rgba(91, 82, 232, 0.12);
+    0 14px 38px rgba(24, 24, 27, 0.13),
+    0 0 0 3px rgba(24, 24, 27, 0.12);
 }
 .new-project-search > svg {
   width: 20px;
@@ -198,7 +198,7 @@
     transform 140ms ease;
 }
 .new-project-shortcut:hover {
-  border-color: rgba(91, 82, 232, 0.15);
+  border-color: rgba(24, 24, 27, 0.15);
   background: rgba(255, 255, 255, 0.72);
 }
 .new-project-shortcut-menu-trigger {
@@ -213,7 +213,7 @@
   background: rgba(255, 255, 255, 0.88);
   color: var(--text-2);
   opacity: 0;
-  box-shadow: 0 2px 8px rgba(31, 35, 48, 0.12);
+  box-shadow: 0 2px 8px rgba(24, 24, 27, 0.12);
   transition: opacity 120ms ease;
 }
 .new-project-shortcut-card:hover .new-project-shortcut-menu-trigger,
@@ -237,7 +237,7 @@
   border: 1px solid rgba(60, 60, 67, 0.16);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 28px rgba(31, 35, 48, 0.18);
+  box-shadow: 0 10px 28px rgba(24, 24, 27, 0.18);
   backdrop-filter: blur(18px);
 }
 .new-project-shortcut-menu [data-slot='dropdown-menu-item'] {
@@ -262,7 +262,7 @@
   height: 46px;
   flex: 0 0 46px;
   border-radius: 50%;
-  box-shadow: 0 5px 14px rgba(31, 35, 48, 0.08);
+  box-shadow: 0 5px 14px rgba(24, 24, 27, 0.08);
 }
 .new-project-shortcut .website-logo .markfix-glyph {
   border-radius: 50%;
@@ -279,8 +279,8 @@
 .new-project-shortcut-add .website-logo {
   display: grid;
   place-items: center;
-  border: 1px dashed rgba(91, 82, 232, 0.38);
-  background: rgba(91, 82, 232, 0.07);
+  border: 1px dashed rgba(24, 24, 27, 0.38);
+  background: rgba(24, 24, 27, 0.07);
   color: var(--accent);
   box-shadow: none;
 }
@@ -296,7 +296,7 @@
   border-radius: 16px;
   background: #fff;
   color: var(--text);
-  box-shadow: 0 24px 70px rgba(31, 35, 48, 0.24);
+  box-shadow: 0 24px 70px rgba(24, 24, 27, 0.24);
 }
 .shortcut-dialog [data-slot='dialog-header'] {
   gap: 7px;
@@ -329,7 +329,7 @@
 }
 .shortcut-dialog input:not([type='radio']):focus-visible {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(91, 82, 232, 0.12);
+  box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.12);
   outline: 0;
 }
 .shortcut-storage-mode {

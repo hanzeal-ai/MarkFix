@@ -42,8 +42,8 @@
   white-space: normal;
 }
 .history-project-card:hover {
-  border-color: #c9c4ff;
-  background: #fbfaff;
+  border-color: var(--border);
+  background: var(--card);
 }
 .history-project-card:active {
   background: var(--accent-soft);

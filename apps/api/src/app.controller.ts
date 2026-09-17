@@ -173,6 +173,12 @@ export class AppController {
     return this.auth.me(user.id);
   }
 
+  @Patch('me/password')
+  changePassword(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
+    this.authRateLimit.consume('change-password', user.id, 5, 15 * 60 * 1000);
+    return this.auth.changePassword(user.id, user.sessionId, body);
+  }
+
   @Get('me/export')
   exportData(@CurrentUser() user: AuthenticatedUser) {
     return this.auth.exportData(user.id);

@@ -1,18 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="356" height="96" viewBox="0 0 356 96" role="img" aria-labelledby="title desc">
-  <title id="title">MarkFix MF concept logo</title>
-  <desc id="desc">An MF monogram inside an annotation bubble with a completed check badge beside the MarkFix wordmark.</desc>
-  <defs>
-    <linearGradient id="mf-gradient" x1="17" y1="14" x2="80" y2="84" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#756df2" />
-      <stop offset="1" stop-color="#4238d4" />
-    </linearGradient>
-  </defs>
-  <g id="symbol">
-    <rect x="8" y="8" width="80" height="80" rx="23" fill="url(#mf-gradient)" />
-    <path d="M29 27h38a8 8 0 0 1 8 8v22a8 8 0 0 1-8 8H55L44 74v-9H29a8 8 0 0 1-8-8V35a8 8 0 0 1 8-8Z" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round" />
-    <path d="M30 55V38l9 11 9-11v17M57 55V38h12M57 46h10" fill="none" stroke="#fff" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round" />
-    <circle cx="75" cy="22" r="10" fill="#fff" />
-    <path d="m70.5 22 3.1 3.1 6-6.4" fill="none" stroke="#5b52e8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
-  </g>
-  <text x="111" y="61" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-size="43" font-weight="750" letter-spacing="-1.8" fill="#191a1d">Mark<tspan fill="#5b52e8">Fix</tspan></text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100" viewBox="0 0 300 100" role="img" aria-label="MarkFix Ribbon M horizontal black"><title>MarkFix Ribbon M horizontal black</title><desc>双拱构成 M，中央交叠沿用 CarryOn 的丝带留白。</desc><defs><mask id="01-ribbon-m-black-horizontal" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect width="100" height="100" fill="white"/><path d="M82 76V40C82 18 60 16 50 39L38 60" fill="none" stroke="black" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/></mask></defs><g fill="none" stroke="#000000" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"><path d="M18 76V40C18 18 40 16 50 39L62 60" mask="url(#01-ribbon-m-black-horizontal)"/><path d="M82 76V40C82 18 60 16 50 39L38 60"/></g><text x="116" y="65" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="46" font-weight="700" letter-spacing="-1.6" fill="#000000" text-anchor="start">MarkFix</text></svg>

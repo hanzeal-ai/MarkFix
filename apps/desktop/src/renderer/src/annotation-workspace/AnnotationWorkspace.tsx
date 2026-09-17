@@ -116,7 +116,7 @@ export function AnnotationWorkspace({
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-  const lastPanelMode = useRef<'comment' | 'capture'>('comment');
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [pendingDeleteProject, setPendingDeleteProject] = useState<WebsiteProject>();
   const [deletingProject, setDeletingProject] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
@@ -381,6 +381,7 @@ export function AnnotationWorkspace({
         }
         if (payload !== 'capture' && payload !== 'comment') return;
         const destination = modeRef.current === payload ? 'browse' : payload;
+        if (destination !== 'browse') setPreviewOpen(false);
         if (destination === 'comment') clearElementSelection();
         else if (destination === 'capture') {
           beginCaptureMode();
@@ -579,7 +580,7 @@ export function AnnotationWorkspace({
       sidebarExpanded ? sidebarWidth : 0,
       activeView === 'workspace' && !pendingDeleteProject && !agentProject,
       sidebarMenuOpen || (!sidebarExpanded && sidebarPeek) ? sidebarWidth : 0,
-      rightPanelWidth,
+      previewOpen ? rightPanelWidth : 0,
     );
   }, [
     activeView,
@@ -590,11 +591,11 @@ export function AnnotationWorkspace({
     pendingDeleteProject,
     agentProject,
     rightPanelWidth,
+    previewOpen,
   ]);
 
   useEffect(() => {
     window.sessionStorage.setItem(browserModeSessionKey, mode);
-    if (mode !== 'browse') lastPanelMode.current = mode;
   }, [mode]);
 
   useEffect(() => {
@@ -647,6 +648,7 @@ export function AnnotationWorkspace({
   }, [renderedElementComments]);
 
   const setMode = async (nextMode: BrowserMode): Promise<void> => {
+    if (nextMode !== 'browse') setPreviewOpen(false);
     if (shouldCollapseSidebarForMode(nextMode)) setSidebarExpanded(false);
     modeRef.current = nextMode;
     setModeState(nextMode);
@@ -739,13 +741,74 @@ export function AnnotationWorkspace({
     hasDescription: Boolean(captureNote.trim()),
     hasSelection: Boolean(captureSelection),
   });
-  const completeElementCommentWithGuide = async (): Promise<void> => {
-    if ((await completeElementComment()) && commentGuideStep)
-      dismissFirstAnnotationGuide('comment');
+  const inlineSubmitting = useRef(false);
+  const completeElementCommentWithGuide = async (note = elementCommentNote): Promise<void> => {
+    if (inlineSubmitting.current) return;
+    inlineSubmitting.current = true;
+    try {
+      if (await completeElementComment(note)) {
+        dismissFirstAnnotationGuide('comment');
+        await setMode('browse');
+        setPreviewOpen(true);
+      }
+    } finally {
+      inlineSubmitting.current = false;
+    }
   };
-  const completeCaptureWithGuide = async (): Promise<void> => {
-    if ((await completeCapture()) && captureGuideStep) dismissFirstAnnotationGuide('capture');
+  const completeCaptureWithGuide = async (note = captureNote): Promise<void> => {
+    if (inlineSubmitting.current) return;
+    inlineSubmitting.current = true;
+    try {
+      if (await completeCapture(note)) {
+        dismissFirstAnnotationGuide('capture');
+        await setMode('browse');
+        setPreviewOpen(true);
+      }
+    } finally {
+      inlineSubmitting.current = false;
+    }
   };
+  useEffect(() => {
+    const selection =
+      mode === 'comment' ? anchor : mode === 'capture' ? captureSelection : undefined;
+    void window.markfix.syncInlineNote(
+      selection && mode !== 'browse'
+        ? {
+            mode,
+            anchor: selection,
+            note: mode === 'comment' ? elementCommentNote : captureNote,
+            ready:
+              mode === 'comment' || Boolean(screenshot && !captureLoading && !captureRendering),
+          }
+        : null,
+    );
+  }, [
+    mode,
+    anchor,
+    captureSelection,
+    elementCommentNote,
+    captureNote,
+    screenshot,
+    captureLoading,
+    captureRendering,
+  ]);
+  useEffect(() =>
+    window.markfix.onInlineNoteAction((payload) => {
+      if (payload.mode !== mode || payload.documentUrl !== browserState.url) return;
+      if (payload.action === 'change') {
+        if (mode === 'comment') setElementCommentNote(payload.note);
+        else setCaptureNote(payload.note);
+      } else if (payload.action === 'submit') {
+        void (mode === 'comment'
+          ? completeElementCommentWithGuide(payload.note)
+          : completeCaptureWithGuide(payload.note));
+      } else {
+        if (mode === 'comment') clearElementSelection();
+        else void cancelCapture();
+        void setMode('browse');
+      }
+    }),
+  );
 
   const deleteDiagnosticAnnotation = async (id: string): Promise<void> => {
     await window.markfix.deleteDiagnosticAnnotation(id);
@@ -1078,7 +1141,7 @@ export function AnnotationWorkspace({
     <WorkspaceResizeLayout
       key="workspace-resize-layout"
       leftWidth={sidebarExpanded ? sidebarWidth : 0}
-      rightWidth={activeView === 'workspace' && mode !== 'browse' ? rightPanelWidth : 0}
+      rightWidth={activeView === 'workspace' && previewOpen ? rightPanelWidth : 0}
       workspaceVisible={activeView === 'workspace'}
       onLeftResize={(width, dragStartWidth) => {
         setSidebarExpanded(width > 0);
@@ -1089,10 +1152,10 @@ export function AnnotationWorkspace({
         if (activeView !== 'workspace') return;
         if (width === 0) {
           if (dragStartWidth) setRightPanelWidth(dragStartWidth);
-          if (modeRef.current !== 'browse') void setMode('browse');
+          setPreviewOpen(false);
         } else {
           setRightPanelWidth(width);
-          if (modeRef.current === 'browse') void setMode(lastPanelMode.current);
+          setPreviewOpen(true);
         }
       }}
     />
@@ -1190,7 +1253,7 @@ export function AnnotationWorkspace({
           onRetry={retryProjectLoad}
         />
       )}
-      {mode !== 'browse' && (
+      {previewOpen && (
         <aside className="comment-panel capture-panel" aria-label="批注预览">
           <div className="capture-panel-body annotation-preview-body">
             {projectReports
@@ -1217,10 +1280,10 @@ export function AnnotationWorkspace({
             <CapturePanel
               active={mode === 'capture'}
               numberOffset={
-                mode === 'capture'
-                  ? 0
-                  : pageDiagnosticAnnotations.length +
+                mode === 'comment'
+                  ? pageDiagnosticAnnotations.length +
                     numberedVisibleRecords(pageElementComments, editingElementCommentId).length
+                  : 0
               }
               pageCaptures={pageCaptures}
               captureSelection={captureSelection}

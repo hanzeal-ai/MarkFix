@@ -65,6 +65,7 @@ import { registerCaptureIpc } from './ipc/register-capture-ipc.js';
 import { registerDiagnosticsIpc } from './ipc/register-diagnostics-ipc.js';
 import { ReportOutbox } from './report-outbox.js';
 import { ProjectDataRouter } from './project-data-router.js';
+import { desktopPasswordChangeInput, desktopRegistrationInput } from './desktop-auth-input.js';
 
 const toolbarHeight = 56;
 let panelWidth = annotationPanelDefaultWidth;
@@ -124,8 +125,7 @@ const enforceWebsiteNavigationPolicy = (
   event: { preventDefault(): void },
   url: string,
 ): boolean => {
-  if (url === 'about:blank' || isWebsiteUrlAllowed(url, process.env.MARKFIX_ALLOW_HTTP === 'true'))
-    return true;
+  if (url === 'about:blank' || isWebsiteUrlAllowed(url)) return true;
   event.preventDefault();
   return false;
 };
@@ -299,9 +299,7 @@ const layoutWebsite = (): void => {
     return;
   const [width = 1060, height = 680] = mainWindow.getContentSize();
   const sidebarWidth =
-    currentBrowserMode === 'browse'
-      ? 0
-      : annotationPanelWidth(panelWidth, navigationSidebarWidth, width);
+    panelWidth === 0 ? 0 : annotationPanelWidth(panelWidth, navigationSidebarWidth, width);
   const bottomPanelHeight = diagnosticsOpen ? diagnosticsPanelHeight : 0;
   websiteView.setBounds({
     x: navigationSidebarWidth,
@@ -327,7 +325,7 @@ const resolveWebsiteMetadata = async (
   faviconSource: WebsiteProject['faviconSource'];
 }> => {
   if (!websiteView) throw new Error('网站视图不可用');
-  const url = normalizeWebsiteUrl(input, process.env.MARKFIX_ALLOW_HTTP === 'true');
+  const url = normalizeWebsiteUrl(input);
   currentPageTitle = '';
   currentPageFaviconUrl = null;
   await websiteView.webContents.loadURL(url);
@@ -476,7 +474,7 @@ const ensureWebsiteProjects = async (
     if (!project.baseUrl) continue;
     let entryUrl: string;
     try {
-      entryUrl = normalizeWebsiteUrl(project.baseUrl, process.env.MARKFIX_ALLOW_HTTP === 'true');
+      entryUrl = normalizeWebsiteUrl(project.baseUrl);
     } catch {
       // Projects without a usable HTTP(S) URL are not website annotation projects.
       continue;
@@ -548,7 +546,7 @@ const activateWebsiteProject = (projectId: string, switchGeneration: number): We
   layoutWebsite();
   websiteView.webContents.stop();
   void websiteView.webContents
-    .loadURL(targetUrl)
+    .loadURL(normalizeWebsiteUrl(targetUrl))
     .catch((error: unknown) => {
       if (switchGeneration !== websiteProjectSwitchGeneration) return;
       const description =
@@ -613,8 +611,7 @@ const createWindow = async (): Promise<void> => {
   mainWindow.on('resize', layoutWebsite);
 
   websiteView.webContents.setWindowOpenHandler(({ url }) => {
-    if (isWebsiteUrlAllowed(url, process.env.MARKFIX_ALLOW_HTTP === 'true'))
-      void websiteView?.webContents.loadURL(url);
+    if (isWebsiteUrlAllowed(url)) void websiteView?.webContents.loadURL(url);
     return { action: 'deny' };
   });
   websiteView.webContents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
@@ -839,11 +836,6 @@ const registerIpc = (): void => {
     if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted account page sender');
     await shell.openExternal(accountPageUrl(page, services.origin));
   });
-  ipcMain.handle(ipcChannels.openLocalAgentSettings, async (event) => {
-    assertSubscriptionSender(event);
-    if (!localAgentServer) throw new Error('本机 CLI 服务不可用，请重启桌面');
-    await shell.openExternal(localAgentServer.managementUrl);
-  });
   ipcMain.handle(ipcChannels.enterLocalMode, (event) => {
     if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted local mode sender');
     localMode = true;
@@ -857,7 +849,7 @@ const registerIpc = (): void => {
     layoutWebsite();
   });
   ipcMain.handle(ipcChannels.authStatus, async (event) => {
-    assertShellSender(event);
+    assertSubscriptionSender(event);
     const policy = await loadClientPolicy(true).catch(() => undefined);
     if (localMode) return { authenticated: false };
     if (policy?.status === 'upgrade-required') {
@@ -875,14 +867,8 @@ const registerIpc = (): void => {
       ...(policy ? { policy } : {}),
     };
   });
-  ipcMain.handle(ipcChannels.authLogin, async (event, input: unknown) => {
-    assertShellSender(event);
-    const payload = input as { email?: unknown; password?: unknown };
-    if (typeof payload.email !== 'string' || typeof payload.password !== 'string') {
-      throw new Error('Email and password are required');
-    }
-    assertSupportedClient(await loadClientPolicy(true));
-    const tokens = await api.loginWithTokens(payload.email, payload.password, 'MarkFix desktop');
+  const authenticateDesktop = async (email: string, password: string) => {
+    const tokens = await api.loginWithTokens(email, password, 'MarkFix desktop');
     api.setTokens(tokens);
     await saveRefreshToken(tokens.refreshToken);
     authenticatedUser = await api.me();
@@ -890,6 +876,35 @@ const registerIpc = (): void => {
     layoutWebsite();
     void reportOutbox.flush();
     return authenticatedUser;
+  };
+  ipcMain.handle(ipcChannels.authRegister, async (event, input: unknown) => {
+    assertShellSender(event);
+    const payload = desktopRegistrationInput(input);
+    assertSupportedClient(await loadClientPolicy(true));
+    const result = await api.register(payload);
+    if (!result.verificationToken) {
+      return { authenticated: false, verificationRequired: true, email: result.user.email };
+    }
+    await api.verifyEmail(result.verificationToken);
+    return {
+      authenticated: true,
+      user: await authenticateDesktop(payload.email, payload.password),
+    };
+  });
+  ipcMain.handle(ipcChannels.authLogin, async (event, input: unknown) => {
+    assertShellSender(event);
+    const payload = input as { email?: unknown; password?: unknown };
+    if (typeof payload.email !== 'string' || typeof payload.password !== 'string') {
+      throw new Error('Email and password are required');
+    }
+    assertSupportedClient(await loadClientPolicy(true));
+    return authenticateDesktop(payload.email, payload.password);
+  });
+  ipcMain.handle(ipcChannels.authChangePassword, async (event, input: unknown) => {
+    assertSubscriptionSender(event);
+    if (localMode || !authenticatedUser) throw new Error('Sign in to change the password');
+    const payload = desktopPasswordChangeInput(input);
+    return api.changePassword(payload.currentPassword, payload.newPassword);
   });
   ipcMain.handle(ipcChannels.authLogout, async (event) => {
     assertShellSender(event);
@@ -1010,7 +1025,7 @@ const registerIpc = (): void => {
       throw new Error('请选择项目存储方式并输入网站地址');
     const storageMode = payload.storageMode satisfies ProjectStorageMode;
     if (storageMode === 'CLOUD' && !authenticatedUser) throw new Error('请先登录后再新建云端项目');
-    const normalized = normalizeWebsiteUrl(payload.url, process.env.MARKFIX_ALLOW_HTTP === 'true');
+    const normalized = normalizeWebsiteUrl(payload.url);
     const origin = new URL(normalized).origin;
     const existing =
       storageMode === 'LOCAL'
@@ -1158,8 +1173,7 @@ const registerIpc = (): void => {
     if (!isSidebarWidth(payload.sidebarWidth)) throw new Error('无效的侧边栏宽度');
     if (typeof payload.visible !== 'boolean') throw new Error('无效的标注界面显示状态');
     if (!isSidebarWidth(payload.peekWidth ?? 0)) throw new Error('无效的侧边栏预览宽度');
-    if (!isSidebarWidth(payload.panelWidth) || payload.panelWidth === 0)
-      throw new Error('无效的批注栏宽度');
+    if (!isSidebarWidth(payload.panelWidth)) throw new Error('无效的批注栏宽度');
     const window = mainWindow;
     const view = websiteView;
     if (!window || window.isDestroyed() || !view || view.webContents.isDestroyed()) return;
@@ -1240,7 +1254,7 @@ const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.navigate, async (event, input: unknown) => {
     assertShellSender(event);
     const { url } = navigateInputSchema.parse(input);
-    const normalized = normalizeWebsiteUrl(url, process.env.MARKFIX_ALLOW_HTTP === 'true');
+    const normalized = normalizeWebsiteUrl(url);
     navigationWebsiteProjectId = activeWebsiteProjectId;
     websiteContentReady = false;
     layoutWebsite();
@@ -1255,7 +1269,7 @@ const registerIpc = (): void => {
       navigationWebsiteProjectId = activeWebsiteProjectId;
       websiteContentReady = false;
       layoutWebsite();
-      await websiteView?.webContents.loadURL(entry.url);
+      await websiteView?.webContents.loadURL(normalizeWebsiteUrl(entry.url));
     }
   });
   ipcMain.handle(ipcChannels.goForward, async (event) => {
@@ -1266,7 +1280,7 @@ const registerIpc = (): void => {
       navigationWebsiteProjectId = activeWebsiteProjectId;
       websiteContentReady = false;
       layoutWebsite();
-      await websiteView?.webContents.loadURL(entry.url);
+      await websiteView?.webContents.loadURL(normalizeWebsiteUrl(entry.url));
     }
   });
   ipcMain.handle(ipcChannels.reload, (event) => {

@@ -62,7 +62,7 @@
 }
 
 .project-card:hover {
-  border-color: #bbb6f3;
+  border-color: var(--border);
   transform: translateY(-2px);
 }
 
@@ -83,7 +83,7 @@
 }
 
 .project-card-open:hover {
-  background: #fafaff;
+  background: var(--card);
 }
 
 .project-card-top {

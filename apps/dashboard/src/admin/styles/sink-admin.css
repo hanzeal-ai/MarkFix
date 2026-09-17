@@ -1,0 +1,498 @@
+/* Sink dashboard visual contract, scoped to the Web admin surface. */
+#root .admin-shell {
+  --admin-sidebar: oklch(98.5% 0 0);
+  --admin-accent: var(--primary);
+  --admin-accent-soft: var(--secondary);
+  --admin-border: oklch(92% 0.004 286.32);
+  --admin-muted: oklch(55.2% 0.016 285.938);
+  min-height: 100vh;
+  grid-template-columns: 256px minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  background: var(--admin-sidebar);
+  color: oklch(14.1% 0.005 285.823);
+  font-family: var(--font-sans);
+}
+
+#root .admin-sidebar {
+  top: 0;
+  height: 100vh;
+  padding: 28px 16px 20px;
+  border: 0;
+  border-radius: 0;
+  background: var(--admin-sidebar);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+#root .admin-brand {
+  min-height: 42px;
+  padding: 0 12px 24px;
+}
+
+#root .admin-brand-logo-full {
+  width: 108px;
+}
+
+#root .admin-nav {
+  gap: 4px;
+  margin-top: 22px;
+}
+
+#root .admin-nav > a,
+#root .admin-nav button {
+  width: 100%;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: oklch(32% 0.01 286);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+#root .admin-nav > a:hover,
+#root .admin-nav button:hover,
+#root .admin-nav button.active {
+  background: var(--admin-accent-soft);
+  color: oklch(14.1% 0.005 285.823);
+  box-shadow: none;
+}
+
+#root .admin-nav button.active svg {
+  color: currentColor;
+}
+
+#root .admin-nav button > span,
+#root .admin-nav button.active > span {
+  background: oklch(92% 0.004 286.32);
+  color: oklch(42% 0.012 286);
+}
+
+#root .admin-profile {
+  gap: 9px;
+  border: 0;
+  border-radius: 0;
+  padding: 12px;
+  background: transparent;
+}
+
+#root .admin-profile strong {
+  color: oklch(14.1% 0.005 285.823);
+  font-size: 13px;
+}
+
+#root .admin-profile small,
+#root .admin-profile button,
+#root .admin-profile-settings {
+  color: var(--admin-muted);
+}
+
+#root .admin-main {
+  min-height: calc(100vh - 16px);
+  margin: 8px 8px 8px 0;
+  padding: 0 16px 48px;
+  border: 1px solid var(--admin-border);
+  border-radius: 16px;
+  background: oklch(100% 0 0);
+}
+
+#root .admin-page-header {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  margin: 0 -16px 16px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+#root .admin-page-header > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#root .admin-page-header span {
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+#root .admin-page-header span::after {
+  margin-left: 12px;
+  color: oklch(70.5% 0.015 286.067);
+  content: '›';
+}
+
+#root .admin-page-header h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+#root .admin-page-header p {
+  margin: 0 0 0 8px;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+#root .admin-main [data-slot='card'] {
+  border-color: var(--admin-border);
+  border-radius: 16px;
+  background: oklch(100% 0 0);
+  box-shadow: none;
+}
+
+#root .admin-main [data-slot='button'],
+.project-sheet [data-slot='button'],
+.annotation-dialog [data-slot='button'] {
+  border-radius: 999px;
+}
+
+#root .admin-main [data-slot='input'],
+#root .admin-main [data-slot='native-select'],
+#root .admin-main [data-slot='select-trigger'],
+.project-sheet [data-slot='input'],
+.project-sheet [data-slot='select-trigger'],
+.annotation-dialog [data-slot='input'] {
+  border-color: var(--admin-border);
+  border-radius: 999px;
+  background: oklch(96.7% 0.001 286.375);
+  box-shadow: none;
+}
+
+#root .admin-main [data-slot='tabs-list'] {
+  border-radius: 999px;
+  background: oklch(96.7% 0.001 286.375);
+}
+
+#root .admin-main [data-slot='tabs-trigger'] {
+  border-radius: 999px;
+}
+
+#root .metrics-grid {
+  gap: 14px;
+}
+
+#root .metric-card {
+  min-height: 120px;
+  border-radius: 16px;
+  padding: 18px;
+}
+
+#root .metric-icon,
+#root .metric-card.warning .metric-icon,
+#root .metric-card.danger .metric-icon {
+  border-radius: 999px;
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+}
+
+#root .metric-card.warning .metric-icon {
+  background: #fff4df;
+  color: #a76009;
+}
+
+#root .metric-card.danger .metric-icon {
+  background: #fff0ed;
+  color: #b13e34;
+}
+
+#root .metric-card > strong {
+  font-size: 32px;
+  font-weight: 600;
+}
+
+#root .chart-card,
+#root .dimension-card {
+  border-radius: 16px;
+}
+
+#root .projects-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+#root .project-card {
+  min-height: 224px;
+  border-radius: 16px;
+  transition: border-color 120ms ease;
+}
+
+#root .project-card:hover {
+  border-color: oklch(70.5% 0.015 286.067);
+  box-shadow: none;
+  transform: none;
+}
+
+#root .project-card-open {
+  min-height: 224px;
+  padding: 18px;
+}
+
+#root .project-card-open:hover,
+#root button.dimension-row:hover {
+  background: oklch(98.5% 0 0);
+}
+
+#root .project-card-open h3 {
+  margin-top: 20px;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+#root .project-card-stats {
+  margin-top: 20px;
+}
+
+#root .project-toolbar,
+#root .users-toolbar {
+  margin-bottom: 16px;
+}
+
+#root .admin-search input,
+#root .filter-control [data-slot='select-trigger'],
+#root .users-toolbar [data-slot='native-select'] {
+  height: 38px;
+  border-color: var(--admin-border);
+  background: oklch(96.7% 0.001 286.375);
+  box-shadow: none;
+}
+
+#root .users-card {
+  border-radius: 16px;
+}
+
+#root .users-table th {
+  background: oklch(98.5% 0 0);
+  color: var(--admin-muted);
+}
+
+#root .dimension-row {
+  border-color: var(--admin-border);
+}
+
+#root .project-symbol,
+#root .user-symbol,
+#root .mini-avatar {
+  border-radius: 999px;
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+}
+
+.project-sheet {
+  --admin-border: oklch(92% 0.004 286.32);
+  border-color: oklch(92% 0.004 286.32);
+  background: oklch(98.5% 0 0);
+  font-family: var(--font-sans);
+}
+
+.project-sheet > header,
+.project-sheet .sheet-toolbar,
+.project-sheet .sheet-pagination {
+  border-color: oklch(92% 0.004 286.32);
+  background: oklch(100% 0 0);
+}
+
+.project-sheet .sheet-content-list {
+  gap: 12px;
+  background: oklch(98.5% 0 0);
+}
+
+.project-sheet .annotation-row {
+  border-color: oklch(92% 0.004 286.32);
+  border-radius: 16px;
+  background: oklch(100% 0 0);
+}
+
+.project-sheet .annotation-summary:hover {
+  background: oklch(98.5% 0 0);
+}
+
+.annotation-dialog,
+.annotation-image-preview-dialog {
+  --admin-border: oklch(92% 0.004 286.32);
+  border-color: oklch(92% 0.004 286.32);
+  border-radius: 32px;
+  background: oklch(100% 0 0);
+  font-family: var(--font-sans);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 20%);
+}
+
+.annotation-dialog [data-slot='textarea'] {
+  border-color: oklch(92% 0.004 286.32);
+  border-radius: 12px;
+  background: oklch(96.7% 0.001 286.375);
+  box-shadow: none;
+}
+
+.annotation-dialog .annotation-detail-section {
+  border-color: oklch(92% 0.004 286.32);
+  border-radius: 12px;
+  background: oklch(98.5% 0 0);
+}
+
+.annotation-dialog .rejection-detail {
+  border-color: #f2d2cd;
+  background: #fff3f1;
+}
+
+body:has(#root .admin-shell) [data-slot='dialog-overlay'],
+body:has(#root .admin-shell) [data-slot='sheet-overlay'] {
+  background: rgb(0 0 0 / 76%);
+  backdrop-filter: blur(6px);
+}
+
+/* SheetOverlay predates the shared data-slot contract and is portalled under body. */
+body:has(.project-sheet[data-state='open']) > .fixed.inset-0.z-50 {
+  background: rgb(0 0 0 / 76%);
+  backdrop-filter: blur(6px);
+}
+
+.project-sheet .category-editor [data-slot='button'][type='submit'],
+.project-sheet .sheet-toolbar > [data-slot='button'],
+.annotation-dialog .dialog-actions [data-slot='button'][type='submit'] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.project-sheet .category-editor [data-slot='button'][type='submit']:hover,
+.project-sheet .sheet-toolbar > [data-slot='button']:hover,
+.annotation-dialog .dialog-actions [data-slot='button'][type='submit']:hover {
+  background: color-mix(in oklab, var(--primary) 90%, transparent);
+}
+
+@media (max-width: 1120px) {
+  #root .projects-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  #root .admin-shell {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  #root .admin-sidebar {
+    padding-inline: 12px;
+  }
+
+  #root .admin-main {
+    padding-inline: 16px;
+  }
+
+  #root .admin-page-header {
+    margin-inline: -16px;
+  }
+}
+
+@media (max-width: 620px) {
+  #root .admin-shell {
+    display: block;
+    padding: 0;
+  }
+
+  #root .admin-sidebar {
+    height: auto;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--admin-border);
+    border-radius: 0;
+  }
+
+  #root .admin-brand {
+    min-height: 0;
+    padding: 0;
+  }
+
+  #root .admin-brand-logo-full {
+    display: none;
+  }
+
+  #root .admin-brand-logo-compact {
+    display: block;
+  }
+
+  #root .admin-nav {
+    margin: 0;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  #root .admin-nav button {
+    width: 38px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  #root .admin-nav button svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  #root .admin-nav button > span {
+    display: none;
+  }
+
+  #root .admin-nav > a {
+    width: auto;
+    padding-inline: 10px;
+    white-space: nowrap;
+  }
+
+  #root .admin-profile {
+    display: flex;
+    margin: 0;
+    padding: 0;
+  }
+
+  #root .admin-profile .user-symbol,
+  #root .admin-profile > span:nth-child(2),
+  #root .admin-profile-settings {
+    display: none;
+  }
+
+  #root .admin-main {
+    min-height: 0;
+    margin: 0;
+    padding: 0 16px 48px;
+    border: 0;
+    border-radius: 0;
+  }
+
+  #root .admin-page-header {
+    min-height: 74px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 -16px 16px;
+    padding: 14px 16px;
+  }
+
+  #root .admin-page-header > div {
+    display: grid;
+    gap: 3px;
+  }
+
+  #root .admin-page-header span::after {
+    content: none;
+  }
+
+  #root .admin-page-header p {
+    margin: 0;
+  }
+
+  #root .projects-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,6 +1,7 @@
 import { unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -21,7 +22,12 @@ import {
 
 const accessLifetimeSeconds = 15 * 60;
 const refreshLifetimeMs = 30 * 24 * 60 * 60 * 1000;
+const passwordMinLength = 10;
+const passwordMaxLength = 200;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isValidPassword = (password: string): boolean =>
+  password.length >= passwordMinLength && password.length <= passwordMaxLength;
 
 type RegisterInput = {
   email?: unknown;
@@ -50,12 +56,7 @@ export class AuthService {
     const password = typeof payload.password === 'string' ? payload.password : '';
     const displayName =
       typeof payload.displayName === 'string' ? payload.displayName.trim().slice(0, 120) : '';
-    if (
-      !/^\S+@\S+\.\S+$/.test(email) ||
-      !displayName ||
-      password.length < 10 ||
-      password.length > 200
-    ) {
+    if (!/^\S+@\S+\.\S+$/.test(email) || !displayName || !isValidPassword(password)) {
       throw new ConflictException(
         'A valid email, display name, and 10-character password are required',
       );
@@ -125,7 +126,7 @@ export class AuthService {
     const payload = input as { token?: unknown; password?: unknown };
     const token = typeof payload.token === 'string' ? payload.token : '';
     const password = typeof payload.password === 'string' ? payload.password : '';
-    if (!token || password.length < 10 || password.length > 200) {
+    if (!token || !isValidPassword(password)) {
       throw new ConflictException('A valid token and 10-character password are required');
     }
     const reset = await this.database.passwordResetToken.findUnique({
@@ -182,13 +183,12 @@ export class AuthService {
     const password = typeof payload.password === 'string' ? payload.password : '';
     const user = await this.database.user.findUnique({ where: { email } });
     if (
-      password.length > 200 ||
+      password.length > passwordMaxLength ||
       !user?.passwordHash ||
       !(await verifyPassword(password, user.passwordHash))
     ) {
       throw new UnauthorizedException('Invalid email or password');
     }
-    if (!user.emailVerifiedAt) throw new UnauthorizedException('Email verification is required');
     return this.createSession(
       user.id,
       typeof payload.deviceName === 'string' && payload.deviceName.trim()
@@ -266,6 +266,50 @@ export class AuthService {
     const user = await this.database.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
     return this.publicUser(user);
+  }
+
+  async changePassword(userId: string, sessionId: string, input: unknown) {
+    const payload =
+      typeof input === 'object' && input !== null && !Array.isArray(input)
+        ? (input as { currentPassword?: unknown; newPassword?: unknown })
+        : {};
+    const currentPassword =
+      typeof payload.currentPassword === 'string' ? payload.currentPassword : '';
+    const newPassword = typeof payload.newPassword === 'string' ? payload.newPassword : '';
+    if (!isValidPassword(newPassword)) {
+      throw new ConflictException('A 10-character password is required');
+    }
+    const user = await this.database.user.findUnique({ where: { id: userId } });
+    if (
+      currentPassword.length > passwordMaxLength ||
+      !user?.passwordHash ||
+      !(await verifyPassword(currentPassword, user.passwordHash))
+    ) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+    if (await verifyPassword(newPassword, user.passwordHash)) {
+      throw new ConflictException('New password must be different from the current password');
+    }
+    const nextPasswordHash = await hashPassword(newPassword);
+    const revokedAt = new Date();
+    await this.database.$transaction(async (transaction) => {
+      const updated = await transaction.user.updateMany({
+        where: { id: userId, passwordHash: user.passwordHash },
+        data: { passwordHash: nextPasswordHash },
+      });
+      if (updated.count !== 1) {
+        throw new ConflictException('Password changed while this request was in progress');
+      }
+      await transaction.authSession.updateMany({
+        where: { userId, id: { not: sessionId }, revokedAt: null },
+        data: { revokedAt },
+      });
+      await transaction.passwordResetToken.updateMany({
+        where: { userId, consumedAt: null },
+        data: { consumedAt: revokedAt },
+      });
+    });
+    return { changed: true };
   }
 
   async exportData(userId: string) {

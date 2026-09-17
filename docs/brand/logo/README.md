@@ -1,39 +1,19 @@
-# MarkFix Logo
+# MarkFix Logo and theme
 
-## Design idea
+MarkFix belongs to the CarryOn visual family. Its selected ribbon M uses the same rounded 14-unit stroke and transparent 22-unit overlap cutout as CarryOn's ribbon C. Primary artwork is black; reversed artwork is white. No gradients or accent dots are part of the mark.
 
-The symbol joins the two halves of the product promise:
+## Sources
 
-- The speech bubble represents direct, contextual annotation on a webpage.
-- The check mark turns feedback into a resolved fix.
-- The small anchor dot recalls the element anchor that keeps a comment attached to its target.
-- The rounded container matches the calm, precise visual language of the desktop and web apps.
+- `packages/ui/src/components/markfix-logo.tsx` provides the shared React symbol and wordmarks. Each instance has a unique mask ID.
+- `packages/ui/src/styles.css` owns the shared theme: dark primary actions, white surfaces, zinc-gray backgrounds, borders and focus rings; 10 px controls, 14 px menus and 16 px cards. Its palette and font stack match CarryOn's `web/src/index.css`.
+- `markfix-logo-icon.svg` is the white ribbon M on a black rounded tile, shared with both public favicon assets and the macOS icon generator.
+- `markfix-logo-horizontal.svg`, `markfix-logo-stacked.svg`, `markfix-logo-monochrome.svg`, and `markfix-logo-reversed.svg` provide vector lockups. Existing `mf` filenames now refer to the selected mark as well.
+- `concepts/` contains historical exploration, not application assets.
 
-## Palette
+## Use
 
-| Token          | Value     | Use                                 |
-| -------------- | --------- | ----------------------------------- |
-| MarkFix violet | `#5B52E8` | Primary brand color                 |
-| Deep violet    | `#4238D4` | Gradient endpoint and active states |
-| Light violet   | `#756DF2` | Gradient start and dark-mode symbol |
-| Anchor violet  | `#BDB8FF` | Detail and dark-mode accent         |
-| Ink            | `#191A1D` | Wordmark on light backgrounds       |
-| Reversed ink   | `#F6F5FF` | Wordmark on dark backgrounds        |
+Keep at least 14 units of clear space around the 100-unit symbol. Prefer 24 px or larger for the standalone mark, and 120 px or larger for horizontal lockups. Use white artwork on dark backgrounds. Do not stretch, rotate, add shadows, recolor individual strokes or restore the previous violet gradient.
 
-These values directly extend the existing product tokens `--accent`, `--accent-strong`, and the marketing purple palette.
+SVG wordmarks retain editable Helvetica Neue / Helvetica / Arial text. Convert text to outlines before exact cross-platform print delivery. When embedding static SVGs inline, prefix mask IDs per instance; ordinary image references are isolated.
 
-## Files
-
-- `markfix-logo-horizontal.svg`: default navigation, website, and document lockup.
-- `markfix-logo-icon.svg`: app icon, avatar, favicon, and compact UI.
-- `markfix-logo-stacked.svg`: square or centered placements and brand presentations.
-- `markfix-logo-reversed.svg`: dark backgrounds such as the desktop sign-in screen.
-- `markfix-logo-monochrome.svg`: one-color printing and constrained environments.
-
-## Usage
-
-- Keep clear space around the logo equal to at least one quarter of the symbol width.
-- Use the icon at 24 px or larger in product UI. At 16 px, remove the small anchor dot if rasterizing.
-- Use the horizontal lockup at 120 px wide or larger.
-- Do not stretch, rotate, recolor individual parts, or add shadows to the artwork.
-- The SVG wordmark uses the product's existing system font stack. Convert the text to outlines before sending artwork to a print vendor.
+Theme changes affect application chrome and controls. Error, warning and success colors retain their meaning. Website target content and persisted user annotation colors are independent of the application theme.

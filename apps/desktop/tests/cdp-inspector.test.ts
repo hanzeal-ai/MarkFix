@@ -3,7 +3,7 @@ import type { WebContents } from 'electron';
 import { CdpInspector, sanitizeRuntimeText } from '../src/main/cdp-inspector.js';
 
 describe('CdpInspector', () => {
-  it('re-arms element inspection after every selection without a page tint', async () => {
+  it('pauses inspection for inline input without an inspector tooltip', async () => {
     let messageListener:
       ((_event: unknown, method: string, parameters: Record<string, unknown>) => void) | undefined;
     const sendCommand = vi.fn(async (method: string, parameters?: Record<string, unknown>) => {
@@ -130,9 +130,9 @@ describe('CdpInspector', () => {
       ([method, parameters]) =>
         method === 'Overlay.setInspectMode' && parameters?.mode === 'searchForNode',
     );
-    expect(inspectCalls).toHaveLength(3);
+    expect(inspectCalls).toHaveLength(1);
     expect(inspectCalls[0]?.[1]).toMatchObject({
-      highlightConfig: { contentColor: { r: 91, g: 82, b: 232, a: 0 } },
+      highlightConfig: { showInfo: false, contentColor: { r: 91, g: 82, b: 232, a: 0 } },
     });
   });
 

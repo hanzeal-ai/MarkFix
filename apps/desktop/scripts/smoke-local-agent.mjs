@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, webContents } from 'electron';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { mkdtempSync, mkdirSync } from 'node:fs';
@@ -15,9 +15,14 @@ mkdirSync(join(output, 'profile'), { recursive: true });
 app.setPath('userData', join(output, 'profile'));
 app.disableHardwareAcceleration();
 process.env.MARKFIX_LOCAL_AGENT_FILE = join(output, 'agent.json');
-process.env.MARKFIX_ALLOW_HTTP = 'true';
+delete process.env.MARKFIX_ALLOW_HTTP;
 async function main() {
-  const website = createServer((_req, res) => {
+  const website = createServer((req, res) => {
+    if (req.url === '/redirect') {
+      res.writeHead(302, { Location: '/redirected' });
+      res.end();
+      return;
+    }
     res.setHeader('Content-Type', 'text/html');
     res.end('<html><title>Local smoke</title><body><h1>Local issue</h1></body></html>');
   });
@@ -66,6 +71,32 @@ async function main() {
       `window.markfix.createWebsiteProject('LOCAL', ${JSON.stringify(siteUrl)})`,
     );
     const projectId = project.project.id;
+    const target = await waitFor(async () =>
+      webContents.getAllWebContents().find((item) => item.getURL().startsWith(siteUrl)),
+    );
+    await waitFor(async () => !target.isLoading());
+    assert.equal(await target.executeJavaScript('typeof process'), 'undefined');
+    assert.equal(await target.executeJavaScript('typeof require'), 'undefined');
+    assert.equal(await target.executeJavaScript('typeof window.markfix'), 'undefined');
+    for (const path of ['/linked', '/redirect']) {
+      await target.executeJavaScript(
+        `location.href = ${JSON.stringify(siteUrl)} + ${JSON.stringify(path)}`,
+      );
+      await waitFor(
+        async () =>
+          target.getURL() === siteUrl + (path === '/redirect' ? '/redirected' : path) &&
+          !target.isLoading(),
+      );
+    }
+    const windowCount = BrowserWindow.getAllWindows().length;
+    await target.executeJavaScript(`window.open(${JSON.stringify(siteUrl + '/popup')})`);
+    await waitFor(async () => target.getURL() === siteUrl + '/popup' && !target.isLoading());
+    assert.equal(BrowserWindow.getAllWindows().length, windowCount);
+    await target.executeJavaScript("window.open('file:///etc/passwd')");
+    await delay(200);
+    assert.equal(target.getURL(), siteUrl + '/popup');
+    await target.executeJavaScript(`location.href = ${JSON.stringify(siteUrl + '/')}`);
+    await waitFor(async () => target.getURL() === siteUrl + '/' && !target.isLoading());
     await assert.rejects(
       window.webContents.executeJavaScript(
         `window.markfix.createWebsiteProject('CLOUD', ${JSON.stringify(siteUrl)})`,
@@ -112,31 +143,7 @@ async function main() {
       assert.equal(response.status, 200);
       return response.json();
     };
-    const device = await request('/device', { deviceName: 'Isolated smoke', agentType: 'codex' });
-    const browser = new BrowserWindow({
-      show: false,
-      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
-    });
-    await browser.loadURL(device.verificationUrl);
-    await writeFile(
-      join(output, 'authorization.png'),
-      (await browser.webContents.capturePage()).toPNG(),
-    );
-    await browser.webContents.executeJavaScript(
-      `document.querySelector('input[name=projectIds]').checked=true; document.querySelector('button[value=yes]').click()`,
-    );
-    await waitFor(async () =>
-      browser.webContents.executeJavaScript("document.body.innerText.includes('已授权')"),
-    ).catch(async (error) => {
-      console.error(await browser.webContents.executeJavaScript('document.body.innerText'));
-      throw error;
-    });
-    const tokens = await request('/token', { deviceCode: device.deviceCode });
-    const repo = await request(
-      '/repositories',
-      { localId: randomUUID(), name: 'local-smoke' },
-      tokens.accessToken,
-    );
+    const repo = await request('/repositories', { localId: randomUUID(), name: 'local-smoke' });
     await window.webContents.executeJavaScript(
       `window.markfix.setProjectRepository(${JSON.stringify(projectId)},${JSON.stringify({ repositoryId: repo.id, repositoryName: repo.name })})`,
     );
@@ -144,18 +151,14 @@ async function main() {
       `window.markfix.getProjectAgentData(${JSON.stringify(projectId)})`,
     );
     assert.equal(binding.binding.repositoryId, repo.id);
-    const report = await request('/issues/' + record.id, undefined, tokens.accessToken);
+    const report = await request('/issues/' + record.id, undefined);
     const runId = randomUUID();
-    await request(
-      `/issues/${record.id}/claim`,
-      { runId, expectedVersion: report.version },
-      tokens.accessToken,
-    );
-    await request(
-      `/fixes/${runId}/fail`,
-      { summary: '尚未完成', reason: '缺少测试账号', stage: 'verification' },
-      tokens.accessToken,
-    );
+    await request(`/issues/${record.id}/claim`, { runId, expectedVersion: report.version });
+    await request(`/fixes/${runId}/fail`, {
+      summary: '尚未完成',
+      reason: '缺少测试账号',
+      stage: 'verification',
+    });
     const reports = await window.webContents.executeJavaScript(
       `window.markfix.listProjectAnnotationReports(${JSON.stringify(projectId)},${JSON.stringify(siteUrl + '/')})`,
     );
@@ -188,23 +191,19 @@ async function main() {
     );
     await delay(350);
     await writeFile(join(output, 'desktop.png'), (await window.webContents.capturePage()).toPNG());
-    const failedReport = await request('/issues/' + record.id, undefined, tokens.accessToken);
+    const failedReport = await request('/issues/' + record.id, undefined);
     const retryId = randomUUID();
-    await request(
-      `/issues/${record.id}/claim`,
-      { runId: retryId, expectedVersion: failedReport.version, retry: true },
-      tokens.accessToken,
-    );
-    await request(
-      `/fixes/${retryId}/complete`,
-      {
-        summary: '隔离烟测修复完成',
-        checks: [
-          { command: 'local fixture verification', outcome: 'passed', details: '用例检查通过' },
-        ],
-      },
-      tokens.accessToken,
-    );
+    await request(`/issues/${record.id}/claim`, {
+      runId: retryId,
+      expectedVersion: failedReport.version,
+      retry: true,
+    });
+    await request(`/fixes/${retryId}/complete`, {
+      summary: '隔离烟测修复完成',
+      checks: [
+        { command: 'local fixture verification', outcome: 'passed', details: '用例检查通过' },
+      ],
+    });
     await waitFor(async () =>
       window.webContents.executeJavaScript("document.body.innerText.includes('修复完成')"),
     );
@@ -213,24 +212,20 @@ async function main() {
       join(output, 'completed.png'),
       (await window.webContents.capturePage()).toPNG(),
     );
-    await browser.loadURL(descriptor.origin + '/devices?key=' + descriptor.secret);
-    await browser.webContents.executeJavaScript("document.querySelector('button').click()");
-    await waitFor(async () =>
-      browser.webContents.executeJavaScript(
-        "document.body.innerText.includes('没有有效的本机授权')",
-      ),
-    );
-    await writeFile(join(output, 'devices.png'), (await browser.webContents.capturePage()).toPNG());
     await window.webContents.executeJavaScript('window.markfix.openSettings()');
     const settings = await waitFor(async () =>
-      BrowserWindow.getAllWindows().find(
-        (item) => item !== window && item !== browser && !item.isDestroyed(),
-      ),
+      BrowserWindow.getAllWindows().find((item) => item !== window && !item.isDestroyed()),
     );
     await waitFor(async () =>
       settings.webContents
-        .executeJavaScript("document.body.innerText.includes('管理本机授权')")
+        .executeJavaScript("document.body.innerText.includes('启动与新标注')")
         .catch(() => false),
+    );
+    assert.equal(
+      await settings.webContents.executeJavaScript(
+        "document.body.innerText.includes('管理本机授权')",
+      ),
+      false,
     );
     await delay(350);
     await writeFile(
@@ -243,14 +238,16 @@ async function main() {
         passed: true,
         output,
         checks: [
+          'HTTP entry, links, redirects and popup navigation without environment override',
+          'unsafe popup blocked and target has no Node or shell bridge',
           'offline local entry',
           'cloud creation refused',
           'local submission',
-          'browser project authorization',
+          'local CLI without approval',
           'repository binding',
           'claim and failure writeback',
           'retry and completed result visible',
-          'browser device revocation',
+          'settings without authorization management',
         ],
       }),
     );

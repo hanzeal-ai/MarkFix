@@ -16,12 +16,12 @@
 }
 
 .mf-capture-shade {
-  fill: rgba(20, 22, 28, 0.32);
+  fill: rgba(24, 24, 27, 0.32);
 }
 
 .mf-capture-selection-border {
   fill: transparent;
-  stroke: #5b52e8;
+  stroke: var(--primary);
   stroke-width: 2;
 }
 
@@ -29,7 +29,7 @@
   cursor: nwse-resize;
   fill: white;
   pointer-events: all;
-  stroke: #5b52e8;
+  stroke: var(--primary);
   stroke-width: 2;
 }
 
@@ -87,8 +87,8 @@
 
 .mf-capture-toolbar button:hover,
 .mf-capture-toolbar button.is-active {
-  background: #eeecff;
-  color: #5b52e8;
+  background: var(--secondary);
+  color: var(--primary);
 }
 
 .mf-capture-toolbar button:disabled {
@@ -110,7 +110,7 @@
 }
 
 .mf-capture-toolbar button.is-finish {
-  background: #5b52e8;
+  background: var(--primary);
   color: white;
   font-size: 10px;
   gap: 4px;

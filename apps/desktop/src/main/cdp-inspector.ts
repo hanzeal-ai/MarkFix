@@ -623,10 +623,6 @@ export class CdpInspector {
       await this.webContents.debugger.sendCommand('Overlay.hideHighlight');
       this.state = 'READY';
       this.onSelection(anchor);
-      if (this.active) {
-        await this.enableInspectMode();
-        this.state = 'SELECTING';
-      }
     } catch (error) {
       this.onFailure(error instanceof Error ? error.message : 'Element details are unavailable');
     }
@@ -642,7 +638,7 @@ export class CdpInspector {
     return this.webContents.debugger.sendCommand('Overlay.setInspectMode', {
       mode: 'searchForNode',
       highlightConfig: {
-        showInfo: true,
+        showInfo: false,
         showStyles: false,
         contentColor: { r: 91, g: 82, b: 232, a: 0 },
         borderColor: { r: 91, g: 82, b: 232, a: 0.95 },

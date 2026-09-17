@@ -1,6 +1,6 @@
 .legal-shell {
   min-height: 100vh;
-  background: #f8f8fa;
+  background: var(--card);
   color: #202126;
   padding: 0 24px 72px;
 }
@@ -44,7 +44,7 @@
 
 .legal-document header p {
   margin: 0 0 8px;
-  color: #5b52e8;
+  color: var(--primary);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -99,7 +99,7 @@
 }
 
 .legal-document footer a {
-  color: #5950d6;
+  color: var(--primary);
 }
 
 @media (max-width: 560px) {

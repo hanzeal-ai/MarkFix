@@ -1,17 +1,15 @@
 .admin-shell {
-  --admin-sidebar: #1b1a22;
-  --admin-purple: #5b52e8;
-  --admin-purple-soft: #efedff;
-  --admin-border: #e5e6eb;
+  --admin-sidebar: var(--foreground);
+  --admin-accent: var(--primary);
+  --admin-accent-soft: var(--secondary);
+  --admin-border: var(--border);
   --admin-muted: #747681;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
   background: #f6f7f9;
   color: #1c1d22;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Helvetica Neue', Arial,
-    sans-serif;
+  font-family: var(--font-sans);
 }
 
 .admin-sidebar {
@@ -61,7 +59,7 @@
 }
 
 .admin-nav button.active svg {
-  color: #8c83ff;
+  color: var(--input);
 }
 
 .admin-nav button > span {
@@ -150,8 +148,8 @@
   display: grid;
   place-items: center;
   border-radius: 9px;
-  background: var(--admin-purple-soft);
-  color: var(--admin-purple);
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
 }
 
 .metric-icon svg {
@@ -283,7 +281,7 @@
 }
 
 .chart-card .resolved {
-  background: var(--admin-purple);
+  background: var(--admin-accent);
 }
 
 .chart-card .rejected {
@@ -341,7 +339,7 @@
   display: flex;
   overflow: hidden;
   border-radius: 99px;
-  background: #ececf1;
+  background: var(--secondary);
 }
 
 .stacked-bar i {
@@ -397,7 +395,7 @@
 }
 
 button.dimension-row:hover {
-  background: #fafaff;
+  background: var(--card);
 }
 
 .dimension-row:last-child {
@@ -411,8 +409,8 @@ button.dimension-row:hover {
   place-items: center;
   flex: none;
   border-radius: 10px;
-  background: var(--admin-purple-soft);
-  color: var(--admin-purple);
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
   font-weight: 700;
 }
 
@@ -504,7 +502,7 @@ button.dimension-row:hover {
   height: 100%;
   display: block;
   border-radius: inherit;
-  background: var(--admin-purple);
+  background: var(--admin-accent);
 }
 
 .user-dimension-row {

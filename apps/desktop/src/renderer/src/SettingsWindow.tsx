@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
+  Alert,
+  AlertDescription,
   Button,
   toast,
   Kbd,
   KbdGroup,
   Label,
+  PasswordInput,
   RadioGroup,
   RadioGroupItem,
   Tabs,
@@ -12,7 +15,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@markfix/ui';
-import { Settings2, Sparkles } from '@markfix/ui/icons';
+import { Settings2, Sparkles, UserRound } from '@markfix/ui/icons';
 import type { ProjectStorageMode } from '@markfix/contracts';
 import { SubscriptionSettings } from './SubscriptionWindow';
 import {
@@ -30,6 +33,122 @@ const shortcuts = [
   ['截图批注', '⌥A'],
   ['打开设置', '⌘,'],
 ] as const;
+
+function AccountSettings(): React.JSX.Element {
+  const [accountState, setAccountState] = useState<
+    'loading' | 'authenticated' | 'anonymous' | 'error'
+  >('loading');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const loadAccountState = () => {
+    setAccountState('loading');
+    void window.markfix
+      .authStatus()
+      .then((status) => setAccountState(status.authenticated ? 'authenticated' : 'anonymous'))
+      .catch(() => setAccountState('error'));
+  };
+
+  useEffect(() => {
+    loadAccountState();
+  }, []);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+    if (newPassword !== confirmation) {
+      setError('两次输入的新密码不一致。');
+      return;
+    }
+    setBusy(true);
+    try {
+      await window.markfix.changePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmation('');
+      toast.success('密码已更新，其他设备上的登录已退出。');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '修改密码失败，请稍后重试。');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (accountState === 'loading') return <p className="settings-account-state">正在读取账户…</p>;
+  if (accountState === 'error')
+    return (
+      <div className="settings-account-empty" role="alert">
+        <h2>无法读取账户</h2>
+        <p>请检查服务连接后重试。</p>
+        <Button variant="outline" onClick={loadAccountState}>
+          重新读取
+        </Button>
+      </div>
+    );
+  if (accountState === 'anonymous')
+    return (
+      <div className="settings-account-empty">
+        <h2>账户安全</h2>
+        <p>当前为仅本机模式。登录云端账户后可在这里修改密码。</p>
+      </div>
+    );
+
+  return (
+    <div className="settings-account">
+      <h2>修改密码</h2>
+      <p>更新当前账户密码。完成后，其他设备上的登录将退出。</p>
+      <form onSubmit={(event) => void submit(event)}>
+        <Label>
+          当前密码
+          <PasswordInput
+            wrapperClassName="settings-password-field"
+            autoComplete="current-password"
+            maxLength={200}
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            required
+          />
+        </Label>
+        <Label>
+          新密码
+          <PasswordInput
+            wrapperClassName="settings-password-field"
+            autoComplete="new-password"
+            minLength={10}
+            maxLength={200}
+            placeholder="至少 10 个字符"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            required
+          />
+        </Label>
+        <Label>
+          确认新密码
+          <PasswordInput
+            wrapperClassName="settings-password-field"
+            autoComplete="new-password"
+            minLength={10}
+            maxLength={200}
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+            required
+          />
+        </Label>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <Button type="submit" disabled={busy}>
+          {busy ? '正在更新…' : '更新密码'}
+        </Button>
+      </form>
+    </div>
+  );
+}
 
 export function SettingsWindow(): React.JSX.Element {
   const [startupView, setStartupView] = useState<StartupView>(() =>
@@ -51,23 +170,13 @@ export function SettingsWindow(): React.JSX.Element {
             <Sparkles />
             <span>订阅</span>
           </TabsTrigger>
+          <TabsTrigger value="account">
+            <UserRound />
+            <span>账户</span>
+          </TabsTrigger>
         </TabsList>
         <section className="settings-window-content">
           <TabsContent value="general" className="settings-general" aria-label="通用设置">
-            <h2>本机 CLI</h2>
-            <p>管理已授权设备，随时撤销对本机项目的访问。</p>
-            <Button
-              variant="outline"
-              onClick={() =>
-                void window.markfix
-                  .openLocalAgentSettings()
-                  .catch((error: unknown) =>
-                    toast.error(error instanceof Error ? error.message : '无法打开设备管理'),
-                  )
-              }
-            >
-              管理本机授权
-            </Button>
             <h2>启动与新标注</h2>
             <div className="settings-option-list">
               <div className="settings-option-row">
@@ -142,6 +251,9 @@ export function SettingsWindow(): React.JSX.Element {
           </TabsContent>
           <TabsContent value="subscription">
             <SubscriptionSettings />
+          </TabsContent>
+          <TabsContent value="account" aria-label="账户设置">
+            <AccountSettings />
           </TabsContent>
         </section>
       </Tabs>

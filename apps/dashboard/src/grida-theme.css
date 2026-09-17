@@ -5,9 +5,9 @@
   --line: #e2e3e6;
   --soft: #f5f6f8;
   --paper: #fff;
-  --purple: #111214;
+  --brand-accent: #111214;
   color: var(--ink);
-  background: radial-gradient(ellipse 720px 560px at 50% 240px, #eeecfc 0%, transparent 78%), #fff;
+  background: var(--background);
   font-family: var(--font-sans);
 }
 
@@ -97,7 +97,7 @@
   border: 1px solid #e0e1e4;
   border-radius: 28px 28px 0 0;
   background: #fff;
-  box-shadow: 0 24px 90px rgba(76, 89, 126, 0.12);
+  box-shadow: 0 24px 90px rgba(24, 24, 27, 0.12);
 }
 
 .grida-product-frame img {
@@ -136,15 +136,14 @@
 
 .premium-site:not(.commercial-page) .premium-download-home {
   border-radius: 36px;
-  background:
-    radial-gradient(circle at 80% 10%, rgba(172, 203, 255, 0.4), transparent 18rem), #17181a;
+  background: var(--primary);
 }
 
 /* The admin keeps its familiar layout and borrows Grida's neutral workspace language. */
 .admin-shell {
-  --admin-sidebar: #fbfbfc;
-  --admin-purple: #17181a;
-  --admin-purple-soft: #eff0f3;
+  --admin-sidebar: var(--card);
+  --admin-accent: #17181a;
+  --admin-accent-soft: var(--secondary);
   --admin-border: #e1e3e7;
   --admin-muted: #74777e;
   background: #f6f7f9;
@@ -153,16 +152,12 @@
 
 .admin-sidebar {
   border-right: 1px solid #e1e3e7;
-  background: #fbfbfc;
+  background: var(--card);
   color: #17181a;
 }
 
 .admin-brand text {
   fill: #17181a;
-}
-
-.admin-brand tspan {
-  fill: #5b52e8;
 }
 
 .admin-workspace-label,
@@ -204,8 +199,7 @@
 }
 
 .admin-main {
-  background:
-    radial-gradient(circle at 70% 0%, rgba(193, 210, 255, 0.32), transparent 25rem), #f7f8fa;
+  background: var(--background);
 }
 
 .admin-main [data-slot='card'] {
@@ -221,7 +215,7 @@
 .metric-icon,
 .metric-card.warning .metric-icon,
 .metric-card.danger .metric-icon {
-  background: #eff0f3;
+  background: var(--secondary);
   color: #17181a;
 }
 
@@ -241,7 +235,7 @@
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.94);
   color: #17181a;
-  box-shadow: 0 16px 40px rgba(30, 35, 48, 0.06);
+  box-shadow: 0 16px 40px rgba(24, 24, 27, 0.06);
   backdrop-filter: blur(24px);
 }
 
@@ -373,7 +367,7 @@
 #root .admin-main [data-slot='card'] {
   border-color: var(--admin-border);
   background: #fff;
-  box-shadow: 0 1px 2px rgba(25, 27, 34, 0.02);
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.02);
 }
 
 #root .metric-card {
@@ -396,12 +390,12 @@
 #root .project-card {
   min-height: 236px;
   border-radius: 20px;
-  box-shadow: 0 1px 2px rgba(25, 27, 34, 0.02);
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.02);
 }
 
 #root .project-card:hover {
   border-color: #c8cad0;
-  box-shadow: 0 16px 38px rgba(25, 27, 34, 0.08);
+  box-shadow: 0 16px 38px rgba(24, 24, 27, 0.08);
   transform: translateY(-3px);
 }
 
@@ -411,7 +405,7 @@
 }
 
 #root .project-card-open:hover {
-  background: #fcfcfd;
+  background: var(--card);
 }
 
 #root .project-card-open h3 {

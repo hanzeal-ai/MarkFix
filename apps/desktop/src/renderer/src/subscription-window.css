@@ -26,7 +26,7 @@
 
 .subscription-heading p {
   margin-bottom: 2px;
-  color: #6d28d9;
+  color: var(--primary);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -44,7 +44,7 @@
 
 .subscription-plan-card {
   overflow: hidden;
-  border-color: #ddd9fe;
+  border-color: var(--secondary);
   background: white;
   box-shadow: 0 12px 35px rgb(30 27 75 / 8%);
 }
@@ -66,8 +66,8 @@
   flex: 0 0 38px;
   place-items: center;
   border-radius: 12px;
-  background: #ede9fe;
-  color: #5b4bdb;
+  background: var(--secondary);
+  color: var(--primary);
 }
 
 .subscription-plan-icon svg {
@@ -114,14 +114,14 @@
   height: 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: #ececf1;
+  background: var(--secondary);
 }
 
 .subscription-progress span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #6558e8;
+  background: var(--primary);
 }
 
 .subscription-unlimited {
@@ -139,7 +139,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 13px 18px;
-  border-top: 1px solid #ececf1;
+  border-top: 1px solid var(--secondary);
   background: #fafafa;
 }
 

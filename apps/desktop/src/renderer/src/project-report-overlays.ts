@@ -45,7 +45,7 @@ export const projectReportOverlays = (
       annotations.set(annotationId, {
         id: annotationId,
         type: 'rectangle',
-        color: '#5b52e8',
+        color: '#202023',
         start: { x: bundle.anchor.xCssPx, y: bundle.anchor.yCssPx },
         end: {
           x: bundle.anchor.xCssPx + bundle.anchor.widthCssPx,

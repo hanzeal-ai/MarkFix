@@ -523,6 +523,44 @@ describe('DraftStore website projects', () => {
     store.close();
   });
 
+  it('reads retired workspace metadata without changing stored records or accepting other unknown fields', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'markfix-legacy-project-'));
+    temporaryDirectories.push(directory);
+    const path = join(directory, 'drafts.sqlite');
+    const store = new DraftStore(path);
+    const project: WebsiteProject = {
+      id: crypto.randomUUID(),
+      storageMode: 'CLOUD',
+      title: 'Existing project',
+      origin: 'https://example.com',
+      entryUrl: 'https://example.com/',
+      faviconUrl: null,
+      faviconSource: 'markfix',
+      currentPageSessionId: crypto.randomUUID(),
+      currentUrl: 'https://example.com/',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    store.saveWebsiteProject(project);
+    const database = new Database(path);
+    const payload = JSON.stringify({ ...project, workspaceId: crypto.randomUUID() });
+    database
+      .prepare('UPDATE website_projects SET payload = ? WHERE id = ?')
+      .run(payload, project.id);
+    expect(store.getWebsiteProject(project.id)).toEqual(project);
+    expect(store.listWebsiteProjects()).toEqual([project]);
+    expect(store.findWebsiteProjectByOrigin(project.origin)).toEqual(project);
+    expect(
+      database.prepare('SELECT payload FROM website_projects WHERE id = ?').get(project.id),
+    ).toEqual({ payload });
+    database
+      .prepare('UPDATE website_projects SET payload = ? WHERE id = ?')
+      .run(JSON.stringify({ ...project, unexpected: true }), project.id);
+    expect(() => store.getWebsiteProject(project.id)).toThrow();
+    database.close();
+    store.close();
+  });
+
   it('upgrades the development v1 project table to explicit cloud ownership', () => {
     const directory = mkdtempSync(join(tmpdir(), 'markfix-project-v1-'));
     temporaryDirectories.push(directory);

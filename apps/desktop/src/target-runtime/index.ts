@@ -1,4 +1,7 @@
 import { ipcRenderer } from 'electron';
+import type { InlineNote } from '../inline-note';
+import { InlineNoteEditor } from './inline-note-editor.js';
+let inlineNoteEditor: InlineNoteEditor | undefined;
 import type {
   ElementAnchor,
   SavedElementComment,
@@ -273,11 +276,11 @@ const styleCaptureToolbarButton = (button: HTMLButtonElement, active = false): v
     padding: '0',
     border: '0',
     borderRadius: '7px',
-    background: active ? '#eeecff' : 'transparent',
-    color: active ? '#5b52e8' : '#191a1d',
+    background: active ? '#f4f4f5' : 'transparent',
+    color: active ? '#202023' : '#191a1d',
     display: 'grid',
     placeItems: 'center',
-    font: '500 12px Inter, system-ui, sans-serif',
+    font: '500 12px "IBM Plex Sans", "PingFang SC", "Helvetica Neue", Arial, sans-serif',
     cursor: 'pointer',
   });
 };
@@ -477,6 +480,7 @@ const renderCaptureToolbar = (): void => {
 };
 
 const renderCaptureSelection = (): void => {
+  window.requestAnimationFrame(() => inlineNoteEditor?.position(captureToolbar));
   if (!surface) return;
   surface.querySelector(`#${captureGroupId}`)?.remove();
   if (mode !== 'capture') {
@@ -526,10 +530,11 @@ const renderCaptureSelection = (): void => {
       width: String(captureBounds.width),
       height: String(captureBounds.height),
       fill: 'transparent',
-      stroke: '#5b52e8',
+      stroke: '#202023',
       'stroke-width': '2',
       'data-capture-body': '',
     });
+    body.style.filter = 'drop-shadow(0 0 1px white)';
     body.style.cursor = screenshotTool === 'select' ? 'move' : 'crosshair';
     body.style.pointerEvents = screenshotTool === 'select' ? 'all' : 'none';
     group.append(body);
@@ -543,7 +548,7 @@ const renderCaptureSelection = (): void => {
         height: '10',
         rx: '2',
         fill: 'white',
-        stroke: '#5b52e8',
+        stroke: '#202023',
         'stroke-width': '2',
         'data-capture-handle': handle,
       });
@@ -622,6 +627,7 @@ const mount = (): void => {
   Object.assign(surface.style, { position: 'fixed', inset: '0', overflow: 'visible' });
   root.append(surface);
   captureToolbar = document.createElement('div');
+  captureToolbar.setAttribute('aria-label', '截图工具栏');
   Object.assign(captureToolbar.style, {
     position: 'fixed',
     zIndex: '2147483647',
@@ -638,6 +644,9 @@ const mount = (): void => {
     pointerEvents: 'auto',
   });
   root.append(captureToolbar);
+  inlineNoteEditor = new InlineNoteEditor(root, (payload) =>
+    ipcRenderer.send('markfix:inline-note-action', payload),
+  );
   document.documentElement.append(host);
   if (document.body) elementCommentOverlay.mount(document.body);
   updatePointerMode();
@@ -772,6 +781,7 @@ document.addEventListener(
   'scroll',
   () => {
     anchorTracker.schedule();
+    inlineNoteEditor?.position(captureToolbar);
     elementCommentOverlay.schedule();
   },
   true,
@@ -784,10 +794,15 @@ window.addEventListener('touchmove', () => elementCommentOverlay.schedule(), {
   capture: true,
   passive: true,
 });
+ipcRenderer.on('markfix:inline-note', (_event, payload: InlineNote | null) => {
+  inlineNoteEditor?.setState(payload);
+  inlineNoteEditor?.position(captureToolbar);
+});
 ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
   if (!['browse', 'comment', 'capture'].includes(String(requestedMode))) return;
   const leavingCapture = mode === 'capture' && requestedMode !== 'capture';
   mode = requestedMode as Mode;
+  inlineNoteEditor?.setState(null);
   if (leavingCapture) {
     captureBounds = undefined;
     captureGesture = undefined;

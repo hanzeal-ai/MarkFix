@@ -47,8 +47,8 @@
   background: rgba(120, 120, 128, 0.11);
 }
 .settings-sidebar button[data-state='active'] {
-  background: rgba(101, 88, 232, 0.14);
-  color: #3f35bc;
+  background: oklch(96.7% 0.001 286.375);
+  color: oklch(14.1% 0.005 285.823);
 }
 .settings-sidebar button:focus-visible {
   outline: none;
@@ -134,4 +134,56 @@
 
 .settings-window-content .settings-subscription {
   padding: 0;
+}
+
+.settings-account,
+.settings-account-empty {
+  width: min(440px, 100%);
+}
+.settings-account h2,
+.settings-account-empty h2 {
+  margin: 0 0 8px;
+  color: oklch(14.1% 0.005 285.823);
+  font-size: 18px;
+}
+.settings-account > p,
+.settings-account-empty p,
+.settings-account-state {
+  margin: 0;
+  color: oklch(55.2% 0.016 285.938);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.settings-account-empty [data-slot='button'] {
+  margin-top: 16px;
+  border-radius: 999px;
+}
+.settings-account form {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+  border: 1px solid oklch(92% 0.004 286.32);
+  border-radius: 16px;
+  background: #fff;
+  padding: 20px;
+}
+.settings-account label {
+  display: grid;
+  gap: 7px;
+  color: oklch(36% 0.012 286);
+  font-size: 12px;
+}
+.settings-account input {
+  height: 40px;
+  border-color: oklch(92% 0.004 286.32);
+  border-radius: 999px;
+  background: oklch(96.7% 0.001 286.375);
+  box-shadow: none;
+}
+.settings-account form > [data-slot='button'] {
+  justify-self: end;
+  border-radius: 999px;
+  background: oklch(21% 0.006 285.885);
+  color: #fff;
+  box-shadow: none;
 }

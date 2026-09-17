@@ -14,7 +14,7 @@
 }
 
 .account-card > header > span {
-  color: #5b52e8;
+  color: var(--primary);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -54,7 +54,7 @@
 }
 
 .account-card a {
-  color: #5148d7;
+  color: var(--primary);
 }
 
 .account-result {
@@ -110,7 +110,7 @@
   height: 46px;
   border-radius: 9px;
   background: #fff;
-  box-shadow: 0 1px 2px #20202d04;
+  box-shadow: 0 1px 2px #18181b04;
 }
 .account-card form > button {
   height: 46px;

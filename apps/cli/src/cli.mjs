@@ -36,7 +36,8 @@ fixes complete <run-id> --result-file <path>
 fixes fail <run-id> --result-file <path>
 sync
 Use --local on every command to access desktop LOCAL projects (desktop must be running).
-On first use, a service command opens browser authorization, then continues.
+Local commands connect automatically with full access to LOCAL projects.
+Cloud commands open browser authorization on first use, then continue.
 Pass --server <https-origin> or set MARKFIX_SERVER; an interactive terminal can prompt for it.
 --help and --version never authorize. Installation does not authorize.
 All successful responses are JSON; --json is accepted. Git commands run in the current directory.`;
@@ -111,6 +112,11 @@ async function setup(options) {
       'First use requires the MarkFix API address: pass --server <https-origin> or set MARKFIX_SERVER',
     );
   const directory = await initializeStorage();
+  if (local) {
+    const config = { server: local.server, local: true };
+    await writeJson(join(directory, 'config.json'), config);
+    return finishSetup(new Client(config));
+  }
   const credentialStore =
     options['credential-store'] ?? (process.platform === 'darwin' ? 'keychain' : undefined);
   if (
@@ -119,9 +125,7 @@ async function setup(options) {
   )
     throw new Error('Choose --credential-store file on this platform');
   const config = {
-    server:
-      local?.server ?? serverUrl(required(options.server, '--server'), options['allow-local-http']),
-    ...(local ? { local: true } : {}),
+    server: serverUrl(required(options.server, '--server'), options['allow-local-http']),
     credentialStore,
   };
   const oldConfig = await readJson(join(directory, 'config.json'), null);
@@ -133,14 +137,12 @@ async function setup(options) {
   if (
     verify.protocol !== 'https:' &&
     !(
-      (options['allow-local-http'] || local) &&
+      options['allow-local-http'] &&
       ['127.0.0.1', 'localhost', '[::1]'].includes(verify.hostname) &&
       verify.protocol === 'http:'
     )
   )
     throw new Error('Unsafe authorization address');
-  if (local && verify.origin !== local.endpoint)
-    throw new Error('Unexpected local authorization origin');
   console.error(`Authorize this device in MarkFix: ${verify.href}\nCode: ${device.userCode}`);
   if (!options['no-browser']) {
     const command =
@@ -166,6 +168,9 @@ async function setup(options) {
   if (!tokens) throw new Error('Authorization expired; run the command again');
   await saveCredential(config, tokens);
   await writeJson(join(directory, 'config.json'), config);
+  return finishSetup(client);
+}
+async function finishSetup(client) {
   const skillDirectory = join(
     process.env.CODEX_HOME ?? join(homedir(), '.codex'),
     'skills',
@@ -183,7 +188,7 @@ async function setup(options) {
   try {
     repository = await client.request('/repositories', await localRepository());
   } catch (error) {
-    console.error(`Authorization saved. Repository registration pending: ${error.message}`);
+    console.error(`Repository registration pending: ${error.message}`);
   }
   return { authorized: true, repository, skillPath };
 }
@@ -193,12 +198,13 @@ async function submitResult(client, config, id, action, result) {
   const path = join(directory, `${identifier(id)}.json`);
   const entry = {
     server: config.server,
-    grantId: (await loadCredential(config)).grantId,
+    grantId: config.local ? config.server : (await loadCredential(config)).grantId,
     id,
     action,
     result,
   };
   const saved = await readJson(path, null);
+  if (config.local && saved?.server === config.server) entry.grantId = saved.grantId;
   if (saved && JSON.stringify(saved) !== JSON.stringify(entry))
     throw new Error('A different result for this run is already pending');
   await writeJson(path, entry);
@@ -274,6 +280,12 @@ async function main() {
   const client = new Client(config);
   if (command === 'auth' && action === 'status') return client.request('/status');
   if (command === 'logout') {
+    if (config.local)
+      return {
+        authorized: true,
+        storageMode: 'LOCAL',
+        message: 'Local CLI access is automatic; no logout is required.',
+      };
     let serverRevocationConfirmed = true;
     try {
       await client.request('/logout', {});
@@ -314,7 +326,7 @@ async function main() {
   }
   if (command === 'issues' && action === 'screenshot') {
     await client.request('/status');
-    const token = await loadCredential(config);
+    const token = config.local ? null : await loadCredential(config);
     const connection = config.local ? await localConnection() : config;
     if (connection.server !== config.server) throw new Error('Local desktop profile changed');
     const response = await fetch(
@@ -323,7 +335,7 @@ async function main() {
         redirect: 'error',
         signal: AbortSignal.timeout(20_000),
         headers: {
-          Authorization: `Bearer ${token.accessToken}`,
+          ...(token ? { Authorization: `Bearer ${token.accessToken}` } : {}),
           ...(connection.localSecret ? { 'X-MarkFix-Local-Secret': connection.localSecret } : {}),
         },
       },
@@ -357,7 +369,7 @@ async function main() {
       const entry = await readJson(join(directory, name), null);
       if (
         entry.server !== config.server ||
-        entry.grantId !== (await loadCredential(config)).grantId
+        (!config.local && entry.grantId !== (await loadCredential(config)).grantId)
       )
         throw new Error('Pending result belongs to another authorization');
       results.push(await submitResult(client, config, entry.id, entry.action, entry.result));

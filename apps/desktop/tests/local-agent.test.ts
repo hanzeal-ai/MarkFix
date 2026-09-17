@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
+import { request as httpRequest } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { execFile, spawn } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { DraftStore } from '../src/main/draft-store.js';
 import { LocalAgentService } from '../src/main/local-agent/service.js';
@@ -79,16 +80,6 @@ async function fixture() {
     });
     return { status: response.status, body: await response.json() };
   };
-  const grant = async (ids = [projectId]) => {
-    const device = await send('/v1/agent/device', { deviceName: 'Test CLI', agentType: 'codex' });
-    const ticket = device.body.deviceCode;
-    service.decide(ticket, service.page(ticket).csrf, {
-      userCode: device.body.userCode,
-      approve: true,
-      projectIds: ids,
-    });
-    return (await send('/v1/agent/token', { deviceCode: ticket })).body;
-  };
   return {
     store,
     service,
@@ -100,62 +91,83 @@ async function fixture() {
     otherId,
     cloudId,
     send,
-    grant,
   };
 }
 
 describe('desktop LOCAL agent boundary', () => {
-  it('authorizes only selected LOCAL projects and rejects browser/API cross-origin access', async () => {
+  it('allows every LOCAL project without approval while rejecting cloud and browser access', async () => {
     const f = await fixture();
-    const tokens = await f.grant();
     expect(
-      (await f.send('/v1/agent/projects', undefined, tokens.accessToken)).body.map(
-        (p: { id: string }) => p.id,
-      ),
-    ).toEqual([f.projectId]);
-    expect(
-      (await f.send(`/v1/agent/issues?projectId=${f.otherId}`, undefined, tokens.accessToken))
-        .status,
-    ).toBe(403);
-    expect(
-      (await f.send(`/v1/agent/issues?projectId=${f.cloudId}`, undefined, tokens.accessToken))
-        .status,
-    ).toBe(403);
-    expect(
-      (await fetch(f.server.origin + '/v1/agent/device', { method: 'POST', body: '{}' })).status,
-    ).toBe(403);
-    expect(
-      (
-        await fetch(f.server.origin + '/v1/agent/projects', {
-          headers: { Origin: 'https://evil.test', Authorization: `Bearer ${tokens.accessToken}` },
-        })
-      ).status,
-    ).toBe(403);
-    const pending = await f.send('/v1/agent/device', { deviceName: 'Other', agentType: 'codex' });
+      (await f.send('/v1/agent/projects')).body.map((p: { id: string }) => p.id).sort(),
+    ).toEqual([f.projectId, f.otherId].sort());
+    expect((await f.send(`/v1/agent/issues?projectId=${f.otherId}`)).status).toBe(200);
+    expect((await f.send(`/v1/agent/issues?projectId=${f.cloudId}`)).status).toBe(403);
+    expect((await f.send(`/v1/agent/issues?projectId=${randomUUID()}`)).status).toBe(403);
+    expect((await fetch(f.server.origin + '/v1/agent/projects')).status).toBe(403);
+    const descriptor = JSON.parse(await readFile(f.discovery, 'utf8'));
+    for (const headers of [
+      { 'X-MarkFix-Local-Secret': 'wrong' },
+      { 'X-MarkFix-Local-Secret': descriptor.secret, Origin: 'https://evil.test' },
+    ])
+      expect((await fetch(f.server.origin + '/v1/agent/projects', { headers })).status).toBe(403);
+    const badHost = await new Promise<number | undefined>((resolve, reject) => {
+      const req = httpRequest(
+        f.server.origin + '/v1/agent/projects',
+        {
+          headers: { Host: 'evil.test', 'X-MarkFix-Local-Secret': descriptor.secret },
+        },
+        (res) => {
+          res.resume();
+          resolve(res.statusCode);
+        },
+      );
+      req.on('error', reject);
+      req.end();
+    });
+    expect(badHost).toBe(403);
+    expect((await f.send('/authorize')).status).toBe(404);
+    expect((await f.send('/devices')).status).toBe(404);
+    const newId = randomUUID();
+    const project = f.store.getWebsiteProject(f.projectId);
+    assert(project);
+    f.store.saveWebsiteProject({ ...project, id: newId });
+    expect((await f.send(`/v1/agent/issues?projectId=${newId}`)).status).toBe(200);
+    const repo = (await f.send('/v1/agent/repositories', { localId: randomUUID(), name: 'local' }))
+      .body;
+    f.service.bind(newId, { repositoryId: repo.id, repositoryName: repo.name });
+    expect(f.service.binding(newId).repositoryId).toBe(repo.id);
     expect(() =>
-      f.service.decide(pending.body.deviceCode, 'bad', {
-        userCode: pending.body.userCode,
-        approve: true,
-        projectIds: [f.projectId],
-      }),
+      f.service.bind(f.cloudId, { repositoryId: repo.id, repositoryName: repo.name }),
     ).toThrow();
-    expect(() =>
-      f.service.decide(pending.body.deviceCode, f.service.page(pending.body.deviceCode).csrf, {
-        userCode: pending.body.userCode,
-        approve: true,
-        projectIds: [f.cloudId],
-      }),
-    ).toThrow();
-    await f.send('/v1/agent/logout', {}, tokens.accessToken);
+  });
+  it('preserves existing bindings and repair state without honoring expired legacy grants', async () => {
+    const f = await fixture();
+    f.store.submitProjectAnnotations(f.projectId);
+    const report = f.service.reports(f.projectId)[0];
+    assert(report);
+    const runId = randomUUID();
+    await f.send(`/v1/agent/issues/${report.id}/claim`, { runId, expectedVersion: report.version });
+    const repo = (
+      await f.send('/v1/agent/repositories', { localId: randomUUID(), name: 'existing' })
+    ).body;
+    f.service.bind(f.projectId, { repositoryId: repo.id, repositoryName: repo.name });
+    const state = JSON.parse(f.store.readLocalAgentState() ?? '{}');
+    const grantId = randomUUID();
+    state.grants = [{ id: grantId, projectIds: [f.projectId], revoked: true, expires: 0 }];
+    state.runs[runId].grantId = grantId;
+    state.repositories[0].grantId = grantId;
+    f.store.writeLocalAgentState(JSON.stringify(state));
+    const restored = new LocalAgentService(f.store);
+    expect(restored.binding(f.projectId).repositoryId).toBe(repo.id);
+    expect(restored.repositories(f.otherId)[0]?.id).toBe(repo.id);
     expect(
-      (await f.send('/v1/agent/token/refresh', { refreshToken: tokens.refreshToken })).status,
-    ).toBe(401);
+      restored.request('POST', new URL(`/v1/agent/fixes/${runId}/renew`, f.server.origin), {}),
+    ).toHaveProperty('leaseExpiresAt');
+    expect(restored.reports(f.projectId)[0]?.status).toBe('IN_PROGRESS');
   });
   it('runs submitted snapshots through claim, failure, retry and idempotent completion without changing drafts or cloud data', async () => {
     const f = await fixture();
-    const tokens = await f.grant();
-    const request = (path: string, body?: unknown) =>
-      f.send('/v1/agent' + path, body, tokens.accessToken);
+    const request = (path: string, body?: unknown) => f.send('/v1/agent' + path, body);
     expect((await request(`/issues?projectId=${f.projectId}`)).body.items).toEqual([]);
     f.store.submitProjectAnnotations(f.projectId);
     const report = (await request(`/issues/${f.record.id}`)).body;
@@ -218,30 +230,17 @@ describe('desktop LOCAL agent boundary', () => {
     expect(f.store.readLocalAgentState()).not.toContain('缺少测试资料');
     expect(new LocalAgentService(f.store).reports(f.projectId)).toEqual([]);
   });
-  it('rejects stale repairs after a new submission, isolates grants, and expires leases', async () => {
+  it('rejects stale repairs after a new submission, allows local task access, and expires leases', async () => {
     const f = await fixture();
-    const tokens = await f.grant();
     f.store.submitProjectAnnotations(f.projectId);
     const report = f.service.reports(f.projectId)[0];
     assert(report);
     const runId = randomUUID();
-    await f.send(
-      `/v1/agent/issues/${report.id}/claim`,
-      { runId, expectedVersion: report.version },
-      tokens.accessToken,
-    );
-    const other = await f.grant();
-    expect((await f.send(`/v1/agent/fixes/${runId}/renew`, {}, other.accessToken)).status).toBe(
-      404,
-    );
+    await f.send(`/v1/agent/issues/${report.id}/claim`, { runId, expectedVersion: report.version });
+    expect((await f.send(`/v1/agent/fixes/${runId}/renew`, {})).status).toBe(200);
     const clock = vi.spyOn(Date, 'now');
     clock.mockReturnValue(Date.now() + 16 * 60_000);
-    const refreshed = (
-      await f.send('/v1/agent/token/refresh', { refreshToken: tokens.refreshToken })
-    ).body;
-    expect((await f.send(`/v1/agent/fixes/${runId}/renew`, {}, refreshed.accessToken)).status).toBe(
-      409,
-    );
+    expect((await f.send(`/v1/agent/fixes/${runId}/renew`, {})).status).toBe(409);
     clock.mockRestore();
     f.store.saveElementComment({
       ...f.record,
@@ -251,16 +250,16 @@ describe('desktop LOCAL agent boundary', () => {
     f.store.submitProjectAnnotations(f.projectId);
     expect(
       (
-        await f.send(
-          `/v1/agent/fixes/${runId}/fail`,
-          { summary: '失败', reason: '原因', stage: 'fix' },
-          refreshed.accessToken,
-        )
+        await f.send(`/v1/agent/fixes/${runId}/fail`, {
+          summary: '失败',
+          reason: '原因',
+          stage: 'fix',
+        })
       ).status,
     ).toBe(409);
     expect(f.service.reports(f.projectId)[0]?.description).toBe('更新的要求');
   });
-  it('first-use CLI connects to desktop, waits for browser approval, resumes and reuses local credentials', async () => {
+  it('first-use CLI connects without approval or credential storage and resumes after restart', async () => {
     const f = await fixture();
     f.store.submitProjectAnnotations(f.projectId);
     await promisify(execFile)('git', ['init', f.directory]);
@@ -271,38 +270,17 @@ describe('desktop LOCAL agent boundary', () => {
       CODEX_HOME: join(f.directory, 'codex'),
       MARKFIX_LOCAL_AGENT_FILE: f.discovery,
     };
-    const child = spawn(
+    const first = await promisify(execFile)(
       process.execPath,
-      [cli, 'projects', 'list', '--local', '--credential-store', 'file', '--no-browser'],
+      [cli, 'projects', 'list', '--local'],
       { cwd: f.directory, env },
     );
-    let stdout = '',
-      stderr = '';
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk;
-    });
-    const done = new Promise<number | null>((resolve, reject) => {
-      child.on('exit', resolve);
-      child.on('error', reject);
-    });
-    await vi.waitFor(() => expect(stderr).toContain('Authorize this device'), { timeout: 5000 });
-    const url = (/http:\/\/127\.0\.0\.1:\d+\/authorize\?ticket=[a-f0-9]+/.exec(stderr) ?? [])[0];
-    assert(url);
-    const page = await (await fetch(url)).text();
-    const csrf = (/name="csrf" value="([^"]+)"/.exec(page) ?? [])[1];
-    const code = (/name="userCode" value="([^"]+)"/.exec(page) ?? [])[1];
-    assert(csrf && code);
-    const approve = await fetch(url, {
-      method: 'POST',
-      headers: { Origin: f.server.origin, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ csrf, userCode: code, approve: 'yes', projectIds: f.projectId }),
-    });
-    expect(approve.status).toBe(200);
-    expect(await done).toBe(0);
-    expect(JSON.parse(stdout)[0].id).toBe(f.projectId);
+    expect(
+      JSON.parse(first.stdout)
+        .map((p: { id: string }) => p.id)
+        .sort(),
+    ).toEqual([f.projectId, f.otherId].sort());
+    expect(first.stderr).not.toContain('Authorize this device');
     expect(f.service.repositories(f.projectId)).toHaveLength(1);
     const second = await promisify(execFile)(
       process.execPath,
@@ -328,6 +306,10 @@ describe('desktop LOCAL agent boundary', () => {
     await expect(
       run('fixes', 'complete', claim.id, '--result-file', resultPath),
     ).rejects.toMatchObject({ code: 4 });
+    const queuedPath = join(f.directory, 'cli/local/outbox', `${claim.id}.json`);
+    const queued = JSON.parse(await readFile(queuedPath, 'utf8'));
+    // An older CLI persisted a grant ID; the desktop identity still owns this result.
+    await writeFile(queuedPath, JSON.stringify({ ...queued, grantId: randomUUID() }));
     const restarted = await startLocalAgentServer(new LocalAgentService(f.store), f.discovery);
     cleanup.push(restarted.close);
     const synchronized = JSON.parse((await run('sync')).stdout);

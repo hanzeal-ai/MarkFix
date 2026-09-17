@@ -240,6 +240,13 @@ export class MarkFixApi {
     return this.request('/v1/me');
   }
 
+  changePassword(currentPassword: string, newPassword: string): Promise<{ changed: boolean }> {
+    return this.request('/v1/me/password', {
+      method: 'PATCH',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
   exportAccountData(): Promise<AccountExport> {
     return this.request('/v1/me/export');
   }

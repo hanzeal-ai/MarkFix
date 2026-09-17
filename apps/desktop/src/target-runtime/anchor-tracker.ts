@@ -158,11 +158,12 @@ export class AnchorTracker {
       });
     }
     setAttributes(shape, {
-      fill: 'rgba(91,82,232,.08)',
-      stroke: '#5b52e8',
+      fill: 'rgba(24,24,27,.08)',
+      stroke: '#202023',
       'stroke-width': '2',
       'vector-effect': 'non-scaling-stroke',
     });
+    shape.style.filter = 'drop-shadow(0 0 1px white)';
     this.surface()?.append(shape);
     this.selectionShape = shape;
     this.renderLabel(anchor.cssSelector, minX, minY);
@@ -183,7 +184,7 @@ export class AnchorTracker {
       width: String(width),
       height: '20',
       rx: '4',
-      fill: '#5b52e8',
+      fill: '#202023',
     });
     const text = svgElement('text');
     setAttributes(text, {

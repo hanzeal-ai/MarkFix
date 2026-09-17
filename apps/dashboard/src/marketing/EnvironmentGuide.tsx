@@ -16,7 +16,7 @@ export function StorageGuide() {
             <tr>
               <td>仅本机</td>
               <td>桌面端本机数据库</td>
-              <td>CLI 使用 --local，仅限本机授权项目</td>
+              <td>CLI 使用 --local，自动访问所有本地项目</td>
             </tr>
             <tr>
               <td>云端协作</td>
@@ -74,10 +74,9 @@ export function DeveloperGuide() {
           </code>
         </pre>
         <p>
-          首次命令在浏览器打开本机授权页面，选择允许访问的项目。每条命令都需带
-          --local，包括修复回写、sync 和
-          logout。保持桌面运行，结果只写回本机；在桌面批注面板查看修复状态和原因。授权有效期 30
-          天，使用 markfix logout --local 或桌面“设置 → 通用 → 管理本机授权”撤销。
+          本机 CLI 无需配置或手动授权，对所有本地项目拥有完整访问权限。每条命令都需带
+          --local，包括修复回写和
+          sync。保持桌面运行，结果只写回本机；在桌面批注面板查看修复状态和原因。
         </p>
       </section>
       <section>
@@ -85,7 +84,7 @@ export function DeveloperGuide() {
         <pre>
           <code>
             {
-              'docker compose up --build -d\ndocker compose ps\npnpm install\npnpm --filter @markfix/database db:generate\npnpm --filter @markfix/desktop rebuild:native\nMARKFIX_ALLOW_HTTP=true pnpm dev:desktop'
+              'docker compose up --build -d\ndocker compose ps\npnpm install\npnpm --filter @markfix/database db:generate\npnpm --filter @markfix/desktop rebuild:native\npnpm dev:desktop'
             }
           </code>
         </pre>
@@ -93,10 +92,7 @@ export function DeveloperGuide() {
           官网与后台：http://localhost:4311；API：http://localhost:4310/v1/health。开发账号：admin@markfix.local，密码：markfix-admin。Compose
           会同步开发数据库结构，不可用于生产迁移。
         </p>
-        <p>
-          MARKFIX_ALLOW_HTTP 允许桌面打开本地 HTTP 网页。结束时执行 docker compose
-          down，数据卷会保留。
-        </p>
+        <p>桌面默认支持 HTTP 和 HTTPS 网页。结束时执行 docker compose down，数据卷会保留。</p>
       </section>
       <section>
         <h3>2. 使用本地服务的 CLI</h3>

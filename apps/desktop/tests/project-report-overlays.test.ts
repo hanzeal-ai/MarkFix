@@ -179,6 +179,6 @@ describe('projectReportOverlays', () => {
 
     expect(
       projectReportOverlays([item], projectId, pageSessionId, 'https://example.com').annotations,
-    ).toEqual([expect.objectContaining({ id: item.id, type: 'rectangle', color: '#5b52e8' })]);
+    ).toEqual([expect.objectContaining({ id: item.id, type: 'rectangle', color: '#202023' })]);
   });
 });

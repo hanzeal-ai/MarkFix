@@ -276,12 +276,12 @@ export function useCaptureEditor({
     }
   };
 
-  const completeCapture = async (): Promise<boolean> => {
+  const completeCapture = async (note = captureNote): Promise<boolean> => {
     if (
       !captureSelection ||
       !screenshot ||
       !captureSource ||
-      !captureNote.trim() ||
+      !note.trim() ||
       captureRendering ||
       !projectId ||
       !pageSessionId
@@ -295,7 +295,7 @@ export function useCaptureEditor({
       pageSessionId,
       pageUrl: captureSelection.documentUrl,
       pageTitle: pageTitle || captureSelection.documentUrl,
-      note: captureNote.trim(),
+      note: note.trim(),
       status: 'draft',
       dataUrl: screenshot,
       widthCssPx: captureSelection.widthCssPx,

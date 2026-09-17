@@ -2,9 +2,9 @@
   --ink: #111116;
   --muted: #686875;
   --line: #dedee5;
-  --soft: #f4f3f8;
+  --soft: var(--secondary);
   --paper: #fbfbfa;
-  --purple: #5b4bf1;
+  --brand-accent: var(--primary);
   color: var(--ink);
   background: var(--paper);
   min-height: 100vh;
@@ -59,7 +59,7 @@
 }
 
 .premium-site .premium-nav > .premium-nav-download {
-  border-left: 1px solid #e2e1e8;
+  border-left: 1px solid var(--border);
   margin-left: 16px;
   padding-left: 24px;
 }
@@ -125,9 +125,9 @@
 }
 
 .premium-hero > [data-slot='badge'] {
-  background: #eeecff;
-  border: 1px solid #d9d4ff;
-  color: #5542e9;
+  background: var(--secondary);
+  border: 1px solid var(--secondary);
+  color: var(--primary);
   font-size: 13px;
   gap: 7px;
   padding: 7px 11px;
@@ -148,7 +148,7 @@
 }
 
 .premium-hero h1 span {
-  color: var(--purple);
+  color: var(--brand-accent);
   display: block;
 }
 
@@ -193,7 +193,7 @@
   gap: 6px;
 }
 .premium-hero-proof svg {
-  color: var(--purple);
+  color: var(--brand-accent);
   height: 14px;
   width: 14px;
 }
@@ -222,7 +222,7 @@
 }
 
 .experience-section {
-  background: #f0eff5;
+  background: var(--secondary);
   border-bottom: 1px solid var(--line);
   border-top: 1px solid var(--line);
   padding: 104px 32px 120px;
@@ -236,7 +236,7 @@
 
 .premium-demo-heading > span,
 .premium-continuation > div:first-child > span {
-  color: var(--purple);
+  color: var(--brand-accent);
   display: block;
   font-size: 12px;
   font-weight: 720;
@@ -310,7 +310,7 @@
 .premium-section-heading > div > span,
 .premium-management-copy > span,
 .premium-closing > span {
-  color: var(--purple);
+  color: var(--brand-accent);
   display: block;
   font-size: 13px;
   font-weight: 720;
@@ -393,7 +393,7 @@
 }
 
 .premium-admin-preview {
-  background: #f0eff5;
+  background: var(--secondary);
   border: 1px solid #d8d7df;
   border-radius: 28px;
   display: grid;
@@ -433,12 +433,12 @@
   width: 22px;
 }
 .premium-admin-preview aside i.is-active {
-  background: var(--purple);
+  background: var(--brand-accent);
 }
 
 .premium-admin-main {
   background: #fff;
-  border: 1px solid #dcdae5;
+  border: 1px solid var(--border);
   border-radius: 18px;
   overflow: hidden;
   padding: 0 24px 24px;
@@ -455,7 +455,7 @@
   font-size: 14px;
 }
 .premium-admin-topbar span {
-  background: #f5f4f7;
+  background: var(--secondary);
   border-radius: 7px;
   color: #73737d;
   font-size: 11px;
@@ -482,8 +482,8 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .premium-admin-metrics > div {
-  background: #f6f5f8;
-  border: 1px solid #ecebf0;
+  background: var(--secondary);
+  border: 1px solid var(--secondary);
   border-radius: 11px;
   display: flex;
   flex-direction: column;
@@ -511,7 +511,7 @@
 }
 .premium-admin-chart,
 .premium-admin-activity {
-  border: 1px solid #ecebf0;
+  border: 1px solid var(--secondary);
   border-radius: 11px;
   min-width: 0;
   padding: 15px;
@@ -533,20 +533,20 @@
   padding-top: 20px;
 }
 .premium-chart-bars i {
-  background: #cac5ff;
+  background: var(--border);
   border-radius: 4px 4px 1px 1px;
   flex: 1;
   min-width: 3px;
 }
 .premium-chart-bars i:nth-child(2n) {
-  background: var(--purple);
+  background: var(--brand-accent);
 }
 .premium-admin-activity > strong {
   font-size: 10px;
 }
 .premium-admin-activity p {
   align-items: center;
-  border-top: 1px solid #efedf2;
+  border-top: 1px solid var(--secondary);
   color: #5f5e68;
   display: flex;
   font-size: 9px;
@@ -561,7 +561,7 @@
   width: 6px;
 }
 .premium-admin-activity p span.is-purple {
-  background: var(--purple);
+  background: var(--brand-accent);
 }
 .premium-admin-activity p span.is-blue {
   background: #3988f5;
@@ -592,7 +592,7 @@
   padding: 19px 0;
 }
 .premium-capabilities svg {
-  color: var(--purple);
+  color: var(--brand-accent);
   height: 20px;
   margin-top: 2px;
   width: 20px;
@@ -627,8 +627,8 @@
   padding: 34px;
 }
 .premium-plan.is-featured {
-  background: #f0efff;
-  border-color: #c8c2ff;
+  background: var(--secondary);
+  border-color: var(--border);
 }
 .premium-plan-name {
   align-items: center;
@@ -664,7 +664,7 @@
   margin: 12px 0;
 }
 .premium-plan li svg {
-  color: var(--purple);
+  color: var(--brand-accent);
   height: 16px;
   width: 16px;
 }

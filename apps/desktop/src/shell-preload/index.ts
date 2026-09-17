@@ -1,3 +1,4 @@
+import type { InlineNote, InlineNoteAction } from '../inline-note';
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   ipcChannels,
@@ -73,11 +74,14 @@ contextBridge.exposeInMainWorld('markfix', {
   onUpdateStatus: (listener: (payload: unknown) => void) =>
     subscribe(desktopUpdateChannels.changed, listener),
   openAccountPage: (page: AccountPage) => ipcRenderer.invoke(accountPageChannel, page),
-  openLocalAgentSettings: () => ipcRenderer.invoke(ipcChannels.openLocalAgentSettings),
   enterLocalMode: () => ipcRenderer.invoke(ipcChannels.enterLocalMode),
   authStatus: () => ipcRenderer.invoke(ipcChannels.authStatus),
+  register: (displayName: string, email: string, password: string) =>
+    ipcRenderer.invoke(ipcChannels.authRegister, { displayName, email, password }),
   login: (email: string, password: string) =>
     ipcRenderer.invoke(ipcChannels.authLogin, { email, password }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    ipcRenderer.invoke(ipcChannels.authChangePassword, { currentPassword, newPassword }),
   logout: () => ipcRenderer.invoke(ipcChannels.authLogout),
   desktopBootstrap: () => ipcRenderer.invoke(ipcChannels.desktopBootstrap),
   getSubscription: () => ipcRenderer.invoke(subscriptionIpcChannels.get),
@@ -188,6 +192,10 @@ contextBridge.exposeInMainWorld('markfix', {
     subscribe(ipcChannels.captureSelection, listener),
   onCaptureMarksChanged: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.captureMarksChanged, listener),
+  syncInlineNote: (payload: InlineNote | null) =>
+    ipcRenderer.invoke('annotation:sync-inline-note', payload),
+  onInlineNoteAction: (listener: (payload: InlineNoteAction) => void) =>
+    subscribe('annotation:inline-note-action', (payload) => listener(payload as InlineNoteAction)),
   onCaptureAction: (listener: (payload: unknown) => void) =>
     subscribe(ipcChannels.captureAction, listener),
   onAnchorRecovery: (listener: (payload: unknown) => void) =>

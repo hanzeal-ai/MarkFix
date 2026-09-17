@@ -10,7 +10,7 @@
 }
 
 .premium-hero h1 span:last-child {
-  color: var(--purple);
+  color: var(--brand-accent);
 }
 
 .premium-capability-section,
@@ -31,7 +31,7 @@
 .commercial-page-hero > span,
 .commercial-comparison > div:first-child > span,
 .download-copy > span {
-  color: var(--purple);
+  color: var(--brand-accent);
   display: block;
   font-size: 12px;
   font-weight: 720;
@@ -92,8 +92,8 @@
 
 .premium-capability-visual {
   aspect-ratio: 16 / 9;
-  background: #eeedf2;
-  border: 1px solid #dedde5;
+  background: var(--secondary);
+  border: 1px solid var(--border);
   border-radius: 14px;
   margin: 0 0 26px;
   overflow: hidden;
@@ -149,8 +149,8 @@
 }
 
 .premium-home-plan.is-featured {
-  background: #efedff;
-  border-color: #c9c3ff;
+  background: var(--secondary);
+  border-color: var(--border);
 }
 
 .premium-home-plan > div {
@@ -196,7 +196,7 @@
 
 .premium-home-plan li svg,
 .commercial-price-card li svg {
-  color: var(--purple);
+  color: var(--brand-accent);
   height: 15px;
   width: 15px;
 }

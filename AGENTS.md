@@ -17,7 +17,7 @@
 
 - Use Node 24 and the pnpm version declared by the root `packageManager` field.
 - Keep remote website content sandboxed with no Node integration or generic IPC bridge.
-- Route every target-page navigation path through the shared HTTPS policy. Local HTTP requires `MARKFIX_ALLOW_HTTP=true`.
+- Route every target-page navigation path through the shared HTTP/HTTPS policy. Other website URL schemes remain blocked.
 - Treat `docker compose` and `prisma db push` as local-development tooling, not as a production migration strategy.
 - Do not edit generated `dist`, `out`, or Prisma client output.
 - Adding dependencies, migrating data, committing, pushing, deploying, and publishing are separate authorization boundaries.

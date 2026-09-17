@@ -8,7 +8,7 @@
 - **云端协作**：项目按成员与角色授权；提交标注后，可在管理后台处理，或通过 CLI 交给 Codex 修复并回写结果。
 - **本地自建服务**：在开发机器运行 API、数据库及管理后台，桌面选择「云端协作」，CLI 连接本地 API。数据不必发送到托管服务。
 
-安装 CLI 不要求授权。首次执行服务命令时自动打开浏览器，用户批准后继续原命令。帮助和版本查询不授权。
+安装 CLI 不要求授权。首次执行云端服务命令时自动打开浏览器，用户批准后继续原命令。本机 `--local` 自动连接桌面，无需配置或手动授权。帮助和版本查询不授权。
 
 ## 文档
 
@@ -25,7 +25,7 @@ docker compose up --build -d
 pnpm install
 pnpm --filter @markfix/database db:generate
 pnpm --filter @markfix/desktop rebuild:native
-MARKFIX_ALLOW_HTTP=true pnpm dev:desktop
+pnpm dev:desktop
 ```
 
 官网与后台：<http://localhost:4311>；API：<http://localhost:4310/v1/health>。

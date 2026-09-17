@@ -1,3 +1,4 @@
+import type { InlineNote, InlineNoteAction } from '../../inline-note';
 import type { AgentRepository } from '@markfix/contracts';
 import type { DesktopUpdateStatus } from '../../desktop-update';
 import type { AccountPage } from '../../account-pages';
@@ -31,17 +32,25 @@ declare global {
       updateStatus(): Promise<DesktopUpdateStatus>;
       onUpdateStatus(listener: (status: DesktopUpdateStatus) => void): () => void;
       openAccountPage(page: AccountPage): Promise<void>;
-      openLocalAgentSettings(): Promise<void>;
       enterLocalMode(): Promise<void>;
       authStatus(): Promise<{
         authenticated: boolean;
         user?: { id: string; email: string; displayName: string };
         policy?: ClientPolicy;
       }>;
+      register(
+        displayName: string,
+        email: string,
+        password: string,
+      ): Promise<
+        | { authenticated: true; user: { id: string; email: string; displayName: string } }
+        | { authenticated: false; verificationRequired: true; email: string }
+      >;
       login(
         email: string,
         password: string,
       ): Promise<{ id: string; email: string; displayName: string }>;
+      changePassword(currentPassword: string, newPassword: string): Promise<{ changed: boolean }>;
       logout(): Promise<boolean>;
       desktopBootstrap(): Promise<{
         websiteProjects: WebsiteProject[];
@@ -132,6 +141,8 @@ declare global {
       onSelection(listener: (payload: unknown) => void): () => void;
       onCaptureSelection(listener: (payload: unknown) => void): () => void;
       onCaptureMarksChanged(listener: (payload: unknown) => void): () => void;
+      syncInlineNote(payload: InlineNote | null): Promise<void>;
+      onInlineNoteAction(listener: (payload: InlineNoteAction) => void): () => void;
       onCaptureAction(listener: (payload: unknown) => void): () => void;
       onAnchorRecovery(listener: (payload: unknown) => void): () => void;
       onSyncStatus(listener: (payload: unknown) => void): () => void;

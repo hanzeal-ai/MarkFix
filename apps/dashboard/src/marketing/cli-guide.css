@@ -21,7 +21,7 @@
   margin: 24px 0;
 }
 .cli-guide a {
-  color: var(--purple);
+  color: var(--brand-accent);
   text-underline-offset: 4px;
 }
 .cli-guide-toc a {
@@ -34,7 +34,7 @@
   margin: 18px 0;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #f5f4f8;
+  background: var(--secondary);
   line-height: 1.8;
   font-size: 13px;
 }
@@ -63,14 +63,14 @@
 }
 .cli-guide .cli-guide-result {
   padding-left: 14px;
-  border-left: 2px solid var(--purple);
+  border-left: 2px solid var(--brand-accent);
   font-size: 13px;
 }
 .cli-guide blockquote {
   margin: 18px 0;
   padding: 18px 20px;
-  background: #efedff;
-  border-left: 3px solid var(--purple);
+  background: var(--secondary);
+  border-left: 3px solid var(--brand-accent);
   line-height: 1.8;
   font-size: 15px;
 }
@@ -91,7 +91,7 @@
   vertical-align: top;
 }
 .cli-guide th {
-  background: #f5f4f8;
+  background: var(--secondary);
   font-weight: 600;
 }
 .cli-guide td:first-child {

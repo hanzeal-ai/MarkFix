@@ -100,8 +100,8 @@ export function MarketingSite() {
               <img
                 src="/marketing/annotation-review.png"
                 alt="MarkFix 提交预览，勾选需要提交的元素批注与截图"
-                width="1100"
-                height="768"
+                width="1040"
+                height="748"
                 loading="lazy"
               />
             </div>

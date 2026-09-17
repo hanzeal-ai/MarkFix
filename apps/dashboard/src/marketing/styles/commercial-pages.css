@@ -76,7 +76,7 @@
 }
 
 .docs-content article > span {
-  color: var(--purple);
+  color: var(--brand-accent);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
 }
@@ -95,7 +95,7 @@
 }
 
 .docs-content ol {
-  background: #f2f1f5;
+  background: var(--secondary);
   border: 1px solid #e2e0e7;
   margin: 28px 0 0;
   padding: 22px 22px 22px 48px;
@@ -103,8 +103,8 @@
 
 .docs-callout {
   align-items: flex-start;
-  background: #efedff;
-  border-left: 3px solid var(--purple);
+  background: var(--secondary);
+  border-left: 3px solid var(--brand-accent);
   display: flex;
   gap: 14px;
   margin-top: 27px;
@@ -112,7 +112,7 @@
 }
 
 .docs-callout svg {
-  color: var(--purple);
+  color: var(--brand-accent);
   height: 20px;
   width: 20px;
 }
@@ -167,8 +167,8 @@
 }
 
 .commercial-price-card.is-featured {
-  background: #efedff;
-  border-color: #c8c1ff;
+  background: var(--secondary);
+  border-color: var(--border);
 }
 
 .commercial-price-card > div {
@@ -277,8 +277,8 @@
 }
 
 .download-product-card {
-  background: #efedff;
-  border: 1px solid #cbc5ff;
+  background: var(--secondary);
+  border: 1px solid var(--border);
   border-radius: 30px;
   display: grid;
   gap: 18px;
@@ -312,7 +312,7 @@
 }
 
 .download-capability-list {
-  border-top: 1px solid #d4cff2;
+  border-top: 1px solid var(--border);
   grid-column: 1 / -1;
   margin-top: 14px;
   padding-top: 24px;
@@ -328,7 +328,7 @@
 }
 
 .download-capability-list svg {
-  color: var(--purple);
+  color: var(--brand-accent);
   height: 17px;
   width: 17px;
 }
@@ -355,7 +355,7 @@
   align-items: center;
   gap: 6px;
   margin-top: 14px;
-  color: #5b52e8;
+  color: var(--primary);
   font-size: 13px;
 }
 .download-copy > a svg {
@@ -368,7 +368,7 @@
   border-color: #17181a;
 }
 .download-product-card {
-  background: #fbfbfc;
+  background: var(--card);
   border-color: #e2e4e9;
 }
 .download-capability-list {
@@ -380,7 +380,7 @@
 }
 .docs-effect-image > a {
   display: block;
-  border: 1px solid #e2e0e9;
+  border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -403,6 +403,6 @@
   color: #938b9d;
 }
 .docs-effect-image > a:focus-visible {
-  outline: 2px solid #7164cc;
+  outline: 2px solid var(--primary);
   outline-offset: 4px;
 }

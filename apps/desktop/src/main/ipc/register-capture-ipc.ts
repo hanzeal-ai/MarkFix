@@ -1,3 +1,4 @@
+import { inlineNoteSchema, inlineNoteActionSchema } from '../../inline-note.js';
 import { writeFile } from 'node:fs/promises';
 import {
   clipboard,
@@ -34,6 +35,25 @@ export const registerCaptureIpc = ({
   sendShell: (channel: string, payload: unknown) => void;
   websiteView: () => WebContentsView | undefined;
 }): void => {
+  ipcMain.handle('annotation:sync-inline-note', (event, input: unknown) => {
+    assertSender(event);
+    websiteView()?.webContents.send(
+      'markfix:inline-note',
+      input === null ? null : inlineNoteSchema.parse(input),
+    );
+  });
+  ipcMain.on('markfix:inline-note-action', (event, input: unknown) => {
+    const view = websiteView();
+    if (
+      !view ||
+      event.sender.id !== view.webContents.id ||
+      event.senderFrame !== view.webContents.mainFrame
+    )
+      return;
+    const parsed = inlineNoteActionSchema.safeParse(input);
+    if (!parsed.success || parsed.data.documentUrl !== view.webContents.getURL()) return;
+    sendShell('annotation:inline-note-action', parsed.data);
+  });
   ipcMain.handle(ipcChannels.setCaptureTool, (event, input: unknown) => {
     assertSender(event);
     websiteView()?.webContents.send('markfix:set-capture-tool', screenshotToolSchema.parse(input));
