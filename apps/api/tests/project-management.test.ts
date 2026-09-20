@@ -178,7 +178,8 @@ describe('project membership and management', () => {
       description: 'The menu overlaps the page.',
       priority: 'MEDIUM',
       captureBundle: {
-        schemaVersion: 1,
+        annotationKind: 'SCREENSHOT',
+        schemaVersion: 2,
         page: {
           url: 'https://example.test',
           title: 'Example',
@@ -197,7 +198,7 @@ describe('project membership and management', () => {
           scrollXCssPx: 0,
           scrollYCssPx: 0,
         },
-        annotations: [],
+
         reproduction: [],
       },
     });
@@ -228,7 +229,8 @@ describe('project membership and management', () => {
         description: 'This payload must not cross the project boundary.',
         priority: 'MEDIUM',
         captureBundle: {
-          schemaVersion: 1,
+          annotationKind: 'SCREENSHOT',
+          schemaVersion: 2,
           page: {
             url: 'https://example.test',
             title: 'Example',
@@ -247,7 +249,7 @@ describe('project membership and management', () => {
             scrollXCssPx: 0,
             scrollYCssPx: 0,
           },
-          annotations: [],
+
           reproduction: [],
         },
       }),
@@ -283,7 +285,8 @@ describe('project membership and management', () => {
         description: 'The menu overlaps the page.',
         priority: 'MEDIUM',
         captureBundle: {
-          schemaVersion: 1,
+          annotationKind: 'SCREENSHOT',
+          schemaVersion: 2,
           page: {
             url: 'https://example.test',
             title: 'Example',
@@ -302,7 +305,7 @@ describe('project membership and management', () => {
             scrollXCssPx: 0,
             scrollYCssPx: 0,
           },
-          annotations: [],
+
           reproduction: [],
         },
       }),
@@ -320,7 +323,7 @@ describe('project membership and management', () => {
       description: 'Fix this element',
       priority: 'MEDIUM',
       captureBundle: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         page: {
           url: 'https://example.test',
           title: 'Example',
@@ -330,7 +333,7 @@ describe('project membership and management', () => {
           capturedAt,
         },
         annotationKind: 'ELEMENT',
-        annotations: [],
+
         reproduction: [],
       },
     };
@@ -404,7 +407,8 @@ describe('project membership and management', () => {
             description: 'More detail',
             priority: 'MEDIUM',
             captureBundle: {
-              schemaVersion: 1,
+              annotationKind: 'COMMENT',
+              schemaVersion: 2,
               sourceAnnotationId,
               page: {
                 url: 'https://example.test',
@@ -414,7 +418,7 @@ describe('project membership and management', () => {
                 deviceScaleFactor: 1,
                 capturedAt: new Date().toISOString(),
               },
-              annotations: [],
+
               reproduction: [],
             },
           },
@@ -492,7 +496,8 @@ describe('project membership and management', () => {
             description: 'More detail',
             priority: 'MEDIUM',
             captureBundle: {
-              schemaVersion: 1,
+              annotationKind: 'COMMENT',
+              schemaVersion: 2,
               sourceAnnotationId,
               page: {
                 url: 'https://example.test',
@@ -502,7 +507,7 @@ describe('project membership and management', () => {
                 deviceScaleFactor: 1,
                 capturedAt: new Date().toISOString(),
               },
-              annotations: [],
+
               reproduction: [],
             },
           },

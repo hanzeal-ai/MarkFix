@@ -17,13 +17,19 @@ const database = db as DatabaseService;
 const dir = await mkdtemp(join(tmpdir(), 'markfix-maintenance-'));
 const owner = await db.user.create({ data: { email: 'audit@example.test', displayName: 'audit' } });
 const project = await db.project.create({ data: { ownerId: owner.id, name: 'fixture' } });
+const captureBundle = {
+  schemaVersion: 2,
+  annotationKind: 'SCREENSHOT',
+  page: { url: 'https://example.test', capturedAt: new Date().toISOString() },
+  reproduction: [],
+};
 async function candidate() {
   const row = await db.reportSubmission.create({
     data: {
       projectId: project.id,
       idempotencyKey: crypto.randomUUID(),
       requestHash: 'test',
-      payload: {},
+      payload: { captureBundle },
       expiresAt: new Date(Date.now() - 1000),
       artifact: {
         create: {
@@ -53,7 +59,7 @@ try {
               submissionId: stale.id,
               title: 'finalized',
               description: '',
-              captureBundle: {},
+              captureBundle,
               screenshotPath: stale.artifact.id,
             },
           });
@@ -128,34 +134,25 @@ try {
     id: crypto.randomUUID(),
     projectId: project.id,
     authorId: null,
-    title: 'legacy',
-    note: 'preserve me',
+    title: 'Current annotation',
+    note: 'Report is the only annotation source',
     kind: 'ELEMENT' as const,
     pageUrl: 'https://example.test',
   };
-  await db.managedAnnotation.create({ data: input });
-  const migrated = await Promise.all(
-    [1, 2].map(() => createCommercialReport(database, input, input.id)),
-  );
-  assert(migrated[0] && migrated[1]);
-  assert.equal(migrated[0].id, migrated[1].id);
+  const created = await createCommercialReport(database, input);
+  assert.equal(created.id, input.id);
   assert.equal(await db.report.count({ where: { id: input.id } }), 1);
   const retry = { ...input, id: crypto.randomUUID() };
-  await db.managedAnnotation.create({ data: retry });
   await assert.rejects(
-    createCommercialReport(database, { ...retry, authorId: crypto.randomUUID() }, retry.id),
+    createCommercialReport(database, { ...retry, authorId: crypto.randomUUID() }),
   );
-  assert(await db.managedAnnotation.findUnique({ where: { id: retry.id } }));
-  await createCommercialReport(database, retry, retry.id);
-  await assert.rejects(
-    createCommercialReport(database, { ...input, projectId: crypto.randomUUID() }, input.id),
-    /invariant/,
+  assert.equal(await db.report.count({ where: { id: retry.id } }), 0);
+  assert.equal(
+    await db.reportSubmission.count({ where: { idempotencyKey: `commercial:${retry.id}` } }),
+    0,
   );
-  await assert.rejects(
-    createCommercialReport(database, { ...input, id: crypto.randomUUID() }, crypto.randomUUID()),
-    /invariant/,
-  );
-  console.log('PASS concurrent legacy claim, failed creation rollback/retry, provenance guards');
+  await createCommercialReport(database, retry);
+  console.log('PASS Report creation and failed creation rollback/retry');
 } finally {
   await chmod(dir, 0o755);
   await db.report.deleteMany({ where: { projectId: project.id } });

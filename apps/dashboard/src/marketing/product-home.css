@@ -41,7 +41,7 @@
 }
 .home-hero-copy {
   text-align: center;
-  padding: 72px 0;
+  padding: 72px 48px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -502,5 +502,57 @@
   }
   .product-home > .premium-footer {
     padding: 40px 20px 24px;
+  }
+}
+
+.home-workflow {
+  padding: 72px 48px;
+  border-top: 1px solid #e5e7eb;
+}
+.home-workflow h2 {
+  font-size: 30px;
+  letter-spacing: -1px;
+}
+.home-workflow ol {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 28px;
+  margin: 32px 0;
+}
+.home-workflow li > span {
+  color: #71717a;
+  font-size: 13px;
+}
+.home-workflow h3 {
+  font-size: 17px;
+  margin: 12px 0;
+}
+.home-workflow p {
+  color: #71717a;
+  line-height: 1.8;
+  font-size: 14px;
+}
+.home-workflow > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+@media (max-width: 760px) {
+  .home-workflow ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  .home-workflow ol {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .home-workflow {
+    padding: 48px 24px;
   }
 }

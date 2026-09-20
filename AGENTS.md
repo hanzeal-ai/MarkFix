@@ -29,6 +29,10 @@
 - A full-project or Vibe Coding audit must follow `docs/vibe-review-checklist.md`, visually inspect every discovered user-facing surface, and list any skipped surface as unverified.
 - After renderer changes, reopen the affected Electron child window or restart the development process before accepting visual evidence.
 - Changes to annotation positioning or review behavior require a real Electron smoke test covering scrolling, route changes, replay, and per-page isolation.
+- Scope visual verification to affected surfaces and behaviors. A routine change does not trigger a full-product visual audit; reuse passing evidence when the relevant code, build, and fixture are unchanged.
+- Separate marketing asset capture from behavioral smoke tests. Capture marketing images once after the target UI is stable; routine smoke reruns should use behavioral assertions and logs, with screenshots only for changed visual acceptance points or a new failure that needs visual diagnosis. Do not repeatedly regenerate an unchanged screenshot set.
+- After a verification failure, inspect the assertion, logs, fixture, and existing failure image before rerunning. State the new evidence or specific fix and rerun the smallest failing scenario first. Expand to the required regression coverage only when that scenario passes or the evidence identifies a broader impact. After two failures on the same path without new evidence, stop repeating it and report the blocker or choose an evidence-backed alternative.
+- Run Electron UI suites sequentially when they share application locks or desktop input. Confirm the previous test process has exited before starting the next; only stop processes created by the current task.
 - Security changes require negative-path tests. Data changes require migration, rollback or forward-repair, and invariant evidence.
 
 ## Delivery

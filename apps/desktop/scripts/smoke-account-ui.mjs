@@ -598,6 +598,24 @@ app.on('browser-window-created', (_event, win) => {
         };
         const dataUrl = (await win.webContents.capturePage()).toDataURL();
         const capture = {
+          page: {
+            url: 'https://example.test',
+            title: 'Fixture page',
+            viewportWidthCssPx: 1200,
+            viewportHeightCssPx: 800,
+            deviceScaleFactor: 1,
+            capturedAt: '2026-09-17T00:00:00.000Z',
+          },
+          capture: {
+            mode: 'region',
+            imageWidthPx: 1200,
+            imageHeightPx: 800,
+            widthCssPx: 1200,
+            heightCssPx: 800,
+            originCssPx: { x: 0, y: 0 },
+            captureScale: 1,
+            truncated: false,
+          },
           ...context,
           id: '22222222-2222-4222-8222-222222222222',
           note: '共用截图记录',
@@ -623,6 +641,20 @@ app.on('browser-window-created', (_event, win) => {
           id: '44444444-4444-4444-8444-444444444444',
           note: '共用元素记录',
           anchor: {
+            runtimeEvidence: {
+              schemaVersion: 1,
+              selectorCandidates: [],
+              classNames: [],
+              ancestorPath: [],
+              nearbyText: [],
+              pageBuild: {
+                scripts: [],
+                stylesheets: [],
+                sourceMapHints: [],
+                metadata: {},
+                frameworkHints: [],
+              },
+            },
             kind: 'element',
             cssSelector: 'h1',
             tagName: 'H1',
@@ -1108,6 +1140,24 @@ app.on('browser-window-created', (_event, win) => {
       const pageUrl = process.env.MARKFIX_SERVICE_ORIGIN + '/site';
       await run(
         `window.markfix.saveCaptureRecord(${JSON.stringify({
+          page: {
+            url: 'https://example.test',
+            title: 'Fixture page',
+            viewportWidthCssPx: 1200,
+            viewportHeightCssPx: 800,
+            deviceScaleFactor: 1,
+            capturedAt: '2026-09-17T00:00:00.000Z',
+          },
+          capture: {
+            mode: 'region',
+            imageWidthPx: 1200,
+            imageHeightPx: 800,
+            widthCssPx: 1200,
+            heightCssPx: 800,
+            originCssPx: { x: 0, y: 0 },
+            captureScale: 1,
+            truncated: false,
+          },
           id: captureId,
           projectId,
           pageSessionId: '33333333-3333-4333-8333-333333333333',

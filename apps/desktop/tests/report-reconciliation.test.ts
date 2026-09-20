@@ -17,7 +17,8 @@ const report = (input: Partial<Report> & Pick<Report, 'id' | 'createdAt'>): Repo
   version: 1,
   updatedAt: input.createdAt,
   captureBundle: {
-    schemaVersion: 1,
+    annotationKind: 'COMMENT',
+    schemaVersion: 2,
     sourceAnnotationId: sourceId,
     page: {
       url: 'https://example.com',
@@ -27,7 +28,7 @@ const report = (input: Partial<Report> & Pick<Report, 'id' | 'createdAt'>): Repo
       deviceScaleFactor: 2,
       capturedAt: input.createdAt,
     },
-    annotations: [],
+
     reproduction: [],
   },
   ...input,

@@ -22,10 +22,7 @@ import {
   submissionSourceAnnotationId,
   updateReportBundle,
 } from './commercial/report-annotation.js';
-import {
-  createCommercialReport,
-  migrateLegacyManagedAnnotations,
-} from './commercial/report-writer.js';
+import { createCommercialReport } from './commercial/report-writer.js';
 import { DatabaseService } from './database.service.js';
 
 @Injectable()
@@ -33,7 +30,6 @@ export class CommercialService implements OnApplicationBootstrap {
   constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    await migrateLegacyManagedAnnotations(this.database);
     if (process.env.MARKFIX_DEMO_PASSWORD) await this.seedLocalShowcase();
   }
 

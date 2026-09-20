@@ -1,4 +1,4 @@
-import { removeLocalAgentProject, type State, type Run } from './state.js';
+import { removeLocalAgentProject, localAgentStateSchema, type State, type Run } from './state.js';
 import { randomUUID } from 'node:crypto';
 import {
   agentPolicy,
@@ -35,7 +35,7 @@ export class LocalAgentService {
   ) {
     const saved = store.readLocalAgentState();
     this.state = saved
-      ? JSON.parse(saved)
+      ? localAgentStateSchema.parse(JSON.parse(saved))
       : {
           identity: randomUUID(),
           repositories: [],

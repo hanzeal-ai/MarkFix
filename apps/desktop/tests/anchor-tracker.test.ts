@@ -14,6 +14,20 @@ class FakeSvgElement {
 class FakeSvgRectElement extends FakeSvgElement {}
 
 const selectedElement: ElementAnchor = {
+  runtimeEvidence: {
+    schemaVersion: 1,
+    selectorCandidates: [],
+    classNames: [],
+    ancestorPath: [],
+    nearbyText: [],
+    pageBuild: {
+      scripts: [],
+      stylesheets: [],
+      sourceMapHints: [],
+      metadata: {},
+      frameworkHints: [],
+    },
+  },
   kind: 'element',
   cssSelector: '#target',
   textQuote: 'Selected card',

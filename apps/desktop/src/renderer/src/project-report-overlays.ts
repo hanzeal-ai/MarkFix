@@ -1,8 +1,7 @@
-import type { Annotation, Report, SavedElementComment } from '@markfix/contracts';
+import type { Report, SavedElementComment } from '@markfix/contracts';
 import { latestAnnotationReports } from './report-reconciliation';
 
 export type ProjectReportOverlays = {
-  annotations: Annotation[];
   elementComments: SavedElementComment[];
 };
 
@@ -15,9 +14,8 @@ export const projectReportOverlays = (
   pageSessionId: string | undefined,
   pageUrl: string,
 ): ProjectReportOverlays => {
-  if (!projectId || !pageSessionId || !pageUrl) return { annotations: [], elementComments: [] };
+  if (!projectId || !pageSessionId || !pageUrl) return { elementComments: [] };
 
-  const annotations = new Map<string, Annotation>();
   const elementComments: SavedElementComment[] = [];
   for (const report of latestAnnotationReports(reports)) {
     const bundle = report.captureBundle;
@@ -39,23 +37,7 @@ export const projectReportOverlays = (
         updatedAt: report.updatedAt,
       });
     }
-
-    if (bundle.anchor?.kind === 'region' && bundle.annotations.length === 0) {
-      const annotationId = bundle.sourceAnnotationId ?? report.id;
-      annotations.set(annotationId, {
-        id: annotationId,
-        type: 'rectangle',
-        color: '#202023',
-        start: { x: bundle.anchor.xCssPx, y: bundle.anchor.yCssPx },
-        end: {
-          x: bundle.anchor.xCssPx + bundle.anchor.widthCssPx,
-          y: bundle.anchor.yCssPx + bundle.anchor.heightCssPx,
-        },
-        createdAt: report.createdAt,
-      });
-    }
-    for (const annotation of bundle.annotations) annotations.set(annotation.id, annotation);
   }
 
-  return { annotations: [...annotations.values()], elementComments };
+  return { elementComments };
 };

@@ -22,8 +22,9 @@ import {
 } from './storage.mjs';
 import { localConnection } from './local.mjs';
 const exec = promisify(execFile);
-const help = `MarkFix CLI 0.1.0 — authorized project annotation repairs
+const help = `MarkFix CLI 0.1.1 — authorized project annotation repairs
 setup --server <https-origin> [--credential-store keychain|file] [--no-browser] [--allow-local-http]
+skill install [--force]
 auth status
 logout
 repo register [--name <repository-name>]
@@ -49,6 +50,7 @@ function parseArgs(argv) {
     if (!arg.startsWith('--')) positional.push(arg);
     else if (
       [
+        '--force',
         '--local',
         '--json',
         '--no-browser',
@@ -172,7 +174,7 @@ async function setup(options) {
   console.error('Authorization complete. Continuing the requested command.');
   return finishSetup(client);
 }
-async function finishSetup(client) {
+async function installSkill(force = false) {
   const skillDirectory = join(
     process.env.CODEX_HOME ?? join(homedir(), '.codex'),
     'skills',
@@ -180,12 +182,34 @@ async function finishSetup(client) {
   );
   await mkdir(skillDirectory, { recursive: true });
   const skillPath = join(skillDirectory, 'SKILL.md');
+  const source = await readFile(new URL('../skills/markfix/SKILL.md', import.meta.url), 'utf8');
+  let existing;
   try {
-    await copyFile(new URL('../skills/markfix/SKILL.md', import.meta.url), skillPath, 1);
+    existing = await readFile(skillPath, 'utf8');
   } catch (error) {
-    if (error.code !== 'EEXIST') throw error;
-    console.error('Existing MarkFix Skill retained; review it before use.');
+    if (error.code !== 'ENOENT') throw error;
   }
+  if (existing === source) return { skillPath, status: 'current' };
+  if (existing !== undefined && !force) {
+    console.error(
+      'Existing MarkFix Skill retained; use markfix skill install --force to back up and update.',
+    );
+    return { skillPath, status: 'retained' };
+  }
+  let backupPath;
+  if (existing !== undefined) {
+    backupPath = `${skillPath}.${randomUUID()}.bak`;
+    await copyFile(skillPath, backupPath, 1);
+  }
+  await writeFile(skillPath, source, { flag: existing === undefined ? 'wx' : 'w' });
+  return {
+    skillPath,
+    status: existing === undefined ? 'installed' : 'updated',
+    ...(backupPath ? { backupPath } : {}),
+  };
+}
+async function finishSetup(client) {
+  const { skillPath } = await installSkill();
   let repository = null;
   try {
     repository = await client.request('/repositories', await localRepository());
@@ -206,7 +230,6 @@ async function submitResult(client, config, id, action, result) {
     result,
   };
   const saved = await readJson(path, null);
-  if (config.local && saved?.server === config.server) entry.grantId = saved.grantId;
   if (saved && JSON.stringify(saved) !== JSON.stringify(entry))
     throw new Error('A different result for this run is already pending');
   await writeJson(path, entry);
@@ -232,13 +255,14 @@ async function main() {
     options,
   } = parseArgs(process.argv.slice(2));
   if (options.version) {
-    console.log('0.1.0');
+    console.log('0.1.1');
     return;
   }
   if (options.help || !command) {
     console.log(help);
     return;
   }
+  if (command === 'skill' && action === 'install') return installSkill(Boolean(options.force));
   if (command === 'setup') return setup(options);
   const validCommand =
     (command === 'auth' && action === 'status') ||
@@ -371,7 +395,7 @@ async function main() {
       const entry = await readJson(join(directory, name), null);
       if (
         entry.server !== config.server ||
-        (!config.local && entry.grantId !== (await loadCredential(config)).grantId)
+        entry.grantId !== (config.local ? config.server : (await loadCredential(config)).grantId)
       )
         throw new Error('Pending result belongs to another authorization');
       results.push(await submitResult(client, config, entry.id, entry.action, entry.result));

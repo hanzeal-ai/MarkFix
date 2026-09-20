@@ -156,68 +156,29 @@ describe('DraftStore screenshot annotations', () => {
     store.close();
   });
 
-  it('upgrades legacy screenshot rows to the latest schema without losing image data', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'markfix-legacy-store-'));
-    temporaryDirectories.push(directory);
-    const path = join(directory, 'drafts.sqlite');
-    const capture: SavedCapture = {
-      id: '1d04602d-c0cb-4aac-bf5b-066b33273a03',
-      projectId: '90e2a0c5-0755-49b9-9d5d-41534ed41b41',
-      pageSessionId: '60bba625-07f2-40f6-8eef-1ddb681f8513',
-      pageTitle: 'Legacy page',
-      status: 'draft',
-      pageUrl: 'https://example.com/legacy',
-      note: 'Legacy screenshot',
-      dataUrl: 'data:image/png;base64,YQ==',
-      widthCssPx: 100,
-      heightCssPx: 80,
-      marks: [],
-      selection: {
-        kind: 'region',
-        xCssPx: 10,
-        yCssPx: 20,
-        widthCssPx: 100,
-        heightCssPx: 80,
-        documentUrl: 'https://example.com/legacy',
-        scrollXCssPx: 0,
-        scrollYCssPx: 0,
-      },
-      sourceDataUrl: 'data:image/png;base64,YQ==',
-      captureScale: 1,
-      createdAt: '2026-09-04T08:00:00.000Z',
-      updatedAt: '2026-09-05T08:00:00.000Z',
-    };
-    const legacy = new Database(path);
-    legacy.exec(`
-      CREATE TABLE capture_annotations (
-        id TEXT PRIMARY KEY,
-        page_url TEXT NOT NULL,
-        payload TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    `);
-    legacy
-      .prepare(
-        'INSERT INTO capture_annotations (id, page_url, payload, created_at) VALUES (?, ?, ?, ?)',
-      )
-      .run(capture.id, capture.pageUrl, JSON.stringify(capture), capture.createdAt);
-    legacy.close();
-
-    const store = new DraftStore(path);
-
-    expect(store.listCaptures()).toEqual([capture]);
-    expect(store.listAnnotationHistorySummaries()).toEqual([
-      {
-        projectId: capture.projectId,
-        total: 1,
-        draft: 1,
-        submitted: 0,
-        rejected: 0,
-        updatedAt: capture.updatedAt,
-      },
-    ]);
-    store.close();
-  });
+  it.each([0, 1, 2, 4])(
+    'rejects unsupported database version %s without modifying data',
+    (version) => {
+      const directory = mkdtempSync(join(tmpdir(), 'markfix-unsupported-store-'));
+      temporaryDirectories.push(directory);
+      const path = join(directory, 'drafts.sqlite');
+      const database = new Database(path);
+      database.exec('CREATE TABLE saved_data (payload TEXT NOT NULL)');
+      database.prepare('INSERT INTO saved_data VALUES (?)').run('preserve this data');
+      database.pragma(`user_version = ${version}`);
+      database.close();
+      expect(() => new DraftStore(path)).toThrow('Unsupported MarkFix database version');
+      const reopened = new Database(path);
+      expect(reopened.prepare('SELECT payload FROM saved_data').all()).toEqual([
+        { payload: 'preserve this data' },
+      ]);
+      expect(reopened.pragma('user_version', { simple: true })).toBe(version);
+      expect(reopened.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all()).toEqual(
+        [{ name: 'saved_data' }],
+      );
+      reopened.close();
+    },
+  );
 });
 
 describe('DraftStore element comments', () => {
@@ -312,6 +273,20 @@ describe('DraftStore annotation submissions', () => {
           status: 'draft',
           pageUrl: 'https://example.com/page-a',
           anchor: {
+            runtimeEvidence: {
+              schemaVersion: 1,
+              selectorCandidates: [],
+              classNames: [],
+              ancestorPath: [],
+              nearbyText: [],
+              pageBuild: {
+                scripts: [],
+                stylesheets: [],
+                sourceMapHints: [],
+                metadata: {},
+                frameworkHints: [],
+              },
+            },
             kind: 'element',
             cssSelector: '[id="headline"]',
             textQuote: 'Headline',
@@ -328,6 +303,24 @@ describe('DraftStore annotation submissions', () => {
       ],
       captures: [
         {
+          page: {
+            url: 'https://example.com/page-b',
+            title: 'Fixture page',
+            viewportWidthCssPx: 1200,
+            viewportHeightCssPx: 800,
+            deviceScaleFactor: 1,
+            capturedAt: '2026-09-17T00:00:00.000Z',
+          },
+          capture: {
+            mode: 'region',
+            imageWidthPx: 1200,
+            imageHeightPx: 800,
+            widthCssPx: 1200,
+            heightCssPx: 800,
+            originCssPx: { x: 0, y: 0 },
+            captureScale: 1,
+            truncated: false,
+          },
           id: '1c7e34ce-bdf0-471d-894d-447208f308f9',
           projectId: '90e2a0c5-0755-49b9-9d5d-41534ed41b41',
           pageSessionId: 'bb0ee545-59c0-427f-ad9c-fb976ef266d5',
@@ -417,6 +410,20 @@ describe('DraftStore annotation submissions', () => {
       pageTitle: 'Example page',
       anchor: {
         kind: 'element' as const,
+        runtimeEvidence: {
+          schemaVersion: 1 as const,
+          selectorCandidates: [],
+          classNames: [],
+          ancestorPath: [],
+          nearbyText: [],
+          pageBuild: {
+            scripts: [],
+            stylesheets: [],
+            sourceMapHints: [],
+            metadata: {},
+            frameworkHints: [],
+          },
+        },
         cssSelector: '[id="headline"]',
         textQuote: 'Headline',
         tagName: 'h1',
@@ -523,7 +530,7 @@ describe('DraftStore website projects', () => {
     store.close();
   });
 
-  it('reads retired workspace metadata without changing stored records or accepting other unknown fields', () => {
+  it('rejects retired workspace metadata without changing stored records', () => {
     const directory = mkdtempSync(join(tmpdir(), 'markfix-legacy-project-'));
     temporaryDirectories.push(directory);
     const path = join(directory, 'drafts.sqlite');
@@ -547,9 +554,9 @@ describe('DraftStore website projects', () => {
     database
       .prepare('UPDATE website_projects SET payload = ? WHERE id = ?')
       .run(payload, project.id);
-    expect(store.getWebsiteProject(project.id)).toEqual(project);
-    expect(store.listWebsiteProjects()).toEqual([project]);
-    expect(store.findWebsiteProjectByOrigin(project.origin)).toEqual(project);
+    expect(() => store.getWebsiteProject(project.id)).toThrow();
+    expect(() => store.listWebsiteProjects()).toThrow();
+    expect(() => store.findWebsiteProjectByOrigin(project.origin)).toThrow();
     expect(
       database.prepare('SELECT payload FROM website_projects WHERE id = ?').get(project.id),
     ).toEqual({ payload });
@@ -558,51 +565,6 @@ describe('DraftStore website projects', () => {
       .run(JSON.stringify({ ...project, unexpected: true }), project.id);
     expect(() => store.getWebsiteProject(project.id)).toThrow();
     database.close();
-    store.close();
-  });
-
-  it('upgrades the development v1 project table to explicit cloud ownership', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'markfix-project-v1-'));
-    temporaryDirectories.push(directory);
-    const path = join(directory, 'drafts.sqlite');
-    const legacyProject = {
-      id: crypto.randomUUID(),
-      title: 'Legacy cloud project',
-      origin: 'https://legacy.example.test',
-      entryUrl: 'https://legacy.example.test/start',
-      faviconUrl: null,
-      faviconSource: 'markfix',
-      currentPageSessionId: crypto.randomUUID(),
-      currentUrl: 'https://legacy.example.test/start',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    const database = new Database(path);
-    database.exec(`
-      CREATE TABLE website_projects (
-        id TEXT PRIMARY KEY,
-        origin TEXT NOT NULL UNIQUE,
-        payload TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      PRAGMA user_version = 1;
-    `);
-    database
-      .prepare('INSERT INTO website_projects (id, origin, payload, updated_at) VALUES (?, ?, ?, ?)')
-      .run(
-        legacyProject.id,
-        legacyProject.origin,
-        JSON.stringify(legacyProject),
-        legacyProject.updatedAt,
-      );
-    database.close();
-
-    const store = new DraftStore(path);
-
-    expect(store.getWebsiteProject(legacyProject.id)).toEqual({
-      ...legacyProject,
-      storageMode: 'CLOUD',
-    });
     store.close();
   });
 });

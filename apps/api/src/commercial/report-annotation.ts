@@ -1,4 +1,4 @@
-import { diagnosticEvidenceSchema } from '@markfix/contracts';
+import { captureBundleSchema, createReportSchema } from '@markfix/contracts';
 import type { Prisma } from '@markfix/database';
 
 import type {
@@ -62,39 +62,22 @@ export type ReportSubmissionSource = {
   createdAt: Date;
 };
 
-type ReportBundle = {
-  page?: { url?: unknown };
-  anchor?: { kind?: unknown };
-  annotations?: unknown[];
-  annotationKind?: unknown;
-  evidence?: unknown;
-};
-
-const bundleOf = (report: Pick<ReportAnnotationSource, 'captureBundle'>): ReportBundle =>
-  report.captureBundle as ReportBundle;
+const bundleOf = (report: Pick<ReportAnnotationSource, 'captureBundle'>) =>
+  captureBundleSchema.parse(report.captureBundle);
 
 const artifactUrl = (id: string | null | undefined): string | null =>
   id ? `/v1/artifacts/${encodeURIComponent(id)}` : null;
 
-const submissionPayload = (submission: ReportSubmissionSource): Record<string, unknown> =>
-  typeof submission.payload === 'object' && submission.payload !== null
-    ? (submission.payload as Record<string, unknown>)
-    : {};
+const storedSubmissionSchema = createReportSchema.omit({ screenshotDataUrl: true });
+const submissionPayload = (submission: ReportSubmissionSource) =>
+  storedSubmissionSchema.parse(submission.payload);
 
 export const submissionSourceAnnotationId = (
   submission: ReportSubmissionSource,
-): string | undefined => {
-  const captureBundle = submissionPayload(submission).captureBundle;
-  if (typeof captureBundle !== 'object' || captureBundle === null) return undefined;
-  const sourceAnnotationId = (captureBundle as Record<string, unknown>).sourceAnnotationId;
-  return typeof sourceAnnotationId === 'string' ? sourceAnnotationId : undefined;
-};
+): string | undefined => submissionPayload(submission).captureBundle.sourceAnnotationId;
 
 const submissionHistoryContent = (submission: ReportSubmissionSource) => ({
-  note:
-    typeof submissionPayload(submission).description === 'string'
-      ? (submissionPayload(submission).description as string)
-      : null,
+  note: submissionPayload(submission).description,
   screenshotUrl: artifactUrl(submission.artifact?.id),
 });
 
@@ -107,11 +90,9 @@ const activityPayload = (activity: ReportActivitySource): Record<string, unknown
     : {};
 
 const historyStatus = (value: unknown): CommercialAnnotationStatus | undefined =>
-  value === 'IN_REVIEW'
-    ? 'OPEN'
-    : value === 'OPEN' || value === 'RESOLVED' || value === 'REJECTED' || value === 'FIX_FAILED'
-      ? value
-      : undefined;
+  value === 'OPEN' || value === 'RESOLVED' || value === 'REJECTED' || value === 'FIX_FAILED'
+    ? value
+    : undefined;
 
 export const annotationHistoryForReport = (
   report: ReportAnnotationSource & { activities?: ReportActivitySource[] },
@@ -173,25 +154,11 @@ export const reportAnnotationStatus = (
 
 export const reportAnnotationKind = (
   report: Pick<ReportAnnotationSource, 'captureBundle'>,
-): CommercialAnnotationKind => {
-  const bundle = bundleOf(report);
-  if (
-    bundle.annotationKind === 'ELEMENT' ||
-    bundle.annotationKind === 'SCREENSHOT' ||
-    bundle.annotationKind === 'COMMENT'
-  )
-    return bundle.annotationKind;
-  if (bundle.anchor?.kind === 'element') return 'ELEMENT';
-  if (bundle.anchor?.kind === 'region' || bundle.annotations?.length) return 'SCREENSHOT';
-  return 'COMMENT';
-};
+): CommercialAnnotationKind => bundleOf(report).annotationKind;
 
 export const reportAnnotationPageUrl = (
   report: Pick<ReportAnnotationSource, 'captureBundle'>,
-): string => {
-  const value = bundleOf(report).page?.url;
-  return typeof value === 'string' ? value : 'https://markfix.local';
-};
+): string => bundleOf(report).page.url;
 
 export const reportToCommercialAnnotation = (
   report: ReportAnnotationSource,
@@ -210,13 +177,7 @@ export const reportToCommercialAnnotation = (
   status: reportAnnotationStatus(report),
   rejectionReason: report.rejectionReason,
   history,
-  evidence: (Array.isArray(bundleOf(report).evidence)
-    ? (bundleOf(report).evidence as unknown[])
-    : []
-  ).flatMap((item) => {
-    const parsed = diagnosticEvidenceSchema.safeParse(item);
-    return parsed.success ? [parsed.data] : [];
-  }),
+  evidence: bundleOf(report).evidence ?? [],
   fixAttempts: report.fixAttempts ?? [],
   createdAt: report.createdAt,
   updatedAt: report.updatedAt,
@@ -234,6 +195,6 @@ export const updateReportBundle = (
   return {
     ...bundle,
     ...(update.kind ? { annotationKind: update.kind } : {}),
-    ...(update.pageUrl ? { page: { ...(bundle.page ?? {}), url: update.pageUrl } } : {}),
+    ...(update.pageUrl ? { page: { ...bundle.page, url: update.pageUrl } } : {}),
   } as Prisma.InputJsonValue;
 };

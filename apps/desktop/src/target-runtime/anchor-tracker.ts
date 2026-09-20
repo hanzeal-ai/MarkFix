@@ -32,7 +32,7 @@ const cssSelector = (element: Element): string => {
   return segments.join(' > ') || element.tagName.toLocaleLowerCase();
 };
 
-const elementAnchor = (element: Element): ElementAnchor | undefined => {
+const elementAnchor = (element: Element): Omit<ElementAnchor, 'runtimeEvidence'> | undefined => {
   const quadsCssPx = [...element.getClientRects()]
     .filter(({ width, height }) => width > 0 && height > 0)
     .slice(0, 8)
@@ -55,7 +55,7 @@ const elementAnchor = (element: Element): ElementAnchor | undefined => {
   };
 };
 
-const anchorCenter = (anchor: ElementAnchor): Point => {
+const anchorCenter = (anchor: Pick<ElementAnchor, 'quadsCssPx'>): Point => {
   const quad = anchor.quadsCssPx[0] ?? [];
   const xValues = quad.filter((_value, index) => index % 2 === 0);
   const yValues = quad.filter((_value, index) => index % 2 === 1);
@@ -281,7 +281,7 @@ export class AnchorTracker {
     const recoveredBase = elementAnchor(recoveredEntry.element) ?? recoveredEntry.anchor;
     const recovered: ElementAnchor = {
       ...recoveredBase,
-      ...(original.runtimeEvidence ? { runtimeEvidence: original.runtimeEvidence } : {}),
+      runtimeEvidence: original.runtimeEvidence,
     };
     this.trackedAnchor = recovered;
     this.render(recovered);

@@ -12,11 +12,10 @@ const deliveryIssueSchema = z.object({
   priority: z.string().min(1),
   captureBundle: z
     .object({
-      schemaVersion: z.literal(1),
+      schemaVersion: z.literal(2),
       sourceAnnotationId: z.uuid().optional(),
       annotationKind: z.enum(['ELEMENT', 'SCREENSHOT', 'COMMENT']),
       page: z.object({ url: z.url(), capturedAt: z.iso.datetime() }).passthrough(),
-      annotations: z.array(z.unknown()),
       reproduction: z.array(z.unknown()),
     })
     .passthrough(),

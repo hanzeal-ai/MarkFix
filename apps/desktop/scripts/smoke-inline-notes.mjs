@@ -1,6 +1,7 @@
-import { app, webContents } from 'electron';
+import { URL } from 'node:url';
+import { app, webContents, BrowserWindow } from 'electron';
 import { createServer } from 'node:http';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -8,6 +9,7 @@ import { setTimeout, clearTimeout } from 'node:timers';
 import assert from 'node:assert/strict';
 import process from 'node:process';
 import console from 'node:console';
+const marketing = process.env.MARKFIX_MARKETING_ASSETS === '1';
 const profile = mkdtempSync(join(tmpdir(), 'markfix-inline-'));
 const output = process.env.MARKFIX_SMOKE_OUTPUT_DIR || join(profile, 'evidence');
 mkdirSync(output, { recursive: true });
@@ -16,7 +18,9 @@ const server = createServer((req, res) => {
   if (req.url.startsWith('/site')) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(
-      '<!doctype html><title>备注验收</title><style>body{margin:32px;height:2200px;background:#f7f8fa;font:18px system-ui}h1{margin-top:100px;width:400px;background:white;padding:20px}</style><h1 id="subject">需要修改的页面标题</h1><p>截图与备注交互验收</p>',
+      marketing
+        ? readFileSync(new URL('./marketing-fixture.html', import.meta.url), 'utf8')
+        : '<!doctype html><title>备注验收</title><style>body{margin:32px;height:2200px;background:#f7f8fa;font:18px system-ui}h1{margin-top:100px;width:400px;background:white;padding:20px}</style><h1 id="subject">需要修改的页面标题</h1><p>截图与备注交互验收</p>',
     );
   } else {
     res.setHeader('Content-Type', 'application/json');
@@ -33,6 +37,7 @@ app.on('browser-window-created', (_event, win) => {
   handled = true;
   win.webContents.once('did-finish-load', async () => {
     try {
+      if (marketing) win.setSize(1440, 900);
       win.show();
       win.focus();
       const run = (code) =>
@@ -94,6 +99,17 @@ app.on('browser-window-created', (_event, win) => {
         });
         return result.value;
       };
+      const pinCount = async () => {
+        const { root } = await command('DOM.getDocument', { depth: -1, pierce: true });
+        const count = (node) =>
+          node.attributes?.includes('markfix-element-comments')
+            ? (node.children || []).length
+            : [...(node.children || []), ...(node.shadowRoots || [])].reduce(
+                (sum, child) => sum + count(child),
+                0,
+              );
+        return count(root);
+      };
       const click = async (point) => {
         target.sendInputEvent({ type: 'mouseMove', ...point });
         target.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...point });
@@ -108,6 +124,11 @@ app.on('browser-window-created', (_event, win) => {
         assert.equal(await run(`!!document.querySelector('aside.comment-panel')`), false);
       };
       const screenshot = async (name) => {
+        if (marketing) {
+          const { captureMarketingFrame } = await import('./capture-marketing-frame.mjs');
+          await captureMarketingFrame(win, target, join(output, name));
+          return;
+        }
         writeFileSync(join(output, name), (await win.webContents.capturePage()).toPNG());
         writeFileSync(join(output, 'target-' + name), (await target.capturePage()).toPNG());
       };
@@ -115,6 +136,7 @@ app.on('browser-window-created', (_event, win) => {
         await run(`document.querySelectorAll('.annotation-mode-control button').length`),
         3,
       );
+      if (marketing) await delay(4500);
       await mode('capture');
       const frozen = await run(`window.markfix.capture({mode:'visible'})`);
       assert.equal(
@@ -131,6 +153,7 @@ app.on('browser-window-created', (_event, win) => {
         frozen.dataUrl,
         'Frame is fixed before selecting a region',
       );
+      if (marketing) await target.executeJavaScript("document.body.style.background='#f7f8fa'");
       target.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, x: 30, y: 80 });
       target.sendInputEvent({ type: 'mouseMove', x: 900, y: 300 });
       target.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, x: 900, y: 300 });
@@ -152,17 +175,20 @@ app.on('browser-window-created', (_event, win) => {
       });
       await delay(200);
       assert.equal(await field('INPUT', 'value'), 'jie tu', 'Composition survives state echoes');
-      await command('Input.insertText', { text: '截图备注验收' });
+      await command('Input.insertText', { text: '请增加标题留白，让内容更易阅读' });
       await delay(200);
-      assert.equal(await field('INPUT', 'value'), '截图备注验收');
+      assert.equal(await field('INPUT', 'value'), '请增加标题留白，让内容更易阅读');
       await target.insertText('连续输入的历史文字'.repeat(12));
       await delay(150);
       const typing = await field('INPUT', 'inputState');
-      assert.equal(typing.value, '截图备注验收' + '连续输入的历史文字'.repeat(12));
+      assert.equal(
+        typing.value,
+        '请增加标题留白，让内容更易阅读' + '连续输入的历史文字'.repeat(12),
+      );
       assert.equal(typing.end, typing.value.length);
       assert.ok(typing.scrollLeft > 0, 'Single-line input follows the latest text');
       target.selectAll();
-      await target.insertText('截图备注验收');
+      await target.insertText('请增加标题留白，让内容更易阅读');
       await wait(async () => (await field('BUTTON', 'disabled')) === false);
       assert.equal(
         (await field('FORM')).height,
@@ -178,7 +204,9 @@ app.on('browser-window-created', (_event, win) => {
       target.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
       target.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
       await wait(() =>
-        run(`document.querySelector('aside.comment-panel')?.textContent.includes('截图备注验收')`),
+        run(
+          `document.querySelector('aside.comment-panel')?.textContent.includes('请增加标题留白，让内容更易阅读')`,
+        ),
       );
       const captures = await run(
         `window.markfix.desktopBootstrap().then(({websiteProjects}) => window.markfix.listCaptureRecords(websiteProjects[0].id))`,
@@ -189,7 +217,15 @@ app.on('browser-window-created', (_event, win) => {
         'Drag selection edge resizes without a mouse tool',
       );
       assert.equal(captures[0].marks[0].type, 'rectangle', 'Rectangle is selected by default');
-      assert.equal(captures[0].note, '截图备注验收', 'No intermediate pinyin is saved');
+      assert.equal(
+        captures[0].note,
+        '请增加标题留白，让内容更易阅读',
+        'No intermediate pinyin is saved',
+      );
+      if (marketing)
+        await target.executeJavaScript(
+          "document.querySelector('#subject').textContent='让每一处细节，都更进一步。';document.body.style.background='#f7f8fa'",
+        );
       await screenshot('capture-preview.png');
       await mode('capture');
       assert.equal((await field('INPUT'))?.width ?? 0, 0, 'A new capture requires a new selection');
@@ -199,20 +235,26 @@ app.on('browser-window-created', (_event, win) => {
       await delay(350);
       target.focus();
       await click(await field('INPUT'));
-      await target.insertText('元素备注验收');
+      await target.insertText('请统一标题字号与设计规范');
       await wait(async () => (await field('BUTTON', 'disabled')) === false);
       await screenshot('element-inline.png');
       await click(await field('BUTTON'));
       await wait(() =>
-        run(`document.querySelector('aside.comment-panel')?.textContent.includes('元素备注验收')`),
+        run(
+          `document.querySelector('aside.comment-panel')?.textContent.includes('请统一标题字号与设计规范')`,
+        ),
       );
       assert.deepEqual(
         await run(`[...document.querySelectorAll('.capture-note-head i')].map(e=>e.textContent)`),
         ['1', '2'],
       );
       await screenshot('element-preview.png');
+      await run(
+        `if (!document.querySelector('aside.comment-panel')) document.querySelector('.preview-toggle-button').click()`,
+      );
+      await wait(() => run(`!!document.querySelector('.element-note-select')`));
       await run(`document.querySelector('.element-note-select').click()`);
-      await wait(async () => (await field('INPUT', 'value')) === '元素备注验收');
+      await wait(async () => (await field('INPUT', 'value')) === '请统一标题字号与设计规范');
       await target.executeJavaScript('scrollTo(0,100)');
       await delay(200);
       await screenshot('element-scroll.png');
@@ -222,24 +264,67 @@ app.on('browser-window-created', (_event, win) => {
       target.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
       target.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
       await delay(100);
+      await run(
+        `if (!document.querySelector('aside.comment-panel')) document.querySelector('.preview-toggle-button').click()`,
+      );
+      await wait(() => run(`!!document.querySelector('.element-note-select')`));
+      await run(`document.querySelector('.element-note-select').click()`);
+      await wait(async () => (await pinCount()) === 1);
       await target.loadURL(url + '?other=1');
       await delay(250);
       await run(`document.querySelector('.preview-toggle-button').click()`);
       await wait(() => run(`!!document.querySelector('aside.comment-panel')`));
       assert.equal(
-        await run(`document.body.textContent.includes('元素备注验收')`),
+        await run(`document.body.textContent.includes('请统一标题字号与设计规范')`),
         true,
         'Project preview includes records from other pages',
       );
+      await run(`window.markfix.setMode('comment')`);
+      await delay(200);
+      assert.equal(await pinCount(), 0, 'Other page has no element annotation pins');
       await target.loadURL(url);
+      if (marketing)
+        await target.executeJavaScript(
+          "document.querySelector('#subject').textContent='让每一处细节，都更进一步。';document.body.style.background='#f7f8fa'",
+        );
+      await run(`window.markfix.setMode('comment')`);
+      await delay(200);
+      await run(
+        `if (!document.querySelector('aside.comment-panel')) document.querySelector('.preview-toggle-button').click()`,
+      );
+      await wait(() => run(`!!document.querySelector('.element-note-select')`));
+      await run(`document.querySelector('.element-note-select').click()`);
+      await wait(async () => (await pinCount()) === 1);
       await delay(300);
 
       await wait(() =>
-        run(`document.querySelector('aside.comment-panel')?.textContent.includes('元素备注验收')`),
+        run(
+          `document.querySelector('aside.comment-panel')?.textContent.includes('请统一标题字号与设计规范')`,
+        ),
       );
       await screenshot('replayed-preview.png');
+      if (marketing) {
+        await run(`document.querySelector('.save-annotations-button').click()`);
+        let review;
+        await wait(async () => {
+          review = BrowserWindow.getAllWindows().find((candidate) => candidate !== win);
+          return (
+            review &&
+            (await review.webContents.executeJavaScript(
+              `!!document.querySelector('.annotation-save-item')`,
+            ))
+          );
+        });
+        await delay(400);
+        writeFileSync(
+          join(output, 'annotation-review.png'),
+          (await review.webContents.capturePage()).toPNG(),
+        );
+        review.close();
+        await delay(500);
+      }
       console.log(
-        'PASS fresh capture, inline Enter and click submission, automatic preview visibility, editing, scrolling, project-wide preview and saved replay',
+        'PASS fresh capture, inline Enter and click submission, automatic preview visibility, editing, scrolling, project-wide preview, route changes, per-page pin isolation and saved replay',
       );
       console.log('Evidence: ' + output);
       clearTimeout(timeout);

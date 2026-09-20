@@ -21,12 +21,13 @@ export function CliGuide({
       <span>MARKFIX CLI · CODEX</span>
       <h2>接入 Codex</h2>
       <p>
-        通过 MarkFix CLI，将云端标注交给当前代码仓库中的 Codex 会话处理。完成接入后，Codex
-        可以读取问题上下文、领取任务，并将验证结果回写到 MarkFix。
+        通过 MarkFix CLI，将本机或云端已提交标注交给当前代码仓库中的 Codex
+        会话处理。完成接入后，Codex 可以读取问题上下文、领取任务，并将验证结果回写到 MarkFix。
       </p>
       <nav className="cli-guide-toc" aria-label="CLI 接入目录">
         <a href="#cli-install">安装</a>
-        <a href="#cli-authorize">授权</a>
+        <a href="#cli-local">本机接入</a>
+        <a href="#cli-authorize">云端授权</a>
         <a href="#cli-bind">绑定项目</a>
         <a href="#cli-verify">验证接入</a>
         <a href="#cli-repair">开始修复</a>
@@ -37,10 +38,11 @@ export function CliGuide({
         <ul>
           <li>本机已安装 Node.js 24 或更高版本、npm、Git 和 Codex。</li>
           <li>
-            已有 MarkFix 账号，并且是目标云端标注项目的成员。绑定操作需要项目所有者或管理员权限。
+            使用云端时需要 MarkFix
+            账号，并且是目标云端标注项目的成员。绑定操作需要项目所有者或管理员权限。
           </li>
           <li>
-            已取得 MarkFix CLI 安装包和服务的 HTTPS API 地址。API
+            已取得 MarkFix CLI 安装包；使用云端时还需服务的 HTTPS API 地址。API
             地址可能与官网地址不同，请以服务管理员提供的信息为准。
           </li>
         </ul>
@@ -52,19 +54,49 @@ export function CliGuide({
       <section id="cli-install">
         <h3>1. 安装 CLI</h3>
         <p>
-          当前通过安装包分发。向 MarkFix 服务管理员获取 <code>markfix-cli-0.1.0.tgz</code>
+          当前通过安装包分发。向 MarkFix 服务管理员获取 <code>markfix-cli-0.1.1.tgz</code>
           ，在安装包所在目录执行：
         </p>
         <Command>
-          {'node --version\nnpm install -g ./markfix-cli-0.1.0.tgz\nmarkfix --version'}
+          {'node --version\nnpm install -g ./markfix-cli-0.1.1.tgz\nmarkfix --version'}
         </Command>
         <p className="cli-guide-result">
-          预期结果：Node.js 主版本不低于 24，MarkFix CLI 输出 0.1.0。若找不到 markfix 命令，请检查
+          预期结果：Node.js 主版本不低于 24，MarkFix CLI 输出 0.1.1。若找不到 markfix 命令，请检查
           npm 全局可执行目录是否已加入 PATH。
         </p>
       </section>
+      <section id="cli-local">
+        <h3>仅本机接入</h3>
+        <p>无需云端账号。桌面选择“仅在本机使用”，保存并提交标注，保持桌面运行。在代码仓库执行：</p>
+        <Command>
+          {
+            'markfix skill install\nmarkfix repo register --local\nmarkfix projects list --local\nmarkfix projects resolve --local'
+          }
+        </Command>
+        <p>
+          从桌面项目菜单绑定已登记的仓库。每条本机命令都带 --local，包括读取截图、修复回写和
+          sync。结果显示在桌面预览中，不上传云端。
+        </p>
+        <Command>{'markfix issues list --project PROJECT_ID --local'}</Command>
+        <p>
+          然后在 Codex 中发送：“使用 MarkFix Skill，通过 --local
+          读取当前项目已提交的标注，修复、验证并回写结果。”
+        </p>
+      </section>
+      <section id="cli-upgrade">
+        <h3>更新 CLI 与 Skill</h3>
+        <Command>
+          {
+            'npm install -g ./markfix-cli-0.1.1.tgz\nmarkfix --version\nmarkfix skill install --force'
+          }
+        </Command>
+        <p>
+          更新 Skill 无需授权。--force 会先备份现有文件并返回 backupPath，再安装随包版本；新建 Codex
+          会话加载更新。首次安装可用 markfix skill install，已有内容会保留。
+        </p>
+      </section>
       <section id="cli-authorize">
-        <h3>2. 授权访问 MarkFix</h3>
+        <h3>云端接入：授权访问 MarkFix</h3>
         <p>
           安装不会要求授权。进入准备修复的 Git 仓库，首次执行服务命令时，CLI
           会自动打开浏览器发起授权，完成后继续原命令。下方服务地址应与标注所在的 MarkFix
@@ -230,8 +262,8 @@ export function CliGuide({
           <summary>Codex 没有识别 MarkFix Skill</summary>
           <p>
             检查 Skill 文件是否存在，然后新建会话。默认路径为 ~/.codex/skills/markfix/SKILL.md；设置
-            CODEX_HOME 时位于该目录下的 skills/markfix。首次授权 不覆盖已存在的同名
-            Skill，出现保留提示时请核对文件内容。
+            CODEX_HOME 时位于该目录下的 skills/markfix。运行 markfix skill install
+            可安装缺失文件；更新现有 Skill 使用 markfix skill install --force，旧文件会先备份。
           </p>
         </details>
         <details>

@@ -88,7 +88,7 @@ describe('MarkFixApi request coordination', () => {
           status: 'OPEN',
           version: 1,
           captureBundle: {
-            schemaVersion: 1,
+            schemaVersion: 2,
             page: {
               url: 'https://example.test',
               title: 'Example',
@@ -98,7 +98,7 @@ describe('MarkFixApi request coordination', () => {
               capturedAt,
             },
             annotationKind: 'ELEMENT',
-            annotations: [],
+
             reproduction: [],
           },
           createdAt: capturedAt,
@@ -116,7 +116,7 @@ describe('MarkFixApi request coordination', () => {
         description: 'Fix this element',
         priority: 'MEDIUM',
         captureBundle: {
-          schemaVersion: 1,
+          schemaVersion: 2,
           page: {
             url: 'https://example.test',
             title: 'Example',
@@ -126,7 +126,7 @@ describe('MarkFixApi request coordination', () => {
             capturedAt,
           },
           annotationKind: 'ELEMENT',
-          annotations: [],
+
           reproduction: [],
         },
       },
@@ -165,7 +165,7 @@ describe('MarkFixApi request coordination', () => {
           version: 1,
           screenshotPath: 'artifact-1',
           captureBundle: {
-            schemaVersion: 1,
+            schemaVersion: 2,
             page: {
               url: 'https://example.test',
               title: 'Example',
@@ -175,7 +175,7 @@ describe('MarkFixApi request coordination', () => {
               capturedAt,
             },
             annotationKind: 'SCREENSHOT',
-            annotations: [],
+
             reproduction: [],
           },
           createdAt: capturedAt,
@@ -194,7 +194,7 @@ describe('MarkFixApi request coordination', () => {
         priority: 'MEDIUM',
         screenshotDataUrl: 'data:image/png;base64,YQ==',
         captureBundle: {
-          schemaVersion: 1,
+          schemaVersion: 2,
           page: {
             url: 'https://example.test',
             title: 'Example',
@@ -204,7 +204,7 @@ describe('MarkFixApi request coordination', () => {
             capturedAt,
           },
           annotationKind: 'SCREENSHOT',
-          annotations: [],
+
           reproduction: [],
         },
       },
@@ -232,6 +232,24 @@ describe('MarkFixApi request coordination', () => {
     const now = new Date().toISOString();
 
     await api.saveCloudCapture({
+      page: {
+        url: 'https://example.test/page',
+        title: 'Fixture page',
+        viewportWidthCssPx: 1200,
+        viewportHeightCssPx: 800,
+        deviceScaleFactor: 1,
+        capturedAt: '2026-09-17T00:00:00.000Z',
+      },
+      capture: {
+        mode: 'region',
+        imageWidthPx: 1200,
+        imageHeightPx: 800,
+        widthCssPx: 1200,
+        heightCssPx: 800,
+        originCssPx: { x: 0, y: 0 },
+        captureScale: 1,
+        truncated: false,
+      },
       id: captureId,
       projectId,
       pageSessionId: crypto.randomUUID(),

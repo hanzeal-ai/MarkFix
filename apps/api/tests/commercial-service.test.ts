@@ -13,9 +13,17 @@ const report = (overrides: Record<string, unknown> = {}) => ({
   rejectionReason: null,
   screenshotPath: null,
   captureBundle: {
-    page: { url: 'https://example.test/pricing' },
-    anchor: { kind: 'element' },
-    annotations: [],
+    schemaVersion: 2,
+    annotationKind: 'ELEMENT',
+    page: {
+      url: 'https://example.test/pricing',
+      title: 'Pricing',
+      viewportWidthCssPx: 1200,
+      viewportHeightCssPx: 800,
+      deviceScaleFactor: 1,
+      capturedAt: '2026-09-05T00:00:00.000Z',
+    },
+    reproduction: [],
   },
   createdAt: new Date('2026-09-05T00:00:00.000Z'),
   updatedAt: new Date('2026-09-05T01:00:00.000Z'),
@@ -122,9 +130,17 @@ describe('commercial annotation management', () => {
     const sourceAnnotationId = crypto.randomUUID();
     const captureBundle = {
       sourceAnnotationId,
-      page: { url: 'https://example.test/pricing' },
+      schemaVersion: 2,
+      reproduction: [],
+      page: {
+        url: 'https://example.test/pricing',
+        title: 'Pricing',
+        viewportWidthCssPx: 1200,
+        viewportHeightCssPx: 800,
+        deviceScaleFactor: 1,
+        capturedAt: '2026-09-05T00:00:00.000Z',
+      },
       annotationKind: 'SCREENSHOT',
-      annotations: [],
     };
     const current = report({
       id: sourceAnnotationId,
@@ -145,14 +161,26 @@ describe('commercial annotation management', () => {
     const submissions = [
       {
         id: crypto.randomUUID(),
-        payload: { description: 'Original note', captureBundle },
+        payload: {
+          projectId,
+          title: 'Pricing annotation',
+          priority: 'MEDIUM',
+          description: 'Original note',
+          captureBundle,
+        },
         artifact: { id: 'original-image' },
         createdBy: current.reporter,
         createdAt: current.createdAt,
       },
       {
         id: crypto.randomUUID(),
-        payload: { description: 'Revised note', captureBundle },
+        payload: {
+          projectId,
+          title: 'Pricing annotation',
+          priority: 'MEDIUM',
+          description: 'Revised note',
+          captureBundle,
+        },
         artifact: { id: 'revised-image' },
         createdBy: current.reporter,
         createdAt: new Date('2026-09-07T10:00:00Z'),
@@ -215,7 +243,6 @@ describe('commercial annotation management', () => {
     const transaction = {
       reportSubmission: { create: vi.fn().mockResolvedValue({}) },
       report: { create: vi.fn().mockResolvedValue(created) },
-      managedAnnotation: { delete: vi.fn() },
     };
     const service = new CommercialService({
       ...managerDatabase(ownerId, projectId),
@@ -304,48 +331,15 @@ describe('commercial annotation management', () => {
     expect(result.status).toBe('REJECTED');
   });
 
-  it('migrates standalone ManagedAnnotation rows into Report and clears mirror rows', async () => {
-    const legacy = {
-      id: crypto.randomUUID(),
-      projectId: crypto.randomUUID(),
-      authorId: crypto.randomUUID(),
-      title: 'Legacy annotation',
-      note: 'Preserve this note',
-      kind: 'COMMENT',
-      pageUrl: 'https://example.test/legacy',
-      status: 'OPEN',
-      rejectionReason: null,
-      createdAt: new Date('2026-09-01T00:00:00Z'),
-      updatedAt: new Date('2026-09-02T00:00:00Z'),
-    };
-    const transaction = {
-      reportSubmission: { create: vi.fn().mockResolvedValue({}) },
-      report: { create: vi.fn().mockResolvedValue(report(legacy)) },
-      managedAnnotation: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
-    };
-    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
-    const service = new CommercialService({
-      managedAnnotation: {
-        findMany: vi.fn().mockResolvedValue([legacy]),
-        deleteMany,
-      },
-      $transaction: vi.fn((callback) => callback(transaction)),
-    } as never);
-
-    await service.onApplicationBootstrap();
-
-    expect(transaction.report.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          id: legacy.id,
-          projectId: legacy.projectId,
-          description: legacy.note,
-        }),
-      }),
-    );
-    expect(transaction.managedAnnotation.deleteMany).toHaveBeenCalledWith({
-      where: { id: legacy.id, sourceReportId: null },
-    });
-    expect(deleteMany).toHaveBeenCalledWith({ where: { sourceReportId: { not: null } } });
+  it('does not migrate data during normal application startup', async () => {
+    const database = { $transaction: vi.fn() };
+    const service = new CommercialService(database as never);
+    vi.stubEnv('MARKFIX_DEMO_PASSWORD', '');
+    try {
+      await service.onApplicationBootstrap();
+      expect(database.$transaction).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

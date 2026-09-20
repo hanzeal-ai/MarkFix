@@ -109,10 +109,24 @@ async function main() {
       pageTitle: 'Local smoke',
       pageUrl: siteUrl + '/',
       status: 'draft',
-      note: '本机修复原因可见',
+      note: '本机批注持久化',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       anchor: {
+        runtimeEvidence: {
+          schemaVersion: 1,
+          selectorCandidates: [],
+          classNames: [],
+          ancestorPath: [],
+          nearbyText: [],
+          pageBuild: {
+            scripts: [],
+            stylesheets: [],
+            sourceMapHints: [],
+            metadata: {},
+            frameworkHints: [],
+          },
+        },
         kind: 'element',
         cssSelector: 'h1',
         textQuote: 'Local issue',
@@ -186,9 +200,27 @@ async function main() {
     await window.webContents.executeJavaScript(
       'document.querySelector(\'[title="批注（⌥W）"]\').click()',
     );
-    await waitFor(async () =>
-      window.webContents.executeJavaScript("document.body.innerText.includes('缺少测试账号')"),
+    await window.webContents.executeJavaScript(
+      "if (!document.querySelector('aside.comment-panel')) document.querySelector('.preview-toggle-button').click()",
     );
+    // The current preview contains only draft/rejected records, not submitted reports.
+    await waitFor(async () =>
+      window.webContents.executeJavaScript(
+        "Boolean(document.querySelector('aside.comment-panel'))",
+      ),
+    );
+    assert.equal(
+      await window.webContents.executeJavaScript(
+        "document.querySelector('aside.comment-panel').innerText.includes('本机批注持久化')",
+      ),
+      false,
+    );
+    const reloadedReports = await window.webContents.executeJavaScript(
+      `window.markfix.listProjectAnnotationReports(${JSON.stringify(projectId)},${JSON.stringify(siteUrl + '/')})`,
+    );
+    assert.equal(reloadedReports[0].description, record.note);
+    assert.equal(reloadedReports[0].status, 'FIX_FAILED');
+    assert.equal(reloadedReports[0].fixAttempts[0].reason, '缺少测试账号');
     await delay(350);
     await writeFile(join(output, 'desktop.png'), (await window.webContents.capturePage()).toPNG());
     const failedReport = await request('/issues/' + record.id, undefined);
@@ -204,8 +236,14 @@ async function main() {
         { command: 'local fixture verification', outcome: 'passed', details: '用例检查通过' },
       ],
     });
-    await waitFor(async () =>
-      window.webContents.executeJavaScript("document.body.innerText.includes('修复完成')"),
+    const completedReports = await window.webContents.executeJavaScript(
+      `window.markfix.listProjectAnnotationReports(${JSON.stringify(projectId)},${JSON.stringify(siteUrl + '/')})`,
+    );
+    assert.equal(completedReports[0].status, 'RESOLVED');
+    assert.ok(
+      completedReports[0].fixAttempts.some(
+        (attempt) => attempt.summary === '隔离烟测修复完成' && attempt.status === 'SUCCEEDED',
+      ),
     );
     await delay(350);
     await writeFile(
@@ -246,7 +284,7 @@ async function main() {
           'local CLI without approval',
           'repository binding',
           'claim and failure writeback',
-          'retry and completed result visible',
+          'retry and completed result persisted',
           'settings without authorization management',
         ],
       }),

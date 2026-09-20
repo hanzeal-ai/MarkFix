@@ -52,6 +52,20 @@ async function fixture() {
     createdAt: '2026-09-09T00:00:00.000Z',
     updatedAt: '2026-09-09T00:00:00.000Z',
     anchor: {
+      runtimeEvidence: {
+        schemaVersion: 1,
+        selectorCandidates: [],
+        classNames: [],
+        ancestorPath: [],
+        nearbyText: [],
+        pageBuild: {
+          scripts: [],
+          stylesheets: [],
+          sourceMapHints: [],
+          metadata: {},
+          frameworkHints: [],
+        },
+      },
       kind: 'element',
       cssSelector: 'h1',
       textQuote: 'Title',
@@ -140,31 +154,43 @@ describe('desktop LOCAL agent boundary', () => {
       f.service.bind(f.cloudId, { repositoryId: repo.id, repositoryName: repo.name }),
     ).toThrow();
   });
-  it('preserves existing bindings and repair state without honoring expired legacy grants', async () => {
-    const f = await fixture();
-    f.store.submitProjectAnnotations(f.projectId);
-    const report = f.service.reports(f.projectId)[0];
-    assert(report);
-    const runId = randomUUID();
-    await f.send(`/v1/agent/issues/${report.id}/claim`, { runId, expectedVersion: report.version });
-    const repo = (
-      await f.send('/v1/agent/repositories', { localId: randomUUID(), name: 'existing' })
-    ).body;
-    f.service.bind(f.projectId, { repositoryId: repo.id, repositoryName: repo.name });
-    const state = JSON.parse(f.store.readLocalAgentState() ?? '{}');
-    const grantId = randomUUID();
-    state.grants = [{ id: grantId, projectIds: [f.projectId], revoked: true, expires: 0 }];
-    state.runs[runId].grantId = grantId;
-    state.repositories[0].grantId = grantId;
-    f.store.writeLocalAgentState(JSON.stringify(state));
-    const restored = new LocalAgentService(f.store);
-    expect(restored.binding(f.projectId).repositoryId).toBe(repo.id);
-    expect(restored.repositories(f.otherId)[0]?.id).toBe(repo.id);
-    expect(
-      restored.request('POST', new URL(`/v1/agent/fixes/${runId}/renew`, f.server.origin), {}),
-    ).toHaveProperty('leaseExpiresAt');
-    expect(restored.reports(f.projectId)[0]?.status).toBe('IN_PROGRESS');
-  });
+  it.each(['root', 'run', 'repository'])(
+    'rejects obsolete %s grant fields without modifying saved state, and restores current state',
+    async (location) => {
+      const f = await fixture();
+      f.store.submitProjectAnnotations(f.projectId);
+      const report = f.service.reports(f.projectId)[0];
+      assert(report);
+      const runId = randomUUID();
+      await f.send(`/v1/agent/issues/${report.id}/claim`, {
+        runId,
+        expectedVersion: report.version,
+      });
+      const repo = (
+        await f.send('/v1/agent/repositories', { localId: randomUUID(), name: 'existing' })
+      ).body;
+      f.service.bind(f.projectId, { repositoryId: repo.id, repositoryName: repo.name });
+      const state = JSON.parse(f.store.readLocalAgentState() ?? '{}');
+      const current = JSON.stringify(state);
+      const grantId = randomUUID();
+      if (location === 'root')
+        state.grants = [{ id: grantId, projectIds: [f.projectId], revoked: true, expires: 0 }];
+      if (location === 'run') state.runs[runId].grantId = grantId;
+      if (location === 'repository') state.repositories[0].grantId = grantId;
+      f.store.writeLocalAgentState(JSON.stringify(state));
+      const unsupported = f.store.readLocalAgentState();
+      expect(() => new LocalAgentService(f.store)).toThrow();
+      expect(f.store.readLocalAgentState()).toBe(unsupported);
+      f.store.writeLocalAgentState(current);
+      const restored = new LocalAgentService(f.store);
+      expect(restored.binding(f.projectId).repositoryId).toBe(repo.id);
+      expect(restored.repositories(f.otherId)[0]?.id).toBe(repo.id);
+      expect(
+        restored.request('POST', new URL(`/v1/agent/fixes/${runId}/renew`, f.server.origin), {}),
+      ).toHaveProperty('leaseExpiresAt');
+      expect(restored.reports(f.projectId)[0]?.status).toBe('IN_PROGRESS');
+    },
+  );
   it('runs submitted snapshots through claim, failure, retry and idempotent completion without changing drafts or cloud data', async () => {
     const f = await fixture();
     const request = (path: string, body?: unknown) => f.send('/v1/agent' + path, body);
@@ -308,10 +334,15 @@ describe('desktop LOCAL agent boundary', () => {
     ).rejects.toMatchObject({ code: 4 });
     const queuedPath = join(f.directory, 'cli/local/outbox', `${claim.id}.json`);
     const queued = JSON.parse(await readFile(queuedPath, 'utf8'));
-    // An older CLI persisted a grant ID; the desktop identity still owns this result.
-    await writeFile(queuedPath, JSON.stringify({ ...queued, grantId: randomUUID() }));
+    // Current LOCAL results must belong to the exact desktop identity.
+    const mismatched = { ...queued, grantId: randomUUID() };
+    await writeFile(queuedPath, JSON.stringify(mismatched));
     const restarted = await startLocalAgentServer(new LocalAgentService(f.store), f.discovery);
     cleanup.push(restarted.close);
+    await expect(run('sync')).rejects.toMatchObject({ code: 1 });
+    expect(JSON.parse(await readFile(queuedPath, 'utf8'))).toEqual(mismatched);
+    expect(JSON.parse((await run('issues', 'get', f.record.id)).stdout).status).toBe('IN_PROGRESS');
+    await writeFile(queuedPath, JSON.stringify(queued));
     const synchronized = JSON.parse((await run('sync')).stdout);
     expect(synchronized.results[0].confirmed).toBe(true);
     expect(synchronized.results[0].report.status).toBe('RESOLVED');

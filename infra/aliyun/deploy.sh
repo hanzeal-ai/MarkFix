@@ -32,7 +32,7 @@ release=$(mktemp -d "$deploy_root/releases/release.XXXXXXXX")
 cp "$(dirname "$0")/compose.preview.yaml" "$release/compose.yaml"
 cp "$(dirname "$0")/api-proxy.conf" "$release/api-proxy.conf"
 printf 'API_IMAGE=%s\nDASHBOARD_IMAGE=%s\n' "$API_IMAGE" "$DASHBOARD_IMAGE" > "$release/images.env"
-# Image values are read from each release file, including during rollback.
+# Image values are read from the selected release file.
 unset API_IMAGE DASHBOARD_IMAGE
 compose() {
   local directory=$1
@@ -47,26 +47,16 @@ compose "$release" up -d --wait --wait-timeout 120 postgres
 backup="$deploy_root/backups/$(basename "$release").sql"
 compose "$release" exec -T postgres pg_dump -U markfix -d markfix > "$backup"
 test -s "$backup"
-# Migrations must remain compatible with the previous application release.
-# A failed migration is left for explicit forward repair; never restore data automatically.
-compose "$release" run --rm migrate
-
-rollback() {
+# Latest-only contracts require stopped writers; old images cannot read the new database.
+forward_repair() {
   trap - ERR INT TERM
-  echo "Release failed. Database backup: $backup" >&2
-  if [[ -L "$deploy_root/current" ]]; then
-    compose "$deploy_root/current" up -d --wait --wait-timeout 120 api dashboard || {
-      echo 'Application rollback failed; operator action required' >&2
-      exit 1
-    }
-    echo 'Previous application images restored; database was not rolled back' >&2
-  else
-    compose "$release" stop api dashboard || true
-    echo 'First release failed; stopped MarkFix application containers' >&2
-  fi
+  compose "$release" stop api dashboard || true
+  echo "Release stopped. Database backup: $backup. Repair forward with the current contract; do not restart previous images against this database." >&2
   exit 1
 }
-trap rollback ERR INT TERM
+trap forward_repair ERR INT TERM
+compose "$release" stop api dashboard
+compose "$release" run --rm migrate
 compose "$release" up -d --wait --wait-timeout 180 api dashboard
 curl --fail --silent --show-error http://127.0.0.1:8766/v1/health > /dev/null
 curl --fail --silent --show-error http://127.0.0.1:8766/ > /dev/null

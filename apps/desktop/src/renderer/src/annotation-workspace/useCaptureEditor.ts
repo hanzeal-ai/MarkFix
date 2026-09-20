@@ -139,8 +139,8 @@ export function useCaptureEditor({
           setCaptureSource({
             dataUrl: restore.capture.sourceDataUrl,
             captureScale: restore.capture.captureScale,
-            ...(restore.capture.page ? { page: restore.capture.page } : {}),
-            ...(restore.capture.capture ? { capture: restore.capture.capture } : {}),
+            page: restore.capture.page,
+            capture: restore.capture.capture,
           });
           setScreenshot(restore.capture.dataUrl);
           setCaptureLoading(false);
@@ -308,8 +308,8 @@ export function useCaptureEditor({
       selection: captureSelection,
       sourceDataUrl: captureSource.dataUrl,
       captureScale: captureSource.captureScale,
-      ...(captureSource.page ? { page: captureSource.page } : {}),
-      ...(captureSource.capture ? { capture: captureSource.capture } : {}),
+      page: captureSource.page,
+      capture: captureSource.capture,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };

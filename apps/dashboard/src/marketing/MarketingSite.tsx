@@ -119,8 +119,8 @@ export function MarketingSite() {
               处理对应的标注。
             </h2>
             <p>
-              通过 MarkFix 授权后，CLI 按项目权限读取问题。绑定仓库后，Codex
-              可匹配当前项目并回传修复结果。
+              本机项目无需云端账号，云端项目按授权范围访问。绑定代码仓库后，Codex
+              可读取已提交标注、执行修复与验证，并回传结果。
             </p>
             <div className="home-cli">
               <div>
@@ -129,10 +129,10 @@ export function MarketingSite() {
               </div>
               <pre>
                 <code>
-                  <span className="home-code-comment"># 检查授权状态</span>
-                  {'\n'}markfix auth status{'\n\n'}
+                  <span className="home-code-comment"># 本机项目：保持桌面端运行</span>
+                  {'\n'}markfix repo register --local{'\n\n'}
                   <span className="home-code-comment"># 匹配当前仓库的标注项目</span>
-                  {'\n'}markfix projects resolve{'\n\n'}
+                  {'\n'}markfix projects resolve --local{'\n\n'}
                   <span className="home-code-comment"># 查看可用命令与参数</span>
                   {'\n'}markfix --help
                 </code>
@@ -142,6 +142,35 @@ export function MarketingSite() {
               安装 CLI 并接入 Codex <ArrowRight size={15} />
             </a>
           </article>
+        </section>
+
+        <section className="home-workflow" aria-labelledby="workflow-title">
+          <h2 id="workflow-title">从发现问题，到验证修复。</h2>
+          <ol>
+            <li>
+              <span>01</span>
+              <h3>打开项目</h3>
+              <p>选择仅本机或云端项目，打开要检查的网页。</p>
+            </li>
+            <li>
+              <span>02</span>
+              <h3>直接标注</h3>
+              <p>点选元素或冻结截图，在页面内填写备注并保存。</p>
+            </li>
+            <li>
+              <span>03</span>
+              <h3>预览并提交</h3>
+              <p>在右侧检查记录，勾选本次要交给团队处理的问题。</p>
+            </li>
+            <li>
+              <span>04</span>
+              <h3>交给 Codex</h3>
+              <p>绑定代码仓库，读取上下文、修复并验证，回写处理结果。</p>
+            </li>
+          </ol>
+          <a href="/docs#updates">
+            查看近期功能与完整步骤 <ArrowRight size={15} />
+          </a>
         </section>
 
         <section className="home-experience" id="experience">

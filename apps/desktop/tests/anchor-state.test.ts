@@ -3,6 +3,20 @@ import type { ElementAnchor } from '@markfix/contracts';
 import { anchorsEqual } from '../src/main/anchor-state.js';
 
 const selectedElement: ElementAnchor = {
+  runtimeEvidence: {
+    schemaVersion: 1,
+    selectorCandidates: [],
+    classNames: [],
+    ancestorPath: [],
+    nearbyText: [],
+    pageBuild: {
+      scripts: [],
+      stylesheets: [],
+      sourceMapHints: [],
+      metadata: {},
+      frameworkHints: [],
+    },
+  },
   kind: 'element',
   cssSelector: 'div',
   textQuote: 'Selected card',

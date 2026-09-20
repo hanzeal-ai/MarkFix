@@ -177,14 +177,32 @@ describe('annotationSelectionReportInputs', () => {
     expect(inputs[2]?.report.captureBundle.anchor).toBeUndefined();
   });
 
-  it('does not report a legacy screenshot crop as the page viewport or device scale', () => {
+  it('uses explicit viewport and capture metadata rather than the crop size', () => {
     const [input] = annotationSelectionReportInputs(projectId, {
       elementComments: [],
       captures: [
         {
+          page: {
+            url: 'https://example.test',
+            title: 'Fixture page',
+            viewportWidthCssPx: 1200,
+            viewportHeightCssPx: 800,
+            deviceScaleFactor: 1,
+            capturedAt: '2026-09-17T00:00:00.000Z',
+          },
+          capture: {
+            mode: 'region',
+            imageWidthPx: 1200,
+            imageHeightPx: 800,
+            widthCssPx: 1200,
+            heightCssPx: 800,
+            originCssPx: { x: 0, y: 0 },
+            captureScale: 1,
+            truncated: false,
+          },
           ...context,
           id: '86c28bc3-a8a0-40df-a4b6-c7f71823d41a',
-          note: 'Legacy screenshot',
+          note: 'Current screenshot',
           dataUrl: 'data:image/png;base64,YQ==',
           sourceDataUrl: 'data:image/png;base64,YQ==',
           widthCssPx: 100,
@@ -206,9 +224,9 @@ describe('annotationSelectionReportInputs', () => {
       diagnostics: [],
     });
 
-    expect(input?.report.captureBundle.page.viewportWidthCssPx).toBe(1);
-    expect(input?.report.captureBundle.page.viewportHeightCssPx).toBe(1);
+    expect(input?.report.captureBundle.page.viewportWidthCssPx).toBe(1200);
+    expect(input?.report.captureBundle.page.viewportHeightCssPx).toBe(800);
     expect(input?.report.captureBundle.page.deviceScaleFactor).toBe(1);
-    expect(input?.report.captureBundle.capture).toBeUndefined();
+    expect(input?.report.captureBundle.capture?.mode).toBe('region');
   });
 });

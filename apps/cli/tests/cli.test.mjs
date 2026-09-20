@@ -30,7 +30,7 @@ test('help and version remain offline; first use requires a service address', as
   const env = { ...process.env, MARKFIX_CLI_HOME: home };
   const cli = new URL('../src/cli.mjs', import.meta.url).pathname;
   assert.match((await exec(process.execPath, [cli, '--help'], { env })).stdout, /setup --server/);
-  assert.equal((await exec(process.execPath, [cli, '--version'], { env })).stdout.trim(), '0.1.0');
+  assert.equal((await exec(process.execPath, [cli, '--version'], { env })).stdout.trim(), '0.1.1');
   await assert.rejects(
     exec(process.execPath, [cli, 'projects', 'list'], { env }),
     (error) => error.code === 1 && /First use requires/.test(error.stderr),
@@ -210,4 +210,30 @@ test('unsafe verification URL is rejected before opening a browser or fetching t
   );
   assert.deepEqual(f.calls, ['/v1/agent/device']);
   await assert.rejects(readFile(f.browserLog), { code: 'ENOENT' });
+});
+
+test('offline skill installation preserves custom content and backs it up on explicit update', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'markfix-skill-'));
+  const env = {
+    ...process.env,
+    MARKFIX_CLI_HOME: join(home, 'cli'),
+    CODEX_HOME: join(home, 'codex'),
+  };
+  const cli = new URL('../src/cli.mjs', import.meta.url).pathname;
+  const install = async (...flags) =>
+    JSON.parse((await exec(process.execPath, [cli, 'skill', 'install', ...flags], { env })).stdout);
+  const first = await install();
+  assert.equal(first.status, 'installed');
+  assert.equal((await install()).status, 'current');
+  await writeFile(first.skillPath, 'custom instructions');
+  assert.equal((await install()).status, 'retained');
+  assert.equal(await readFile(first.skillPath, 'utf8'), 'custom instructions');
+  const updated = await install('--force');
+  assert.equal(updated.status, 'updated');
+  assert.equal(await readFile(updated.backupPath, 'utf8'), 'custom instructions');
+  assert.equal(
+    await readFile(first.skillPath, 'utf8'),
+    await readFile(new URL('../skills/markfix/SKILL.md', import.meta.url), 'utf8'),
+  );
+  await assert.rejects(readFile(join(home, 'cli', 'config.json')), { code: 'ENOENT' });
 });

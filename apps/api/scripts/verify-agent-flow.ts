@@ -200,7 +200,8 @@ try {
     description: 'Sum returns subtraction',
     priority: 'MEDIUM',
     captureBundle: {
-      schemaVersion: 1,
+      annotationKind: 'COMMENT',
+      schemaVersion: 2,
       page: {
         url: 'https://example.test',
         title: 'Test',
@@ -209,7 +210,7 @@ try {
         deviceScaleFactor: 1,
         capturedAt: new Date().toISOString(),
       },
-      annotations: [],
+
       reproduction: [],
     },
   });

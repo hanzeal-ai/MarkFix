@@ -71,7 +71,7 @@ export const elementAnchorSchema = z.object({
   documentUrl: z.url(),
   framePath: z.array(z.string()).default([]),
   quadsCssPx: z.array(z.array(z.number()).length(8)).min(1),
-  runtimeEvidence: elementRuntimeEvidenceSchema.optional(),
+  runtimeEvidence: elementRuntimeEvidenceSchema,
 });
 
 export const regionAnchorSchema = z.object({
@@ -103,35 +103,6 @@ export const captureContextSchema = z.object({
   truncated: z.boolean().default(false),
   warning: z.string().max(500).optional(),
 });
-
-const annotationBaseSchema = z.object({
-  id: z.uuid(),
-  color: z.string().regex(/^#[0-9a-f]{6}$/i),
-  createdAt: z.iso.datetime(),
-});
-
-export const annotationSchema = z.discriminatedUnion('type', [
-  annotationBaseSchema.extend({
-    type: z.literal('pin'),
-    position: pointSchema,
-    label: z.number().int().positive(),
-  }),
-  annotationBaseSchema.extend({
-    type: z.literal('rectangle'),
-    start: pointSchema,
-    end: pointSchema,
-  }),
-  annotationBaseSchema.extend({ type: z.literal('arrow'), start: pointSchema, end: pointSchema }),
-  annotationBaseSchema.extend({
-    type: z.literal('text'),
-    position: pointSchema,
-    text: z.string().min(1).max(2000),
-  }),
-  annotationBaseSchema.extend({
-    type: z.literal('pen'),
-    points: z.array(pointSchema).min(2).max(5000),
-  }),
-]);
 
 export const screenshotToolSchema = z.enum([
   'select',
@@ -271,8 +242,8 @@ export const savedCaptureSchema = annotationRecordContextSchema.extend({
   selection: regionAnchorSchema,
   sourceDataUrl: z.string().startsWith('data:image/png;base64,'),
   captureScale: z.number().positive(),
-  page: pageSnapshotSchema.optional(),
-  capture: captureContextSchema.optional(),
+  page: pageSnapshotSchema,
+  capture: captureContextSchema,
   evidence: z.array(diagnosticEvidenceSchema).max(50).optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -341,14 +312,13 @@ export const reproductionStepSchema = z.object({
     .optional(),
 });
 
-export const captureBundleSchema = z.object({
-  schemaVersion: z.literal(1),
+export const captureBundleSchema = z.strictObject({
+  schemaVersion: z.literal(2),
   page: pageSnapshotSchema,
   anchor: anchorSchema.optional(),
-  annotationKind: z.enum(['ELEMENT', 'SCREENSHOT', 'COMMENT']).optional(),
+  annotationKind: z.enum(['ELEMENT', 'SCREENSHOT', 'COMMENT']),
   sourceAnnotationId: z.uuid().optional(),
   evidence: z.array(diagnosticEvidenceSchema).max(50).optional(),
-  annotations: z.array(annotationSchema).max(500),
   reproduction: z.array(reproductionStepSchema).max(500),
   capture: captureContextSchema.optional(),
 });
@@ -424,14 +394,16 @@ export const websiteProjectSchema = z.discriminatedUnion('storageMode', [
     .strict(),
 ]);
 
-export const cloudProjectStateSchema = z.object({
-  project: websiteProjectBaseSchema.extend({
-    storageMode: z.literal('CLOUD'),
-  }),
-  navigation: z.object({
+export const cloudProjectStateSchema = z.strictObject({
+  project: websiteProjectBaseSchema
+    .extend({
+      storageMode: z.literal('CLOUD'),
+    })
+    .strict(),
+  navigation: z.strictObject({
     entries: z
       .array(
-        z.object({
+        z.strictObject({
           pageSessionId: z.uuid(),
           url: webUrlSchema,
           title: z.string().max(500),
@@ -612,7 +584,6 @@ export const browserModeSchema = z.enum(['browse', 'comment', 'capture']);
 export const navigateInputSchema = z.object({ url: z.string().min(1).max(4096) });
 
 export type Anchor = z.infer<typeof anchorSchema>;
-export type Annotation = z.infer<typeof annotationSchema>;
 export type ScreenshotTool = z.infer<typeof screenshotToolSchema>;
 export type ScreenshotMark = z.infer<typeof screenshotMarkSchema>;
 export type ScreenshotStyle = z.infer<typeof screenshotStyleSchema>;

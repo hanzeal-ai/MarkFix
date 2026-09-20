@@ -6,6 +6,20 @@ import {
 
 const sourceAnnotationId = '12345678-1234-4234-8234-123456789abc';
 
+const currentBundle = {
+  schemaVersion: 2,
+  annotationKind: 'COMMENT',
+  sourceAnnotationId,
+  reproduction: [],
+  page: {
+    url: 'https://example.test',
+    title: 'Example',
+    viewportWidthCssPx: 1200,
+    viewportHeightCssPx: 800,
+    deviceScaleFactor: 1,
+    capturedAt: '2026-09-07T08:00:00.000Z',
+  },
+};
 const report = (overrides: Record<string, unknown> = {}) => ({
   id: sourceAnnotationId,
   projectId: crypto.randomUUID(),
@@ -15,7 +29,7 @@ const report = (overrides: Record<string, unknown> = {}) => ({
   description: 'Description',
   status: 'OPEN' as const,
   rejectionReason: null,
-  captureBundle: { sourceAnnotationId, page: { url: 'https://example.test' } },
+  captureBundle: currentBundle,
   screenshotPath: null,
   activities: [],
   createdAt: new Date('2026-09-07T08:00:00Z'),
@@ -25,7 +39,13 @@ const report = (overrides: Record<string, unknown> = {}) => ({
 
 const submission = (overrides: Record<string, unknown> = {}) => ({
   id: crypto.randomUUID(),
-  payload: { description: 'Original note', captureBundle: { sourceAnnotationId } },
+  payload: {
+    projectId: crypto.randomUUID(),
+    title: 'Annotation',
+    priority: 'MEDIUM',
+    description: 'Original note',
+    captureBundle: currentBundle,
+  },
   artifact: { id: 'original-image' },
   createdBy: { id: 'reporter-1', displayName: 'Lin', email: 'lin@example.test' },
   createdAt: new Date('2026-09-07T08:00:00Z'),
@@ -42,7 +62,13 @@ describe('commercial annotation identity and history', () => {
     const submissions = [
       submission(),
       submission({
-        payload: { description: 'Revised note', captureBundle: { sourceAnnotationId } },
+        payload: {
+          projectId: crypto.randomUUID(),
+          title: 'Annotation',
+          priority: 'MEDIUM',
+          description: 'Revised note',
+          captureBundle: currentBundle,
+        },
         artifact: { id: 'revised-image' },
         createdAt: new Date('2026-09-07T10:00:00Z'),
       }),

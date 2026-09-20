@@ -41,6 +41,7 @@ export function DocsPage() {
         <aside>
           <strong>开始使用</strong>
           <a href="#quick-start">快速开始</a>
+          <a href="#updates">近期更新</a>
           <a href="#storage-mode">本地与云端</a>
           <a href="#elements">元素批注</a>
           <a href="#capture">截图标注</a>
@@ -61,8 +62,20 @@ export function DocsPage() {
               <li>创建或选择一个项目</li>
               <li>输入网址并打开页面</li>
               <li>选择批注方式</li>
-              <li>在右侧确认标注，点击右上角提交按钮勾选记录</li>
+              <li>在页面内填写备注并保存，在右侧预览检查记录</li>
+              <li>点击右上角提交按钮，勾选要交给团队或 Codex 的记录</li>
             </ol>
+          </article>
+          <article id="updates">
+            <span>近期更新</span>
+            <h2>记录问题与修复进度，更连贯。</h2>
+            <ul>
+              <li>页内备注：元素与截图均可直接输入，支持 Enter 提交。</li>
+              <li>冻结截图：保留触发截图时的画面，选区边缘可调整。</li>
+              <li>预览收起后释放页面空间；刷新按钮重新加载当前项目网页。</li>
+              <li>本机 CLI：无需云端账号，已提交标注可直接交给 Codex。</li>
+              <li>修复回写：查看完成状态、失败原因，断开连接后可补传结果。</li>
+            </ul>
           </article>
           <StorageGuide />
           <article id="elements">
@@ -71,7 +84,8 @@ export function DocsPage() {
             <AnnotationShortcutHint mode="element" />
             <p>
               切换到批注模式后，将鼠标移到页面元素上。MarkFix
-              会显示当前可选择范围。点击后在右侧填写备注，再点击勾号保存；点击已有记录可以重新编辑。
+              会显示当前可选择范围。点击后在页面内填写备注，按 Enter
+              或点击提交保存；记录会出现在右侧预览，点击已有记录可以重新编辑。
             </p>
             <div className="docs-callout">
               <MousePointer2 />
@@ -89,7 +103,7 @@ export function DocsPage() {
               >
                 <img
                   src="/marketing/element-annotation.png"
-                  alt="元素批注效果：网页标题高亮选中，右侧填写修改建议并确认保存"
+                  alt="元素批注效果：网页标题高亮选中，在页内填写修改建议并提交保存"
                   width="1440"
                   height="900"
                   loading="lazy"
@@ -97,7 +111,7 @@ export function DocsPage() {
                 />
               </a>
               <figcaption>
-                元素批注：选中页面元素，在右侧填写修改建议。<span>点击图片查看原图</span>
+                元素批注：选中页面元素，在页面内填写修改建议。<span>点击图片查看原图</span>
               </figcaption>
             </figure>
           </article>
@@ -106,10 +120,11 @@ export function DocsPage() {
             <h2>截图标注</h2>
             <AnnotationShortcutHint mode="capture" />
             <p>
-              在截图模式中拖拽建立选区，再使用移动、矩形、椭圆、箭头、画笔、文字、马赛克和序号工具完成说明。
+              进入截图模式会冻结当前画面。拖拽建立选区，可拖动边缘调整大小，再使用矩形、椭圆、箭头、画笔、文字、马赛克和序号工具标记。在工具栏旁填写备注，按
+              Enter 或点击提交后在右侧预览。
             </p>
             <div className="docs-tool-list">
-              {['移动选区', '矩形', '椭圆', '箭头', '画笔', '文字', '马赛克', '序号'].map(
+              {['调整选区', '矩形', '椭圆', '箭头', '画笔', '文字', '马赛克', '序号'].map(
                 (tool) => (
                   <span key={tool}>{tool}</span>
                 ),
@@ -124,7 +139,7 @@ export function DocsPage() {
               >
                 <img
                   src="/marketing/screenshot-editor.png"
-                  alt="截图标注效果：框选网页区域，使用顶部工具栏标记并在右侧填写备注"
+                  alt="截图标注效果：冻结网页画面后框选区域，在工具栏旁填写备注并提交"
                   width="1440"
                   height="900"
                   loading="lazy"
@@ -148,7 +163,7 @@ export function DocsPage() {
             <span>05</span>
             <h2>项目管理</h2>
             <p>
-              项目侧栏用于切换网站，历史标注用于回看记录。本地项目和标注保存在本机；云端项目按项目成员授权，可在管理后台处理与驳回。不同页面的标注独立显示。
+              项目侧栏用于切换网站，历史标注用于回看记录。本地项目和标注保存在本机；云端项目按项目成员授权，可在管理后台处理与驳回。右侧预览汇总当前项目记录，页面上的标记按对应网址回放。
             </p>
             <Button variant="outline" onClick={() => window.location.assign('/app')}>
               进入管理后台 <ArrowRight />

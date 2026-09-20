@@ -103,7 +103,7 @@ export function DeveloperGuide() {
         <pre>
           <code>
             {
-              'pnpm --filter @markfix/cli build\nmkdir -p artifacts\npnpm --filter @markfix/cli pack --pack-destination "$PWD/artifacts"\nnpm install -g ./artifacts/markfix-cli-0.1.0.tgz\ncd /path/to/your-repository\nmarkfix projects list --server http://localhost:4310 --allow-local-http'
+              'pnpm --filter @markfix/cli build\nmkdir -p artifacts\npnpm --filter @markfix/cli pack --pack-destination "$PWD/artifacts"\nnpm install -g ./artifacts/markfix-cli-0.1.1.tgz\ncd /path/to/your-repository\nmarkfix projects list --server http://localhost:4310 --allow-local-http'
             }
           </code>
         </pre>

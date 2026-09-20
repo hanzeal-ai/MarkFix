@@ -1,4 +1,4 @@
-import type { Anchor, Annotation, CaptureContext, PageSnapshot } from '@markfix/contracts';
+import type { Anchor, CaptureContext, PageSnapshot } from '@markfix/contracts';
 
 export type BrowserState = {
   url?: string;
@@ -22,8 +22,8 @@ export type CaptureSelection = Extract<Anchor, { kind: 'region' }>;
 export type CaptureSource = {
   dataUrl: string;
   captureScale: number;
-  page?: PageSnapshot;
-  capture?: CaptureContext;
+  page: PageSnapshot;
+  capture: CaptureContext;
 };
 
 export const numberedVisibleRecords = <T extends { id: string }>(
@@ -35,13 +35,6 @@ export const numberedVisibleRecords = <T extends { id: string }>(
     .filter((comment) => comment.id !== editingId)
     .reverse()
     .map((comment, index) => ({ comment, number: numberOffset + index + 1 }));
-
-export const annotationName = (annotation: Annotation): string => {
-  if (annotation.type === 'pin') return `Pin ${annotation.label}`;
-  if (annotation.type === 'text') return annotation.text;
-  if (annotation.type === 'pen') return 'Freehand mark';
-  return annotation.type === 'arrow' ? 'Arrow' : 'Rectangle';
-};
 
 export const elementAnchorsEqual = (
   left: Extract<Anchor, { kind: 'element' }>,

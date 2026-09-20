@@ -16,15 +16,10 @@ import {
 } from '@markfix/contracts';
 import { retryDelayMs } from './sync-policy.js';
 import { captureStorage, hydrateCapture, type StoredCapture } from './draft-store/capture-codec.js';
-import { initializeDraftStore } from './draft-store/migrations.js';
+import { initializeDraftStore } from './draft-store/initialize.js';
 
-// Older desktop profiles stored workspace ownership before project-scoped ownership.
-// Adapt only that retired field at the local read boundary; current writes stay strict.
-const readWebsiteProject = (payload: string): WebsiteProject => {
-  const stored = JSON.parse(payload) as Record<string, unknown>;
-  delete stored.workspaceId;
-  return websiteProjectSchema.parse(stored);
-};
+const readWebsiteProject = (payload: string): WebsiteProject =>
+  websiteProjectSchema.parse(JSON.parse(payload));
 
 export type OutboxEntry = {
   id: string;
@@ -38,8 +33,13 @@ export class DraftStore {
 
   constructor(path: string) {
     this.database = new Database(path);
-    this.database.pragma('journal_mode = WAL');
-    initializeDraftStore(this.database);
+    try {
+      initializeDraftStore(this.database);
+      this.database.pragma('journal_mode = WAL');
+    } catch (error) {
+      this.database.close();
+      throw error;
+    }
   }
 
   readLocalAgentState(): string | undefined {

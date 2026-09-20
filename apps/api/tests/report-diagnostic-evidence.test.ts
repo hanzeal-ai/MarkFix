@@ -29,7 +29,20 @@ describe('commercial annotation diagnostic details', () => {
       description: 'Request fails',
       status: 'OPEN',
       rejectionReason: null,
-      captureBundle: { page: { url: evidence.pageUrl }, evidence: [evidence] },
+      captureBundle: {
+        schemaVersion: 2,
+        annotationKind: 'COMMENT',
+        reproduction: [],
+        page: {
+          url: evidence.pageUrl,
+          title: 'Diagnostic page',
+          viewportWidthCssPx: 1200,
+          viewportHeightCssPx: 800,
+          deviceScaleFactor: 1,
+          capturedAt: evidence.timestamp,
+        },
+        evidence: [evidence],
+      },
       createdAt: new Date(),
       updatedAt: new Date(),
     });

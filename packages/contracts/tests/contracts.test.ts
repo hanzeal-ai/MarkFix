@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cloudProjectStateSchema,
   createEnvironmentSchema,
   createProjectSchema,
   createReportSchema,
@@ -43,7 +44,7 @@ describe('regionAnchorSchema', () => {
 });
 
 describe('elementAnchorSchema runtime evidence', () => {
-  it('accepts source-search evidence while remaining optional for old records', () => {
+  it('requires source-search evidence for current element anchors', () => {
     const base = {
       kind: 'element' as const,
       cssSelector: '#submit',
@@ -54,7 +55,7 @@ describe('elementAnchorSchema runtime evidence', () => {
       framePath: [],
       quadsCssPx: [[0, 0, 80, 0, 80, 30, 0, 30]],
     };
-    expect(elementAnchorSchema.safeParse(base).success).toBe(true);
+    expect(elementAnchorSchema.safeParse(base).success).toBe(false);
     expect(
       elementAnchorSchema.parse({
         ...base,
@@ -135,6 +136,21 @@ describe('website project storage ownership', () => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+
+  it('rejects retired workspace fields in cloud persisted project state', () => {
+    const state = {
+      project: { ...base, storageMode: 'CLOUD' },
+      navigation: { entries: [], currentIndex: -1 },
+      revision: 0,
+    };
+    expect(cloudProjectStateSchema.safeParse(state).success).toBe(true);
+    expect(
+      cloudProjectStateSchema.safeParse({
+        ...state,
+        project: { ...state.project, workspaceId: crypto.randomUUID() },
+      }).success,
+    ).toBe(false);
+  });
 
   it('supports both local and cloud projects without a tenancy selector', () => {
     expect(websiteProjectSchema.parse({ ...base, storageMode: 'LOCAL' }).storageMode).toBe('LOCAL');

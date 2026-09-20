@@ -27,7 +27,7 @@ const reportPayload = (input: CommercialReportInput, reportId: string) => ({
   description: input.note,
   priority: 'MEDIUM' as const,
   captureBundle: {
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     page: {
       url: input.pageUrl,
       title: input.title,
@@ -38,7 +38,7 @@ const reportPayload = (input: CommercialReportInput, reportId: string) => ({
     },
     annotationKind: input.kind,
     sourceAnnotationId: reportId,
-    annotations: [],
+
     reproduction: [],
   },
 });
@@ -46,7 +46,6 @@ const reportPayload = (input: CommercialReportInput, reportId: string) => ({
 export const createCommercialReport = async (
   database: DatabaseService,
   input: CommercialReportInput,
-  legacyAnnotationId?: string,
 ) => {
   const reportId = input.id ?? crypto.randomUUID();
   const submissionId = crypto.randomUUID();
@@ -58,30 +57,6 @@ export const createCommercialReport = async (
   const updatedAt = input.updatedAt ?? createdAt;
 
   return database.$transaction(async (transaction) => {
-    if (legacyAnnotationId) {
-      // Claim in the same transaction as creation: concurrent migration workers wait here.
-      const claimed = await transaction.managedAnnotation.deleteMany({
-        where: { id: legacyAnnotationId, sourceReportId: null },
-      });
-      if (claimed.count === 0) {
-        const existing = await transaction.report.findUnique({
-          where: { id: reportId },
-          include: {
-            reporter: { select: { id: true, displayName: true, email: true } },
-            submission: { select: { idempotencyKey: true } },
-          },
-        });
-        if (
-          !existing ||
-          existing.projectId !== input.projectId ||
-          existing.submission.idempotencyKey !== `commercial:${reportId}`
-        )
-          throw new Error(`Legacy annotation migration invariant failed: ${legacyAnnotationId}`);
-        const { submission, ...report } = existing;
-        void submission;
-        return report;
-      }
-    }
     await transaction.reportSubmission.create({
       data: {
         id: submissionId,
@@ -118,28 +93,4 @@ export const createCommercialReport = async (
     });
     return report;
   });
-};
-
-export const migrateLegacyManagedAnnotations = async (database: DatabaseService): Promise<void> => {
-  const legacy = await database.managedAnnotation.findMany({ where: { sourceReportId: null } });
-  for (const annotation of legacy) {
-    await createCommercialReport(
-      database,
-      {
-        id: annotation.id,
-        projectId: annotation.projectId,
-        authorId: annotation.authorId,
-        title: annotation.title,
-        note: annotation.note,
-        kind: annotation.kind,
-        pageUrl: annotation.pageUrl,
-        status: annotation.status === 'IN_REVIEW' ? 'OPEN' : annotation.status,
-        rejectionReason: annotation.rejectionReason,
-        createdAt: annotation.createdAt,
-        updatedAt: annotation.updatedAt,
-      },
-      annotation.id,
-    );
-  }
-  await database.managedAnnotation.deleteMany({ where: { sourceReportId: { not: null } } });
 };

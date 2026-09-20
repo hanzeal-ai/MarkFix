@@ -16,7 +16,7 @@ const sample = () => ({
   screenshotPath: randomUUID(),
   screenshotSha256: 'a'.repeat(64),
   captureBundle: {
-    schemaVersion: 1,
+    schemaVersion: 2,
     annotationKind: 'SCREENSHOT',
     sourceAnnotationId: randomUUID(),
     page: {
@@ -24,7 +24,7 @@ const sample = () => ({
       capturedAt: '2026-09-17T02:16:00.000Z',
     },
     anchor: { x: 10, y: 20 },
-    annotations: [],
+
     reproduction: [],
   },
 });

@@ -48,19 +48,6 @@ enum MembershipStatus {
   SUSPENDED
 }
 
-enum ManagedAnnotationStatus {
-  OPEN
-  IN_REVIEW
-  RESOLVED
-  REJECTED
-}
-
-enum ManagedAnnotationKind {
-  ELEMENT
-  SCREENSHOT
-  COMMENT
-}
-
 enum ProjectRecordKind {
   CAPTURE
   ELEMENT_COMMENT
@@ -82,7 +69,6 @@ model User {
   comments            Comment[]
   activities          Activity[]
   reportSubmissions   ReportSubmission[]
-  managedAnnotations  ManagedAnnotation[]
   agentGrants         AgentGrant[]
   agentRepositories   AgentRepository[]
   authSessions        AuthSession[]
@@ -169,7 +155,6 @@ model Project {
   environments      Environment[]
   reports           Report[]
   submissions       ReportSubmission[]
-  annotations       ManagedAnnotation[]
   repositoryId      String?                   @db.Uuid
   repository        AgentRepository?          @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
   repositoryName    String?
@@ -216,27 +201,6 @@ model ProjectAnnotationBatch {
   submittedAt DateTime
 
   @@index([projectId, submittedAt])
-}
-
-model ManagedAnnotation {
-  id              String                  @id @default(uuid()) @db.Uuid
-  sourceReportId  String?                 @unique @db.Uuid
-  projectId       String                  @db.Uuid
-  project         Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  authorId        String?                 @db.Uuid
-  author          User?                   @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  title           String
-  note            String
-  kind            ManagedAnnotationKind
-  pageUrl         String
-  status          ManagedAnnotationStatus @default(OPEN)
-  rejectionReason String?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-
-  @@index([projectId, updatedAt])
-  @@index([projectId, status, updatedAt])
-  @@index([authorId, status])
 }
 
 model Environment {

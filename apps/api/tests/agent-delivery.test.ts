@@ -19,10 +19,10 @@ it('preserves every task and the raw cursor while grouping a page; only reads so
     screenshotPath: randomUUID(),
     submission: { artifact: { sha256: 'a'.repeat(64) } },
     captureBundle: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       annotationKind: 'SCREENSHOT',
       page: { url: 'https://example.test/page', capturedAt: '2026-09-17T02:16:00.000Z' },
-      annotations: [],
+
       reproduction: [],
       anchor: { x: 10 },
     },

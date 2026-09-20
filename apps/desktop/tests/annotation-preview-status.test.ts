@@ -6,6 +6,24 @@ import {
 } from '../src/renderer/src/project-navigation/model';
 
 const capture = (id: string, status: SavedCapture['status'], pageUrl: string): SavedCapture => ({
+  page: {
+    url: 'https://example.test',
+    title: 'Fixture page',
+    viewportWidthCssPx: 1200,
+    viewportHeightCssPx: 800,
+    deviceScaleFactor: 1,
+    capturedAt: '2026-09-17T00:00:00.000Z',
+  },
+  capture: {
+    mode: 'region',
+    imageWidthPx: 1200,
+    imageHeightPx: 800,
+    widthCssPx: 1200,
+    heightCssPx: 800,
+    originCssPx: { x: 0, y: 0 },
+    captureScale: 1,
+    truncated: false,
+  },
   id,
   status,
   pageUrl,

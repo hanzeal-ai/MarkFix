@@ -55,6 +55,20 @@ describe('first annotation roaming guide', () => {
         active: true,
         numberOffset: 0,
         anchor: {
+          runtimeEvidence: {
+            schemaVersion: 1,
+            selectorCandidates: [],
+            classNames: [],
+            ancestorPath: [],
+            nearbyText: [],
+            pageBuild: {
+              scripts: [],
+              stylesheets: [],
+              sourceMapHints: [],
+              metadata: {},
+              frameworkHints: [],
+            },
+          },
           kind: 'element',
           cssSelector: '#welcome-title',
           textQuote: '不应显示的页面文字',

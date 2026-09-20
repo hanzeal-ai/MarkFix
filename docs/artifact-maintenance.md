@@ -36,12 +36,12 @@ Use a disposable PostgreSQL 18 database on `127.0.0.1`, named `audit`, with no w
 pnpm --filter @markfix/api exec tsx scripts/verify-maintenance.ts
 ```
 
-The check creates and removes its own workspace and temporary artifact directory. It verifies candidate/finalize interleaving, two cleanup workers, filesystem deletion failure, a late upload orphan, dry-run, both reference protections, repeat repair, concurrent legacy migration, rollback after failed report creation, and invalid provenance rejection. Its filesystem failure check requires a non-root POSIX user so directory permissions are enforced. Do not run it against a shared or production database.
+The check creates and removes its own project and temporary artifact directory. It verifies candidate/finalize interleaving, two cleanup workers, filesystem deletion failure, a late upload orphan, dry-run, both reference protections, repeat repair, Report creation and rollback after failed creation. Its filesystem failure check requires a non-root POSIX user so directory permissions are enforced. Do not run it against a shared or production database.
 
 The unit tests additionally verify that a later database query failure causes zero removals, unknown names/symlinks are ignored, and partial filesystem failures are reported.
 
-## Legacy annotation migration
+## Current annotation storage
 
-The existing startup migration remains for databases containing `ManagedAnnotation` records. Each source row is now claimed with conditional `deleteMany` inside the same transaction that creates its Report and finalized submission. A rollback restores the source row. A competing worker must find a matching project and `commercial:<reportId>` submission provenance before treating a lost claim as already migrated; missing/mismatched output fails closed.
+Report is the only annotation source. API startup no longer reads or converts ManagedAnnotation records. Migration `20260917000000_remove_managed_annotations` removes the retired table and enums only when the table is empty; if any row remains, the transaction fails without changing data. Review and reconcile those records in a separately authorized maintenance operation before deployment. Historical Prisma migrations remain immutable.
 
-Maintain this compatibility path until supported databases have no standalone or mirror `ManagedAnnotation` rows and deployment owners confirm no legacy producer remains. The API maintainers own this removal criterion. Moving it into a dedicated upgrade command is a future lifecycle change, not part of this patch. No database schema migration is introduced here.
+The same migration requires captureBundle v2 in Report and ReportSubmission, rejects retired drawing fields, and installs CHECK constraints that reject subsequent old producer writes. It also rejects old Activity states, project workspaceId, and record/batch annotations missing current page, capture, or runtime evidence. Every guard runs in the same transaction; rejection preserves rows. See [current contracts](current-contract.md).

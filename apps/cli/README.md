@@ -2,9 +2,29 @@
 
 将 MarkFix 云端或仅本机标注接入 Codex 会话。CLI 负责授权、项目识别、标注读取和结果同步；Codex 负责修改代码与执行验证。
 
-本文适用于 CLI **0.1.0**。当前支持 Codex，通过随包提供的 MarkFix Skill 接入。
+本文适用于 CLI **0.1.1**。当前支持 Codex，通过随包提供的 MarkFix Skill 接入。
 
 本机模式无需云端账号，见下方“本地与云端”；以下快速开始介绍云端服务。
+
+## 更新 CLI 与 Skill
+
+取得新版本安装包后执行：
+
+```sh
+npm install -g ./markfix-cli-0.1.1.tgz
+markfix --version
+markfix skill install --force
+```
+
+Skill 更新无需桌面运行或云端授权，覆盖前会备份旧文件并返回 `backupPath`；新建 Codex 会话加载更新。首次单独安装可用 `markfix skill install`，已有文件会保留。更新 CLI 不会删除凭据或待同步结果。
+
+## 从网页标注到修复
+
+1. 在桌面创建仅本机或云端项目，打开目标页面。
+2. 元素批注：选中元素，在页面内输入备注，按 Enter 或点击提交保存。
+3. 截图标注：进入截图模式冻结当前画面，框选并标记，在工具栏旁填写备注并提交。
+4. 在右侧预览检查记录，再使用右上角提交入口勾选要交给 Agent 的标注。仅保存备注不会进入 CLI 队列。
+5. 在对应代码仓库登记并绑定项目，再让 Codex 读取、修复、验证和回写。
 
 ## 云端前置条件
 
@@ -19,15 +39,15 @@
 
 ### 1. 安装
 
-从 MarkFix 服务管理员获取 `markfix-cli-0.1.0.tgz`。在安装包所在目录执行：
+从 MarkFix 服务管理员获取 `markfix-cli-0.1.1.tgz`。在安装包所在目录执行：
 
 ```sh
 node --version
-npm install -g ./markfix-cli-0.1.0.tgz
+npm install -g ./markfix-cli-0.1.1.tgz
 markfix --version
 ```
 
-预期版本输出为 `0.1.0`。安装、帮助和版本查询不会发起授权。
+预期版本输出为 `0.1.1`。安装、帮助和版本查询不会发起授权。
 
 ### 2. 首次使用自动授权
 
@@ -91,7 +111,7 @@ markfix issues list --project PROJECT_ID
 
 > 使用 MarkFix Skill，读取当前项目的待处理标注。逐条修复并运行必要验证，将每条问题的修复结果回写到 MarkFix。
 
-Skill 默认安装在 `~/.codex/skills/markfix/SKILL.md`；设置 `CODEX_HOME` 时位于该目录下的 `skills/markfix/SKILL.md`。已有同名文件不会被覆盖，出现保留提示时请核对其内容。
+Skill 默认安装在 `~/.codex/skills/markfix/SKILL.md`；设置 `CODEX_HOME` 时位于该目录下的 `skills/markfix/SKILL.md`。已有同名文件不会自动覆盖；需要升级时运行 `markfix skill install --force`，旧文件会先备份。
 
 管理后台显示“已完成”代表服务端已经确认修复结果，不表示代码已经提交或部署。失败记录包含具体原因与阶段。
 
@@ -228,9 +248,9 @@ markfix issues list --project PROJECT_ID --local
 
 云端／自托管 API 的 `issues list` 保留原始 `items` 和 `nextCursor`，增加只读的 `delivery` 修复规划信息。`groups` 将同一页内项目、环境、人员、状态、优先级、文字、完整捕获上下文（包括捕获时间）和截图 SHA-256 一致的记录放入一组；源标注 ID 和截图存储路径不参与内容比较。缺少必要证据或证据格式不支持时，记录保持独立。每组保留全部 `memberIds`，不删除、修改或自动关闭源标注与报告。
 
-执行端可为证据一致的一组复用修复上下文，但仍须逐条读取最新详情、领取、验证并回报结果。`relatedPages` 只提示同项目、环境和完整页面 URL 下的候选，不能作为重复结论；文字相似或模型判断不能直接隐藏任务。分页仍以原始 `nextCursor` 为准，跨页不自动去重。旧执行端以及仅本机模式继续按原始列表工作。
+执行端可为证据一致的一组复用修复上下文，但仍须逐条读取最新详情、领取、验证并回报结果。`relatedPages` 只提示同项目、环境和完整页面 URL 下的候选，不能作为重复结论；文字相似或模型判断不能直接隐藏任务。分页仍以原始 `nextCursor` 为准，跨页不自动去重。仅本机模式继续按原始列表工作。
 
-这项能力需要更新 API 和执行端使用的 MarkFix Skill。CLI 安装会保留已有 Skill，不会自动覆盖；仅更新 API 不会让旧 Skill 自动复用分组。恢复旧行为只需回退下发分组代码与对应 Skill，无数据库迁移或源数据恢复操作。
+这项能力需要更新 API 和执行端使用的 MarkFix Skill。CLI 初始化会保留已有 Skill；使用 `markfix skill install --force` 备份并更新。仅更新 API 不会让旧 Skill 自动复用分组。云端响应必须包含完整分组信息；缺失或与原始任务不一致时停止处理并报告服务契约错误。本机端按当前 `items` 契约逐条处理。
 
 ## 从源码打包
 

@@ -3,6 +3,20 @@ import type { ElementAnchor } from '@markfix/contracts';
 import { pickBestAnchorCandidate, scoreAnchorCandidate } from '../src/index.js';
 
 const anchor: ElementAnchor = {
+  runtimeEvidence: {
+    schemaVersion: 1,
+    selectorCandidates: [],
+    classNames: [],
+    ancestorPath: [],
+    nearbyText: [],
+    pageBuild: {
+      scripts: [],
+      stylesheets: [],
+      sourceMapHints: [],
+      metadata: {},
+      frameworkHints: [],
+    },
+  },
   kind: 'element',
   cssSelector: '#submit',
   textQuote: 'Submit report',

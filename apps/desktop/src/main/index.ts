@@ -1445,7 +1445,16 @@ app.whenReady().then(async () => {
   websiteSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(['clipboard-sanitized-write'].includes(permission));
   });
-  draftStore = new DraftStore(join(app.getPath('userData'), 'markfix.sqlite'));
+  try {
+    draftStore = new DraftStore(join(app.getPath('userData'), 'markfix.sqlite'));
+  } catch (error) {
+    dialog.showErrorBox(
+      '无法打开 MarkFix 数据',
+      error instanceof Error ? error.message : String(error),
+    );
+    app.quit();
+    return;
+  }
   draftStore.recoverInterrupted();
   try {
     localAgent = new LocalAgentService(draftStore, (report) =>

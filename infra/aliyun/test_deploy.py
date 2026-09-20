@@ -65,7 +65,9 @@ except BlockingIOError: sys.exit(1)
         backup = next(i for i, x in enumerate(calls) if 'pg_dump' in x)
         migration = next(i for i, x in enumerate(calls) if 'run' in x)
         app = next(i for i, x in enumerate(calls) if 'up' in x and 'api' in x)
-        self.assertLess(backup, migration)
+        stop = next(i for i, x in enumerate(calls) if 'stop' in x)
+        self.assertLess(backup, stop)
+        self.assertLess(stop, migration)
         self.assertLess(migration, app)
         self.assertEqual(len(list((self.deploy_root / 'backups').glob('*.sql'))), 1)
         self.assertEqual(self.run_deploy().returncode, 0)
@@ -95,27 +97,28 @@ except BlockingIOError: sys.exit(1)
         self.assertFalse((self.deploy_root / 'current').exists())
         self.assertEqual(self.calls()[-1]['args'][-3:], ['stop', 'api', 'dashboard'])
 
-    def test_failed_update_restores_previous_digests(self):
-        for phase in ['deploy', 'http']:
+    def test_failed_update_stops_writers_and_requires_forward_repair(self):
+        for phase in ['migrate', 'deploy', 'http']:
             with self.subTest(phase=phase):
                 self.assertEqual(self.run_deploy().returncode, 0)
                 before = (self.deploy_root / 'current').resolve()
+                count = len(self.calls())
                 result = self.run_deploy(FAIL_PHASE=phase,
                     API_IMAGE='crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-api@sha256:' + 'c' * 64)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual((self.deploy_root / 'current').resolve(), before)
-                self.assertIn('a' * 64, self.calls()[-1]['images'])
-                self.assertNotIn('c' * 64, self.calls()[-1]['images'])
-                self.assertIn('Previous application images restored', result.stderr)
-
-    def test_failed_migration_leaves_previous_application(self):
-        self.assertEqual(self.run_deploy().returncode, 0)
-        before = (self.deploy_root / 'current').resolve()
-        count = len(self.calls())
-        self.assertNotEqual(self.run_deploy(FAIL_PHASE='migrate').returncode, 0)
-        self.assertEqual((self.deploy_root / 'current').resolve(), before)
-        self.assertFalse(any(('up' in x['args'] and 'api' in x['args']) or
-                             'stop' in x['args'] for x in self.calls()[count:]))
+                calls = self.calls()[count:]
+                args = [x['args'] for x in calls]
+                stop = next(i for i, x in enumerate(args) if 'stop' in x)
+                migration = next(i for i, x in enumerate(args) if 'run' in x)
+                self.assertLess(stop, migration)
+                self.assertEqual(args[-1][-3:], ['stop', 'api', 'dashboard'])
+                self.assertTrue(all('c' * 64 in x['images'] for x in calls))
+                if phase == 'migrate':
+                    self.assertFalse(any('up' in x and 'api' in x for x in args))
+                self.assertIn('Repair forward with the current contract', result.stderr)
+                self.assertIn('Database backup:', result.stderr)
+                self.assertIn('do not restart previous images', result.stderr)
 
     def test_concurrent_deploy_is_rejected(self):
         import fcntl

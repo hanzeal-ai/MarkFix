@@ -12,8 +12,9 @@ const report = (captureScale = 2): CreateReport => ({
   priority: 'MEDIUM',
   screenshotDataUrl: `data:image/png;base64,${Buffer.alloc(200, 1).toString('base64')}`,
   captureBundle: {
-    schemaVersion: 1,
-    annotations: [],
+    annotationKind: 'COMMENT',
+    schemaVersion: 2,
+
     reproduction: [],
     page: {
       url: 'https://example.com',

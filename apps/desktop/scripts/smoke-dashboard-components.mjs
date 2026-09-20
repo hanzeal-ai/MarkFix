@@ -259,6 +259,12 @@ async function main() {
         `[...document.querySelectorAll('.premium-site img')].every(img=>img.complete && img.naturalWidth>0)`,
       );
       await screenshot('marketing-home');
+      assert.equal(await run(`document.querySelectorAll('.home-workflow li').length`), 4);
+      await run(
+        `document.querySelector('.home-workflow').scrollIntoView({block:'center',behavior:'instant'})`,
+      );
+      await screenshot('marketing-workflow');
+      await click('.home-demo-disclosure summary');
       await run(
         `document.querySelector('.mf-demo-shell').scrollIntoView({block:'start',behavior:'instant'})`,
       );
@@ -352,12 +358,25 @@ async function main() {
         await win.loadURL(origin + route);
         await waitFor(`!!document.querySelector('h1')`);
         await screenshot('marketing' + route.replace('/', '-'));
+        if (route === '/docs') {
+          await run(
+            `document.querySelector('#cli-local').scrollIntoView({block:'start',behavior:'instant'})`,
+          );
+          await screenshot('marketing-cli-local');
+          assert.equal(
+            await run(
+              `document.querySelector('#cli-upgrade').textContent.includes('markfix skill install --force')`,
+            ),
+            true,
+          );
+        }
       }
       win.setContentSize(390, 844);
       await win.loadURL(origin);
       await waitFor(`!!document.querySelector('.mf-demo-shell')`);
       assert.equal(await run(`document.documentElement.scrollWidth <= innerWidth`), true);
       await screenshot('marketing-mobile');
+      await click('.home-demo-disclosure summary');
       await run(`document.querySelector('.mf-demo-shell').scrollIntoView({behavior:'instant'})`);
       await click('[aria-label="标注页面主标题"]');
       await note('移动端建议');

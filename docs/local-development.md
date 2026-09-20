@@ -86,7 +86,7 @@ pnpm dev:desktop
 pnpm --filter @markfix/cli build
 mkdir -p artifacts
 pnpm --filter @markfix/cli pack --pack-destination "$PWD/artifacts"
-npm install -g ./artifacts/markfix-cli-0.1.0.tgz
+npm install -g ./artifacts/markfix-cli-0.1.1.tgz
 cd /path/to/your-repository
 markfix projects list --server http://localhost:4310 --allow-local-http
 ```
