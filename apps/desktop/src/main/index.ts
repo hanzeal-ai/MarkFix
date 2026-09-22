@@ -1,3 +1,4 @@
+import type { CapturePin, ElementCommentPin } from '../capture-pin';
 import { serviceUrls } from '@markfix/contracts';
 import { repositoryBindingSchema, type AgentRepository } from '@markfix/contracts';
 import { execFile } from 'node:child_process';
@@ -30,7 +31,6 @@ import {
   type BrowserMode,
   type CloudProjectState,
   type ProjectStorageMode,
-  type SavedElementComment,
   type WebsiteProject,
 } from '@markfix/contracts';
 import { MarkFixApi, MarkFixApiError } from '@markfix/api-client';
@@ -98,12 +98,14 @@ const requireLocalAgent = () => {
   return localAgent;
 };
 let shellWebContentsId: number | undefined;
-let currentElementComments: SavedElementComment[] = [];
+let currentCapturePins: CapturePin[] = [];
+let currentElementComments: ElementCommentPin[] = [];
 let currentAnchor: Anchor | undefined;
 let syncTimer: ReturnType<typeof setInterval> | undefined;
 let pageRevision = randomUUID();
 let authenticatedUser: { id: string; email: string; displayName: string } | undefined;
 let currentBrowserMode: BrowserMode = 'browse';
+let browserModeRequest = 0;
 let diagnosticsOpen = false;
 let navigationSidebarWidth = 228;
 let workspaceViewVisible = false;
@@ -772,6 +774,7 @@ const createWindow = async (): Promise<void> => {
     websiteView?.webContents.send('markfix:set-mode', currentBrowserMode);
     void refreshCaptureSnapshot();
     websiteView?.webContents.send('markfix:render-element-comments', currentElementComments);
+    websiteView?.webContents.send('markfix:render-capture-pins', currentCapturePins);
     if (currentAnchor?.kind === 'element')
       websiteView?.webContents.send('markfix:resolve-anchor', {
         anchor: currentAnchor,
@@ -835,6 +838,10 @@ const registerIpc = (): void => {
     projects: () => [...websiteProjectsById.values()],
     activeProjectId: () => activeWebsiteProjectId,
     websiteView: () => websiteView,
+    capturePins: () => currentCapturePins,
+    setCapturePins: (pins) => {
+      currentCapturePins = pins;
+    },
     elementComments: () => currentElementComments,
     setElementComments: (comments) => {
       currentElementComments = comments;
@@ -1168,6 +1175,7 @@ const registerIpc = (): void => {
       workspaceViewVisible = false;
       websiteContentReady = false;
       currentElementComments = [];
+      currentCapturePins = [];
       currentAnchor = undefined;
       layoutWebsite();
       void websiteView?.webContents.loadURL('about:blank');
@@ -1305,10 +1313,16 @@ const registerIpc = (): void => {
   ipcMain.handle(ipcChannels.setMode, async (event, input: unknown) => {
     assertShellSender(event);
     const mode = browserModeSchema.parse(input);
+    const request = ++browserModeRequest;
     if (currentBrowserMode === 'comment') await inspector?.stop();
+    if (request !== browserModeRequest) return;
     const enteringCapture = mode === 'capture' && currentBrowserMode !== 'capture';
     if (enteringCapture) {
-      const snapshot = await captureService?.freeze();
+      const snapshot = await captureService?.freeze().catch((error: unknown) => {
+        if (request !== browserModeRequest) return undefined;
+        throw error;
+      });
+      if (request !== browserModeRequest) return;
       if (!snapshot) throw new Error('Capture service is unavailable');
       websiteView?.webContents.send('markfix:capture-snapshot', snapshot.dataUrl);
     } else if (mode !== 'capture') {
@@ -1318,7 +1332,12 @@ const registerIpc = (): void => {
     currentBrowserMode = mode;
     layoutWebsite();
     websiteView?.webContents.send('markfix:set-mode', mode);
-    if (mode === 'comment') await inspector?.start();
+    if (mode === 'comment')
+      await inspector?.start(
+        ![...currentElementComments, ...currentCapturePins].some(
+          (comment) => comment.pageUrl === websiteView?.webContents.getURL(),
+        ),
+      );
   });
   ipcMain.handle(ipcChannels.openAnnotationReview, async (event, input: unknown) => {
     assertShellSender(event);
@@ -1386,6 +1405,7 @@ const registerIpc = (): void => {
       return;
     }
     const nextAnchor = anchorSchema.parse(input);
+    if (nextAnchor.kind === 'element') void inspector?.pauseSelection();
     const alreadyRendered = anchorsEqual(currentAnchor, nextAnchor);
     currentAnchor = nextAnchor;
     if (currentAnchor.kind === 'element' && !alreadyRendered)

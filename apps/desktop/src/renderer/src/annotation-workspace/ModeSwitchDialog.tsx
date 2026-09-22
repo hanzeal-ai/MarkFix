@@ -8,33 +8,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@markfix/ui';
-import type { ProjectAnnotation } from '../project-navigation/model';
 
-export function HistoryRestoreDialog({
-  annotation,
+export function ModeSwitchDialog({
+  open,
   onCancel,
   onConfirm,
 }: {
-  annotation: ProjectAnnotation | undefined;
+  open: boolean;
   onCancel: () => void;
-  onConfirm: (annotation: ProjectAnnotation) => void;
+  onConfirm: () => void;
 }) {
   return (
-    <AlertDialog open={Boolean(annotation)} onOpenChange={(open) => !open && onCancel()}>
+    <AlertDialog open={open} onOpenChange={(open) => !open && onCancel()}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>放弃当前编辑内容？</AlertDialogTitle>
           <AlertDialogDescription>
-            当前有未保存的编辑内容。恢复历史标注将放弃这些内容，此操作无法撤销。
+            切换模式将放弃当前未保存的修改，已保存的批注会保留。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>取消</AlertDialogCancel>
           <AlertDialogAction
             className="bg-destructive text-white hover:bg-destructive/90"
-            onClick={() => annotation && onConfirm(annotation)}
+            onClick={onConfirm}
           >
-            放弃并恢复
+            放弃并切换
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

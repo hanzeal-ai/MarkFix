@@ -3,6 +3,7 @@ import { anchorSchema } from '@markfix/contracts';
 
 export const inlineNoteSchema = z.object({
   mode: z.enum(['comment', 'capture']),
+  annotationId: z.uuid().optional(),
   anchor: anchorSchema,
   note: z.string().max(2000),
   ready: z.boolean(),

@@ -7,6 +7,7 @@ import {
   type DiagnosticEvidence,
   type SavedElementComment,
 } from '@markfix/contracts';
+import { elementCommentScreenshotPreference } from '../desktop-preferences';
 import { anchorRecoveryNotice } from './anchor-recovery';
 import { elementAnchorsEqual } from './model';
 import { rejectedRecordUpdates, type ReportRejection } from '../report-reconciliation';
@@ -79,7 +80,7 @@ export function useElementCommentEditor({
         elementCapturePromiseRef.current = undefined;
         const captureRequestId = crypto.randomUUID();
         captureRequestIdRef.current = captureRequestId;
-        if (!existing) {
+        if (!existing && elementCommentScreenshotPreference(window.localStorage)) {
           elementCapturePromiseRef.current = window.markfix
             .capture({ mode: 'element', anchor: nextAnchor })
             .then((result) => {

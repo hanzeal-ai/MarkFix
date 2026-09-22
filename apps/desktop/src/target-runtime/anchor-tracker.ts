@@ -172,7 +172,7 @@ export class AnchorTracker {
   private renderLabel(selectorValue: string, minX: number, minY: number): void {
     if (!selectorValue) return;
     const selector = selectorValue.slice(0, 80);
-    const x = Math.max(4, minX);
+    const x = Math.max(28, minX + 16);
     const y = minY >= 20 ? minY - 20 : minY + 2;
     const width = Math.min(260, Math.max(54, selector.length * 6.5 + 12));
     const group = svgElement('g');

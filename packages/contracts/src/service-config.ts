@@ -1,6 +1,6 @@
 // The deployed website and API share this origin. Change it here when moving to a domain.
 export const serviceConfig = {
-  productionOrigin: 'http://121.40.211.86:8766',
+  productionOrigin: 'https://markfix.hanzeal.com',
   developmentOrigin: 'http://localhost:4311',
   developmentApiOrigin: 'http://localhost:4310',
 } as const;

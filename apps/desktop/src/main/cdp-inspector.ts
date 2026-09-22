@@ -458,7 +458,7 @@ export class CdpInspector {
     });
   }
 
-  async start(): Promise<void> {
+  async start(selecting = true): Promise<void> {
     this.active = true;
     try {
       if (!this.webContents.debugger.isAttached()) {
@@ -468,8 +468,10 @@ export class CdpInspector {
       await this.webContents.debugger.sendCommand('DOM.enable');
       await this.webContents.debugger.sendCommand('Debugger.enable');
       await this.webContents.debugger.sendCommand('Overlay.enable');
-      await this.enableInspectMode();
-      this.state = 'SELECTING';
+      if (selecting) {
+        await this.enableInspectMode();
+        this.state = 'SELECTING';
+      } else await this.pauseSelection();
     } catch (error) {
       this.active = false;
       this.state = 'READY';
@@ -496,6 +498,16 @@ export class CdpInspector {
       const oldestKey = this.scriptAssets.keys().next().value;
       if (typeof oldestKey === 'string') this.scriptAssets.delete(oldestKey);
     }
+  }
+
+  async pauseSelection(): Promise<void> {
+    if (!this.webContents.debugger.isAttached()) return;
+    await this.webContents.debugger.sendCommand('Overlay.setInspectMode', {
+      mode: 'none',
+      highlightConfig: {},
+    });
+    await this.webContents.debugger.sendCommand('Overlay.hideHighlight');
+    this.state = 'READY';
   }
 
   async stop(): Promise<void> {

@@ -31,13 +31,12 @@ import {
   type WebsiteProject,
 } from '@markfix/contracts';
 import { hasDesktopUpdateEdits } from '../../../desktop-update';
-import { selectEditableProjectPageRecords } from '../page-records';
-import { projectReportOverlays } from '../project-report-overlays';
+import { previewAnnotationPins } from '../preview-annotation-pins';
 import { latestReportRejections, rejectedRecordUpdates } from '../report-reconciliation';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
 import { AnnotationPreview } from './AnnotationPreview';
 import { BrowserToolbar } from './BrowserToolbar';
-import { HistoryRestoreDialog } from './HistoryRestoreDialog';
+import { ModeSwitchDialog } from './ModeSwitchDialog';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { projectErrorMessage } from '../project-error';
 import { ProjectLoadState } from './ProjectLoadState';
@@ -142,8 +141,7 @@ export function AnnotationWorkspace({
   const mergeProjectReport = useCallback((report: Report): void => {
     setProjectReports((current) => [report, ...current.filter(({ id }) => id !== report.id)]);
   }, []);
-  const [pendingHistoricalAnnotation, setPendingHistoricalAnnotation] =
-    useState<ProjectAnnotation>();
+  const [pendingMode, setPendingMode] = useState<BrowserMode>();
   const [agentProject, setAgentProject] = useState<WebsiteProject>();
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
   useEffect(() => setPreviewOpen(false), [selectedProjectId]);
@@ -200,6 +198,7 @@ export function AnnotationWorkspace({
   const projectReportRequestRef = useRef(0);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const modeRef = useRef<BrowserMode>('browse');
+  const requestModeRef = useRef<(mode: BrowserMode) => void>(() => undefined);
   const browserLoadingRef = useRef(false);
   const diagnosticsOpenRef = useRef(false);
   const diagnosticAnnotationsRef = useRef<SavedDiagnosticAnnotation[]>([]);
@@ -275,10 +274,6 @@ export function AnnotationWorkspace({
     [selectedProjectId, websiteProjects],
   );
   const currentPageUrl = browserState.url ?? url;
-  const pageElementComments = useMemo(
-    () => selectEditableProjectPageRecords(elementComments, selectedProjectId, pageSessionId),
-    [elementComments, pageSessionId, selectedProjectId],
-  );
   const previewVisible = previewOpen && activeView === 'workspace';
   const currentProjectAnnotations = useMemo(
     () =>
@@ -291,10 +286,6 @@ export function AnnotationWorkspace({
           )
         : [],
     [diagnosticAnnotations, elementComments, savedCaptures, selectedProjectId],
-  );
-  const serverOverlays = useMemo(
-    () => projectReportOverlays(projectReports, selectedProjectId, pageSessionId, currentPageUrl),
-    [currentPageUrl, pageSessionId, projectReports, selectedProjectId],
   );
   const reportRejections = useMemo(() => latestReportRejections(projectReports), [projectReports]);
 
@@ -328,20 +319,13 @@ export function AnnotationWorkspace({
     syncCaptureReportRejections,
     syncElementReportRejections,
   ]);
-  const renderedElementComments = useMemo(
-    () => [
-      ...new Map(
-        [...serverOverlays.elementComments, ...pageElementComments].map((comment) => [
-          comment.id,
-          comment,
-        ]),
-      ).values(),
-    ],
-    [pageElementComments, serverOverlays.elementComments],
-  );
   const currentPreviewAnnotations = useMemo(
     () => previewAnnotations(currentProjectAnnotations),
     [currentProjectAnnotations],
+  );
+  const previewPins = useMemo(
+    () => previewAnnotationPins(currentPreviewAnnotations),
+    [currentPreviewAnnotations],
   );
   const unsubmittedCount = useMemo(
     () => currentProjectAnnotations.filter(({ record }) => record.status === 'draft').length,
@@ -392,21 +376,7 @@ export function AnnotationWorkspace({
           return;
         }
         if (payload !== 'capture' && payload !== 'comment') return;
-        const destination = modeRef.current === payload ? 'browse' : payload;
-        flushSync(() => {
-          if (destination !== 'browse') setPreviewOpen(false);
-          if (destination === 'comment') {
-            resetCaptureDraft();
-            clearElementSelection();
-          } else if (destination === 'capture') {
-            clearElementSelection();
-            beginCaptureMode();
-          }
-          if (shouldCollapseSidebarForMode(destination)) setSidebarExpanded(false);
-          modeRef.current = destination;
-          setModeState(destination);
-        });
-        void window.markfix.setMode(destination);
+        requestModeRef.current(modeRef.current === payload ? 'browse' : payload);
       }),
       window.markfix.onSyncStatus((payload) => {
         const report = reportSchema.safeParse((payload as { report?: unknown }).report);
@@ -596,7 +566,10 @@ export function AnnotationWorkspace({
     window.localStorage.setItem('markfix:annotation-panel-width', String(rightPanelWidth));
     void window.markfix.setWorkspaceLayout(
       sidebarExpanded ? sidebarWidth : 0,
-      activeView === 'workspace' && !pendingDeleteProject && !agentProject,
+      activeView === 'workspace' &&
+        !pendingDeleteProject &&
+        !agentProject &&
+        pendingMode === undefined,
       sidebarMenuOpen || (!sidebarExpanded && sidebarPeek) ? sidebarWidth : 0,
       previewVisible ? rightPanelWidth : 0,
     );
@@ -608,6 +581,7 @@ export function AnnotationWorkspace({
     sidebarMenuOpen,
     pendingDeleteProject,
     agentProject,
+    pendingMode,
     rightPanelWidth,
     previewVisible,
   ]);
@@ -662,8 +636,9 @@ export function AnnotationWorkspace({
   }, [selectedProjectId]);
 
   useEffect(() => {
-    void window.markfix.syncElementComments(renderedElementComments);
-  }, [renderedElementComments]);
+    void window.markfix.syncElementComments(previewPins.elementComments);
+    void window.markfix.syncCapturePins(previewPins.captures);
+  }, [previewPins]);
 
   const setMode = async (nextMode: BrowserMode): Promise<void> => {
     // Commit the native-view layout before the main process takes the entry snapshot.
@@ -678,11 +653,22 @@ export function AnnotationWorkspace({
     await window.markfix.setMode(nextMode);
   };
 
-  const toggleMode = (nextMode: 'comment' | 'capture'): Promise<void> => {
-    const destination = !previewOpen && mode === nextMode ? 'browse' : nextMode;
-    if (destination === 'comment') clearElementSelection();
+  const applyUserMode = async (destination: BrowserMode): Promise<void> => {
+    clearElementSelection();
+    resetCaptureDraft();
     if (destination === 'capture') beginCaptureMode();
-    return setMode(destination);
+    await setMode(destination);
+  };
+  const requestMode = (destination: BrowserMode): void => {
+    if (destination !== mode && (editingElementCommentId || editingCaptureId)) {
+      setPendingMode(destination);
+      return;
+    }
+    void applyUserMode(destination);
+  };
+  requestModeRef.current = requestMode;
+  const toggleMode = (nextMode: 'comment' | 'capture'): void => {
+    requestMode(!previewOpen && mode === nextMode ? 'browse' : nextMode);
   };
 
   const toggleDiagnostics = async (): Promise<void> => {
@@ -786,6 +772,7 @@ export function AnnotationWorkspace({
         ? {
             mode,
             anchor: selection,
+            annotationId: mode === 'comment' ? editingElementCommentId : editingCaptureId,
             note: mode === 'comment' ? elementCommentNote : captureNote,
             ready:
               mode === 'comment' || Boolean(screenshot && !captureLoading && !captureRendering),
@@ -798,6 +785,8 @@ export function AnnotationWorkspace({
     captureSelection,
     elementCommentNote,
     captureNote,
+    editingElementCommentId,
+    editingCaptureId,
     screenshot,
     captureLoading,
     captureRendering,
@@ -1002,10 +991,8 @@ export function AnnotationWorkspace({
   };
 
   const editHistoricalAnnotation = async (annotation: ProjectAnnotation): Promise<void> => {
-    if (hasUnsavedDraft()) {
-      setPendingHistoricalAnnotation(annotation);
-      return;
-    }
+    clearElementSelection();
+    await cancelCapture();
     await restoreHistoricalAnnotation(annotation);
   };
   editHistoricalAnnotationRef.current = editHistoricalAnnotation;
@@ -1125,16 +1112,14 @@ export function AnnotationWorkspace({
       onNew={openNewAnnotation}
     />
   );
-  const historyRestoreDialog = (
-    <HistoryRestoreDialog
-      annotation={pendingHistoricalAnnotation}
-      onCancel={() => setPendingHistoricalAnnotation(undefined)}
-      onConfirm={(annotation) => {
-        setPendingHistoricalAnnotation(undefined);
-        void (async () => {
-          await resetTransientDraft();
-          await restoreHistoricalAnnotation(annotation);
-        })();
+  const modeSwitchDialog = (
+    <ModeSwitchDialog
+      open={pendingMode !== undefined}
+      onCancel={() => setPendingMode(undefined)}
+      onConfirm={() => {
+        const destination = pendingMode;
+        setPendingMode(undefined);
+        if (destination !== undefined) void applyUserMode(destination);
       }}
     />
   );
@@ -1161,6 +1146,7 @@ export function AnnotationWorkspace({
       }}
       onRightResize={(width, dragStartWidth) => {
         if (activeView !== 'workspace') return;
+        if (width > 0 && !previewOpen && dragStartWidth === undefined) return;
         if (width === 0) {
           if (dragStartWidth) setRightPanelWidth(dragStartWidth);
           setPreviewOpen(false);
@@ -1200,7 +1186,7 @@ export function AnnotationWorkspace({
         {resizeLayout}
         <header className="navigation-header" />
         <div className="window-controls">{headerNavigation}</div>
-        {historyRestoreDialog}
+        {modeSwitchDialog}
         {deleteProjectDialog}
         <ProjectAgentDialog project={agentProject} onClose={() => setAgentProject(undefined)} />
         <NewProjectPage
@@ -1237,7 +1223,7 @@ export function AnnotationWorkspace({
         {navigation}
       </div>
       {resizeLayout}
-      {historyRestoreDialog}
+      {modeSwitchDialog}
       {deleteProjectDialog}
       <ProjectAgentDialog project={agentProject} onClose={() => setAgentProject(undefined)} />
       <header className="browser-bar">

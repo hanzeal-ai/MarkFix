@@ -4,6 +4,7 @@ export type StartupView = 'new' | 'last-project';
 
 export const desktopPreferenceKeys = {
   startupView: 'markfix:startup-view',
+  elementCommentScreenshot: 'markfix:element-comment-screenshot',
   newAnnotationStorageMode: 'markfix:new-annotation-storage-mode',
   lastProjectId: 'markfix:last-project-id',
 } as const;
@@ -24,3 +25,6 @@ export const startupProjectPreference = (
   const lastProjectId = storage.getItem(desktopPreferenceKeys.lastProjectId);
   return projects.find(({ id }) => id === lastProjectId) ?? projects[0];
 };
+
+export const elementCommentScreenshotPreference = (storage: ReadableStorage): boolean =>
+  storage.getItem(desktopPreferenceKeys.elementCommentScreenshot) === 'true';

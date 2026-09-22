@@ -3,6 +3,7 @@ import {
   Alert,
   AlertDescription,
   Button,
+  Checkbox,
   toast,
   Kbd,
   KbdGroup,
@@ -20,6 +21,7 @@ import type { ProjectStorageMode } from '@markfix/contracts';
 import { SubscriptionSettings } from './SubscriptionWindow';
 import {
   desktopPreferenceKeys,
+  elementCommentScreenshotPreference,
   newAnnotationStorageModePreference,
   startupViewPreference,
   type StartupView,
@@ -151,6 +153,9 @@ function AccountSettings(): React.JSX.Element {
 }
 
 export function SettingsWindow(): React.JSX.Element {
+  const [elementCommentScreenshot, setElementCommentScreenshot] = useState(() =>
+    elementCommentScreenshotPreference(window.localStorage),
+  );
   const [startupView, setStartupView] = useState<StartupView>(() =>
     startupViewPreference(window.localStorage),
   );
@@ -233,6 +238,24 @@ export function SettingsWindow(): React.JSX.Element {
                     </Label>
                   ))}
                 </RadioGroup>
+              </div>
+            </div>
+            <h2>文字标注</h2>
+            <div className="settings-option-list">
+              <div className="settings-option-row">
+                <Label htmlFor="element-comment-screenshot">文字标注保存截图</Label>
+                <Checkbox
+                  id="element-comment-screenshot"
+                  checked={elementCommentScreenshot}
+                  onCheckedChange={(checked) => {
+                    const enabled = checked === true;
+                    setElementCommentScreenshot(enabled);
+                    window.localStorage.setItem(
+                      desktopPreferenceKeys.elementCommentScreenshot,
+                      String(enabled),
+                    );
+                  }}
+                />
               </div>
             </div>
             <h2>快捷操作</h2>

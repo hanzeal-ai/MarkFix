@@ -1,14 +1,9 @@
+import type { CapturePin, ElementCommentPin } from '../capture-pin';
 import { ipcRenderer } from 'electron';
 import type { InlineNote } from '../inline-note';
 import { InlineNoteEditor } from './inline-note-editor.js';
 let inlineNoteEditor: InlineNoteEditor | undefined;
-let hasSelectedElement = false;
-import type {
-  ElementAnchor,
-  SavedElementComment,
-  ScreenshotMark,
-  ScreenshotTool,
-} from '@markfix/contracts';
+import type { ElementAnchor, ScreenshotMark, ScreenshotTool } from '@markfix/contracts';
 import {
   createCaptureBounds,
   moveCaptureBounds,
@@ -67,7 +62,13 @@ const anchorTracker = new AnchorTracker(
 );
 const elementCommentOverlay = new ElementCommentOverlay(
   () => surface,
-  () => mode === 'comment',
+  () => mode !== 'capture',
+  (comment) =>
+    ipcRenderer.send('markfix:select-annotation-pin', {
+      type: comment.type,
+      id: comment.id,
+      documentUrl: location.href,
+    }),
 );
 
 const updatePointerMode = (): void => {
@@ -923,7 +924,7 @@ window.addEventListener('touchmove', () => elementCommentOverlay.schedule(), {
   passive: true,
 });
 ipcRenderer.on('markfix:inline-note', (_event, payload: InlineNote | null) => {
-  hasSelectedElement = payload?.mode === 'comment';
+  elementCommentOverlay.setEditing(payload?.annotationId);
   inlineNoteEditor?.setState(payload);
   inlineNoteEditor?.position(captureToolbar);
 });
@@ -943,7 +944,7 @@ ipcRenderer.on('markfix:set-mode', (_event, requestedMode: unknown) => {
   selectedRectangleId = undefined;
   rectangleEdit = undefined;
   mode = requestedMode as Mode;
-  hasSelectedElement = false;
+  elementCommentOverlay.setEditing(undefined);
   inlineNoteEditor?.setState(null);
   if (leavingCapture) {
     if (frozenImage) {
@@ -984,9 +985,12 @@ ipcRenderer.on('markfix:sync-capture-marks', (_event, payload: unknown) => {
   screenshotGesture = undefined;
   renderCaptureSelection();
 });
+ipcRenderer.on('markfix:render-capture-pins', (_event, payload: CapturePin[]) => {
+  if (Array.isArray(payload)) elementCommentOverlay.setCaptures(payload);
+});
 ipcRenderer.on('markfix:render-element-comments', (_event, payload: unknown) => {
   if (!Array.isArray(payload)) return;
-  elementCommentOverlay.setComments(payload as SavedElementComment[]);
+  elementCommentOverlay.setComments(payload as ElementCommentPin[]);
 });
 ipcRenderer.on('markfix:clear-capture-selection', () => {
   selectedRectangleId = undefined;
@@ -1082,7 +1086,7 @@ window.addEventListener(
 document.addEventListener(
   'click',
   (event) => {
-    if (!event.isTrusted || event.button !== 0 || mode !== 'comment' || !hasSelectedElement) return;
+    if (!event.isTrusted || event.button !== 0 || mode !== 'comment') return;
     if (
       event
         .composedPath()

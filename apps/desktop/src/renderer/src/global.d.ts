@@ -1,3 +1,4 @@
+import type { CapturePin, ElementCommentPin } from '../../capture-pin';
 import type { InlineNote, InlineNoteAction } from '../../inline-note';
 import type { AgentRepository } from '@markfix/contracts';
 import type { DesktopUpdateStatus } from '../../desktop-update';
@@ -109,7 +110,8 @@ declare global {
       listElementComments(projectId?: string): Promise<SavedElementComment[]>;
       saveElementComment(comment: SavedElementComment): Promise<void>;
       deleteElementComment(id: string): Promise<void>;
-      syncElementComments(comments: SavedElementComment[]): Promise<void>;
+      syncCapturePins(pins: CapturePin[]): Promise<void>;
+      syncElementComments(comments: ElementCommentPin[]): Promise<void>;
       listDiagnosticAnnotations(projectId?: string): Promise<SavedDiagnosticAnnotation[]>;
       saveDiagnosticAnnotation(annotation: SavedDiagnosticAnnotation): Promise<void>;
       deleteDiagnosticAnnotation(id: string): Promise<void>;

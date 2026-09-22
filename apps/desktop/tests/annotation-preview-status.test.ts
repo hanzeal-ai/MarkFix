@@ -1,5 +1,10 @@
+import { previewAnnotationPins } from '../src/renderer/src/preview-annotation-pins';
 import { expect, it } from 'vitest';
-import type { SavedCapture } from '@markfix/contracts';
+import type {
+  SavedCapture,
+  SavedElementComment,
+  SavedDiagnosticAnnotation,
+} from '@markfix/contracts';
 import {
   previewAnnotations,
   projectAnnotations,
@@ -68,7 +73,37 @@ it('keeps project-wide drafts and rejections in preview without removing submitt
       .rejectionReason,
   ).toBe('补充复现步骤');
   expect(history).toHaveLength(3);
+  expect(
+    previewAnnotationPins(previewAnnotations(history)).captures.map(({ id, previewNumber }) => ({
+      id,
+      previewNumber,
+    })),
+  ).toEqual([
+    { id: 'draft', previewNumber: 1 },
+    { id: 'rejected', previewNumber: 2 },
+  ]);
   draft.status = 'submitted';
   rejected.status = 'submitted';
-  expect(previewAnnotations(projectAnnotations('project', [], captures, []))).toEqual([]);
+  expect(
+    previewAnnotationPins(previewAnnotations(projectAnnotations('project', [], captures, []))),
+  ).toEqual({ elementComments: [], captures: [] });
+});
+
+it('preserves preview numbering across annotation types and pages', () => {
+  const pins = previewAnnotationPins([
+    { type: 'capture', record: capture('capture', 'draft', 'https://example.test/a') },
+    { type: 'diagnostic', record: { id: 'diagnostic' } as SavedDiagnosticAnnotation },
+    {
+      type: 'element',
+      record: { id: 'element', pageUrl: 'https://example.test/b' } as SavedElementComment,
+    },
+    { type: 'capture', record: capture('other-page', 'rejected', 'https://example.test/b') },
+  ]);
+  expect(pins.elementComments.map(({ id, previewNumber }) => [id, previewNumber])).toEqual([
+    ['element', 3],
+  ]);
+  expect(pins.captures.map(({ id, previewNumber }) => [id, previewNumber])).toEqual([
+    ['capture', 1],
+    ['other-page', 4],
+  ]);
 });

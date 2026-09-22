@@ -1,3 +1,4 @@
+import type { CapturePin, ElementCommentPin } from '../capture-pin';
 import type { InlineNote, InlineNoteAction } from '../inline-note';
 import { contextBridge, ipcRenderer } from 'electron';
 import {
@@ -153,7 +154,8 @@ contextBridge.exposeInMainWorld('markfix', {
   saveElementComment: (comment: SavedElementComment) =>
     ipcRenderer.invoke(ipcChannels.saveElementComment, comment),
   deleteElementComment: (id: string) => ipcRenderer.invoke(ipcChannels.deleteElementComment, id),
-  syncElementComments: (comments: SavedElementComment[]) =>
+  syncCapturePins: (pins: CapturePin[]) => ipcRenderer.invoke('annotation:sync-capture-pins', pins),
+  syncElementComments: (comments: ElementCommentPin[]) =>
     ipcRenderer.invoke(ipcChannels.syncElementComments, comments),
   listDiagnosticAnnotations: (projectId?: string) =>
     ipcRenderer.invoke(ipcChannels.listDiagnosticAnnotations, projectId),

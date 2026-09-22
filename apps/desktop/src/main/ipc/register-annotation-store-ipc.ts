@@ -1,3 +1,9 @@
+import {
+  capturePinSchema,
+  elementCommentPinSchema,
+  type CapturePin,
+  type ElementCommentPin,
+} from '../../capture-pin';
 import { ipcMain, type IpcMainInvokeEvent, type WebContentsView } from 'electron';
 import {
   annotationSubmissionSchema,
@@ -5,7 +11,6 @@ import {
   savedCaptureSchema,
   savedDiagnosticAnnotationSchema,
   savedElementCommentSchema,
-  type SavedElementComment,
   type WebsiteProject,
 } from '@markfix/contracts';
 import type { ProjectDataRouter } from '../project-data-router.js';
@@ -17,13 +22,41 @@ type Dependencies = {
   projects: () => WebsiteProject[];
   activeProjectId: () => string | undefined;
   websiteView: () => WebContentsView | undefined;
-  elementComments: () => SavedElementComment[];
-  setElementComments: (comments: SavedElementComment[]) => void;
+  elementComments: () => ElementCommentPin[];
+  capturePins: () => CapturePin[];
+  setCapturePins: (pins: CapturePin[]) => void;
+  setElementComments: (comments: ElementCommentPin[]) => void;
   sendShell: (channel: string, payload: unknown) => void;
 };
 
 export const registerAnnotationStoreIpc = (dependencies: Dependencies): void => {
   const router = dependencies.dataRouter;
+  ipcMain.on('markfix:select-annotation-pin', (event, input: unknown) => {
+    const view = dependencies.websiteView();
+    if (
+      !view ||
+      event.sender.id !== view.webContents.id ||
+      event.senderFrame !== view.webContents.mainFrame
+    )
+      return;
+    const payload = input as { id?: unknown; type?: unknown; documentUrl?: unknown } | null;
+    if (!payload || payload.documentUrl !== view.webContents.getURL()) return;
+    if (payload.type !== 'element' && payload.type !== 'capture') return;
+    const records =
+      payload.type === 'element' ? dependencies.elementComments() : dependencies.capturePins();
+    const comment = records.find(
+      (item) =>
+        item.id === payload.id &&
+        item.projectId === dependencies.activeProjectId() &&
+        item.pageUrl === payload.documentUrl,
+    );
+    if (!comment) return;
+    dependencies.sendShell(ipcChannels.annotationHistorySelected, {
+      type: payload.type,
+      projectId: comment.projectId,
+      id: comment.id,
+    });
+  });
   const projectIdForDelete = (): string => {
     const projectId = dependencies.activeProjectId();
     if (!projectId) throw new Error('请先打开一个标注项目');
@@ -80,9 +113,15 @@ export const registerAnnotationStoreIpc = (dependencies: Dependencies): void => 
     if (typeof input !== 'string') throw new Error('Invalid diagnostic annotation ID');
     await router().deleteDiagnostic(projectIdForDelete(), input);
   });
+  ipcMain.handle('annotation:sync-capture-pins', (event, input: unknown) => {
+    dependencies.assertSender(event);
+    const pins = capturePinSchema.array().max(500).parse(input);
+    dependencies.setCapturePins(pins);
+    dependencies.websiteView()?.webContents.send('markfix:render-capture-pins', pins);
+  });
   ipcMain.handle(ipcChannels.syncElementComments, (event, input: unknown) => {
     dependencies.assertSender(event);
-    const comments = savedElementCommentSchema.array().max(500).parse(input);
+    const comments = elementCommentPinSchema.array().max(500).parse(input);
     dependencies.setElementComments(comments);
     dependencies.websiteView()?.webContents.send('markfix:render-element-comments', comments);
   });

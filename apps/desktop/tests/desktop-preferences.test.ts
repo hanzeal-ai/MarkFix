@@ -5,6 +5,7 @@ import type { WebsiteProject } from '@markfix/contracts';
 import { normalizeWebsiteShortcuts } from '../src/renderer/src/project-navigation/website-shortcuts';
 import {
   desktopPreferenceKeys,
+  elementCommentScreenshotPreference,
   newAnnotationStorageModePreference,
   startupProjectPreference,
   startupViewPreference,
@@ -29,6 +30,24 @@ const project = (id: string): WebsiteProject => ({
 });
 
 describe('desktop preferences', () => {
+  it('only enables element screenshots after explicit opt-in', () => {
+    expect(elementCommentScreenshotPreference(storage())).toBe(false);
+    expect(
+      elementCommentScreenshotPreference(
+        storage({
+          [desktopPreferenceKeys.elementCommentScreenshot]: 'true',
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      elementCommentScreenshotPreference(
+        storage({
+          [desktopPreferenceKeys.elementCommentScreenshot]: 'false',
+        }),
+      ),
+    ).toBe(false);
+  });
+
   it('defaults startup to new annotation and its storage mode to cloud', () => {
     expect(startupViewPreference(storage())).toBe('new');
     expect(newAnnotationStorageModePreference(storage())).toBe('CLOUD');

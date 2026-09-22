@@ -94,6 +94,9 @@ export class InlineNoteEditor {
       event.preventDefault();
       if (event.isTrusted && !this.submit.disabled) this.emit('submit');
     });
+    for (const name of ['pointerdown', 'mousedown', 'click', 'dblclick']) {
+      this.form.addEventListener(name, (event) => event.stopPropagation());
+    }
     this.form.append(this.input, this.submit, cancel);
     root.append(this.form);
   }

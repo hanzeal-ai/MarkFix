@@ -91,10 +91,7 @@ export function WorkspaceResizeLayout({
         groupResizeBehavior="preserve-pixel-size"
         onResize={({ inPixels }) => {
           reportedWidths.current.right = Math.round(inPixels);
-          onRightResize(
-            reportedWidths.current.right,
-            reportedWidths.current.right === 0 ? dragStartWidths.current.right : undefined,
-          );
+          onRightResize(reportedWidths.current.right, dragStartWidths.current.right);
         }}
       />
     </ResizablePanelGroup>
