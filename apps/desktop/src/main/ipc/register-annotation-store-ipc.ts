@@ -1,3 +1,4 @@
+import { logAnnotationSave } from '../annotation-save-log';
 import {
   capturePinSchema,
   elementCommentPinSchema,
@@ -74,9 +75,16 @@ export const registerAnnotationStoreIpc = (dependencies: Dependencies): void => 
   });
   ipcMain.handle(ipcChannels.saveCaptureRecord, async (event, input: unknown) => {
     dependencies.assertSender(event);
-    const capture = savedCaptureSchema.parse(input);
-    decodeScreenshotDataUrl(capture.dataUrl);
-    await router().saveCapture(capture);
+    logAnnotationSave('saveCaptureRecord:received');
+    try {
+      const capture = savedCaptureSchema.parse(input);
+      decodeScreenshotDataUrl(capture.dataUrl);
+      await router().saveCapture(capture);
+      logAnnotationSave('saveCaptureRecord:saved');
+    } catch (error) {
+      logAnnotationSave('saveCaptureRecord:failed', error);
+      throw error;
+    }
   });
   ipcMain.handle(ipcChannels.deleteCaptureRecord, async (event, input: unknown) => {
     dependencies.assertSender(event);
@@ -91,7 +99,14 @@ export const registerAnnotationStoreIpc = (dependencies: Dependencies): void => 
   });
   ipcMain.handle(ipcChannels.saveElementComment, async (event, input: unknown) => {
     dependencies.assertSender(event);
-    await router().saveElementComment(savedElementCommentSchema.parse(input));
+    logAnnotationSave('saveElementComment:received');
+    try {
+      await router().saveElementComment(savedElementCommentSchema.parse(input));
+      logAnnotationSave('saveElementComment:saved');
+    } catch (error) {
+      logAnnotationSave('saveElementComment:failed', error);
+      throw error;
+    }
   });
   ipcMain.handle(ipcChannels.deleteElementComment, async (event, input: unknown) => {
     dependencies.assertSender(event);

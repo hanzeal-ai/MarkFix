@@ -1,3 +1,4 @@
+import { saveFeedback } from './save-feedback';
 import { flushSync } from 'react-dom';
 import { ProjectAgentDialog } from '../ProjectAgentDialog';
 import {
@@ -738,30 +739,41 @@ export function AnnotationWorkspace({
     ...diagnosticAnnotations.map(({ evidence }) => evidence.id),
   ]);
   const inlineSubmitting = useRef(false);
+  const [inlineSaving, setInlineSaving] = useState(false);
   const completeElementCommentWithGuide = async (note = elementCommentNote): Promise<void> => {
     if (inlineSubmitting.current) return;
     inlineSubmitting.current = true;
+    setInlineSaving(true);
     try {
       if (await completeElementComment(note)) {
         dismissFirstAnnotationGuide('comment');
         await setMode('browse');
         setPreviewOpen(true);
+        saveFeedback('preview-opened');
       }
+    } catch {
+      saveFeedback('preview-failed');
     } finally {
       inlineSubmitting.current = false;
+      setInlineSaving(false);
     }
   };
   const completeCaptureWithGuide = async (note = captureNote): Promise<void> => {
     if (inlineSubmitting.current) return;
     inlineSubmitting.current = true;
+    setInlineSaving(true);
     try {
       if (await completeCapture(note)) {
         dismissFirstAnnotationGuide('capture');
         await setMode('browse');
         setPreviewOpen(true);
+        saveFeedback('preview-opened');
       }
+    } catch {
+      saveFeedback('preview-failed');
     } finally {
       inlineSubmitting.current = false;
+      setInlineSaving(false);
     }
   };
   useEffect(() => {
@@ -774,6 +786,7 @@ export function AnnotationWorkspace({
             anchor: selection,
             annotationId: mode === 'comment' ? editingElementCommentId : editingCaptureId,
             note: mode === 'comment' ? elementCommentNote : captureNote,
+            saving: inlineSaving,
             ready:
               mode === 'comment' || Boolean(screenshot && !captureLoading && !captureRendering),
           }
@@ -790,10 +803,15 @@ export function AnnotationWorkspace({
     screenshot,
     captureLoading,
     captureRendering,
+    inlineSaving,
   ]);
   useEffect(() =>
     window.markfix.onInlineNoteAction((payload) => {
-      if (payload.mode !== mode || payload.documentUrl !== browserState.url) return;
+      if (payload.mode !== mode || payload.documentUrl !== browserState.url) {
+        if (payload.action === 'submit') saveFeedback('stale-page');
+        return;
+      }
+      if (payload.action === 'submit') saveFeedback('submit-received');
       if (payload.action === 'change') {
         if (mode === 'comment') setElementCommentNote(payload.note);
         else setCaptureNote(payload.note);

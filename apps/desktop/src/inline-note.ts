@@ -7,6 +7,7 @@ export const inlineNoteSchema = z.object({
   anchor: anchorSchema,
   note: z.string().max(2000),
   ready: z.boolean(),
+  saving: z.boolean().optional(),
 });
 export type InlineNote = z.infer<typeof inlineNoteSchema>;
 export const inlineNoteActionSchema = z.object({

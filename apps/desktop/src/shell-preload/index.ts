@@ -1,3 +1,7 @@
+import {
+  annotationSaveFeedbackChannel,
+  type AnnotationSaveFeedback,
+} from '../annotation-save-feedback';
 import type { CapturePin, ElementCommentPin } from '../capture-pin';
 import type { InlineNote, InlineNoteAction } from '../inline-note';
 import { contextBridge, ipcRenderer } from 'electron';
@@ -73,6 +77,8 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 contextBridge.exposeInMainWorld('markfix', {
+  annotationSaveFeedback: (code: AnnotationSaveFeedback) =>
+    ipcRenderer.invoke(annotationSaveFeedbackChannel, code),
   platform: process.platform,
   manualUpdates: process.platform === 'win32' || import.meta.env.PRELOAD_VITE_MANUAL_UPDATES,
   openOfficialWebsite: () => ipcRenderer.invoke('website:open-official'),

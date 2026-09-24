@@ -110,7 +110,12 @@ export class InlineNoteEditor {
     });
   }
   private updateButton(): void {
-    this.submit.disabled = this.composing || !this.state?.ready || !this.input.value.trim();
+    this.submit.textContent = this.state?.saving ? '保存中…' : '提交';
+    this.submit.disabled =
+      this.composing ||
+      Boolean(this.state?.saving) ||
+      !this.state?.ready ||
+      !this.input.value.trim();
     this.submit.style.opacity = this.submit.disabled ? '0.45' : '1';
   }
   setState(state: InlineNote | null): void {

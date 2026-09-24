@@ -1,3 +1,4 @@
+import { saveFeedback } from './save-feedback';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   anchorSchema,
@@ -280,61 +281,67 @@ export function useCaptureEditor({
   };
 
   const completeCapture = async (note = captureNote): Promise<boolean> => {
-    if (
-      !captureSelection ||
-      !screenshot ||
-      !captureSource ||
-      !note.trim() ||
-      captureRendering ||
-      !projectId ||
-      !pageSessionId
-    )
+    if (!projectId || !pageSessionId) {
+      saveFeedback('missing-context');
       return false;
-    const existing = savedCaptures.find(({ id }) => id === editingCaptureId);
-    const now = new Date().toISOString();
-    const capture: SavedCapture = {
-      id: existing?.id ?? crypto.randomUUID(),
-      projectId,
-      pageSessionId,
-      pageUrl: captureSelection.documentUrl,
-      pageTitle: pageTitle || captureSelection.documentUrl,
-      note: note.trim(),
-      status: 'draft',
-      dataUrl: screenshot,
-      widthCssPx: captureSelection.widthCssPx,
-      heightCssPx: captureSelection.heightCssPx,
-      marks: captureMarks,
-      ...(captureEvidence.length > 0 ? { evidence: captureEvidence } : {}),
-      selection: captureSelection,
-      sourceDataUrl: captureSource.dataUrl,
-      captureScale: captureSource.captureScale,
-      page: captureSource.page,
-      capture: captureSource.capture,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    };
+    }
+    if (!captureSelection) {
+      saveFeedback('missing-selection');
+      return false;
+    }
+    if (!note.trim()) {
+      saveFeedback('empty-note');
+      return false;
+    }
+    if (!screenshot || !captureSource || captureRendering) {
+      saveFeedback('capture-not-ready');
+      return false;
+    }
     try {
+      const existing = savedCaptures.find(({ id }) => id === editingCaptureId);
+      const now = new Date().toISOString();
+      const capture: SavedCapture = {
+        id: existing?.id ?? crypto.randomUUID(),
+        projectId,
+        pageSessionId,
+        pageUrl: captureSelection.documentUrl,
+        pageTitle: pageTitle || captureSelection.documentUrl,
+        note: note.trim(),
+        status: 'draft',
+        dataUrl: screenshot,
+        widthCssPx: captureSelection.widthCssPx,
+        heightCssPx: captureSelection.heightCssPx,
+        marks: captureMarks,
+        ...(captureEvidence.length > 0 ? { evidence: captureEvidence } : {}),
+        selection: captureSelection,
+        sourceDataUrl: captureSource.dataUrl,
+        captureScale: captureSource.captureScale,
+        page: captureSource.page,
+        capture: captureSource.capture,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
       await window.markfix.saveCaptureRecord(capture);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '无法保存截图批注。');
+      setSavedCaptures((captures) =>
+        captures.some(({ id }) => id === capture.id)
+          ? captures.map((item) => (item.id === capture.id ? capture : item))
+          : [...captures, capture],
+      );
+      setCaptureNote('');
+      setCaptureEvidence([]);
+      setCaptureMarks([]);
+      setEditingCaptureId(undefined);
+      try {
+        await window.markfix.clearCaptureSelection();
+        await window.markfix.setCaptureTool('rectangle');
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : '截图批注已保存，但截图工具未能重置。');
+      }
+      return true;
+    } catch {
+      saveFeedback('save-failed');
       return false;
     }
-    setSavedCaptures((captures) =>
-      captures.some(({ id }) => id === capture.id)
-        ? captures.map((item) => (item.id === capture.id ? capture : item))
-        : [...captures, capture],
-    );
-    setCaptureNote('');
-    setCaptureEvidence([]);
-    setCaptureMarks([]);
-    setEditingCaptureId(undefined);
-    try {
-      await window.markfix.clearCaptureSelection();
-      await window.markfix.setCaptureTool('rectangle');
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '截图批注已保存，但截图工具未能重置。');
-    }
-    return true;
   };
 
   const cancelCapture = async (): Promise<void> => {

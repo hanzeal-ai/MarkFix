@@ -1,3 +1,4 @@
+import type { AnnotationSaveFeedback } from '../../annotation-save-feedback';
 import type { CapturePin, ElementCommentPin } from '../../capture-pin';
 import type { InlineNote, InlineNoteAction } from '../../inline-note';
 import type { AgentRepository } from '@markfix/contracts';
@@ -29,6 +30,7 @@ import type {
 declare global {
   interface Window {
     markfix: {
+      annotationSaveFeedback(code: AnnotationSaveFeedback): Promise<void>;
       platform: string;
       manualUpdates: boolean;
       startUpdate(): Promise<DesktopUpdateStatus>;

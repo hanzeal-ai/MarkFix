@@ -40,9 +40,9 @@ describe('desktop toast policy', () => {
   it('keeps frequent annotation saves silent while reporting failures', () => {
     expect(elementEditorSource).not.toContain('元素批注已保存到本机。');
     expect(elementEditorSource).not.toContain('元素批注已更新。');
-    expect(elementEditorSource).toContain('无法保存元素批注。');
+    expect(elementEditorSource).toContain("saveFeedback('save-failed')");
     expect(captureEditorSource).not.toContain('截图批注已保存到本机。');
-    expect(captureEditorSource).toContain('无法保存截图批注。');
+    expect(captureEditorSource).toContain("saveFeedback('save-failed')");
   });
 
   it('deduplicates identical active messages', () => {

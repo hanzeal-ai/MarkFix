@@ -67,3 +67,11 @@ macOS Apple Silicon 采用同样流程，下载地址为 `/downloads/macos/<版�
 取得证书并完成正式更新验收后，才将仓库变量 `MARKFIX_MACOS_RELEASE_MODE` 改为 `signed`，并配置 `CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。signed 构建缺少任一凭据会失败，不会降级为试用包。
 
 验证范围：自动检查覆盖下载安装、启动、SQLite 持久化与下载页分流；不同显示缩放、真实旧版覆盖升级、Windows 批注全流程仍需干净实机验收。正式签名、公证和自动升级不属于试用包的完成状态。
+
+## 标注保存诊断
+
+保存期间，页内提交按钮显示“保存中…”，并阻止重复点击。缺少页面上下文、选区失效、保存异常和预览打开失败会显示系统对话框；失败提示中包含日志的完整路径。
+
+`annotation-save.log` 写入 Electron 的应用日志目录，单文件达到 1 MiB 后轮转，保留当前文件和上一份 `.1` 文件。日志记录时间、应用版本、平台、提交/保存/预览阶段及可获得的 HTTP 状态码，不记录备注、网址、截图、令牌或原始错误文本。
+
+排查时对照最后一条阶段：`inline-submit` 表示主进程收到页内提交；`submit-received` 表示工作区收到提交；`*:received` 表示进入保存处理；`*:cloud-start` 或 `*:local-start` 表示开始对应存储操作；`*:saved` 表示保存完成；`preview-opened` 表示已请求打开预览。`missing-context`、`stale-page` 等代码对应可见的失败提示。日志文件中没有提交记录时，还需要检查页内按钮和输入法状态，不能据此认定服务器故障。

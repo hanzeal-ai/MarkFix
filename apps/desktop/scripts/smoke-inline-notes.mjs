@@ -181,7 +181,7 @@ app.on('browser-window-created', (_event, win) => {
         await click(await field('BUTTON'));
         const records = () =>
           run(
-            `window.markfix.listElementComments((await window.markfix.listWebsiteProjects())[0].id)`,
+            `(async () => window.markfix.listElementComments((await window.markfix.listWebsiteProjects())[0].id))()`,
           );
         await wait(async () => (await records()).length === 1);
         const [saved] = await records();
@@ -369,7 +369,7 @@ app.on('browser-window-created', (_event, win) => {
         ['1', '2'],
       );
       const savedElementComments = await run(
-        `window.markfix.listElementComments((await window.markfix.listWebsiteProjects())[0].id)`,
+        `(async () => window.markfix.listElementComments((await window.markfix.listWebsiteProjects())[0].id))()`,
       );
       assert.equal(savedElementComments.length, 1);
       assert.equal(Boolean(savedElementComments[0].screenshotDataUrl), saveElementScreenshot);
@@ -403,6 +403,10 @@ app.on('browser-window-created', (_event, win) => {
         await wait(() => !websiteView.getVisible());
       };
       const clickModeDialogButton = async (label) => {
+        // Wait for the dialog entry animation before measuring click coordinates.
+        await run(
+          `Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => undefined)))`,
+        );
         const point = await run(
           `(()=>{const button=[...document.querySelectorAll('[role="alertdialog"] button')].find(el=>el.textContent===${JSON.stringify(label)});const r=button.getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`,
         );
