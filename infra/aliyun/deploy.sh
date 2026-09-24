@@ -5,6 +5,11 @@ umask 077
 : "${API_IMAGE:?Set API_IMAGE to an immutable ACR image digest}"
 : "${DASHBOARD_IMAGE:?Set DASHBOARD_IMAGE to an immutable ACR image digest}"
 for image in "$API_IMAGE" "$DASHBOARD_IMAGE"; do
+  if [[ "${MARKFIX_LOADED_IMAGES:-0}" == 1 ]]; then
+    [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "Expected loaded image ID" >&2; exit 1; }
+    docker image inspect "$image" >/dev/null
+    continue
+  fi
   [[ "$image" =~ ^crpi-c94ukgtq3wrezdx5\.cn-hangzhou\.personal\.cr\.aliyuncs\.com/markfix/markfix-(api|dashboard)@sha256:[a-f0-9]{64}$ ]] || {
     echo 'Only immutable MarkFix ACR images are accepted' >&2
     exit 1
@@ -47,8 +52,13 @@ compose() {
 }
 
 compose "$release" config --quiet
-compose "$release" --profile tools pull api dashboard migrate
-compose "$release" up -d --wait --wait-timeout 120 postgres
+pull_args=()
+if [[ "${MARKFIX_LOADED_IMAGES:-0}" == 1 ]]; then
+  pull_args=(--pull never)
+else
+  compose "$release" --profile tools pull api dashboard migrate
+fi
+compose "$release" up -d --wait --wait-timeout 120 "${pull_args[@]}" postgres
 backup="$deploy_root/backups/$(basename "$release").sql"
 compose "$release" exec -T postgres pg_dump -U markfix -d markfix > "$backup"
 test -s "$backup"
@@ -71,8 +81,8 @@ forward_repair() {
 }
 trap forward_repair ERR INT TERM
 compose "$release" stop api dashboard
-compose "$release" run --rm migrate
-compose "$release" up -d --wait --wait-timeout 180 api dashboard
+compose "$release" run --rm "${pull_args[@]}" migrate
+compose "$release" up -d --wait --wait-timeout 180 "${pull_args[@]}" api dashboard
 curl --fail --silent --show-error http://127.0.0.1:8766/v1/health > /dev/null
 curl --fail --silent --show-error http://127.0.0.1:8766/ > /dev/null
 ln -sfn "$release" "$deploy_root/current"

@@ -5,12 +5,34 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import shutil
 import subprocess
 import sys
 import tempfile
 from urllib.parse import urlsplit
-from urllib.request import urlopen
+from urllib.request import build_opener, HTTPRedirectHandler, ProxyHandler
+
+
+def service_origin():
+    installed = Path(__file__).with_name('public-origin')
+    if installed.is_file():
+        return installed.read_text().strip()
+    # Repository validation reads the authoritative contract; provisioning installs
+    # its projection beside this root-owned publisher.
+    source = Path(__file__).resolve().parents[2] / 'packages/contracts/src/service-config.ts'
+    matches = re.findall(r"productionOrigin: '([^']+)'", source.read_text())
+    if len(matches) != 1:
+        raise ValueError('Expected one authoritative production origin')
+    return matches[0]
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        raise ValueError('Public verification must not redirect')
+
+
+urlopen = build_opener(ProxyHandler({}), NoRedirect()).open
 
 
 def digest(path):
@@ -44,7 +66,7 @@ def validate_artifact(source, commit):
         raise ValueError('Unsupported platform or architecture')
     origin = manifest.get('origin', '')
     url = urlsplit(origin)
-    if (url.scheme != 'https' or not url.hostname or url.username or url.password
+    if (origin != service_origin() or url.scheme != 'https' or not url.hostname or url.username or url.password
             or url.path not in ('', '/') or url.query or url.fragment
             or any(c.isspace() for c in origin)):
         raise ValueError('Downloads require a plain HTTPS origin')
@@ -130,11 +152,46 @@ def verify_public(url, expected):
         raise ValueError('Anonymous public download checksum mismatch')
 
 
+def run_compose(command, environment):
+    # Terminate the entire CLI process group before releasing the deployment lock.
+    process = subprocess.Popen(command, env=environment, start_new_session=True)
+    try:
+        code = process.wait(timeout=240)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
+        raise
+    if code:
+        raise subprocess.CalledProcessError(code, command)
+
+
 def publish(source, deploy_root, commit):
     manifest = validate_artifact(source, commit)
     with (deploy_root / 'deploy.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         current = (deploy_root / 'current').resolve(strict=True)
+        if not current.is_dir() or (deploy_root / 'releases').resolve() not in current.parents:
+            raise ValueError('Current release must stay inside the deployment releases directory')
+        env_file = deploy_root / 'app.env'
+        images_file = current / 'images.env'
+        if env_file.is_symlink() or not env_file.is_file() or images_file.is_symlink() or not images_file.is_file():
+            raise ValueError('Deployment environment files must be regular files')
+        images = dict(line.split('=', 1) for line in images_file.read_text().splitlines() if '=' in line)
+        if set(images) != {'API_IMAGE', 'DASHBOARD_IMAGE'}:
+            raise ValueError('Unexpected image configuration')
+        registry = r'crpi-c94ukgtq3wrezdx5\.cn-hangzhou\.personal\.cr\.aliyuncs\.com/markfix/'
+        for component in ('api', 'dashboard'):
+            image = images[component.upper() + '_IMAGE']
+            if not re.fullmatch(r'(sha256:[a-f0-9]{64}|' + registry + 'markfix-' + component + r'@sha256:[a-f0-9]{64})', image):
+                raise ValueError('Expected immutable component image identity')
         if (current / 'source.sha').read_text().strip() != commit:
             raise ValueError('Refusing to publish packages for a different deployed commit')
         root = deploy_root / 'downloads'
@@ -151,12 +208,12 @@ def publish(source, deploy_root, commit):
         with os.fdopen(fd, 'w') as stream:
             stream.write(original)
         command = ['docker', 'compose', '--project-name', 'markfix-preview', '--env-file', str(env_file),
-                   '--env-file', str(current / 'images.env'), '-f', str(current / 'compose.yaml'),
-                   'up', '-d', '--no-deps', '--wait', '--wait-timeout', '180', 'api']
+                   '--env-file', str(images_file), '-f', str(Path(__file__).with_name('compose.preview.yaml')),
+                   'up', '-d', '--no-deps', '--pull', 'never', '--wait', '--wait-timeout', '180', 'api']
         environment = dict(os.environ, MARKFIX_ENV_FILE=str(env_file), MARKFIX_DOWNLOAD_ROOT=str(root))
         try:
             atomic_write(env_file, replace_env(original, changes))
-            subprocess.run(command, env=environment, check=True)
+            run_compose(command, environment)
             query = 'win32&arch=x64' if manifest['platform'] == 'windows' else 'darwin&arch=arm64'
             with urlopen(manifest['origin'].rstrip('/') + '/v1/client-policy?version=' + manifest['version'] + '&platform=' + query, timeout=30) as response:
                 policy = json.load(response)
@@ -164,7 +221,7 @@ def publish(source, deploy_root, commit):
                 raise ValueError('Published API policy does not match verified installer')
         except BaseException:
             atomic_write(env_file, original)
-            subprocess.run(command, env=environment, check=True)
+            run_compose(command, environment)
             raise
         print('Published verified ' + manifest['platform'] + ' download: ' + base + manifest['files'][0]['name'])
         print('Previous policy backup: ' + backup)
