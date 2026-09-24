@@ -33,6 +33,8 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: pnpm }
+      - name: Assign a monotonic desktop release version
+        run: node apps/desktop/scripts/prepare-release-version.mjs ${{ github.run_number }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markfix/database db:generate
       - run: pnpm --filter @markfix/desktop test
@@ -51,6 +53,10 @@ jobs:
         run: |
           $installer = Get-ChildItem apps/desktop/release/*-windows-x64-setup.exe
           if ($installer.Count -ne 1) { throw 'Expected exactly one Windows x64 installer' }
+          $updaterConfig = Get-Content apps/desktop/release/win-unpacked/resources/app-update.yml -Raw
+          if ($updaterConfig -notmatch 'provider: generic' -or $updaterConfig -notmatch '/v1/desktop-updates/windows/x64/' -or $updaterConfig -notmatch 'updaterCacheDirName:') {
+            throw 'Windows package is missing its updater configuration'
+          }
           $installDir = Join-Path $env:RUNNER_TEMP 'MarkFix Installed'
           $install = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$installDir") -Wait -PassThru
           if ($install.ExitCode -ne 0) { throw "Installer failed: $($install.ExitCode)" }
@@ -91,6 +97,8 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: pnpm }
+      - name: Assign a monotonic desktop release version
+        run: node apps/desktop/scripts/prepare-release-version.mjs ${{ github.run_number }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markfix/database db:generate
       - name: Build selected macOS distribution

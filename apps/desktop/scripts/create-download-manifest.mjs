@@ -31,13 +31,15 @@ const names =
 const files = [];
 for (const name of names) {
   const hash = createHash('sha256');
+  const updateHash = createHash('sha512');
   let size = 0;
   for await (const chunk of createReadStream(join(directory, name))) {
     hash.update(chunk);
+    updateHash.update(chunk);
     size += chunk.length;
   }
   if (!size) throw new Error(`Empty package: ${name}`);
-  files.push({ name, size, sha256: hash.digest('hex') });
+  files.push({ name, size, sha256: hash.digest('hex'), sha512: updateHash.digest('base64') });
 }
 writeFileSync(
   join(directory, 'download-manifest.json'),

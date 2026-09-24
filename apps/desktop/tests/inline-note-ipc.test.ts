@@ -15,7 +15,7 @@ vi.mock('../src/main/annotation-save-log', () => ({ logAnnotationSave: vi.fn() }
 import { dialog } from 'electron';
 import { annotationSaveFeedbackChannel } from '../src/annotation-save-feedback';
 import { logAnnotationSave } from '../src/main/annotation-save-log';
-import { registerCaptureIpc } from '../src/main/ipc/register-capture-ipc';
+import { registerAnnotationEditorIpc } from '../src/main/ipc/register-annotation-editor-ipc';
 
 describe('inline note action boundary', () => {
   const frame = {};
@@ -25,10 +25,9 @@ describe('inline note action boundary', () => {
     vi.mocked(dialog.showMessageBox).mockClear();
     sendShell.mockClear();
     reselectElement.mockClear();
-    registerCaptureIpc({
+    registerAnnotationEditorIpc({
       reselectElement,
       assertSender: vi.fn(),
-      captureService: () => undefined,
       mainWindow: () => ({ isDestroyed: () => false }) as BrowserWindow,
       websiteView: () =>
         ({

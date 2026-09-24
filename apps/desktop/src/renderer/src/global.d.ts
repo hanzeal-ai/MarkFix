@@ -33,6 +33,7 @@ declare global {
       annotationSaveFeedback(code: AnnotationSaveFeedback): Promise<void>;
       platform: string;
       manualUpdates: boolean;
+      prepareUpdate(preparing: boolean): Promise<void>;
       startUpdate(): Promise<DesktopUpdateStatus>;
       updateStatus(): Promise<DesktopUpdateStatus>;
       onUpdateStatus(listener: (status: DesktopUpdateStatus) => void): () => void;

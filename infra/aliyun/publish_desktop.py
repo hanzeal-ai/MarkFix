@@ -1,4 +1,5 @@
 """Publish verified immutable installers, then switch the existing API policy."""
+import base64
 import fcntl
 import hashlib
 import json
@@ -35,12 +36,12 @@ class NoRedirect(HTTPRedirectHandler):
 urlopen = build_opener(ProxyHandler({}), NoRedirect()).open
 
 
-def digest(path):
-    checksum = hashlib.sha256()
+def digest(path, algorithm='sha256'):
+    checksum = hashlib.new(algorithm)
     with path.open('rb') as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b''):
             checksum.update(chunk)
-    return checksum.hexdigest()
+    return base64.b64encode(checksum.digest()).decode('ascii') if algorithm == 'sha512' else checksum.hexdigest()
 
 
 def validate_artifact(source, commit):
@@ -81,6 +82,8 @@ def validate_artifact(source, commit):
             raise ValueError('Package size mismatch')
         if digest(path) != entry.get('sha256'):
             raise ValueError('Package checksum mismatch')
+        if platform == 'windows' and digest(path, 'sha512') != entry.get('sha512'):
+            raise ValueError('Windows updater checksum mismatch')
     return manifest
 
 
@@ -117,11 +120,33 @@ def policy_changes(manifest, relative):
     if manifest['platform'] == 'windows':
         return {'MARKFIX_DESKTOP_WINDOWS_X64_DOWNLOAD_URL': base + manifest['files'][0]['name'],
                 'MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION': version,
-                'MARKFIX_DESKTOP_WINDOWS_DISTRIBUTION': manifest['distribution']}
+                'MARKFIX_DESKTOP_WINDOWS_DISTRIBUTION': manifest['distribution'],
+                'MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SHA512': manifest['files'][0]['sha512'],
+                'MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SIZE': str(manifest['files'][0]['size'])}
     return {'MARKFIX_DESKTOP_DOWNLOAD_URL': base + manifest['files'][0]['name'],
             'MARKFIX_RECOMMENDED_DESKTOP_VERSION': version,
             'MARKFIX_DESKTOP_MAC_DISTRIBUTION': manifest['distribution'],
             'MARKFIX_DESKTOP_MAC_ARM64_UPDATE_URL': base + manifest['files'][1]['name'] if manifest['distribution'] == 'signed' else ''}
+
+
+def validate_windows_policy_transition(original, changes):
+    if 'MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION' not in changes:
+        return
+    previous = dict(line.split('=', 1) for line in original.splitlines() if '=' in line and not line.startswith('#'))
+    key = 'MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION'
+    old = previous.get(key, '').strip().strip('"\'')
+    if not old:
+        return
+    if not re.fullmatch(r'\d+\.\d+\.\d+', old):
+        raise ValueError('Invalid previous Windows release version')
+    old_version = tuple(map(int, old.split('.')))
+    new_version = tuple(map(int, changes[key].split('.')))
+    if new_version < old_version:
+        raise ValueError('Refusing to downgrade the Windows release policy')
+    if new_version == old_version:
+        for field in ('MARKFIX_DESKTOP_WINDOWS_X64_DOWNLOAD_URL', 'MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SHA512', 'MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SIZE'):
+            if previous.get(field) != changes[field]:
+                raise ValueError('A Windows release version cannot identify different packages')
 
 
 def replace_env(original, changes):
@@ -202,6 +227,7 @@ def publish(source, deploy_root, commit):
         env_file = deploy_root / 'app.env'
         original = env_file.read_text()
         changes = policy_changes(manifest, relative)
+        validate_windows_policy_transition(original, changes)
         backup_dir = deploy_root / 'backups'
         backup_dir.mkdir(exist_ok=True)
         fd, backup = tempfile.mkstemp(prefix='desktop-policy-', suffix='.env', dir=backup_dir)
@@ -219,6 +245,12 @@ def publish(source, deploy_root, commit):
                 policy = json.load(response)
             if policy.get('downloadUrl') != base + manifest['files'][0]['name'] or policy.get('distribution') != manifest['distribution']:
                 raise ValueError('Published API policy does not match verified installer')
+            if manifest['platform'] == 'windows':
+                with urlopen(manifest['origin'].rstrip('/') + '/v1/desktop-updates/windows/x64/latest.yml', timeout=30) as response:
+                    feed = json.load(response)
+                expected_file = dict(url=base + manifest['files'][0]['name'], sha512=manifest['files'][0]['sha512'], size=manifest['files'][0]['size'])
+                if feed.get('version') != manifest['version'] or feed.get('files') != [expected_file]:
+                    raise ValueError('Published Windows update feed does not match verified installer')
         except BaseException:
             atomic_write(env_file, original)
             run_compose(command, environment)

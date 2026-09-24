@@ -244,12 +244,6 @@ export function useCaptureEditor({
     }
   }, []);
 
-  const updateCaptureText = (id: string, text: string): void => {
-    setCaptureMarks((marks) =>
-      marks.map((mark) => (mark.id === id && mark.type === 'text' ? { ...mark, text } : mark)),
-    );
-  };
-
   const copyCapture = async (
     dataUrl = screenshot,
     note = captureNoteRef.current,
@@ -431,6 +425,5 @@ export function useCaptureEditor({
     selectSavedCapture,
     setCaptureEvidence,
     setCaptureNote,
-    updateCaptureText,
   };
 }

@@ -492,12 +492,7 @@ export const transitionSchema = z.object({
   expectedVersion: z.number().int().positive(),
 });
 
-export const apiErrorSchema = z.object({
-  code: z.string(),
-  message: z.string(),
-  requestId: z.string(),
-  fieldErrors: z.record(z.string(), z.array(z.string())).optional(),
-});
+export type ReportTransition = z.infer<typeof transitionSchema>;
 
 export const clientPolicySchema = z.object({
   minimumVersion: z.string(),
@@ -592,11 +587,9 @@ export type SavedCapture = z.infer<typeof savedCaptureSchema>;
 export type SavedElementComment = z.infer<typeof savedElementCommentSchema>;
 export type SavedDiagnosticAnnotation = z.infer<typeof savedDiagnosticAnnotationSchema>;
 export type HistoryAnnotationReference = z.infer<typeof historyAnnotationReferenceSchema>;
-export type AnnotationRecordStatus = z.infer<typeof annotationRecordStatusSchema>;
 export type DiagnosticEvidence = z.infer<typeof diagnosticEvidenceSchema>;
 export type AnnotationSubmission = z.infer<typeof annotationSubmissionSchema>;
 export type BrowserMode = z.infer<typeof browserModeSchema>;
-export type CaptureBundle = z.infer<typeof captureBundleSchema>;
 export type CaptureContext = z.infer<typeof captureContextSchema>;
 export type CaptureRequest = z.infer<typeof captureRequestSchema>;
 export type CloudProjectState = z.infer<typeof cloudProjectStateSchema>;
@@ -615,7 +608,6 @@ export type ProjectStorageMode = z.infer<typeof projectStorageModeSchema>;
 export type RegionAnchor = z.infer<typeof regionAnchorSchema>;
 export type Report = z.infer<typeof reportSchema>;
 export type ReportStatus = (typeof reportStatuses)[number];
-export type ReproductionStep = z.infer<typeof reproductionStepSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
 export type UpdateEnvironment = z.infer<typeof updateEnvironmentSchema>;
 export type WebsiteProject = z.infer<typeof websiteProjectSchema>;

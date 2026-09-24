@@ -91,6 +91,15 @@ export class AppController {
     return update ? reply.send(update) : reply.code(204).send();
   }
 
+  @Get('desktop-updates/windows/x64/latest.yml')
+  @Public()
+  @Header('Cache-Control', 'no-store')
+  @Header('Content-Type', 'application/yaml')
+  windowsDesktopUpdate() {
+    // JSON is valid YAML; avoid a second serializer for the generic updater feed.
+    return JSON.stringify(this.clientPolicy.getWindowsUpdate());
+  }
+
   @Get('bootstrap')
   bootstrap(@CurrentUser() user: AuthenticatedUser) {
     return this.app.bootstrap(user.id);

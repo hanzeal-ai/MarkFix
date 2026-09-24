@@ -224,6 +224,34 @@ app.on('browser-window-created', (_event, win) => {
         await run(`document.querySelectorAll('.annotation-mode-control button').length`),
         3,
       );
+      if (!marketing) {
+        const view = win.contentView.children.find((item) => item.webContents === target);
+        assert.ok(view?.getVisible(), 'Website is visible before update preparation');
+        await run('window.markfix.prepareUpdate(true)');
+        assert.equal(view.getVisible(), false, 'Preparation blocks website input before saving');
+        await wait(() => run(`!!document.querySelector('[data-desktop-update-active]')`));
+        await run(
+          `Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => undefined)))`,
+        );
+        await delay(100);
+        writeFileSync(
+          join(output, 'update-preparation.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+        await run('window.markfix.prepareUpdate(false)');
+        await wait(() => view.getVisible());
+        await wait(() => run(`!document.querySelector('[data-desktop-update-active]')`));
+        if (process.env.MARKFIX_SMOKE_UPDATE_PREPARATION === '1') {
+          console.log(
+            'PASS update preparation hides the native website, shows progress, and restores input; evidence: ' +
+              output,
+          );
+          clearTimeout(timeout);
+          server.close();
+          app.quit();
+          return;
+        }
+      }
       if (marketing) await delay(4500);
       await mode('capture');
       const frozen = await run(`window.markfix.capture({mode:'visible'})`);

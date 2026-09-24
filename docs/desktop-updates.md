@@ -1,6 +1,6 @@
 # 桌面自动更新发布
 
-本文描述已签名 macOS 正式包的原生自动更新。当前 macOS 未签名试用包与 Windows x64 均使用手动下载安装新版，自动发布流程与验收见 [Windows 桌面试用版](windows-desktop.md)。
+本文描述已签名 macOS 正式包的原生自动更新。macOS 未签名试用包继续手动安装；Windows x64 使用 NSIS 自动更新，自动发布流程与验收见 [Windows 桌面试用版](windows-desktop.md)。
 
 ## 产品行为与范围
 

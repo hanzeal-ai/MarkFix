@@ -1,4 +1,5 @@
 """Installer integrity, immutable storage, policy isolation and failure recovery."""
+import base64
 import hashlib
 import io
 import json
@@ -23,7 +24,7 @@ class PublishTest(unittest.TestCase):
         self.manifest = dict(schemaVersion=1, platform='windows', arch='x64',
                              distribution='trial', version='0.1.0', commit=self.commit,
                              origin='https://markfix.hanzeal.com',
-                             files=[dict(name=name, size=len(data), sha256=hashlib.sha256(data).hexdigest())])
+                             files=[dict(name=name, size=len(data), sha256=hashlib.sha256(data).hexdigest(), sha512=base64.b64encode(hashlib.sha512(data).digest()).decode('ascii'))])
         self.save()
 
     def save(self):
@@ -37,6 +38,29 @@ class PublishTest(unittest.TestCase):
         (destination / manifest['files'][0]['name']).write_bytes(b'tampered')
         with self.assertRaises(ValueError):
             release.stage_artifact(self.source, self.root / 'downloads', manifest)
+
+    def test_windows_updater_metadata_is_verified_and_atomic(self):
+        manifest = release.validate_artifact(self.source, self.commit)
+        changes = release.policy_changes(manifest, Path('windows/0.1.0') / self.commit)
+        self.assertEqual(changes['MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SHA512'], manifest['files'][0]['sha512'])
+        self.assertEqual(changes['MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SIZE'], str(manifest['files'][0]['size']))
+        self.manifest['files'][0]['sha512'] = 'invalid'
+        self.save()
+        with self.assertRaises(ValueError):
+            release.validate_artifact(self.source, self.commit)
+
+    def test_windows_policy_never_downgrades_or_replaces_same_version(self):
+        changes = release.policy_changes(self.manifest, Path('windows/0.1.0') / self.commit)
+        original = release.replace_env('', changes)
+        release.validate_windows_policy_transition(original, changes)
+        changed = dict(changes, MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION='0.0.9')
+        with self.assertRaises(ValueError):
+            release.validate_windows_policy_transition(original, changed)
+        changed = dict(changes, MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SHA512='different')
+        with self.assertRaises(ValueError):
+            release.validate_windows_policy_transition(original, changed)
+        changed = dict(changes, MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION='0.1.1')
+        release.validate_windows_policy_transition(original, changed)
 
     def test_reject_tampered_artifact(self):
         (self.source / self.manifest['files'][0]['name']).write_bytes(b'tampered')
