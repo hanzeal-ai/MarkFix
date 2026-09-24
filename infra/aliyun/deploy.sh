@@ -55,6 +55,7 @@ compose "$release" config --quiet
 pull_args=()
 if [[ "${MARKFIX_LOADED_IMAGES:-0}" == 1 ]]; then
   pull_args=(--pull never)
+  export MARKFIX_MIGRATE_PULL_POLICY=never
 else
   compose "$release" --profile tools pull api dashboard migrate
 fi
@@ -81,7 +82,7 @@ forward_repair() {
 }
 trap forward_repair ERR INT TERM
 compose "$release" stop api dashboard
-compose "$release" run --rm "${pull_args[@]}" migrate
+compose "$release" run --rm --no-deps migrate
 compose "$release" up -d --wait --wait-timeout 180 "${pull_args[@]}" api dashboard
 curl --fail --silent --show-error http://127.0.0.1:8766/v1/health > /dev/null
 curl --fail --silent --show-error http://127.0.0.1:8766/ > /dev/null

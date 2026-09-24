@@ -19,6 +19,7 @@ services:
 
   migrate:
     image: ${API_IMAGE:?Set API_IMAGE}
+    pull_policy: ${MARKFIX_MIGRATE_PULL_POLICY:-missing}
     profiles: [tools]
     env_file: ${MARKFIX_ENV_FILE:?Set MARKFIX_ENV_FILE}
     command:

@@ -33,6 +33,8 @@ failure=os.environ.get('FAIL_PHASE')
 if 'pull' in a and failure=='pull': sys.exit(1)
 if 'pg_dump' in a: print('-- database backup')
 if 'psql' in a and failure=='unresolved': print('_prisma_migrations' if 'to_regclass' in a[-1] else 'historical_failed_migration')
+if 'run' in a and '--pull' in a: sys.exit(2) # Target Compose 2.27 run has no --pull flag.
+if 'run' in a and os.environ.get('MARKFIX_LOADED_IMAGES')=='1' and os.environ.get('MARKFIX_MIGRATE_PULL_POLICY')!='never': sys.exit(3)
 if 'run' in a and 'migrate' in a and failure=='migrate': sys.exit(1)
 if 'up' in a and 'api' in a and failure=='deploy' and '/current/' not in config: sys.exit(1)
 ''')
@@ -82,7 +84,7 @@ except BlockingIOError: sys.exit(1)
         calls = [x['args'] for x in self.calls()]
         self.assertFalse(any('pull' in x for x in calls))
         for args in calls:
-            if 'up' in args or 'run' in args:
+            if 'up' in args:
                 self.assertEqual(args[args.index('--pull') + 1], 'never')
         self.assertTrue(any('pg_dump' in x for x in calls))
         self.assertTrue(any('migrate' in x and 'run' in x for x in calls))
