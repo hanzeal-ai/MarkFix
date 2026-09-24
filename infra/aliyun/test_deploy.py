@@ -31,6 +31,7 @@ with open(os.environ['TEST_LOG'],'a') as f:
 failure=os.environ.get('FAIL_PHASE')
 if 'pull' in a and failure=='pull': sys.exit(1)
 if 'pg_dump' in a: print('-- database backup')
+if 'psql' in a and failure=='unresolved': print('_prisma_migrations' if 'to_regclass' in a[-1] else 'historical_failed_migration')
 if 'run' in a and 'migrate' in a and failure=='migrate': sys.exit(1)
 if 'up' in a and 'api' in a and failure=='deploy' and '/current/' not in config: sys.exit(1)
 ''')
@@ -91,6 +92,12 @@ except BlockingIOError: sys.exit(1)
     def test_pull_failure_starts_nothing(self):
         self.assertNotEqual(self.run_deploy(FAIL_PHASE='pull').returncode, 0)
         self.assertFalse(any('up' in x['args'] for x in self.calls()))
+
+    def test_unresolved_migration_keeps_existing_applications_running(self):
+        result = self.run_deploy(FAIL_PHASE='unresolved')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Existing applications were not stopped', result.stderr)
+        self.assertFalse(any('stop' in x['args'] or 'run' in x['args'] for x in self.calls()))
 
     def test_first_release_failure_stops_only_applications(self):
         self.assertNotEqual(self.run_deploy(FAIL_PHASE='deploy').returncode, 0)

@@ -69,8 +69,13 @@ export class AppController {
 
   @Get('client-policy')
   @Public()
-  policy(@Query('version') version: string | undefined) {
-    return this.clientPolicy.getPolicy(version);
+  @Header('Cache-Control', 'no-store')
+  policy(
+    @Query('version') version: string | undefined,
+    @Query('platform') platform: string | undefined,
+    @Query('arch') arch: string | undefined,
+  ) {
+    return this.clientPolicy.getPolicy(version, platform, arch);
   }
 
   @Get('desktop-updates')

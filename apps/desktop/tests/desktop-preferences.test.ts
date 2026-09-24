@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { WebsiteProject } from '@markfix/contracts';
 import { normalizeWebsiteShortcuts } from '../src/renderer/src/project-navigation/website-shortcuts';
 import {
@@ -67,10 +67,11 @@ describe('desktop preferences', () => {
     expect(startupProjectPreference(preferences, projects)?.id).toBe('last');
   });
 
-  it('renders both settings as radio groups with the cloud defaults selected', async () => {
+  it.each(['darwin', 'win32'])('renders settings and shortcut keys for %s', async (platform) => {
+    vi.resetModules();
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
-      value: { localStorage: storage() },
+      value: { localStorage: storage(), markfix: { platform } },
     });
     const { SettingsWindow } = await import('../src/renderer/src/SettingsWindow');
 
@@ -86,6 +87,8 @@ describe('desktop preferences', () => {
     expect(markup).not.toContain('桌面端');
     expect(markup).toContain('aria-label="通用设置"');
     expect(markup).toContain('<h2>启动与新标注</h2>');
+    expect(markup).toMatch(platform === 'win32' ? /<kbd[^>]*>Ctrl<\/kbd>/ : /<kbd[^>]*>⌘<\/kbd>/);
+    expect(markup).toMatch(platform === 'win32' ? /<kbd[^>]*>Alt<\/kbd>/ : /<kbd[^>]*>⌥<\/kbd>/);
   });
 
   it('defaults existing shortcuts without a saved mode to cloud collaboration', () => {

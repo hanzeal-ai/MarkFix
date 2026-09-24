@@ -1,5 +1,3 @@
-import childProcess from 'node:child_process';
-import { syncBuiltinESMExports } from 'node:module';
 import { app, BrowserWindow, desktopCapturer, safeStorage, shell, webContents } from 'electron';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -19,12 +17,6 @@ app.setPath('userData', profile);
 safeStorage.isEncryptionAvailable = () => true;
 safeStorage.encryptString = (v) => Buffer.from(v);
 safeStorage.decryptString = (v) => v.toString();
-const chromeLaunches = [];
-childProcess.execFile = (file, args, callback) => {
-  chromeLaunches.push({ file, args });
-  callback(null, '', '');
-};
-syncBuiltinESMExports();
 const links = [];
 let passwordChanges = 0;
 shell.openExternal = async (url) => {
@@ -132,17 +124,19 @@ app.on('browser-window-created', (_event, win) => {
       await run(
         `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
       );
-      writeFileSync(
-        join(output, 'desktop-login.png'),
-        (await win.webContents.capturePage()).toPNG(),
-      );
+      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+        writeFileSync(
+          join(output, 'desktop-login.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
       if (process.env.MARKFIX_LOCAL_ENTRY_SMOKE === 'login') {
         await run(`document.querySelector('.desktop-auth-local').click()`);
         await run(`qa.wait(()=>document.querySelector('[aria-label="新标注"]'))`);
-        writeFileSync(
-          join(output, 'desktop-local-entry.png'),
-          (await win.webContents.capturePage()).toPNG(),
-        );
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'desktop-local-entry.png'),
+            (await win.webContents.capturePage()).toPNG(),
+          );
         console.log('PASS local text entry opens the desktop workspace directly');
         console.log('Screenshots: ' + output);
         clearTimeout(timeout);
@@ -152,10 +146,11 @@ app.on('browser-window-created', (_event, win) => {
       await run(
         `qa.button('点击创建').click();qa.wait(()=>document.querySelector('input[autocomplete="name"]'))`,
       );
-      writeFileSync(
-        join(output, 'desktop-register-form.png'),
-        (await win.webContents.capturePage()).toPNG(),
-      );
+      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+        writeFileSync(
+          join(output, 'desktop-register-form.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
       if (process.env.MARKFIX_LOCAL_ENTRY_SMOKE === 'register') {
         assert.equal(
           await run(
@@ -166,10 +161,11 @@ app.on('browser-window-created', (_event, win) => {
         );
         await run(`document.querySelector('.desktop-auth-local').click()`);
         await run(`qa.wait(()=>document.querySelector('[aria-label="新标注"]'))`);
-        writeFileSync(
-          join(output, 'desktop-local-entry-register.png'),
-          (await win.webContents.capturePage()).toPNG(),
-        );
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'desktop-local-entry-register.png'),
+            (await win.webContents.capturePage()).toPNG(),
+          );
         console.log('PASS empty register form opens the local workspace directly');
         console.log('Screenshots: ' + output);
         clearTimeout(timeout);
@@ -188,10 +184,11 @@ app.on('browser-window-created', (_event, win) => {
         await run(`document.querySelector('[role="status"]').textContent`),
         /验证邮件已发送/,
       );
-      writeFileSync(
-        join(output, 'desktop-register.png'),
-        (await win.webContents.capturePage()).toPNG(),
-      );
+      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+        writeFileSync(
+          join(output, 'desktop-register.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
       await run(
         `qa.button('返回登录').click();qa.wait(()=>document.querySelector('form button[type="submit"]')?.textContent.trim()==='登录')`,
       );
@@ -306,19 +303,17 @@ app.on('browser-window-created', (_event, win) => {
           `document.querySelector('[aria-label="帮助"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menuitem"]')?.textContent.includes('新功能'))`,
         );
         await new Promise((resolve) => setTimeout(resolve, 350));
-        writeFileSync(
-          join(output, 'account-help.png'),
-          (await win.webContents.capturePage()).toPNG(),
-        );
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'account-help.png'),
+            (await win.webContents.capturePage()).toPNG(),
+          );
         await run(
           `if(!document.querySelector('[role="menuitem"]'))document.querySelector('[aria-label="帮助"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menuitem"]')).then(()=>document.querySelector('[role="menuitem"]').click())`,
         );
         await new Promise((resolve) => setTimeout(resolve, 100));
-        assert.deepEqual(chromeLaunches.at(-1), {
-          file: '/usr/bin/open',
-          args: ['-a', 'Google Chrome', process.env.MARKFIX_SERVICE_ORIGIN],
-        });
-        console.log('PASS help menu and Chrome website launch command');
+        assert.equal(links.at(-1), process.env.MARKFIX_SERVICE_ORIGIN);
+        console.log('PASS help menu and default-browser website launch');
       }
       if (process.env.MARKFIX_SERVICE_SMOKE) {
         clearTimeout(timeout);
@@ -337,10 +332,11 @@ app.on('browser-window-created', (_event, win) => {
         `qa.wait(()=>{const toast=[...document.querySelectorAll('[data-sonner-toast]')].find(e=>e.textContent.includes('请输入有效'));return toast && getComputedStyle(toast).opacity==='1' && toast.getBoundingClientRect().top>50;})`,
       );
       await new Promise((resolve) => setTimeout(resolve, 350));
-      writeFileSync(
-        join(output, 'project-error-message.png'),
-        (await win.webContents.capturePage()).toPNG(),
-      );
+      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+        writeFileSync(
+          join(output, 'project-error-message.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
       await run(
         `document.querySelectorAll('[data-close-button]').forEach(button=>button.click());qa.wait(()=>!document.querySelector('[data-sonner-toast]'))`,
       );
@@ -365,10 +361,11 @@ app.on('browser-window-created', (_event, win) => {
           `document.querySelector('[aria-label="项目操作：界面验收项目"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}));qa.wait(()=>document.querySelector('[role="menu"]'))`,
         );
         await new Promise((resolve) => setTimeout(resolve, 250));
-        writeFileSync(
-          join(output, 'project-menu.png'),
-          (await win.webContents.capturePage()).toPNG(),
-        );
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'project-menu.png'),
+            (await win.webContents.capturePage()).toPNG(),
+          );
         await run(
           `document.querySelector('[role="menu"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));qa.wait(()=>!document.querySelector('[role="menu"]'))`,
         );
@@ -385,18 +382,20 @@ app.on('browser-window-created', (_event, win) => {
           false,
           'Target website is hidden behind project dialog',
         );
-        writeFileSync(
-          join(output, 'repository-existing.png'),
-          (await win.webContents.capturePage()).toPNG(),
-        );
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'repository-existing.png'),
+            (await win.webContents.capturePage()).toPNG(),
+          );
         await run(
           `document.querySelector('[role="radio"][value="custom"]').click();qa.wait(()=>document.querySelector('.repository-binding input'))`,
         );
         await run(`qa.fill(document.querySelector('.repository-binding input'),'markfix-fixture')`);
-        writeFileSync(
-          join(output, 'repository-binding.png'),
-          (await win.webContents.capturePage()).toPNG(),
-        );
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'repository-binding.png'),
+            (await win.webContents.capturePage()).toPNG(),
+          );
         await run(
           `qa.button('保存').click();qa.wait(()=>!document.querySelector('.project-agent-dialog'))`,
         );
@@ -476,10 +475,11 @@ app.on('browser-window-created', (_event, win) => {
             true,
           );
           await new Promise((resolve) => setTimeout(resolve, 200));
-          writeFileSync(
-            join(output, 'account-menu-layer.png'),
-            (await win.webContents.capturePage()).toPNG(),
-          );
+          if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+            writeFileSync(
+              join(output, 'account-menu-layer.png'),
+              (await win.webContents.capturePage()).toPNG(),
+            );
           win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
           win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
           await run(
@@ -489,11 +489,11 @@ app.on('browser-window-created', (_event, win) => {
             await new Promise((resolve) => setTimeout(resolve, 50));
           assert.equal(website.getVisible(), true, 'Native website restored after menu dismissal');
         }
-        assert.equal(
+        assert.deepEqual(
           await run(
-            `document.querySelectorAll('.annotation-mode-control [data-slot="kbd"]').length`,
+            `[...document.querySelectorAll('.annotation-mode-control [data-slot="kbd"]')].map(key => key.textContent)`,
           ),
-          2,
+          ['⌥W', '⌥A', '⌥B'],
         );
         await run(`window.markfix.openSettings()`);
         const settingsWindow = BrowserWindow.getAllWindows().find((child) => child !== win);
@@ -512,6 +512,14 @@ app.on('browser-window-created', (_event, win) => {
             `[...document.querySelectorAll('[data-slot="kbd-group"]')].map(group=>[...group.querySelectorAll('[data-slot="kbd"]')].map(key=>key.textContent).join(''))`,
           ),
           ['⌘N', '⌘B', '⌘L', '⌥W', '⌥A', '⌘,'],
+        );
+        await settingsWindow.webContents.executeJavaScript(
+          'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+        );
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        writeFileSync(
+          join(output, 'desktop-settings-general.png'),
+          (await settingsWindow.webContents.capturePage()).toPNG(),
         );
         await settingsWindow.webContents.executeJavaScript(
           `document.querySelector('[aria-label="上次项目"]').click();document.querySelector('[aria-labelledby="new-annotation-storage-mode-label"] [data-value="LOCAL"]').click()`,
@@ -553,24 +561,27 @@ app.on('browser-window-created', (_event, win) => {
         await settingsWindow.webContents.executeJavaScript(
           `(async()=>{const end=Date.now()+5000;while(!document.querySelector('.settings-account form')){if(Date.now()>end)throw Error('Account settings did not load: '+document.body.innerText);await new Promise(r=>setTimeout(r,50));}const fields=[...document.querySelectorAll('.settings-account input')];const set=(el,value)=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));};set(fields[0],'fixture-password');set(fields[1],'updated-password');set(fields[2],'updated-password');})()`,
         );
-        writeFileSync(
-          join(output, 'settings-account-form.png'),
-          (await settingsWindow.webContents.capturePage()).toPNG(),
-        );
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'settings-account-form.png'),
+            (await settingsWindow.webContents.capturePage()).toPNG(),
+          );
         await settingsWindow.webContents.executeJavaScript(
           `[...document.querySelectorAll('button')].find(button=>button.textContent.trim()==='更新密码').click()`,
         );
         for (let attempt = 0; attempt < 50 && passwordChanges === 0; attempt++)
           await new Promise((resolve) => setTimeout(resolve, 50));
         assert.equal(passwordChanges, 1, 'settings changes the authenticated account password');
-        writeFileSync(
-          join(output, 'settings-account.png'),
-          (await settingsWindow.webContents.capturePage()).toPNG(),
-        );
-        writeFileSync(
-          join(output, 'settings-kbd.png'),
-          (await settingsWindow.webContents.capturePage()).toPNG(),
-        );
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'settings-account.png'),
+            (await settingsWindow.webContents.capturePage()).toPNG(),
+          );
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'settings-kbd.png'),
+            (await settingsWindow.webContents.capturePage()).toPNG(),
+          );
         settingsWindow.close();
         console.log('PASS shadcn keyboard hints in toolbar, account menu and settings');
         console.log('PASS account menu above website and repeated open/close restores interaction');
@@ -844,10 +855,11 @@ app.on('browser-window-created', (_event, win) => {
         const target = webContents.getAllWebContents().find((c) => c.getURL() === pageUrl);
         await target.executeJavaScript('window.scrollTo(0,300)');
         assert.equal(await run(`document.querySelectorAll('aside.comment-panel').length`), 1);
-        writeFileSync(
-          join(output, 'unified-preview.png'),
-          (await win.webContents.capturePage()).toPNG(),
-        );
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'unified-preview.png'),
+            (await win.webContents.capturePage()).toPNG(),
+          );
         await target.loadURL(pageUrl + '?other=1');
         await waitFor(
           `!document.querySelector('.element-note-select') && !document.querySelector('.capture-history-select') && !document.querySelector('.capture-note-card')`,
@@ -939,10 +951,11 @@ app.on('browser-window-created', (_event, win) => {
       win.webContents.sendInputEvent({ type: 'mouseMove', x: 110, y: 200 });
       await new Promise((resolve) => setTimeout(resolve, 250));
       assert.equal(await run(`!!document.querySelector('.sidebar-peeking')`), true);
-      writeFileSync(
-        join(output, 'sidebar-hover-shell.png'),
-        (await win.webContents.capturePage()).toPNG(),
-      );
+      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+        writeFileSync(
+          join(output, 'sidebar-hover-shell.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
       await new Promise((resolve) => setTimeout(resolve, 600));
       const sources = await desktopCapturer.getSources({
         types: ['window'],
@@ -1125,10 +1138,11 @@ app.on('browser-window-created', (_event, win) => {
         ),
         true,
       );
-      writeFileSync(
-        join(output, 'sidebar-toolbar.png'),
-        (await win.webContents.capturePage()).toPNG(),
-      );
+      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+        writeFileSync(
+          join(output, 'sidebar-toolbar.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
       await run(
         `document.querySelectorAll('[data-close-button]').forEach(button=>button.click());qa.wait(()=>!document.querySelector('[data-sonner-toast]'))`,
       );
@@ -1204,7 +1218,11 @@ app.on('browser-window-created', (_event, win) => {
           }
         })()`);
         await new Promise((resolve) => setTimeout(resolve, 300));
-        writeFileSync(join(output, name + '.png'), (await child.webContents.capturePage()).toPNG());
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, name + '.png'),
+            (await child.webContents.capturePage()).toPNG(),
+          );
         child.close();
       }
       console.log('PASS integrated main header and native child title bars');
@@ -1220,10 +1238,11 @@ app.on('browser-window-created', (_event, win) => {
         'rgb(180, 35, 24)',
       );
       await new Promise((resolve) => setTimeout(resolve, 350));
-      writeFileSync(
-        join(output, 'delete-project.png'),
-        (await win.webContents.capturePage()).toPNG(),
-      );
+      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+        writeFileSync(
+          join(output, 'delete-project.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
       await run(
         `qa.button('取消').click();qa.wait(()=>!document.querySelector('[role="alertdialog"]'))`,
       );

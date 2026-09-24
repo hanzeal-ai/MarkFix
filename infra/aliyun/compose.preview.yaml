@@ -65,6 +65,8 @@ services:
       - '8766:80'
     volumes:
       - ./api-proxy.conf:/etc/nginx/markfix/api-proxy.conf:ro
+      - ./downloads.conf:/etc/nginx/markfix/downloads.conf:ro
+      - ${MARKFIX_DOWNLOAD_ROOT:?Set MARKFIX_DOWNLOAD_ROOT}:/srv/markfix-downloads:ro
     depends_on:
       api:
         condition: service_healthy

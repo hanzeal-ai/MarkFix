@@ -50,8 +50,23 @@ export function DeveloperGuide() {
       <h2>开发启动与本地构建</h2>
       <p>
         以下命令在 MarkFix 源码仓库根目录执行。自建服务需要 Docker Desktop / Compose
-        v2；桌面开发需要 macOS、Node.js 24、pnpm 11.25.0 和 Xcode Command Line Tools。
+        v2；桌面开发需要 Node.js 24 和 pnpm 11.25.0。macOS 需要 Xcode Command Line Tools，Windows
+        原生模块编译可能需要 Python 和 Visual Studio C++ Build Tools。
       </p>
+      <section>
+        <h3>Windows 安装与更新</h3>
+        <p>
+          普通使用者在下载页选择 Windows x64，运行 EXE
+          安装器即可，无需开发环境。更新时下载新版，退出 MarkFix
+          后覆盖安装，本机数据会保留。安装包未发布时，下载页会明确提示。
+        </p>
+        <p>开发者在 Windows 源码目录安装依赖后，可构建试用安装包：</p>
+        <pre>
+          <code>
+            pnpm --filter @markfix/desktop package:win --config.directories.output=release
+          </code>
+        </pre>
+      </section>
       <section>
         <h3>只使用本机项目</h3>
         <p>

@@ -1,3 +1,4 @@
+import { manualUpdates } from './platform';
 import { useEffect, useRef, useState } from 'react';
 import { AuthLayout, Card } from '@markfix/ui';
 import type { ClientPolicy } from '@markfix/contracts';
@@ -43,7 +44,12 @@ export function App() {
         <Card>
           <p className="eyebrow">需要更新</p>
           <h1>请更新 MarkFix 后继续使用</h1>
-          <p>点击更新将自动下载、安装并重启至推荐版本 {policy.recommendedVersion}。</p>
+          <p>
+            {!manualUpdates
+              ? '点击更新将自动下载、安装并重启至推荐版本'
+              : '点击更新打开下载页，下载并覆盖安装推荐版本'}{' '}
+            {policy.recommendedVersion}。
+          </p>
           <DesktopUpdateButton available />
           <button onClick={() => void enterLocal()}>仅在本机使用</button>
         </Card>

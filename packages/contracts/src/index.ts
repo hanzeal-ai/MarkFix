@@ -505,6 +505,7 @@ export const clientPolicySchema = z.object({
   currentVersion: z.string(),
   status: z.enum(['supported', 'upgrade-recommended', 'upgrade-required']),
   downloadUrl: z.url().optional(),
+  distribution: z.enum(['trial', 'signed']).optional(),
   features: z.record(z.string(), z.boolean()),
 });
 

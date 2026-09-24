@@ -1,3 +1,4 @@
+import { manualUpdates } from './platform';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Button,
@@ -31,7 +32,7 @@ export function DesktopUpdateButton({
       received = true;
       setStatus(next);
       if (next.phase === 'error') toast.error(next.message);
-      if (next.phase === 'current') toast(next.message);
+      if (next.phase === 'current' || next.phase === 'manual') toast(next.message);
     });
     void window.markfix
       .updateStatus()
@@ -69,7 +70,7 @@ export function DesktopUpdateButton({
         variant="ghost"
         className="desktop-update-button"
         aria-label={busy ? '正在更新' : '更新'}
-        title="下载更新并自动安装重启"
+        title={!manualUpdates ? '下载更新并自动安装重启' : '打开下载页，下载安装新版'}
         aria-busy={busy}
         disabled={busy}
         onClick={() => void update()}
@@ -89,7 +90,11 @@ export function DesktopUpdateButton({
               {preparing ? '正在保存当前批注…' : status.message}
             </DialogDescription>
           </DialogHeader>
-          <p>更新完成后将自动重启，无需其他操作。</p>
+          <p>
+            {!manualUpdates
+              ? '更新完成后将自动重启，无需其他操作。'
+              : '将打开下载页，请下载新版并退出 MarkFix 后覆盖安装。'}
+          </p>
         </DialogContent>
       </Dialog>
     </>

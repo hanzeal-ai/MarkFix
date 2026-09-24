@@ -29,6 +29,8 @@ import type {
 declare global {
   interface Window {
     markfix: {
+      platform: string;
+      manualUpdates: boolean;
       startUpdate(): Promise<DesktopUpdateStatus>;
       updateStatus(): Promise<DesktopUpdateStatus>;
       onUpdateStatus(listener: (status: DesktopUpdateStatus) => void): () => void;

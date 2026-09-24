@@ -1,8 +1,7 @@
+import { ManualDesktopUpdater } from './manual-desktop-updater.js';
 import type { CapturePin, ElementCommentPin } from '../capture-pin';
 import { serviceUrls } from '@markfix/contracts';
 import { repositoryBindingSchema, type AgentRepository } from '@markfix/contracts';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { isSidebarWidth, annotationPanelWidth, websiteMinWidth } from '../sidebar-layout';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -49,6 +48,7 @@ import {
   desktopUpdateChannels,
   desktopUpdateFeedUrl,
   desktopUpdateActive,
+  type DesktopUpdateStatus,
 } from '../desktop-update.js';
 import { DesktopUpdater } from './desktop-updater.js';
 import { projectRefreshForShortcut, routeProjectRefreshMenu } from './project-refresh.js';
@@ -229,13 +229,13 @@ const registerMainShortcuts = (browserWindow: BrowserWindow, webContents: WebCon
       refreshCurrentProject(refresh === 'ignore-cache');
       return;
     }
-    const windowAction = windowActionForShortcut(input, 'main');
+    const windowAction = windowActionForShortcut(input, 'main', process.platform);
     if (windowAction) {
       event.preventDefault();
       performWindowShortcut(windowAction, browserWindow);
       return;
     }
-    const mode = modeForShortcut(input);
+    const mode = modeForShortcut(input, process.platform);
     if (!mode) return;
     event.preventDefault();
     sendShell(ipcChannels.modeShortcut, mode);
@@ -250,7 +250,7 @@ const registerChildShortcuts = (browserWindow: BrowserWindow): void => {
       refreshCurrentProject(refresh === 'ignore-cache');
       return;
     }
-    const action = windowActionForShortcut(input, 'child');
+    const action = windowActionForShortcut(input, 'child', process.platform);
     if (!action) return;
     event.preventDefault();
     performWindowShortcut(action, browserWindow);
@@ -310,18 +310,29 @@ const refreshCaptureSnapshot = async (): Promise<void> => {
   }
 };
 
-const desktopUpdater = new DesktopUpdater(
-  autoUpdater,
-  () => {
-    if (!app.isPackaged || process.platform !== 'darwin')
-      throw new Error('自动更新仅适用于已安装的 macOS 正式版本。');
-    return desktopUpdateFeedUrl(services.apiOrigin, app.getVersion(), process.arch);
-  },
-  (status) => {
-    mainWindow?.webContents.send(desktopUpdateChannels.changed, status);
-    layoutWebsite();
-  },
-);
+const notifyDesktopUpdate = (status: DesktopUpdateStatus): void => {
+  mainWindow?.webContents.send(desktopUpdateChannels.changed, status);
+  layoutWebsite();
+};
+const desktopUpdater =
+  process.platform === 'win32' || import.meta.env.MAIN_VITE_MANUAL_UPDATES
+    ? new ManualDesktopUpdater(
+        () => desktopSession.loadPolicy(true),
+        () =>
+          shell.openExternal(
+            new URL(`/download?platform=${process.platform}`, services.origin).href,
+          ),
+        notifyDesktopUpdate,
+      )
+    : new DesktopUpdater(
+        autoUpdater,
+        () => {
+          if (!app.isPackaged || process.platform !== 'darwin')
+            throw new Error('自动更新仅适用于已安装的 macOS 正式版本。');
+          return desktopUpdateFeedUrl(services.apiOrigin, app.getVersion(), process.arch);
+        },
+        notifyDesktopUpdate,
+      );
 
 const layoutWebsite = (): void => {
   if (
@@ -611,9 +622,10 @@ const createWindow = async (): Promise<void> => {
     height: 900,
     minWidth: 1060,
     minHeight: 680,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 20 },
-    title: '',
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 16, y: 20 } }
+      : { titleBarStyle: 'default' as const, autoHideMenuBar: true }),
+    title: process.platform === 'darwin' ? '' : 'MarkFix',
     backgroundColor: process.platform === 'darwin' ? '#00000000' : '#f4f4ef',
     webPreferences: {
       preload: join(__dirname, '../preload/shell.cjs'),
@@ -879,7 +891,7 @@ const registerIpc = (): void => {
   });
   ipcMain.handle('website:open-official', async (event) => {
     assertShellSender(event);
-    await promisify(execFile)('/usr/bin/open', ['-a', 'Google Chrome', services.origin]);
+    await shell.openExternal(services.origin);
   });
   ipcMain.handle(accountPageChannel, async (event, page: unknown) => {
     if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted account page sender');

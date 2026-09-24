@@ -13,6 +13,9 @@ done
 
 deploy_root="${MARKFIX_DEPLOY_ROOT:-$HOME/markfix}"
 mkdir -p "$deploy_root/releases" "$deploy_root/backups"
+export MARKFIX_DOWNLOAD_ROOT="$deploy_root/downloads"
+mkdir -p "$MARKFIX_DOWNLOAD_ROOT"
+chmod 755 "$MARKFIX_DOWNLOAD_ROOT"
 exec 9>"$deploy_root/deploy.lock"
 flock -n 9 || { echo 'Another MarkFix deployment is running' >&2; exit 1; }
 export MARKFIX_ENV_FILE="$deploy_root/app.env"
@@ -31,6 +34,8 @@ chmod 600 "$MARKFIX_ENV_FILE"
 release=$(mktemp -d "$deploy_root/releases/release.XXXXXXXX")
 cp "$(dirname "$0")/compose.preview.yaml" "$release/compose.yaml"
 cp "$(dirname "$0")/api-proxy.conf" "$release/api-proxy.conf"
+cp "$(dirname "$0")/downloads.conf" "$release/downloads.conf"
+printf '%s\n' "${GITHUB_SHA:-local}" > "$release/source.sha"
 printf 'API_IMAGE=%s\nDASHBOARD_IMAGE=%s\n' "$API_IMAGE" "$DASHBOARD_IMAGE" > "$release/images.env"
 # Image values are read from the selected release file.
 unset API_IMAGE DASHBOARD_IMAGE
@@ -47,6 +52,16 @@ compose "$release" up -d --wait --wait-timeout 120 postgres
 backup="$deploy_root/backups/$(basename "$release").sql"
 compose "$release" exec -T postgres pg_dump -U markfix -d markfix > "$backup"
 test -s "$backup"
+# A failed historical migration requires diagnosis before stopping healthy applications.
+migration_table=$(compose "$release" exec -T postgres psql -U markfix -d markfix -Atc "SELECT to_regclass('public._prisma_migrations')")
+if [[ -n "$migration_table" ]]; then
+  failed_migrations=$(compose "$release" exec -T postgres psql -U markfix -d markfix -Atc \
+    'SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NULL AND rolled_back_at IS NULL')
+  if [[ -n "$failed_migrations" ]]; then
+    printf 'Unresolved database migration(s): %s. Existing applications were not stopped.\n' "$failed_migrations" >&2
+    exit 1
+  fi
+fi
 # Latest-only contracts require stopped writers; old images cannot read the new database.
 forward_repair() {
   trap - ERR INT TERM

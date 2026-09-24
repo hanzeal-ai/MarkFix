@@ -1,3 +1,4 @@
+import { primaryKey, altKey } from './platform';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   Alert,
@@ -28,12 +29,12 @@ import {
 } from './desktop-preferences';
 
 const shortcuts = [
-  ['新建标注', '⌘N'],
-  ['显示或隐藏侧边栏', '⌘B'],
-  ['聚焦地址栏', '⌘L'],
-  ['元素批注', '⌥W'],
-  ['截图批注', '⌥A'],
-  ['打开设置', '⌘,'],
+  ['新建标注', `${primaryKey}N`],
+  ['显示或隐藏侧边栏', `${primaryKey}B`],
+  ['聚焦地址栏', `${primaryKey}L`],
+  ['元素批注', `${altKey}W`],
+  ['截图批注', `${altKey}A`],
+  ['打开设置', `${primaryKey},`],
 ] as const;
 
 function AccountSettings(): React.JSX.Element {
@@ -264,9 +265,11 @@ export function SettingsWindow(): React.JSX.Element {
                 <div key={label}>
                   <span>{label}</span>
                   <KbdGroup aria-label={shortcut}>
-                    {Array.from(shortcut).map((key) => (
-                      <Kbd key={key}>{key}</Kbd>
-                    ))}
+                    {(shortcut.includes('+') ? shortcut.split('+') : Array.from(shortcut)).map(
+                      (key) => (
+                        <Kbd key={key}>{key}</Kbd>
+                      ),
+                    )}
                   </KbdGroup>
                 </div>
               ))}

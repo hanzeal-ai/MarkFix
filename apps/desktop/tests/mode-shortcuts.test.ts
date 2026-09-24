@@ -49,3 +49,13 @@ describe('desktop mode shortcuts', () => {
     ).toBeUndefined();
   });
 });
+
+it('uses Ctrl for Windows actions and Alt for annotation modes', () => {
+  const ctrl = input({ alt: false, control: true });
+  expect(modeForShortcut({ ...ctrl, code: 'KeyB' }, 'win32')).toBe('toggle-sidebar');
+  expect(modeForShortcut({ ...ctrl, code: 'KeyN' }, 'win32')).toBe('new-annotation');
+  expect(modeForShortcut({ ...ctrl, code: 'KeyC', shift: true }, 'win32')).toBe('diagnostics');
+  expect(modeForShortcut(input(), 'win32')).toBe('capture');
+  expect(modeForShortcut({ ...ctrl, code: 'KeyB', meta: true }, 'win32')).toBeUndefined();
+  expect(modeForShortcut({ ...ctrl, code: 'KeyB' }, 'darwin')).toBeUndefined();
+});

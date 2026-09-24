@@ -68,7 +68,13 @@ ipcRenderer.on(
   },
 );
 
+window.addEventListener('DOMContentLoaded', () => {
+  document.documentElement.dataset.platform = process.platform;
+});
+
 contextBridge.exposeInMainWorld('markfix', {
+  platform: process.platform,
+  manualUpdates: process.platform === 'win32' || import.meta.env.PRELOAD_VITE_MANUAL_UPDATES,
   openOfficialWebsite: () => ipcRenderer.invoke('website:open-official'),
   startUpdate: () => ipcRenderer.invoke(desktopUpdateChannels.start),
   updateStatus: () => ipcRenderer.invoke(desktopUpdateChannels.status),

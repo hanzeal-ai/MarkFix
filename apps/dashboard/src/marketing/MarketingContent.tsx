@@ -47,7 +47,7 @@ export function MarketingHeroContent({
             在线体验 <ArrowRight />
           </Button>
           <Button size="lg" variant="outline" onClick={() => window.location.assign('/download')}>
-            <Download /> 下载 macOS 桌面端
+            <Download /> 下载桌面端
           </Button>
         </div>,
       )}

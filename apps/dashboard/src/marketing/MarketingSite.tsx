@@ -28,7 +28,7 @@ export function MarketingSite() {
               </Button>
               <Button asChild variant="outline">
                 <a href="/download">
-                  <Download size={16} /> 下载 macOS 桌面端
+                  <Download size={16} /> 下载桌面端
                 </a>
               </Button>
             </div>
@@ -192,7 +192,7 @@ export function MarketingSite() {
         <section className="home-get-started">
           <div>
             <h2>开始使用 MarkFix。</h2>
-            <p>macOS 桌面端，支持本地标注与云端协作。</p>
+            <p>macOS / Windows 桌面端，支持本地标注与云端协作。</p>
           </div>
           <div className="home-actions">
             <Button asChild>

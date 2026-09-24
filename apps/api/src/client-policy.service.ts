@@ -51,6 +51,8 @@ export class ClientPolicyService {
       throw new BadRequestException('Unsupported update platform or architecture');
     const policy = this.getPolicy(version);
     if (compareVersions(policy.currentVersion, policy.recommendedVersion) >= 0) return undefined;
+    if (process.env.MARKFIX_DESKTOP_MAC_DISTRIBUTION === 'trial')
+      throw new ServiceUnavailableException('Trial packages require manual installation');
     const downloadUrl = process.env[`MARKFIX_DESKTOP_MAC_${arch.toUpperCase()}_UPDATE_URL`];
     if (!downloadUrl)
       throw new ServiceUnavailableException('Desktop update package is not published');
@@ -65,12 +67,49 @@ export class ClientPolicyService {
     return { url: url.href, name: policy.recommendedVersion };
   }
 
-  getPolicy(currentVersion: string | undefined) {
+  getPolicy(currentVersion: string | undefined, platform = 'darwin', arch = 'arm64') {
     if (!currentVersion || !versionPattern.test(currentVersion)) {
       throw new ConflictException('A valid desktop version is required');
     }
-    const minimumVersion = process.env.MARKFIX_MINIMUM_DESKTOP_VERSION ?? '0.1.0';
-    const recommendedVersion = process.env.MARKFIX_RECOMMENDED_DESKTOP_VERSION ?? minimumVersion;
+    const windows = platform === 'win32';
+    const minimumVersion =
+      process.env[
+        windows ? 'MARKFIX_WINDOWS_MINIMUM_DESKTOP_VERSION' : 'MARKFIX_MINIMUM_DESKTOP_VERSION'
+      ] ?? '0.1.0';
+    const recommendedVersion =
+      process.env[
+        windows
+          ? 'MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION'
+          : 'MARKFIX_RECOMMENDED_DESKTOP_VERSION'
+      ] ?? minimumVersion;
+    const downloadUrl =
+      windows && arch === 'x64'
+        ? process.env.MARKFIX_DESKTOP_WINDOWS_X64_DOWNLOAD_URL
+        : platform === 'darwin' && arch === 'arm64'
+          ? process.env.MARKFIX_DESKTOP_DOWNLOAD_URL
+          : undefined;
+    const distribution =
+      process.env[
+        windows ? 'MARKFIX_DESKTOP_WINDOWS_DISTRIBUTION' : 'MARKFIX_DESKTOP_MAC_DISTRIBUTION'
+      ];
+    if (distribution && !['trial', 'signed'].includes(distribution))
+      throw new ServiceUnavailableException('Invalid desktop distribution type');
+    if (windows && downloadUrl) {
+      let url: URL;
+      try {
+        url = new URL(downloadUrl);
+      } catch {
+        throw new ServiceUnavailableException('Invalid Windows installer URL');
+      }
+      if (
+        url.protocol !== 'https:' ||
+        url.username ||
+        url.password ||
+        url.hash ||
+        !url.pathname.toLowerCase().endsWith('.exe')
+      )
+        throw new ServiceUnavailableException('Windows downloads require an HTTPS EXE installer');
+    }
     try {
       if (compareVersions(recommendedVersion, minimumVersion) < 0)
         throw new Error('Recommended version is below minimum version');
@@ -85,9 +124,7 @@ export class ClientPolicyService {
         recommendedVersion,
         currentVersion,
         status,
-        ...(process.env.MARKFIX_DESKTOP_DOWNLOAD_URL
-          ? { downloadUrl: process.env.MARKFIX_DESKTOP_DOWNLOAD_URL }
-          : {}),
+        ...(downloadUrl ? { downloadUrl, ...(distribution ? { distribution } : {}) } : {}),
         features: {
           annotations: true,
           reproductionRecorder: false,

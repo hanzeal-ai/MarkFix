@@ -1,3 +1,4 @@
+import { primaryKey, primaryAriaKey } from '../platform';
 import { Button } from '@markfix/ui';
 import { PanelLeftClose, PanelLeftOpen, SquarePen } from '@markfix/ui/icons';
 
@@ -21,8 +22,8 @@ export function HeaderNavigationControls({
         variant="ghost"
         size="icon"
         aria-label={expanded ? '收起项目侧边栏' : '展开项目侧边栏'}
-        aria-keyshortcuts="Meta+B"
-        title={expanded ? '收起侧边栏（⌘B）' : '展开侧边栏（⌘B）'}
+        aria-keyshortcuts={`${primaryAriaKey}+B`}
+        title={`${expanded ? '收起' : '展开'}侧边栏（${primaryKey}B）`}
         onClick={onToggle}
         onMouseEnter={expanded ? undefined : onPeek}
         onMouseLeave={onEndPeek}
@@ -37,8 +38,8 @@ export function HeaderNavigationControls({
           variant="ghost"
           size="icon"
           aria-label="新标注"
-          title="新标注（⌘N）"
-          aria-keyshortcuts="Meta+N"
+          title={`新标注（${primaryKey}N）`}
+          aria-keyshortcuts={`${primaryAriaKey}+N`}
           onClick={onNew}
           onMouseEnter={onPeek}
           onMouseLeave={onEndPeek}

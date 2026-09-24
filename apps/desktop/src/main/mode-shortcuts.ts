@@ -1,16 +1,18 @@
-import type { ShortcutInput } from './shortcut-input.js';
+import { hasPrimaryModifier, type ShortcutInput } from './shortcut-input.js';
 
 export type DesktopShortcut =
   'capture' | 'comment' | 'preview' | 'diagnostics' | 'toggle-sidebar' | 'new-annotation';
 
-export const modeForShortcut = (input: ShortcutInput): DesktopShortcut | undefined => {
+export const modeForShortcut = (
+  input: ShortcutInput,
+  platform = 'darwin',
+): DesktopShortcut | undefined => {
   if (
     input.type === 'keyDown' &&
     !input.isAutoRepeat &&
-    input.meta &&
+    hasPrimaryModifier(input, platform) &&
     !input.shift &&
-    !input.alt &&
-    !input.control
+    !input.alt
   ) {
     if (input.code === 'KeyB') return 'toggle-sidebar';
     if (input.code === 'KeyN') return 'new-annotation';
@@ -19,10 +21,9 @@ export const modeForShortcut = (input: ShortcutInput): DesktopShortcut | undefin
     input.type === 'keyDown' &&
     !input.isAutoRepeat &&
     input.code === 'KeyC' &&
-    input.meta &&
+    hasPrimaryModifier(input, platform) &&
     input.shift &&
-    !input.alt &&
-    !input.control
+    !input.alt
   )
     return 'diagnostics';
   if (

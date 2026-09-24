@@ -7,3 +7,6 @@ export type ShortcutInput = {
   shift: boolean;
   isAutoRepeat: boolean;
 };
+
+export const hasPrimaryModifier = (input: ShortcutInput, platform: string): boolean =>
+  platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta;

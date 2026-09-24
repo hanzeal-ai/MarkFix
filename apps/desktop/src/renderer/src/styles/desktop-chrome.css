@@ -409,10 +409,13 @@ button {
   padding-left: 178px;
 }
 
+:root:not([data-platform='darwin']) .window-controls,
 .window-fullscreen .window-controls {
   width: 80px;
   padding-left: 12px;
 }
+:root:not([data-platform='darwin']) .sidebar-collapsed .browser-bar,
+:root:not([data-platform='darwin']) .sidebar-collapsed .navigation-header,
 .window-fullscreen .sidebar-collapsed .browser-bar,
 .window-fullscreen .sidebar-collapsed .navigation-header {
   padding-left: 90px;

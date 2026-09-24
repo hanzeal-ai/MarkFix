@@ -36,3 +36,14 @@ describe('desktop window shortcuts', () => {
     expect(windowActionForShortcut(input({ meta: false }), 'child')).toBeUndefined();
   });
 });
+
+it('uses Ctrl on Windows, closes its main window, and leaves Windows-key shortcuts alone', () => {
+  const ctrl = input({ meta: false, control: true });
+  expect(windowActionForShortcut(ctrl, 'main', 'win32')).toBe('close');
+  expect(windowActionForShortcut(ctrl, 'child', 'win32')).toBe('close');
+  expect(windowActionForShortcut({ ...ctrl, code: 'Comma' }, 'main', 'win32')).toBe('settings');
+  expect(windowActionForShortcut({ ...ctrl, code: 'KeyQ' }, 'main', 'win32')).toBe('quit');
+  expect(windowActionForShortcut(input(), 'main', 'win32')).toBeUndefined();
+  expect(windowActionForShortcut({ ...ctrl, meta: true }, 'main', 'win32')).toBeUndefined();
+  expect(windowActionForShortcut(ctrl, 'main', 'darwin')).toBeUndefined();
+});

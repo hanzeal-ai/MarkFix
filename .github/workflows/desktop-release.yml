@@ -1,0 +1,166 @@
+name: Desktop downloads
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: markfix-desktop-downloads
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  windows:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.event != 'pull_request')
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @markfix/database db:generate
+      - run: pnpm --filter @markfix/desktop test
+      - run: pnpm build
+      - name: Verify download page platform selection
+        run: pnpm --filter @markfix/desktop exec electron scripts/smoke-dashboard-components.mjs
+        env:
+          MARKFIX_DOWNLOAD_SMOKE: '1'
+          MARKFIX_SMOKE_NO_SCREENSHOTS: '1'
+      - name: Build Windows x64 trial installer
+        run: pnpm --filter @markfix/desktop package:win --config.directories.output=release
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify installed app and create checksums
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem apps/desktop/release/*-windows-x64-setup.exe
+          if ($installer.Count -ne 1) { throw 'Expected exactly one Windows x64 installer' }
+          $installDir = Join-Path $env:RUNNER_TEMP 'MarkFix Installed'
+          $install = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$installDir") -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Installer failed: $($install.ExitCode)" }
+          node apps/desktop/scripts/smoke-installed-desktop.mjs (Join-Path $installDir 'MarkFix.exe')
+          if ($LASTEXITCODE -ne 0) { throw 'Installed app smoke failed' }
+          node apps/desktop/scripts/create-download-manifest.mjs apps/desktop/release windows trial "$env:SOURCE_SHA"
+          if ($LASTEXITCODE -ne 0) { throw 'Manifest generation failed' }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-windows
+          path: |
+            apps/desktop/release/*-setup.exe
+            apps/desktop/release/download-manifest.json
+            apps/desktop/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  macos:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.event != 'pull_request')
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      RELEASE_MODE: ${{ vars.MARKFIX_MACOS_RELEASE_MODE || 'trial' }}
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @markfix/database db:generate
+      - name: Build selected macOS distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_MODE" == signed ]]; then
+            for key in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+              [[ -n "${!key:-}" ]] || { echo "Missing signing configuration: $key" >&2; exit 1; }
+            done
+            pnpm --filter @markfix/desktop package:mac:release --arm64 --config.directories.output=release '--config.artifactName=MarkFix-${version}-${arch}.${ext}'
+          elif [[ "$RELEASE_MODE" == trial ]]; then
+            unset CSC_LINK CSC_KEY_PASSWORD
+            export CSC_IDENTITY_AUTO_DISCOVERY=false MARKFIX_DESKTOP_UPDATE_MODE=manual
+            pnpm --filter @markfix/desktop package:mac:trial --config.directories.output=release '--config.artifactName=MarkFix-${version}-${arch}.${ext}'
+          else
+            echo 'RELEASE_MODE must be trial or signed' >&2
+            exit 1
+          fi
+      - name: Verify macOS package
+        shell: bash
+        run: |
+          set -euo pipefail
+          packaged_app='apps/desktop/release/mac-arm64/MarkFix.app'
+          codesign --verify --deep --strict "$packaged_app"
+          if [[ "$RELEASE_MODE" == signed ]]; then
+            spctl --assess --type execute "$packaged_app"
+            xcrun stapler validate "$packaged_app"
+            unzip -tq apps/desktop/release/*.zip
+          fi
+          hdiutil verify apps/desktop/release/*.dmg
+          node apps/desktop/scripts/smoke-installed-desktop.mjs "$packaged_app/Contents/MacOS/MarkFix"
+          node apps/desktop/scripts/create-download-manifest.mjs apps/desktop/release macos "$RELEASE_MODE" "$SOURCE_SHA"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-macos
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/download-manifest.json
+            apps/desktop/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-downloads:
+    needs: [windows, macos]
+    if: always() && (needs.windows.result == 'success' || needs.macos.result == 'success')
+    runs-on: [self-hosted, Linux, X64, markfix-preview]
+    environment: aliyun-preview
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        if: needs.windows.result == 'success'
+        with:
+          name: desktop-windows
+          path: ${{ runner.temp }}/desktop-${{ github.run_id }}-${{ github.run_attempt }}/windows
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        if: needs.macos.result == 'success'
+        with:
+          name: desktop-macos
+          path: ${{ runner.temp }}/desktop-${{ github.run_id }}-${{ github.run_attempt }}/macos
+      - name: Publish verified Windows download
+        if: needs.windows.result == 'success'
+        run: python3 infra/aliyun/publish_desktop.py "$RUNNER_TEMP/desktop-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/windows" "$HOME/markfix" "$SOURCE_SHA"
+      - name: Publish verified macOS download
+        if: needs.macos.result == 'success'
+        run: python3 infra/aliyun/publish_desktop.py "$RUNNER_TEMP/desktop-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/macos" "$HOME/markfix" "$SOURCE_SHA"

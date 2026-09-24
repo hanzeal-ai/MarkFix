@@ -1,5 +1,7 @@
 # 本地使用、云端协作与开发
 
+Windows 安装和原生构建参见 [Windows x64 桌面试用版](windows-desktop.md)。
+
 ## 先选择数据存放方式
 
 | 方式               | 数据位置                                   | 团队与 CLI                                                  |

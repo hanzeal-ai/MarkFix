@@ -406,3 +406,12 @@
   outline: 2px solid var(--primary);
   outline-offset: 4px;
 }
+
+.download-platforms {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.download-platforms [aria-pressed='true'] {
+  opacity: 1;
+}

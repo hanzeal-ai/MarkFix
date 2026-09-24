@@ -13,12 +13,13 @@
 ## 文档
 
 - [本地使用、开发启动与 macOS 构建](docs/local-development.md)
+- [Windows 安装、打包与验收](docs/windows-desktop.md)
 - [CLI 安装、首次授权与命令参考](apps/cli/README.md)
 - 官网 `/docs`：元素批注、截图标注、快捷键、本地与云端、Codex 接入、开发与构建。
 
 ## 快速启动开发环境
 
-需要 Docker Desktop / Compose v2；桌面开发另外需要 macOS、Node.js 24、pnpm 11.25.0 和 Xcode Command Line Tools。
+需要 Docker Desktop / Compose v2；桌面开发需要 Node.js 24 和 pnpm 11.25.0；macOS 使用 Xcode Command Line Tools，Windows 构建说明见上方文档。
 
 ```sh
 docker compose up --build -d

@@ -26,6 +26,11 @@ describe('native macOS update feed', () => {
       name: '0.2.0',
     });
   });
+  it('never serves a native archive for a trial distribution', () => {
+    const service = setup();
+    vi.stubEnv('MARKFIX_DESKTOP_MAC_DISTRIBUTION', 'trial');
+    expect(() => service.getUpdate('0.1.0', 'darwin', 'arm64')).toThrow();
+  });
   it('does not downgrade or reinstall the current version', () => {
     const service = setup();
     expect(service.getUpdate('0.2.0', 'darwin', 'arm64')).toBeUndefined();
@@ -79,6 +84,17 @@ it('serves the public native protocol with JSON, no-cache, and an empty 204', as
         method: 'GET',
         url: `/v1/desktop-updates?version=${version}&platform=darwin&arch=arm64`,
       });
+    vi.stubEnv('MARKFIX_DESKTOP_WINDOWS_X64_DOWNLOAD_URL', 'https://example.com/windows.exe');
+    vi.stubEnv('MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION', '0.3.0');
+    const windowsPolicy = await app.inject({
+      method: 'GET',
+      url: '/v1/client-policy?version=0.1.0&platform=win32&arch=x64',
+    });
+    expect(windowsPolicy.statusCode).toBe(200);
+    expect(windowsPolicy.json()).toMatchObject({
+      downloadUrl: 'https://example.com/windows.exe',
+      recommendedVersion: '0.3.0',
+    });
     const update = await inject('0.1.0');
     expect(update.statusCode).toBe(200);
     expect(update.json()).toEqual({ url: 'https://example.com/0.2.0-arm64.zip', name: '0.2.0' });

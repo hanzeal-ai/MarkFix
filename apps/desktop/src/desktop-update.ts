@@ -7,7 +7,7 @@ export const desktopUpdateChannels = {
 } as const;
 
 export type DesktopUpdateStatus = {
-  phase: 'idle' | 'checking' | 'downloading' | 'installing' | 'current' | 'error';
+  phase: 'idle' | 'checking' | 'downloading' | 'installing' | 'current' | 'manual' | 'error';
   message: string;
 };
 

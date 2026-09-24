@@ -212,16 +212,26 @@ export function PricingPage() {
 }
 
 export function DownloadPage() {
+  const [platform, setPlatform] = useState<'darwin' | 'win32'>(() => {
+    const requested = new URLSearchParams(window.location.search).get('platform');
+    return requested === 'win32' || (!requested && /Windows/i.test(navigator.userAgent))
+      ? 'win32'
+      : 'darwin';
+  });
+  const windows = platform === 'win32';
+  const platformLabel = windows ? 'Windows' : 'macOS';
   const [download, setDownload] = useState<{
     url?: string;
+    distribution?: 'trial' | 'signed' | undefined;
     version: string;
     state: 'loading' | 'ready' | 'unpublished' | 'error';
   }>({ version: desktopVersion, state: 'loading' });
   useEffect(() => {
     let active = true;
+    setDownload({ version: desktopVersion, state: 'loading' });
     const api = new MarkFixApi(dashboardServiceUrls().apiOrigin);
     void api
-      .clientPolicy(desktopVersion, 'darwin', 'arm64')
+      .clientPolicy(desktopVersion, platform, windows ? 'x64' : 'arm64')
       .then((policy) => {
         if (!active) return;
         const url = policy.downloadUrl ? new URL(policy.downloadUrl) : undefined;
@@ -229,10 +239,16 @@ export function DownloadPage() {
           url?.protocol === 'https:' &&
           !url.username &&
           !url.password &&
-          url.pathname !== '/download';
+          url.pathname !== '/download' &&
+          (!windows || url.pathname.toLowerCase().endsWith('.exe'));
         setDownload(
           available
-            ? { url: url.href, version: policy.recommendedVersion, state: 'ready' }
+            ? {
+                url: url.href,
+                version: policy.recommendedVersion,
+                distribution: policy.distribution,
+                state: 'ready',
+              }
             : { version: policy.recommendedVersion, state: 'unpublished' },
         );
       })
@@ -242,26 +258,50 @@ export function DownloadPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [platform, windows]);
   return (
     <PageShell>
       <section className="download-layout">
         <div className="download-copy">
           <span>Desktop app</span>
           <h1>
-            在 Mac 上，
+            在电脑上，
             <br />
             开始标注。
           </h1>
           <p>
             在网页上点选元素、标记截图，并在统一预览中检查和提交。顶部工具栏、项目侧栏与标注记录，组成完整的
-            macOS 项目。
+            桌面工作区。
           </p>
+          <div className="download-platforms" role="group" aria-label="选择操作系统">
+            <Button
+              variant={windows ? 'outline' : 'default'}
+              aria-pressed={!windows}
+              disabled={!windows}
+              onClick={() => {
+                setDownload({ version: desktopVersion, state: 'loading' });
+                setPlatform('darwin');
+              }}
+            >
+              macOS
+            </Button>
+            <Button
+              variant={windows ? 'default' : 'outline'}
+              aria-pressed={windows}
+              disabled={windows}
+              onClick={() => {
+                setDownload({ version: desktopVersion, state: 'loading' });
+                setPlatform('win32');
+              }}
+            >
+              Windows
+            </Button>
+          </div>
           <div className="download-actions">
             {download.url ? (
               <Button size="lg" asChild>
                 <a href={download.url}>
-                  <Download /> 下载 macOS 版
+                  <Download /> 下载 {platformLabel} 版
                 </a>
               </Button>
             ) : (
@@ -271,14 +311,24 @@ export function DownloadPage() {
                   ? '正在获取下载地址…'
                   : download.state === 'error'
                     ? '下载信息暂不可用'
-                    : 'macOS 安装包待发布'}
+                    : `${platformLabel} 安装包待发布`}
               </Button>
             )}
             <a href="/docs">
               查看安装与使用文档 <ArrowRight />
             </a>
           </div>
-          <small>macOS · Apple silicon（M 系列芯片）</small>
+          <small>
+            {windows
+              ? 'Windows · x64（Intel / AMD 64 位）· 手动安装更新'
+              : 'macOS · Apple silicon（M 系列芯片）'}
+          </small>
+          {download.distribution === 'trial' && (
+            <p role="note">
+              未签名试用版：安装时系统可能提示无法验证发布者。请核对下载来源；更新需手动下载安装。
+              {!windows && '如 macOS 阻止打开，可在系统设置的“隐私与安全性”中核对并允许打开。'}
+            </p>
+          )}
           {download.state === 'error' && (
             <p role="status">暂时无法获取发布信息，请稍后刷新重试。你可以先在线体验标注流程。</p>
           )}
@@ -289,7 +339,7 @@ export function DownloadPage() {
         <div className="download-product-card">
           <MarkFixMark className="download-app-icon" size={62} />
           <div>
-            <span>MarkFix for macOS</span>
+            <span>MarkFix for {platformLabel}</span>
             <strong>Version {download.version}</strong>
           </div>
           <Badge variant="secondary">Preview</Badge>

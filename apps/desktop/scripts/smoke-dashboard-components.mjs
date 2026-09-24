@@ -93,6 +93,8 @@ const server = createServer(async (req, res) => {
       res.end('{}');
       return;
     }
+    const windows = new URL(req.url, 'http://localhost').searchParams.get('platform') === 'win32';
+    const installer = windows ? 'MarkFix-windows-x64-setup.exe' : 'MarkFix-arm64.dmg';
     res.end(
       JSON.stringify({
         minimumVersion: '0.1.0',
@@ -101,9 +103,9 @@ const server = createServer(async (req, res) => {
         status: 'supported',
         features: {},
         ...(downloadState === 'ready'
-          ? { downloadUrl: 'https://downloads.example.test/MarkFix-arm64.dmg' }
+          ? { downloadUrl: `https://downloads.example.test/${installer}`, distribution: 'trial' }
           : downloadState === 'unsafe'
-            ? { downloadUrl: 'http://downloads.example.test/MarkFix-arm64.dmg' }
+            ? { downloadUrl: `http://downloads.example.test/${installer}` }
             : {}),
       }),
     );
@@ -215,6 +217,134 @@ async function main() {
     throw new Error('Timed out: ' + code);
   };
   try {
+    if (process.env.MARKFIX_WINDOWS_DOCS_SMOKE) {
+      await win.loadURL(origin + '/docs#development');
+      await waitFor("Boolean(document.querySelector('#development'))");
+      await run(
+        "document.querySelector('#development').scrollIntoView({block:'start',behavior:'instant'})",
+      );
+      await waitFor(
+        "Math.abs(document.querySelector('#development').getBoundingClientRect().top) < 150",
+      );
+      await setTimeout(250);
+      assert.equal(
+        await run(
+          "document.querySelector('#development').textContent.includes('Windows 安装与更新')",
+        ),
+        true,
+      );
+      writeFileSync(
+        join(output, 'windows-install-docs.png'),
+        (await win.webContents.capturePage()).toPNG(),
+      );
+      console.log('PASS Windows install documentation; Screenshots: ' + output);
+      return;
+    }
+    if (process.env.MARKFIX_DOWNLOAD_SMOKE) {
+      for (const platform of ['darwin', 'win32']) {
+        for (const state of ['ready', 'unpublished', 'error', 'unsafe']) {
+          downloadState = state;
+          await win.loadURL(origin + '/download?platform=' + platform);
+          await waitFor(
+            "!!document.querySelector('.download-copy') && !document.body.textContent.includes('正在获取下载地址')",
+          );
+          const href = await run(
+            "document.querySelector('.download-actions a[data-slot=button]')?.href ?? null",
+          );
+          const expected =
+            platform === 'win32' ? 'MarkFix-windows-x64-setup.exe' : 'MarkFix-arm64.dmg';
+          assert.equal(
+            href,
+            state === 'ready' ? 'https://downloads.example.test/' + expected : null,
+          );
+          if (state !== 'ready')
+            assert.equal(
+              await run("document.querySelector('.download-actions button').disabled"),
+              true,
+            );
+          if (state === 'ready') {
+            assert.equal(
+              await run(
+                "document.querySelector('[role=note]')?.textContent.includes('未签名试用版')",
+              ),
+              true,
+            );
+            await setTimeout(150);
+            if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+              writeFileSync(
+                join(output, 'download-' + platform + '.png'),
+                (await win.webContents.capturePage()).toPNG(),
+              );
+          }
+        }
+      }
+      downloadState = 'ready';
+      await win.loadURL(origin + '/download?platform=darwin');
+      await waitFor("Boolean(document.querySelector('.download-actions a[data-slot=button]'))");
+      await run(
+        "[...document.querySelectorAll('.download-platforms button')].find(b=>b.textContent==='Windows').click()",
+      );
+      await waitFor(
+        "document.querySelector('.download-actions a[data-slot=button]')?.href.endsWith('.exe')",
+      );
+      assert.equal(
+        await run("document.querySelector('.download-platforms [aria-pressed=true]').textContent"),
+        'Windows',
+      );
+      await run("document.querySelector('.download-platforms [aria-pressed=true]').click()");
+      assert.equal(
+        await run("Boolean(document.querySelector('.download-actions a[data-slot=button]'))"),
+        true,
+      );
+      await run(
+        "[...document.querySelectorAll('.download-platforms button')].find(b=>b.textContent==='macOS').click()",
+      );
+      await waitFor(
+        "document.querySelector('.download-actions a[data-slot=button]')?.href.endsWith('.dmg')",
+      );
+      assert.equal(
+        await run("document.querySelector('.download-platforms [aria-pressed=true]').textContent"),
+        'macOS',
+      );
+      await win.loadURL(origin + '/docs#shortcuts');
+      await waitFor("Boolean(document.querySelector('#shortcuts table'))");
+      assert.equal(
+        await run("document.querySelector('#shortcuts table').textContent.includes('Windows')"),
+        true,
+      );
+      await run(
+        "document.querySelector('#shortcuts').scrollIntoView({block:'start',behavior:'instant'})",
+      );
+      await setTimeout(250);
+      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+        writeFileSync(
+          join(output, 'windows-shortcuts.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+      await run(
+        "document.querySelector('#development').scrollIntoView({block:'start',behavior:'instant'})",
+      );
+      await setTimeout(250);
+      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+        writeFileSync(
+          join(output, 'windows-install-docs.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+      await win.setSize(390, 844);
+      await win.loadURL(origin + '/download?platform=win32');
+      await waitFor("Boolean(document.querySelector('.download-actions a[data-slot=button]'))");
+      assert.equal(await run('document.documentElement.scrollWidth <= innerWidth'), true);
+      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+        writeFileSync(
+          join(output, 'download-win32-mobile.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+      console.log(
+        'PASS Mac/Windows download routing, unavailable/error/unsafe states, platform switching, mobile layout and Windows docs',
+      );
+      console.log('Screenshots: ' + output);
+      return;
+    }
     await win.loadURL(origin + '/docs#agent');
     await waitFor(`!!document.querySelector('#cli-authorize pre code')`);
     assert.equal(

@@ -1,3 +1,4 @@
+import { primaryKey } from '../platform';
 import type { WebsiteProject } from '@markfix/contracts';
 import {
   Avatar,
@@ -177,7 +178,7 @@ export function ProjectSidebar({
             <DropdownMenuItem onSelect={onOpenSettings}>
               <Settings2 />
               <span>设置</span>
-              <DropdownMenuShortcut>⌘,</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{primaryKey},</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="account-menu-logout"

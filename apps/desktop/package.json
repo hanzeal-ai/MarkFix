@@ -12,7 +12,9 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "package:mac": "sh scripts/generate-mac-icon.sh && electron-vite build && electron-builder --mac",
-    "package:mac:release": "node scripts/check-update-release.mjs && sh scripts/generate-mac-icon.sh && electron-vite build && electron-builder --mac --config.forceCodeSigning=true --config.mac.hardenedRuntime=true --config.mac.notarize=true --publish never"
+    "package:mac:release": "node scripts/check-update-release.mjs && sh scripts/generate-mac-icon.sh && electron-vite build && electron-builder --mac --config.forceCodeSigning=true --config.mac.hardenedRuntime=true --config.mac.notarize=true --publish never",
+    "package:win": "node scripts/check-update-release.mjs && electron-vite build && electron-builder --win nsis --x64 --publish never",
+    "package:mac:trial": "node scripts/check-update-release.mjs && sh scripts/generate-mac-icon.sh && MARKFIX_DESKTOP_UPDATE_MODE=manual electron-vite build && electron-builder --mac dmg --arm64 --config.mac.identity=- --config.mac.notarize=false --publish never"
   },
   "dependencies": {
     "@markfix/annotation-model": "workspace:*",
@@ -56,6 +58,28 @@
         "dmg",
         "zip"
       ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "MarkFix-${version}-windows-${arch}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": false
     }
   }
 }

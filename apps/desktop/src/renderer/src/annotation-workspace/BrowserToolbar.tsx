@@ -1,3 +1,4 @@
+import { primaryAriaKey, altKey } from '../platform';
 import type { RefObject } from 'react';
 import type { BrowserMode } from '@markfix/contracts';
 import {
@@ -89,7 +90,7 @@ export function BrowserToolbar({
             ref={addressInputRef}
             value={url}
             aria-label="网站地址"
-            aria-keyshortcuts="Meta+L"
+            aria-keyshortcuts={`${primaryAriaKey}+L`}
             spellCheck={false}
             onFocus={(event) => event.currentTarget.select()}
             onKeyDown={(event) => {
@@ -126,11 +127,11 @@ export function BrowserToolbar({
               else if (mode === 'comment' || mode === 'capture') onToggleMode(mode);
             }}
           >
-            <ToggleGroupItem value="comment" aria-keyshortcuts="Alt+W" title="批注（⌥W）">
-              <MessageSquareText /> 批注 <Kbd>⌥W</Kbd>
+            <ToggleGroupItem value="comment" aria-keyshortcuts="Alt+W" title={`批注（${altKey}W）`}>
+              <MessageSquareText /> 批注 <Kbd>{altKey}W</Kbd>
             </ToggleGroupItem>
-            <ToggleGroupItem value="capture" aria-keyshortcuts="Alt+A" title="截图（⌥A）">
-              <Camera /> 截图 <Kbd>⌥A</Kbd>
+            <ToggleGroupItem value="capture" aria-keyshortcuts="Alt+A" title={`截图（${altKey}A）`}>
+              <Camera /> 截图 <Kbd>{altKey}A</Kbd>
             </ToggleGroupItem>
             <ToggleGroupItem
               value="preview"
@@ -138,9 +139,9 @@ export function BrowserToolbar({
               aria-label="预览"
               aria-pressed={previewOpen}
               aria-keyshortcuts="Alt+B"
-              title="预览（⌥B）"
+              title={`预览（${altKey}B）`}
             >
-              <Eye /> 预览 <Kbd>⌥B</Kbd>
+              <Eye /> 预览 <Kbd>{altKey}B</Kbd>
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
