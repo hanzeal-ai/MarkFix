@@ -16,7 +16,7 @@ from urllib.request import urlopen
 def digest(path):
     checksum = hashlib.sha256()
     with path.open('rb') as stream:
-        while chunk := stream.read(1024 * 1024):
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
             checksum.update(chunk)
     return checksum.hexdigest()
 
@@ -124,7 +124,7 @@ def verify_public(url, expected):
     with urlopen(url, timeout=120) as response:
         if response.status != 200:
             raise ValueError('Public download did not return HTTP 200')
-        while chunk := response.read(1024 * 1024):
+        for chunk in iter(lambda: response.read(1024 * 1024), b''):
             checksum.update(chunk)
     if checksum.hexdigest() != expected:
         raise ValueError('Anonymous public download checksum mismatch')

@@ -37,7 +37,7 @@ CLI 授权和桌面账户外链要求 HTTPS。正式签名更新包也继续要�
 
 首次切换前保留服务器 `current`、镜像和数据卷。当前数据契约不支持旧镜像回退；失败后保持应用停服并前向修复，不能把旧镜像直接连接到已迁移数据库。
 
-服务器需要 Docker Compose v2、bash、flock、openssl、curl、Python 3.8+。轻量服务器防火墙需要允许 TCP 8766；数据库和 API 不映射主机端口。DoTasks 的 8765 端口、容器和 Runner 保持独立。
+服务器需要 Docker Compose v2、bash、flock、openssl、curl、Python 3.6+。轻量服务器防火墙需要允许 TCP 8766；数据库和 API 不映射主机端口。DoTasks 的 8765 端口、容器和 Runner 保持独立。
 
 发布脚本为 `infra/aliyun/deploy.sh`，配置存放在 `/home/admin/markfix`：
 
