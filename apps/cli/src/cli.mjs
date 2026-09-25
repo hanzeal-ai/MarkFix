@@ -29,7 +29,7 @@ auth status
 logout
 repo register [--name <repository-name>]
 projects list | projects resolve
-issues list --project <id> [--status OPEN|FIX_FAILED|IN_PROGRESS|RESOLVED] [--cursor <id>]
+issues list --project <id> [--status OPEN|FIX_FAILED|IN_PROGRESS|READY_FOR_VERIFY|RESOLVED] [--cursor <id>]
 issues get <id> | issues screenshot <id> --output <path>
 issues claim <id> [--retry] [--run-id <uuid>]
 fixes renew <run-id> | fixes release <run-id>
@@ -278,7 +278,10 @@ async function main() {
     if (options.cursor) identifier(options.cursor);
   } else if (command === 'issues' || command === 'fixes') identifier(id);
   if (options['run-id']) identifier(options['run-id']);
-  if (options.status && !['OPEN', 'FIX_FAILED', 'IN_PROGRESS', 'RESOLVED'].includes(options.status))
+  if (
+    options.status &&
+    !['OPEN', 'FIX_FAILED', 'IN_PROGRESS', 'READY_FOR_VERIFY', 'RESOLVED'].includes(options.status)
+  )
     throw new Error('Invalid issue status');
   let resultInput;
   if (command === 'fixes' && ['complete', 'fail'].includes(action)) {

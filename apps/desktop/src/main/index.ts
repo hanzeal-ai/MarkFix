@@ -24,6 +24,7 @@ import {
   type MenuItemConstructorOptions,
 } from 'electron';
 import {
+  repairReviewSchema,
   anchorSchema,
   browserModeSchema,
   historyAnnotationReferenceSchema,
@@ -1185,6 +1186,22 @@ const registerIpc = (): void => {
     websiteContentReady = true;
     layoutWebsite();
     return { project: current, created: true };
+  });
+  ipcMain.handle(ipcChannels.reviewAnnotationRepair, async (event, input: unknown) => {
+    assertShellSender(event);
+    if (!authenticatedUser && !localMode) throw new Error('请选择本机模式或登录');
+    const review = repairReviewSchema.parse(input);
+    const project = websiteProjectsById.get(review.projectId);
+    if (!project) throw new Error('项目不存在或已被移除');
+    if (project.storageMode === 'LOCAL') return requireLocalAgent().review(review);
+    const report = await api.getReport(review.reportId);
+    if (report.projectId !== project.id) throw new Error('标注不属于当前项目');
+    return api.transition(
+      review.reportId,
+      review.action,
+      review.expectedVersion,
+      review.reason ? { reason: review.reason } : undefined,
+    );
   });
   ipcMain.handle(ipcChannels.listProjectAnnotationReports, async (event, input: unknown) => {
     assertShellSender(event);

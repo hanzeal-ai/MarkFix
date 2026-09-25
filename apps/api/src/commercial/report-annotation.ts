@@ -90,7 +90,11 @@ const activityPayload = (activity: ReportActivitySource): Record<string, unknown
     : {};
 
 const historyStatus = (value: unknown): CommercialAnnotationStatus | undefined =>
-  value === 'OPEN' || value === 'RESOLVED' || value === 'REJECTED' || value === 'FIX_FAILED'
+  value === 'OPEN' ||
+  value === 'READY_FOR_VERIFY' ||
+  value === 'RESOLVED' ||
+  value === 'REJECTED' ||
+  value === 'FIX_FAILED'
     ? value
     : undefined;
 
@@ -123,7 +127,15 @@ export const annotationHistoryForReport = (
         actor: activity.actor ?? null,
         createdAt: activity.createdAt,
       });
-    } else if (activity.type === 'ANNOTATION_STATUS_CHANGED') {
+    } else if (
+      [
+        'ANNOTATION_STATUS_CHANGED',
+        'AGENT_FIX_SUCCEEDED',
+        'AGENT_FIX_FAILED',
+        'REPORT_VERIFY',
+        'REPORT_REJECT',
+      ].includes(activity.type)
+    ) {
       const status = historyStatus(payload.status);
       if (!status) continue;
       history.push({
@@ -132,7 +144,10 @@ export const annotationHistoryForReport = (
         status,
         note: null,
         screenshotUrl: null,
-        reason: null,
+        reason:
+          activity.type === 'REPORT_REJECT' && typeof payload.reason === 'string'
+            ? payload.reason
+            : null,
         actor: activity.actor ?? null,
         createdAt: activity.createdAt,
       });
@@ -147,7 +162,8 @@ export const reportAnnotationStatus = (
 ): CommercialAnnotationStatus => {
   if (report.rejectionReason) return 'REJECTED';
   if (report.status === 'FIX_FAILED') return 'FIX_FAILED';
-  if (report.status === 'IN_PROGRESS' || report.status === 'READY_FOR_VERIFY') return 'OPEN';
+  if (report.status === 'READY_FOR_VERIFY') return 'READY_FOR_VERIFY';
+  if (report.status === 'IN_PROGRESS') return 'OPEN';
   if (report.status === 'RESOLVED' || report.status === 'CLOSED') return 'RESOLVED';
   return 'OPEN';
 };

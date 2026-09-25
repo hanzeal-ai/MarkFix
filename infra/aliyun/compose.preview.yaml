@@ -5,6 +5,15 @@ services:
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
+    mem_limit: 384m
+    mem_reservation: 96m
+    cpu_shares: 1024
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
     environment:
       POSTGRES_USER: markfix
       POSTGRES_DB: markfix
@@ -36,6 +45,15 @@ services:
   api:
     image: ${API_IMAGE:?Set API_IMAGE}
     restart: unless-stopped
+    mem_limit: 384m
+    mem_reservation: 128m
+    cpu_shares: 1024
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
     env_file: ${MARKFIX_ENV_FILE:?Set MARKFIX_ENV_FILE}
     environment:
       NODE_ENV: development
@@ -62,8 +80,17 @@ services:
   dashboard:
     image: ${DASHBOARD_IMAGE:?Set DASHBOARD_IMAGE}
     restart: unless-stopped
+    mem_limit: 64m
+    mem_reservation: 16m
+    cpu_shares: 512
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
     ports:
-      - '8766:80'
+      - '127.0.0.1:8766:80'
     volumes:
       - ./api-proxy.conf:/etc/nginx/markfix/api-proxy.conf:ro
       - ./downloads.conf:/etc/nginx/markfix/downloads.conf:ro

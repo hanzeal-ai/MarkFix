@@ -15,6 +15,7 @@ import {
   type DiagnosticEvidence,
   type HistoryAnnotationReference,
   type RegionAnchor,
+  type RepairReview,
   type ScreenshotMark,
   type ScreenshotStyle,
   type ScreenshotTool,
@@ -111,6 +112,8 @@ contextBridge.exposeInMainWorld('markfix', {
     binding: { repositoryId: string | null; repositoryName: string | null },
   ) => ipcRenderer.invoke(ipcChannels.setProjectRepository, { projectId, binding }),
   listWebsiteProjects: () => ipcRenderer.invoke(ipcChannels.listWebsiteProjects),
+  reviewAnnotationRepair: (input: RepairReview) =>
+    ipcRenderer.invoke(ipcChannels.reviewAnnotationRepair, input),
   listProjectAnnotationReports: (projectId: string, pageUrl: string) =>
     ipcRenderer.invoke(ipcChannels.listProjectAnnotationReports, { projectId, pageUrl }),
   createWebsiteProject: (storageMode: 'LOCAL' | 'CLOUD', url: string) =>

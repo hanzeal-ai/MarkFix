@@ -55,27 +55,28 @@ enum ProjectRecordKind {
 }
 
 model User {
-  id                  String                   @id @default(uuid()) @db.Uuid
-  email               String                   @unique
-  displayName         String
-  passwordHash        String?
-  emailVerifiedAt     DateTime?
-  memberships         Membership[]
-  ownedProjects       Project[]                @relation("ProjectOwner")
-  plan                AccountPlan              @default(FREE)
-  upgradeRequestedAt  DateTime?
-  assignedReports     Report[]                 @relation("ReportAssignee")
-  reportedReports     Report[]                 @relation("ReportReporter")
-  comments            Comment[]
-  activities          Activity[]
-  reportSubmissions   ReportSubmission[]
-  agentGrants         AgentGrant[]
-  agentRepositories   AgentRepository[]
-  authSessions        AuthSession[]
-  verificationTokens  EmailVerificationToken[]
-  passwordResetTokens PasswordResetToken[]
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
+  id                   String                   @id @default(uuid()) @db.Uuid
+  email                String                   @unique
+  displayName          String
+  passwordHash         String?
+  emailVerifiedAt      DateTime?
+  memberships          Membership[]
+  ownedProjects        Project[]                @relation("ProjectOwner")
+  plan                 AccountPlan              @default(FREE)
+  upgradeRequestedAt   DateTime?
+  assignedReports      Report[]                 @relation("ReportAssignee")
+  reportedReports      Report[]                 @relation("ReportReporter")
+  comments             Comment[]
+  activities           Activity[]
+  reportSubmissions    ReportSubmission[]
+  annotationReadGrants AnnotationReadGrant[]
+  agentGrants          AgentGrant[]
+  agentRepositories    AgentRepository[]
+  authSessions         AuthSession[]
+  verificationTokens   EmailVerificationToken[]
+  passwordResetTokens  PasswordResetToken[]
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
 }
 
 model AuthSession {
@@ -144,25 +145,26 @@ model Invitation {
 }
 
 model Project {
-  id                String                    @id @default(uuid()) @db.Uuid
-  ownerId           String                    @db.Uuid
-  owner             User                      @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  memberships       Membership[]
-  invitations       Invitation[]
-  name              String
-  baseUrl           String?
-  category          String                    @default("网站体验")
-  environments      Environment[]
-  reports           Report[]
-  submissions       ReportSubmission[]
-  repositoryId      String?                   @db.Uuid
-  repository        AgentRepository?          @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
-  repositoryName    String?
-  desktopState      ProjectDesktopState?
-  draftRecords      ProjectAnnotationRecord[]
-  annotationBatches ProjectAnnotationBatch[]
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
+  id                   String                    @id @default(uuid()) @db.Uuid
+  ownerId              String                    @db.Uuid
+  owner                User                      @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  memberships          Membership[]
+  invitations          Invitation[]
+  name                 String
+  baseUrl              String?
+  category             String                    @default("网站体验")
+  environments         Environment[]
+  reports              Report[]
+  submissions          ReportSubmission[]
+  repositoryId         String?                   @db.Uuid
+  repository           AgentRepository?          @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  repositoryName       String?
+  desktopState         ProjectDesktopState?
+  draftRecords         ProjectAnnotationRecord[]
+  annotationBatches    ProjectAnnotationBatch[]
+  annotationReadGrants AnnotationReadGrant[]
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
 
   @@index([ownerId, updatedAt])
 }
@@ -374,4 +376,19 @@ model AgentFixAttempt {
   finishedAt     DateTime?
 
   @@index([reportId, createdAt])
+}
+
+model AnnotationReadGrant {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String    @db.Uuid
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([userId, projectId])
 }

@@ -18,6 +18,7 @@ import type {
   HistoryAnnotationReference,
   RegionAnchor,
   Report,
+  RepairReview,
   ScreenshotMark,
   ScreenshotStyle,
   ScreenshotTool,
@@ -72,6 +73,7 @@ declare global {
         binding: { repositoryId: string | null; repositoryName: string | null },
       ): Promise<unknown>;
       listWebsiteProjects(): Promise<WebsiteProject[]>;
+      reviewAnnotationRepair(input: RepairReview): Promise<Report>;
       listProjectAnnotationReports(projectId: string, pageUrl: string): Promise<Report[]>;
       createWebsiteProject(
         storageMode: 'LOCAL' | 'CLOUD',

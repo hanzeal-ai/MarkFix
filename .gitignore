@@ -14,3 +14,4 @@ apps/desktop/release/
 apps/desktop/.vite/
 packages/database/generated/
 __pycache__/
+/infra/aliyun/resend.env

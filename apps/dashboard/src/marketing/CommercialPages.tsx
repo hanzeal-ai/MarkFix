@@ -158,6 +158,16 @@ export function DocsPage() {
                 new URL(dashboardServiceUrls().apiOrigin).hostname,
               ) && <p>当前服务使用 HTTP，CLI 授权需要服务启用 HTTPS 后才能使用。</p>}
           </CliGuide>
+          <article id="read-authorization">
+            <h2>只读授权</h2>
+            <p>
+              在管理后台打开项目，展开“读取授权”并生成授权地址。外部工具可用该地址读取你在该项目提交的未处理标注与修复失败标注，不能读取其他成员的数据，也不能修改标注。
+            </p>
+            <p>
+              授权有效期为 90
+              天，可随时撤销；重新生成后旧地址失效。地址包含访问凭据，请仅交给可信工具。
+            </p>
+          </article>
           <DeveloperGuide />
           <article id="projects">
             <span>05</span>

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fafaf6" />
+    <title>使用手册 — Hanzeal</title>
+    <meta
+      name="description"
+      content="CarryOn、DoTasks、MarkFix 安装与快速开始，需求交付、页面反馈与移动工作的配合使用手册。"
+    />
+    <link rel="canonical" href="https://hanzeal.com/docs.html" />
+    <meta property="og:title" content="使用手册 — Hanzeal" />
+    <meta
+      property="og:description"
+      content="CarryOn、DoTasks、MarkFix 安装与快速开始，需求交付、页面反馈与移动工作的配合使用手册。"
+    />
+    <meta property="og:type" content="website" />
+    <link rel="stylesheet" href="site.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">跳到主要内容</a>
+    <div class="wrap">
+      <header class="nav">
+        <a class="brand" href="./">HANZEAL.</a>
+        <nav class="nav-links" aria-label="主导航">
+          <a href="./#products">产品</a><a href="./#workflow">工作流程</a
+          ><a href="docs.html">使用文档</a><a href="docs.html#install">安装与下载</a
+          ><a href="mailto:sanmws@qq.com">联系支持 ↗</a>
+        </nav>
+      </header>
+      <main id="main">
+        <header class="docs-title">
+          <span class="eyebrow">Hanzeal / Getting started</span>
+          <h1>从第一次成功开始。</h1>
+          <p class="lede">选择角色，完成一个小任务。这里说明各产品当前可用的操作与配合方式。</p>
+        </header>
+        <div class="docs-layout">
+          <nav class="docs-nav" aria-label="手册目录">
+            <a href="#install">安装与下载</a><a href="#carryon">CarryOn 快速开始</a
+            ><a href="#dotasks">DoTasks 快速开始</a><a href="#markfix">MarkFix 快速开始</a
+            ><a href="#workflow">配合使用</a><a href="#troubleshooting">问题与恢复</a
+            ><a href="#boundaries">数据与完成状态</a>
+          </nav>
+          <div class="docs-content">
+            <article id="install">
+              <span class="eyebrow">01 / Installation</span>
+              <h2>按你的角色准备。</h2>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>我要做什么</th>
+                      <th>安装与前提</th>
+                      <th>入口</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>记录网页问题</td>
+                      <td>
+                        MarkFix 桌面端；本机模式无需云端账号。平台、签名与试用包说明以下载页为准。
+                      </td>
+                      <td><a href="https://markfix.hanzeal.com/download">下载 MarkFix</a></td>
+                    </tr>
+                    <tr>
+                      <td>执行团队研发</td>
+                      <td>
+                        DoTasks 本地 Agent，目前支持 macOS；需要 Python 3.14+、Git、已安装并登录的
+                        Codex CLI。
+                      </td>
+                      <td><a href="#dotasks">安装 DoTasks</a></td>
+                    </tr>
+                    <tr>
+                      <td>手机继续工作</td>
+                      <td>
+                        macOS CarryOn 应用或 CLI、可用的 Codex
+                        工作区、对应手机端；电脑需要保持在线。
+                      </td>
+                      <td><a href="#carryon">设置 CarryOn</a></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>
+                只负责提交反馈的成员不需要安装研发环境。当前没有统一安装包和统一登录承诺，各产品分别授权。
+              </p>
+            </article>
+            <article id="carryon">
+              <span class="eyebrow">02 / CarryOn</span>
+              <h2>换个设备，接着做。</h2>
+              <ol>
+                <li>
+                  取得与你的 Mac 匹配的 CarryOn 安装包，打开应用进入初始化向导。尚未取得安装包时，<a
+                    href="mailto:sanmws@qq.com?subject=CarryOn%20安装与试用"
+                    >联系获取安装说明</a
+                  >，不要从不明来源下载。
+                </li>
+                <li>
+                  在电脑生成工作区绑定二维码，使用已登录 CarryOn
+                  的手机端扫码，核对电脑与权限后确认。
+                </li>
+                <li>
+                  启动 CarryOn 服务。默认桌面工作区需要 Codex App 可用；独立工作区使用自己的 App
+                  Server。等待连接状态就绪。
+                </li>
+                <li>
+                  在手机打开一个已有会话，确认能看到最新内容。需要发送消息时，先在电脑端授予对应操作权限。
+                </li>
+              </ol>
+              <div class="callout">
+                成功标志：手机显示正确工作区和会话内容。看到历史不代表当前执行机在线；状态未知时先检查连接。
+              </div>
+              <h3>已安装 CLI 的用户</h3>
+              <pre><code>carryon init
+carryon start
+carryon status</code></pre>
+              <p>重复初始化可继续未完成步骤；日常启动无需重新绑定。关闭网页不会停止本机服务。</p>
+              <a href="https://carryon.hanzeal.com/">打开 CarryOn 控制台 ↗</a>
+            </article>
+            <article id="dotasks">
+              <span class="eyebrow">03 / DoTasks</span>
+              <h2>交代需求，跟进交付。</h2>
+              <ol>
+                <li>在执行工作的 Mac 上准备 Git、Python 3.14+ 和 Codex CLI，并完成 Codex 登录。</li>
+                <li>在交互式终端运行官方安装命令。安装器将准备运行时和后台服务，并继续初始化。</li>
+              </ol>
+              <pre><code>curl -fsS https://dotasks.hanzeal.com/install.sh | sh</code></pre>
+              <ol start="3">
+                <li>按引导创建或连接账号，检查本地服务和云端 Agent 连接。</li>
+                <li>
+                  团队用户打开团队工作区，登记项目、成员权限和仓库基线。每位执行成员运行项目页面提供的仓库绑定命令。
+                </li>
+                <li>
+                  上传一份范围明确的需求，写出预期结果与验收条件。图片附件每个最大 2 MiB，合计 4
+                  MiB；文本最大 256 KiB，最多 4 个。
+                </li>
+                <li>
+                  完成必要澄清与分配确认，查看任务推进。交付后核对审查、测试和集成证据，再做需求验收。
+                </li>
+              </ol>
+              <div class="callout">
+                成功标志：看到自己的需求及其任务，执行机成功领取，最终交付附有验证证据。保存需求不等于已经开始执行。
+              </div>
+              <h3>检查与更新</h3>
+              <pre><code>dotasks doctor
+dotasks update --check</code></pre>
+              <p>
+                升级前暂停新的调度并等待活动任务结束。需要帮助时先检查执行机在线、项目绑定和模型登录状态。
+              </p>
+              <a href="https://dotasks.hanzeal.com/">打开 DoTasks ↗</a>
+            </article>
+            <article id="markfix">
+              <span class="eyebrow">04 / MarkFix</span>
+              <h2>把问题留在发生的地方。</h2>
+              <ol>
+                <li>
+                  <a href="https://markfix.hanzeal.com/download">安装 MarkFix</a
+                  >，选择本机项目，或登录并进入已获授权的云端项目。
+                </li>
+                <li>输入目标网址，等待页面加载。</li>
+                <li>选择“批注”并点选元素，或选择“截图”框出问题，填写希望得到的结果。</li>
+                <li>
+                  保存后在右侧预览检查；点击提交入口，选择要交给团队或 Codex
+                  的记录。仅保存草稿不会进入修复队列。
+                </li>
+                <li>
+                  修复者按
+                  <a href="https://markfix.hanzeal.com/docs#agent">Codex 接入文档</a
+                  >授权并绑定代码仓库，让 Codex 拉取标注、修复、验证和回写。
+                </li>
+                <li>
+                  成功回写显示“待复验”。打开已包含修复的页面版本，核对后选择“验证通过”；仍有问题则填写原因并退回修复。
+                </li>
+              </ol>
+              <div class="callout">
+                成功标志：标注已提交且有可查看的记录。AI 修复成功与人工验证、正式上线是不同阶段。
+              </div>
+              <p>
+                CLI 只由修复者安装。首次云端命令会打开浏览器授权，后续复用已保存授权；本机模式使用
+                <code>--local</code>。
+              </p>
+              <a href="https://markfix.hanzeal.com/docs">完整 MarkFix 使用手册 ↗</a>
+            </article>
+            <article id="workflow">
+              <span class="eyebrow">05 / Working together</span>
+              <h2>从需求，到反馈，再到改进。</h2>
+              <ol>
+                <li>
+                  <strong>DoTasks 管理需求：</strong
+                  >写清目标和验收条件，关联实际代码项目，按已有授权推进研发。
+                </li>
+                <li>
+                  <strong>交付保留证据：</strong
+                  >保存改动版本、审查、测试结果与预览入口。需要发布时使用项目既有发布流程。
+                </li>
+                <li>
+                  <strong>MarkFix 收集反馈：</strong
+                  >打开预览或线上地址，说明观察结果与预期差异。交接时保留标注链接、项目、网址和版本信息。
+                </li>
+                <li>
+                  <strong>选择修复路径：</strong>可让已有 Codex 会话通过 MarkFix
+                  接入直接修复；需要团队排期时，在 MarkFix 项目中生成只读授权地址， 在
+                  DoTasks“任务来源”配置中粘贴地址并拉取。只读取授权用户在该项目提交的标注，生成待分析需求。
+                </li>
+                <li>
+                  <strong>CarryOn 随行查看：</strong>在手机继续已连接工作区中的会话。当前不把
+                  DoTasks 执行线程与桌面原生会话视为自动互通。
+                </li>
+                <li>
+                  <strong>回到页面复验：</strong
+                  >确认访问的是实际修复版本，成功后关闭反馈；失败时带上新证据继续修复。
+                </li>
+              </ol>
+              <div class="callout">
+                当前仍需人工完成部分项目关联与交接。跨产品自动派发、统一账号、部署事件回传不是本页承诺的已上线能力。
+              </div>
+            </article>
+            <article id="troubleshooting">
+              <span class="eyebrow">06 / Recovery</span>
+              <h2>遇到问题，接着往下走。</h2>
+              <details>
+                <summary>手机看不到新的会话或进度</summary>
+                <p>
+                  先检查电脑是否在线、CarryOn
+                  服务与工作区是否连接，默认桌面工作区中的原生会话是否已加载。不要把缓存历史当作实时执行状态。
+                </p>
+              </details>
+              <details>
+                <summary>DoTasks 需求已保存，但没有开始</summary>
+                <p>
+                  查看任务等待原因：是否等待分析授权、需求确认、成员分配、项目绑定、依赖或执行容量。运行
+                  dotasks doctor 检查本地环境，避免重复创建同一需求。
+                </p>
+              </details>
+              <details>
+                <summary>MarkFix 标注已保存，Codex 却查不到</summary>
+                <p>
+                  先确认已提交，随后检查本机/云端模式、当前仓库绑定与项目权限。默认查询待处理记录，已进入待复验的记录不会作为新问题再次领取。
+                </p>
+              </details>
+              <details>
+                <summary>结果已经生成，页面却没有更新</summary>
+                <p>
+                  检查同步状态和当前页面版本。网络恢复后等待补传或重新聚焦刷新，结果未知时先查询原记录，避免重复启动修复。
+                </p>
+              </details>
+              <details>
+                <summary>升级失败或旧数据无法打开</summary>
+                <p>
+                  保留原始文件和错误信息，停止反复覆盖安装或清空数据。联系支持提供产品版本、操作系统和脱敏错误；不要发送密钥或完整私有项目。
+                </p>
+              </details>
+            </article>
+            <article id="boundaries">
+              <span class="eyebrow">07 / Clear boundaries</span>
+              <h2>知道发生了什么，才好决定下一步。</h2>
+              <p>
+                <strong>修复完成：</strong
+                >执行方提交了代码与检查结果。<strong>验证通过：</strong>有权限的人核对了结果。<strong>已上线：</strong>发布系统确认目标环境运行对应版本。三者不可互相替代。
+              </p>
+              <p>
+                本机与云端模式的数据边界不同。云端标注、需求及模型所需上下文会按对应授权传输；具体数据处理与费用以实际产品及模型账户说明为准。
+              </p>
+              <p>
+                提交、推送、合并、部署和数据维护遵循各自授权。电脑离线、模型不可用或预算不足时，产品应呈现真实等待或失败状态。
+              </p>
+              <p>
+                本文随本次产品版本交付。线上站点与本地版本可能不同；发布前应核对安装包、接口与文档一致性。
+              </p>
+            </article>
+          </div>
+        </div>
+      </main>
+      <footer class="footer">
+        <span>© 2026 Hanzeal · 做简单、专注的软件。</span>
+        <div class="footer-links">
+          <a href="docs.html#troubleshooting">使用帮助</a
+          ><a href="https://github.com/hanzeal-ai?tab=repositories">GitHub ↗</a
+          ><a href="mailto:sanmws@qq.com">sanmws@qq.com</a>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

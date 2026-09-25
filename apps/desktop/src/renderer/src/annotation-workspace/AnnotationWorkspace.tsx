@@ -1,3 +1,4 @@
+import { RepairReviewPanel } from './RepairReviewPanel';
 import { saveFeedback } from './save-feedback';
 import { flushSync } from 'react-dom';
 import { ProjectAgentDialog } from '../ProjectAgentDialog';
@@ -566,13 +567,17 @@ export function AnnotationWorkspace({
             );
         });
     };
-    const refreshOnFocus = (): void => refresh();
+    const refreshOnFocus = (): void => {
+      if (!document.hidden) refresh();
+    };
     refresh();
     window.addEventListener('focus', refreshOnFocus);
-    const refreshTimer = window.setInterval(refresh, 30_000);
+    document.addEventListener('visibilitychange', refreshOnFocus);
+    const refreshTimer = window.setInterval(refreshOnFocus, 30_000);
     return () => {
       active = false;
       window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', refreshOnFocus);
       window.clearInterval(refreshTimer);
     };
   }, [currentPageUrl, selectedProjectId]);
@@ -1292,6 +1297,15 @@ export function AnnotationWorkspace({
       {previewVisible && (
         <aside className="comment-panel capture-panel" aria-label="批注预览">
           <div className="capture-panel-body annotation-preview-body">
+            <RepairReviewPanel
+              key={selectedProjectId}
+              reports={projectReports}
+              onReviewed={(report) =>
+                setProjectReports((previous) =>
+                  previous.map((item) => (item.id === report.id ? { ...item, ...report } : item)),
+                )
+              }
+            />
             <AnnotationPreview
               annotations={currentPreviewAnnotations}
               onSelect={editHistoricalAnnotation}

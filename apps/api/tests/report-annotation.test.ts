@@ -113,3 +113,47 @@ describe('commercial annotation identity and history', () => {
     );
   });
 });
+
+it('preserves AI pending-verification and human-review history', () => {
+  const current = report({
+    activities: [
+      {
+        id: 'repair',
+        type: 'AGENT_FIX_SUCCEEDED',
+        payload: { status: 'READY_FOR_VERIFY' },
+        createdAt: new Date('2026-09-07T10:00:00Z'),
+      },
+      {
+        id: 'review',
+        type: 'REPORT_VERIFY',
+        payload: { status: 'RESOLVED' },
+        createdAt: new Date('2026-09-07T11:00:00Z'),
+      },
+    ],
+  });
+  expect(annotationHistoryForReport(current, []).map((item) => item.status)).toEqual([
+    'RESOLVED',
+    'READY_FOR_VERIFY',
+  ]);
+});
+
+it('projects repair rejection reasons without replacing the original annotation', () => {
+  const current = report({
+    activities: [
+      {
+        id: 'review-reject',
+        type: 'REPORT_REJECT',
+        payload: { status: 'OPEN', reason: 'Mobile submit button remains obscured' },
+        createdAt: new Date('2026-09-07T12:00:00Z'),
+      },
+    ],
+  });
+  const history = annotationHistoryForReport(current, [submission()]);
+  expect(history[0]).toMatchObject({
+    status: 'OPEN',
+    reason: 'Mobile submit button remains obscured',
+    note: null,
+  });
+  expect(history[1]).toMatchObject({ note: 'Original note', reason: null });
+  expect(current.description).toBe('Description');
+});

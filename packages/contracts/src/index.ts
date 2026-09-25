@@ -456,6 +456,10 @@ export const reportSchema = createReportSchema.omit({ screenshotDataUrl: true })
   rejectionReason: z.string().max(2000).nullable().optional(),
   version: z.number().int().positive(),
   screenshotUrl: z.string().optional(),
+  reviewFeedback: z
+    .array(z.object({ reason: z.string().max(2000), createdAt: z.iso.datetime() }))
+    .max(5)
+    .optional(),
   fixAttempts: z
     .array(
       z.object({
@@ -516,6 +520,7 @@ export const ipcChannels = {
   getProjectAgentData: 'project-agent:get',
   setProjectRepository: 'project-agent:bind',
   listWebsiteProjects: 'website-project:list',
+  reviewAnnotationRepair: 'annotation-repair:review',
   listProjectAnnotationReports: 'project-annotation-reports:list',
   createWebsiteProject: 'website-project:create',
   switchWebsiteProject: 'website-project:switch',
@@ -619,3 +624,7 @@ export * from './agent.js';
 export * from './service-config.js';
 
 export { diagnosticEvidenceSections } from './diagnostic-display.js';
+
+export * from './repair-review.js';
+
+export * from './annotation-feed.js';

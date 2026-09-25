@@ -1,3 +1,5 @@
+import { AnnotationFeedController } from './annotation-feed.controller.js';
+import { AnnotationFeedService } from './annotation-feed.service.js';
 import { apiServiceUrls } from './service-config.js';
 import { AgentController } from './agent/agent.controller.js';
 import { AgentAuthService } from './agent/agent-auth.service.js';
@@ -14,7 +16,7 @@ import { ClientPolicyService } from './client-policy.service.js';
 import { CommercialController } from './commercial.controller.js';
 import { CommercialService } from './commercial.service.js';
 import { DatabaseService } from './database.service.js';
-import { DevelopmentEmailAdapter, EmailPort, WebhookEmailAdapter } from './email.port.js';
+import { configuredEmailAdapter, EmailPort } from './email.port.js';
 import { SubscriptionController } from './subscription.controller.js';
 import { SubscriptionService } from './subscription.service.js';
 import { ProjectDataController } from './project-data.controller.js';
@@ -22,24 +24,12 @@ import { ProjectDataService } from './project-data.service.js';
 
 const emailProvider = {
   provide: EmailPort,
-  useFactory: (): EmailPort => {
-    const endpoint = process.env.MARKFIX_EMAIL_WEBHOOK_URL;
-    if (endpoint) {
-      return new WebhookEmailAdapter(
-        endpoint,
-        process.env.MARKFIX_EMAIL_WEBHOOK_API_KEY,
-        apiServiceUrls().origin,
-      );
-    }
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('MARKFIX_EMAIL_WEBHOOK_URL is required in production');
-    }
-    return new DevelopmentEmailAdapter();
-  },
+  useFactory: (): EmailPort => configuredEmailAdapter(process.env, apiServiceUrls().origin),
 };
 
 @Module({
   controllers: [
+    AnnotationFeedController,
     AgentController,
     AppController,
     CommercialController,
@@ -47,6 +37,7 @@ const emailProvider = {
     SubscriptionController,
   ],
   providers: [
+    AnnotationFeedService,
     AgentAuthService,
     AgentProjectService,
     AgentFixService,

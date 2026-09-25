@@ -2,6 +2,8 @@ import { removeLocalAgentProject, localAgentStateSchema, type State, type Run } 
 import { randomUUID } from 'node:crypto';
 import {
   agentPolicy,
+  repairReviewSchema,
+  repairReviewStatuses,
   agentIssueQuerySchema,
   fixClaimSchema,
   fixSuccessSchema,
@@ -119,6 +121,7 @@ export class LocalAgentService {
             createdAt: old?.report.createdAt ?? submission.submittedAt,
             updatedAt: submission.submittedAt,
             fixAttempts: old?.report.fixAttempts ?? [],
+            reviewFeedback: old?.report.reviewFeedback ?? [],
           }),
         };
       }
@@ -152,6 +155,25 @@ export class LocalAgentService {
           report.projectId === projectId &&
           (!pageUrl || report.captureBundle.page.url === pageUrl),
       );
+  }
+  review(input: unknown) {
+    const review = repairReviewSchema.parse(input);
+    const report = this.issue(review.reportId);
+    if (report.projectId !== review.projectId) fail(403, '标注不属于当前项目');
+    if (report.version !== review.expectedVersion || report.status !== 'READY_FOR_VERIFY')
+      fail(409, '标注已变化，请刷新后复验');
+    report.status = repairReviewStatuses[review.action];
+    report.version++;
+    report.updatedAt = now();
+    if (review.reason) {
+      report.reviewFeedback = [
+        { reason: review.reason, createdAt: report.updatedAt },
+        ...(report.reviewFeedback ?? []),
+      ].slice(0, 5);
+    }
+    this.save();
+    this.changed(report);
+    return report;
   }
   private issue(id: string) {
     this.reconcile();
@@ -255,7 +277,7 @@ export class LocalAgentService {
         );
         if (
           claim.expectedVersion !== report.version ||
-          report.status === 'RESOLVED' ||
+          ['READY_FOR_VERIFY', 'RESOLVED', 'CLOSED'].includes(report.status) ||
           (active && active.leaseUntil > Date.now()) ||
           (report.status !== 'OPEN' && !claim.retry)
         )
@@ -335,7 +357,7 @@ export class LocalAgentService {
         action === 'complete' ? 'SUCCEEDED' : action === 'fail' ? 'FAILED' : 'INTERRUPTED';
       run.result = signature;
       report.status =
-        action === 'complete' ? 'RESOLVED' : action === 'fail' ? 'FIX_FAILED' : 'OPEN';
+        action === 'complete' ? 'READY_FOR_VERIFY' : action === 'fail' ? 'FIX_FAILED' : 'OPEN';
       report.version++;
       report.updatedAt = now();
       const attempt =

@@ -582,15 +582,21 @@ app.on('browser-window-created', (_event, win) => {
         await delay(500);
       }
       if (!marketing) {
-        await run(`(async () => {
-          const [project] = await window.markfix.listWebsiteProjects();
-          const elementComments = await window.markfix.listElementComments(project.id);
-          const captures = await window.markfix.listCaptureRecords(project.id);
-          await window.markfix.saveAnnotationSubmission({
-            id: crypto.randomUUID(), projectId: project.id, elementComments, captures,
-            diagnostics: [], submittedAt: new Date().toISOString(),
-          });
-        })()`);
+        await run(`document.querySelector('.save-annotations-button').click()`);
+        let review;
+        await wait(async () => {
+          review = BrowserWindow.getAllWindows().find((candidate) => candidate !== win);
+          return (
+            review &&
+            review.webContents.executeJavaScript(
+              `!!document.querySelector('.annotation-save-item')`,
+            )
+          );
+        });
+        await review.webContents.executeJavaScript(
+          `document.querySelector('.annotation-save-dialog footer button').click()`,
+        );
+        await wait(() => review.isDestroyed());
         await wait(() =>
           run(`document.querySelector('aside.comment-panel')?.textContent.includes('暂无批注')`),
         );

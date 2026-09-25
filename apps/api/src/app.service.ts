@@ -700,7 +700,11 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
         activities: {
           create: {
             type: `REPORT_${payload.action.toLocaleUpperCase()}`,
-            payload: { reason: payload.reason, resolutionSummary: payload.resolutionSummary },
+            payload: {
+              status: nextStatus,
+              reason: payload.reason,
+              resolutionSummary: payload.resolutionSummary,
+            },
             actorId: userId,
           },
         },

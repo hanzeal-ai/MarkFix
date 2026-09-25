@@ -62,7 +62,10 @@ export function AdminApp() {
   });
 
   useEffect(() => {
-    if (bootstrap.error) window.location.replace('/login');
+    if (bootstrap.error)
+      window.location.replace(
+        '/login?next=' + encodeURIComponent(window.location.pathname + window.location.search),
+      );
   }, [bootstrap.error]);
 
   const activeProject = overview.data?.projects.find((project) => project.id === detailProjectId);

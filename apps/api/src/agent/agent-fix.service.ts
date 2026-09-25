@@ -90,12 +90,21 @@ export class AgentFixService {
   async get(grant: AgentGrant, id: string) {
     const report = await this.db.report.findUnique({
       where: { id },
-      include: { fixAttempts: { orderBy: { createdAt: 'desc' }, take: 10 } },
+      include: {
+        fixAttempts: { orderBy: { createdAt: 'desc' }, take: 10 },
+        activities: { where: { type: 'REPORT_REJECT' }, orderBy: { createdAt: 'desc' }, take: 5 },
+      },
     });
     if (!report) throw new NotFoundException('Issue not found');
     await this.projects.access(grant, report.projectId);
     return {
       ...report,
+      reviewFeedback: report.activities.flatMap((activity) => {
+        const payload = activity.payload as { reason?: unknown } | null;
+        return typeof payload?.reason === 'string'
+          ? [{ reason: payload.reason, createdAt: activity.createdAt.toISOString() }]
+          : [];
+      }),
       screenshotUrl: report.screenshotPath ? `/v1/agent/issues/${report.id}/screenshot` : null,
     };
   }
@@ -191,7 +200,7 @@ export class AgentFixService {
       const updated = await tx.report.updateMany({
         where: { id: run.reportId, version: current.reportVersion, status: 'IN_PROGRESS' },
         data: {
-          status: outcome === 'SUCCEEDED' ? 'RESOLVED' : 'FIX_FAILED',
+          status: outcome === 'SUCCEEDED' ? 'READY_FOR_VERIFY' : 'FIX_FAILED',
           version: { increment: 1 },
         },
       });
@@ -214,7 +223,11 @@ export class AgentFixService {
           reportId: run.reportId,
           actorId: grant.userId,
           type: `AGENT_FIX_${outcome}`,
-          payload: { runId: id, ...data } as Prisma.InputJsonValue,
+          payload: {
+            runId: id,
+            ...data,
+            status: outcome === 'SUCCEEDED' ? 'READY_FOR_VERIFY' : 'FIX_FAILED',
+          } as Prisma.InputJsonValue,
         },
       });
       return { confirmed: true, run: result };
