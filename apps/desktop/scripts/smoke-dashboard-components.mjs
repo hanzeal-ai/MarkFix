@@ -55,6 +55,7 @@ const bootstrap = {
 let downloadState = 'ready';
 let repositoryBinding = { repositoryId: null, repositoryName: null };
 let annotationFailure = false;
+let annotationUpdate;
 let bootstrapDelay = 0;
 let readGrantActive = false;
 let readGrantVersion = 0;
@@ -153,6 +154,14 @@ const server = createServer(async (req, res) => {
     res.end(JSON.stringify(user));
     return;
   }
+  if (path === '/v1/commercial/annotations/annotation' && req.method === 'PATCH') {
+    let body = '';
+    for await (const chunk of req) body += chunk.toString();
+    annotationUpdate = JSON.parse(body);
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ id: 'annotation', version: 2 }));
+    return;
+  }
   if (path.endsWith('/annotations')) {
     if (annotationFailure) {
       res.statusCode = 503;
@@ -167,6 +176,7 @@ const server = createServer(async (req, res) => {
           {
             id: 'annotation',
             referenceCode: 'MF-001',
+            version: 1,
             projectId: project.id,
             authorId: user.id,
             author: user,
@@ -712,6 +722,13 @@ async function main() {
         join(output, 'annotation-editor.png'),
         (await win.webContents.capturePage()).toPNG(),
       );
+      await run(
+        `[...document.querySelectorAll('.annotation-dialog button')].find(button => button.textContent.trim() === '保存标注').click()`,
+      );
+      await waitFor(`!document.querySelector('.annotation-dialog')`);
+      assert.equal(annotationUpdate?.expectedVersion, 1);
+      assert.equal(annotationUpdate?.title, '审查用批注');
+      console.log('PASS: annotation editor submits the displayed expectedVersion');
       await win.loadURL(origin + '/app');
       await waitFor(`!!document.querySelector('.admin-nav')`);
     }

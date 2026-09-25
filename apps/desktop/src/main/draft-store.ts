@@ -579,17 +579,19 @@ export class DraftStore {
   }
 
   enqueue(
+    ownerId: string,
     payload: unknown,
     requestHash: string,
     idempotencyKey: string = crypto.randomUUID(),
   ): OutboxEntry {
+    if (!ownerId) throw new Error('Outbox owner is required');
     const sameKey = this.database
       .prepare(
         `SELECT id, idempotency_key AS idempotencyKey, request_hash AS requestHash,
                 payload, attempts
-         FROM outbox WHERE idempotency_key = ?`,
+         FROM outbox WHERE owner_id = ? AND idempotency_key = ?`,
       )
-      .get(idempotencyKey) as
+      .get(ownerId, idempotencyKey) as
       | {
           id: string;
           idempotencyKey: string;
@@ -611,10 +613,10 @@ export class DraftStore {
     const samePendingRequest = this.database
       .prepare(
         `SELECT id, idempotency_key AS idempotencyKey, payload, attempts
-         FROM outbox WHERE request_hash = ? AND status IN ('PENDING', 'SYNCING')
+         FROM outbox WHERE owner_id = ? AND request_hash = ? AND status IN ('PENDING', 'SYNCING')
          ORDER BY created_at DESC LIMIT 1`,
       )
-      .get(requestHash) as
+      .get(ownerId, requestHash) as
       { id: string; idempotencyKey: string; payload: string; attempts: number } | undefined;
     if (samePendingRequest)
       return { ...samePendingRequest, payload: JSON.parse(samePendingRequest.payload) as unknown };
@@ -629,11 +631,12 @@ export class DraftStore {
     this.database
       .prepare(
         `INSERT INTO outbox
-         (id, idempotency_key, request_hash, payload, status, attempts, next_attempt_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'PENDING', 0, ?, ?, ?)`,
+         (id, owner_id, idempotency_key, request_hash, payload, status, attempts, next_attempt_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'PENDING', 0, ?, ?, ?)`,
       )
       .run(
         entry.id,
+        ownerId,
         entry.idempotencyKey,
         requestHash,
         JSON.stringify(payload),
@@ -644,14 +647,14 @@ export class DraftStore {
     return entry;
   }
 
-  claimDue(limit = 5): OutboxEntry[] {
+  claimDue(ownerId: string, limit = 5): OutboxEntry[] {
     const rows = this.database
       .prepare(
         `SELECT id, idempotency_key AS idempotencyKey, payload, attempts
-         FROM outbox WHERE status = 'PENDING' AND next_attempt_at <= ?
+         FROM outbox WHERE owner_id = ? AND status = 'PENDING' AND next_attempt_at <= ?
          ORDER BY created_at ASC LIMIT ?`,
       )
-      .all(Date.now(), limit) as Array<{
+      .all(ownerId, Date.now(), limit) as Array<{
       id: string;
       idempotencyKey: string;
       payload: string;
@@ -685,10 +688,10 @@ export class DraftStore {
       );
   }
 
-  outboxStatus(id: string): { status: string; reportId?: string } | undefined {
+  outboxStatus(id: string, ownerId: string): { status: string; reportId?: string } | undefined {
     const row = this.database
-      .prepare('SELECT status, report_id AS reportId FROM outbox WHERE id = ?')
-      .get(id) as { status: string; reportId: string | null } | undefined;
+      .prepare('SELECT status, report_id AS reportId FROM outbox WHERE id = ? AND owner_id = ?')
+      .get(id, ownerId) as { status: string; reportId: string | null } | undefined;
     if (!row) return undefined;
     return row.reportId ? { status: row.status, reportId: row.reportId } : { status: row.status };
   }

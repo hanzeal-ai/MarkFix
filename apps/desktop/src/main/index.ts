@@ -174,7 +174,7 @@ const sendShell = (channel: string, payload: unknown): void => {
 const reportOutbox = new ReportOutbox(
   api,
   () => draftStore,
-  () => Boolean(authenticatedUser),
+  () => authenticatedUser,
   (projectId) => websiteProjectsById.get(projectId)?.storageMode === 'CLOUD',
   async () => assertSupportedClient(await loadClientPolicy()),
   async () => {
@@ -925,6 +925,8 @@ const registerIpc = (): void => {
     };
   });
   const authenticateDesktop = async (email: string, password: string) => {
+    authenticatedUser = undefined;
+    api.setTokens();
     const tokens = await api.loginWithTokens(email, password, 'MarkFix desktop');
     api.setTokens(tokens);
     await saveRefreshToken(tokens.refreshToken);

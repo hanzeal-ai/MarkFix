@@ -28,33 +28,56 @@ afterEach(() => {
 });
 
 describe('DraftStore outbox', () => {
+  it('isolates claiming, deduplication and status by account', () => {
+    const store = createStore();
+    const a = store.enqueue('a', { title: 'A private content' }, 'same-hash', 'same-key');
+    const b = store.enqueue('b', { title: 'B content' }, 'same-hash', 'same-key');
+    expect(a.id).not.toBe(b.id);
+    expect(store.outboxStatus(a.id, 'b')).toBeUndefined();
+    expect(store.claimDue('b')).toEqual([b]);
+    expect(store.claimDue('a')).toEqual([a]);
+    store.close();
+  });
   it('deduplicates outstanding work and completes a claimed entry', () => {
     const store = createStore();
-    const first = store.enqueue({ title: 'Broken menu' }, 'same-request');
-    const duplicate = store.enqueue({ title: 'Broken menu' }, 'same-request');
+    const first = store.enqueue('owner-a', { title: 'Broken menu' }, 'same-request');
+    const duplicate = store.enqueue('owner-a', { title: 'Broken menu' }, 'same-request');
 
     expect(duplicate.id).toBe(first.id);
-    expect(store.claimDue()).toEqual([first]);
-    expect(store.claimDue()).toEqual([]);
+    expect(store.claimDue('owner-a')).toEqual([first]);
+    expect(store.claimDue('owner-a')).toEqual([]);
 
     store.markCompleted(first.id, 'report-1');
-    expect(store.outboxStatus(first.id)).toEqual({ status: 'COMPLETED', reportId: 'report-1' });
+    expect(store.outboxStatus(first.id, 'owner-a')).toEqual({
+      status: 'COMPLETED',
+      reportId: 'report-1',
+    });
     store.close();
   });
 
   it('reuses an idempotency key only for the same payload', () => {
     const store = createStore();
     const localAnnotationId = '49bbad52-952f-4c45-96e9-5020106f9324';
-    const first = store.enqueue({ title: 'Element note' }, 'request-v1', localAnnotationId);
+    const first = store.enqueue(
+      'owner-a',
+      { title: 'Element note' },
+      'request-v1',
+      localAnnotationId,
+    );
     store.markCompleted(first.id, 'report-1');
 
-    const retried = store.enqueue({ title: 'Element note' }, 'request-v1', localAnnotationId);
+    const retried = store.enqueue(
+      'owner-a',
+      { title: 'Element note' },
+      'request-v1',
+      localAnnotationId,
+    );
 
     expect(retried.id).toBe(first.id);
     expect(retried.idempotencyKey).toBe(localAnnotationId);
-    expect(store.claimDue()).toEqual([]);
+    expect(store.claimDue('owner-a')).toEqual([]);
     expect(() =>
-      store.enqueue({ title: 'Element note updated' }, 'request-v2', localAnnotationId),
+      store.enqueue('owner-a', { title: 'Element note updated' }, 'request-v2', localAnnotationId),
     ).toThrow('Idempotency key already used with another payload');
     store.close();
   });
@@ -63,16 +86,16 @@ describe('DraftStore outbox', () => {
     const now = 1_800_000_000_000;
     vi.spyOn(Date, 'now').mockReturnValue(now);
     const store = createStore();
-    const entry = store.enqueue({ title: 'Offline report' }, 'offline-request');
+    const entry = store.enqueue('owner-a', { title: 'Offline report' }, 'offline-request');
 
-    expect(store.claimDue()).toHaveLength(1);
+    expect(store.claimDue('owner-a')).toHaveLength(1);
     store.markFailed(entry.id, 1, 'network unavailable');
-    expect(store.claimDue()).toEqual([]);
+    expect(store.claimDue('owner-a')).toEqual([]);
 
     vi.mocked(Date.now).mockReturnValue(now + 2_001);
-    expect(store.claimDue()).toEqual([{ ...entry, attempts: 1 }]);
+    expect(store.claimDue('owner-a')).toEqual([{ ...entry, attempts: 1 }]);
     store.recoverInterrupted();
-    expect(store.claimDue()).toEqual([{ ...entry, attempts: 1 }]);
+    expect(store.claimDue('owner-a')).toEqual([{ ...entry, attempts: 1 }]);
     store.close();
   });
 });
@@ -156,7 +179,7 @@ describe('DraftStore screenshot annotations', () => {
     store.close();
   });
 
-  it.each([0, 1, 2, 4])(
+  it.each([0, 1, 2, 3, 5])(
     'rejects unsupported database version %s without modifying data',
     (version) => {
       const directory = mkdtempSync(join(tmpdir(), 'markfix-unsupported-store-'));

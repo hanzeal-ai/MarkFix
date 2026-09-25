@@ -1,4 +1,9 @@
-import { reportStatuses, transitionSchema, type ReportStatus } from '@markfix/contracts';
+import {
+  reportPriorities,
+  reportStatuses,
+  transitionSchema,
+  type ReportStatus,
+} from '@markfix/contracts';
 import {
   ConflictException,
   ForbiddenException,
@@ -6,6 +11,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Prisma } from '@markfix/database';
 import { join, resolve } from 'node:path';
 import { canTransitionReport, requireMembership, requireProjectAccess } from './authorization.js';
 import { DatabaseService, publicUserSelect } from './database.service.js';
@@ -34,7 +40,7 @@ export class ReportService {
       throw new ConflictException('Invalid page URL');
     const pageUrl = filters.pageUrl ? new URL(filters.pageUrl).href : undefined;
     const statuses = reportStatuses;
-    const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
+    const priorities = reportPriorities;
     const items = await this.database.report.findMany({
       where: {
         projectId,
@@ -66,8 +72,11 @@ export class ReportService {
     return this.getReportRecord(id);
   }
 
-  private async getReportRecord(id: string) {
-    const report = await this.database.report.findUnique({
+  private async getReportRecord(
+    id: string,
+    database: Pick<Prisma.TransactionClient, 'report'> = this.database,
+  ) {
+    const report = await database.report.findUnique({
       where: { id },
       include: {
         fixAttempts: { orderBy: { createdAt: 'desc' }, take: 10 },
@@ -124,7 +133,7 @@ export class ReportService {
       priority?: unknown;
       expectedVersion?: unknown;
     };
-    const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
+    const priorities = reportPriorities;
     if (typeof payload.expectedVersion !== 'number')
       throw new ConflictException('Expected version is required');
     const current = await this.database.report.findUnique({
@@ -152,28 +161,31 @@ export class ReportService {
       payload.assigneeId === null || typeof payload.assigneeId === 'string'
         ? payload.assigneeId
         : undefined;
-    const updated = await this.database.report.updateMany({
-      where: { id, version: payload.expectedVersion },
-      data: {
-        ...(priority ? { priority } : {}),
-        ...(assigneeId !== undefined ? { assigneeId } : {}),
-        version: { increment: 1 },
-      },
-    });
-    if (updated.count !== 1)
-      throw new ConflictException('Report has changed; refresh before retrying');
-    await this.database.activity.create({
-      data: {
-        reportId: id,
-        type: 'REPORT_UPDATED',
-        actorId: userId,
-        payload: {
+    const expectedVersion = payload.expectedVersion;
+    return this.database.$transaction(async (transaction) => {
+      const updated = await transaction.report.updateMany({
+        where: { id, version: expectedVersion },
+        data: {
           ...(priority ? { priority } : {}),
           ...(assigneeId !== undefined ? { assigneeId } : {}),
+          version: { increment: 1 },
         },
-      },
+      });
+      if (updated.count !== 1)
+        throw new ConflictException('Report has changed; refresh before retrying');
+      await transaction.activity.create({
+        data: {
+          reportId: id,
+          type: 'REPORT_UPDATED',
+          actorId: userId,
+          payload: {
+            ...(priority ? { priority } : {}),
+            ...(assigneeId !== undefined ? { assigneeId } : {}),
+          },
+        },
+      });
+      return this.getReportRecord(id, transaction);
     });
-    return this.getReportRecord(id);
   }
 
   async transition(userId: string, id: string, input: unknown) {

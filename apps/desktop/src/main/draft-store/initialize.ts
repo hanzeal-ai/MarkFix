@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { draftStoreSchema } from './schema.js';
 
-const currentVersion = 3;
+const currentVersion = 4;
 
 export const initializeDraftStore = (database: Database.Database): void => {
   const version = database.pragma('user_version', { simple: true }) as number;

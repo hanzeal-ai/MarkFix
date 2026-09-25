@@ -17,7 +17,7 @@ export class ReportOutbox {
   constructor(
     private readonly api: MarkFixApi,
     private readonly store: () => DraftStore | undefined,
-    private readonly canSync: () => boolean,
+    private readonly session: () => { id: string } | undefined,
     private readonly canSubmitProject: (projectId: string) => boolean,
     private readonly assertSupportedClient: () => Promise<void>,
     private readonly afterAttempt: () => Promise<void>,
@@ -28,11 +28,15 @@ export class ReportOutbox {
     ipcMain.handle(ipcChannels.loadSyncStatus, (event, input: unknown) => {
       assertSender(event);
       if (typeof input !== 'string') throw new Error('Invalid outbox ID');
-      return this.store()?.outboxStatus(input);
+      const owner = this.session();
+      return owner ? this.store()?.outboxStatus(input, owner.id) : undefined;
     });
     ipcMain.handle(ipcChannels.submitReport, async (event, input: unknown) => {
       assertSender(event);
+      const owner = this.session();
+      if (!owner) throw new Error('请先登录');
       await this.assertSupportedClient();
+      if (owner !== this.session()) throw new Error('登录会话已改变');
       const payload = input as { report?: unknown; idempotencyKey?: unknown };
       const parsed = createReportSchema.parse(payload.report) as CreateReport;
       if (!this.canSubmitProject(parsed.projectId)) throw new Error('本地项目不能进入云端报告队列');
@@ -45,9 +49,10 @@ export class ReportOutbox {
       const requestHash = createHash('sha256').update(JSON.stringify(candidate)).digest('hex');
       const idempotencyKey =
         typeof payload.idempotencyKey === 'string' ? payload.idempotencyKey : randomUUID();
-      const entry = store.enqueue(candidate, requestHash, idempotencyKey);
+      const entry = store.enqueue(owner.id, candidate, requestHash, idempotencyKey);
       const synchronized = await this.flush();
-      const status = store.outboxStatus(entry.id);
+      if (owner !== this.session()) throw new Error('登录会话已改变');
+      const status = store.outboxStatus(entry.id, owner.id);
       const report = synchronized.get(entry.id);
       return status?.status === 'COMPLETED'
         ? { disposition: 'submitted', reportId: status.reportId, report }
@@ -58,11 +63,14 @@ export class ReportOutbox {
   async flush(): Promise<Map<string, Report>> {
     const reports = new Map<string, Report>();
     const store = this.store();
-    if (this.syncing || !store || !this.canSync()) return reports;
+    const owner = this.session();
+    if (this.syncing || !store || !owner) return reports;
     this.syncing = true;
     try {
-      for (const entry of store.claimDue()) {
-        const report = await this.syncEntry(entry);
+      for (let count = 0; count < 5 && owner === this.session(); count++) {
+        const entry = store.claimDue(owner.id, 1)[0];
+        if (!entry) break;
+        const report = await this.syncEntry(entry, owner);
         if (report) reports.set(entry.id, report);
       }
     } finally {
@@ -71,7 +79,7 @@ export class ReportOutbox {
     return reports;
   }
 
-  private async syncEntry(entry: OutboxEntry): Promise<Report | undefined> {
+  private async syncEntry(entry: OutboxEntry, owner: { id: string }): Promise<Report | undefined> {
     const store = this.store();
     if (!store) return undefined;
     try {
@@ -81,6 +89,7 @@ export class ReportOutbox {
         return undefined;
       }
       const report = await this.api.submitReport(candidate, entry.idempotencyKey);
+      if (owner !== this.session()) throw new Error('登录会话已改变');
       store.markCompleted(entry.id, report.id);
       this.sendShell(ipcChannels.syncStatus, {
         status: 'completed',
@@ -92,14 +101,15 @@ export class ReportOutbox {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown synchronization failure';
       store.markFailed(entry.id, entry.attempts + 1, message);
-      this.sendShell(ipcChannels.syncStatus, {
-        status: 'pending',
-        outboxId: entry.id,
-        message,
-      });
+      if (owner === this.session())
+        this.sendShell(ipcChannels.syncStatus, {
+          status: 'pending',
+          outboxId: entry.id,
+          message,
+        });
       return undefined;
     } finally {
-      await this.afterAttempt();
+      if (owner === this.session()) await this.afterAttempt();
     }
   }
 }

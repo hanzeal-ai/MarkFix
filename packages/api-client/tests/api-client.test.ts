@@ -318,3 +318,42 @@ describe('MarkFixApi request coordination', () => {
     await expect(api.saveCloudDiagnostic(annotation)).resolves.toEqual(annotation);
   });
 });
+
+it('does not retry an old-account request with new-account credentials', async () => {
+  let release!: (response: Response) => void;
+  const fetchMock = vi.fn(
+    () =>
+      new Promise<Response>((resolve) => {
+        release = resolve;
+      }),
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  const api = new MarkFixApi('https://example.test');
+  api.setTokens({ accessToken: 'a', refreshToken: 'refresh-a' });
+  const request = api.requestJson('/v1/projects');
+  api.setTokens({ accessToken: 'b', refreshToken: 'refresh-b' });
+  release(Response.json({}, { status: 401 }));
+  await expect(request).rejects.toThrow('Session changed');
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(api.currentRefreshToken()).toBe('refresh-b');
+});
+
+it('cannot restore a logged-out account from a late refresh', async () => {
+  let release!: (response: Response) => void;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    ),
+  );
+  const api = new MarkFixApi('https://example.test');
+  api.setTokens({ accessToken: 'a', refreshToken: 'refresh-a' });
+  const refresh = api.refreshWithToken();
+  api.setTokens({ accessToken: 'b', refreshToken: 'refresh-b' });
+  release(Response.json({ accessToken: 'late-a', refreshToken: 'late-refresh-a', expiresIn: 900 }));
+  await expect(refresh).rejects.toThrow('Session changed');
+  expect(api.currentRefreshToken()).toBe('refresh-b');
+});

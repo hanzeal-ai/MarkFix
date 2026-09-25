@@ -9,6 +9,7 @@ import {
 import { Prisma } from '@markfix/database';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -241,6 +242,8 @@ export class CommercialService implements OnApplicationBootstrap {
     const target = await this.requireAnnotationManager(userId, annotationId);
     const parsed = annotationUpdateSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message);
+    if (parsed.data.expectedVersion !== target.version)
+      throw new ConflictException('Report has changed; refresh before retrying');
     if (parsed.data.authorId) await this.requireProjectUser(target.projectId, parsed.data.authorId);
     const reportData: Prisma.ReportUncheckedUpdateInput = {
       ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
@@ -259,25 +262,31 @@ export class CommercialService implements OnApplicationBootstrap {
         : {}),
       version: { increment: 1 },
     };
-    const updated = await this.database.report.update({
-      where: { id: target.id },
-      data: {
-        ...reportData,
-        ...(parsed.data.status !== undefined &&
-        parsed.data.status !== reportAnnotationStatus(target)
-          ? {
-              activities: {
-                create: {
-                  type: 'ANNOTATION_STATUS_CHANGED',
-                  actorId: userId,
-                  payload: { status: parsed.data.status },
+    const updated = await this.database.report
+      .update({
+        where: { id: target.id, version: parsed.data.expectedVersion },
+        data: {
+          ...reportData,
+          ...(parsed.data.status !== undefined &&
+          parsed.data.status !== reportAnnotationStatus(target)
+            ? {
+                activities: {
+                  create: {
+                    type: 'ANNOTATION_STATUS_CHANGED',
+                    actorId: userId,
+                    payload: { status: parsed.data.status },
+                  },
                 },
-              },
-            }
-          : {}),
-      },
-      include: { reporter: { select: { id: true, displayName: true, email: true } } },
-    });
+              }
+            : {}),
+        },
+        include: { reporter: { select: { id: true, displayName: true, email: true } } },
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025')
+          throw new ConflictException('Report has changed; refresh before retrying');
+        throw error;
+      });
     return reportToCommercialAnnotation(updated);
   }
 
@@ -291,22 +300,28 @@ export class CommercialService implements OnApplicationBootstrap {
     const target = await this.requireAnnotationManager(userId, annotationId);
     const parsed = rejectionSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message);
-    const updated = await this.database.report.update({
-      where: { id: target.id },
-      data: {
-        status: 'CLOSED',
-        rejectionReason: parsed.data.reason,
-        version: { increment: 1 },
-        activities: {
-          create: {
-            type: 'ANNOTATION_REJECTED',
-            actorId: userId,
-            payload: { reason: parsed.data.reason },
+    const updated = await this.database.report
+      .update({
+        where: { id: target.id, version: parsed.data.expectedVersion },
+        data: {
+          status: 'CLOSED',
+          rejectionReason: parsed.data.reason,
+          version: { increment: 1 },
+          activities: {
+            create: {
+              type: 'ANNOTATION_REJECTED',
+              actorId: userId,
+              payload: { reason: parsed.data.reason },
+            },
           },
         },
-      },
-      include: { reporter: { select: { id: true, displayName: true, email: true } } },
-    });
+        include: { reporter: { select: { id: true, displayName: true, email: true } } },
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025')
+          throw new ConflictException('Report has changed; refresh before retrying');
+        throw error;
+      });
     return reportToCommercialAnnotation(updated);
   }
 

@@ -12,6 +12,7 @@ export type {
 
 export type ReportAnnotationSource = {
   id: string;
+  version: number;
   projectId: string;
   reporterId: string | null;
   reporter?: { id: string; displayName: string; email: string } | null;
@@ -181,6 +182,7 @@ export const reportToCommercialAnnotation = (
   history: CommercialAnnotationHistoryItem[] = [],
 ) => ({
   id: report.id,
+  version: report.version,
   referenceCode: reportAnnotationReferenceCode(report),
   projectId: report.projectId,
   authorId: report.reporterId,

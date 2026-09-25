@@ -1,3 +1,4 @@
+import { Prisma } from '@markfix/database';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CommercialService } from '../src/commercial.service.js';
 
@@ -10,6 +11,7 @@ const report = (overrides: Record<string, unknown> = {}) => ({
   title: 'Header overlaps navigation',
   description: 'The issue appears below 768px.',
   status: 'OPEN',
+  version: 1,
   rejectionReason: null,
   screenshotPath: null,
   captureBundle: {
@@ -277,13 +279,14 @@ describe('commercial annotation management', () => {
     } as never);
 
     const result = await service.updateAnnotation('admin-1', source.id, {
+      expectedVersion: source.version,
       title: 'Updated title',
       status: 'RESOLVED',
       pageUrl: 'https://example.test/updated',
     });
 
     expect(update).toHaveBeenCalledWith({
-      where: { id: source.id },
+      where: { id: source.id, version: source.version },
       data: expect.objectContaining({
         title: 'Updated title',
         status: 'RESOLVED',
@@ -309,6 +312,7 @@ describe('commercial annotation management', () => {
     } as never);
 
     const result = await service.rejectAnnotation('admin-1', source.id, {
+      expectedVersion: source.version,
       reason: 'Not part of this release',
     });
 
@@ -342,4 +346,40 @@ describe('commercial annotation management', () => {
       vi.unstubAllEnvs();
     }
   });
+});
+
+it('rejects one concurrent disjoint edit instead of overwriting the other', async () => {
+  let current = report();
+  const service = new CommercialService({
+    ...managerDatabase('owner', current.projectId),
+    report: {
+      findUnique: async () => structuredClone(current),
+      update: async ({
+        where,
+        data,
+      }: {
+        where: { version: number };
+        data: Record<string, unknown>;
+      }) => {
+        if (where.version !== current.version)
+          throw new Prisma.PrismaClientKnownRequestError('stale', {
+            code: 'P2025',
+            clientVersion: 'test',
+          });
+        current = { ...current, ...data, version: current.version + 1 };
+        return current;
+      },
+    },
+  } as never);
+  const result = await Promise.allSettled([
+    service.updateAnnotation('admin', current.id, { kind: 'SCREENSHOT', expectedVersion: 1 }),
+    service.updateAnnotation('admin', current.id, {
+      pageUrl: 'https://example.test/new',
+      expectedVersion: 1,
+    }),
+  ]);
+  expect(result.filter((item) => item.status === 'fulfilled')).toHaveLength(1);
+  expect(result.filter((item) => item.status === 'rejected')).toHaveLength(1);
+  expect(current.version).toBe(2);
+  expect(current.captureBundle.annotationKind).toBe('SCREENSHOT');
 });

@@ -58,3 +58,39 @@ describe('report transition input boundary', () => {
     );
   });
 });
+
+it('rolls back report changes when audit persistence fails', async () => {
+  let row = { id: 'report', project: { id: 'project' }, version: 1, priority: 'LOW' };
+  const database = {
+    report: { findUnique: async () => ({ ...row }) },
+    membership: { findUnique: async () => ({ role: 'ADMIN', status: 'ACTIVE' }) },
+    $transaction: async (work: (tx: unknown) => Promise<unknown>) => {
+      const before = { ...row };
+      try {
+        return await work({
+          report: {
+            updateMany: async () => {
+              row = { ...row, priority: 'HIGH', version: 2 };
+              return { count: 1 };
+            },
+          },
+          activity: {
+            create: async () => {
+              throw new Error('audit unavailable');
+            },
+          },
+        });
+      } catch (error) {
+        row = before;
+        throw error;
+      }
+    },
+  };
+  await expect(
+    new ReportService(database as never).updateReport('admin', 'report', {
+      priority: 'HIGH',
+      expectedVersion: 1,
+    }),
+  ).rejects.toThrow('audit unavailable');
+  expect(row).toMatchObject({ priority: 'LOW', version: 1 });
+});

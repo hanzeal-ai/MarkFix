@@ -76,7 +76,7 @@ export function AnnotationEditor({
       if (state.mode === 'reject') {
         return commercialRequest(`/annotations/${state.annotation.id}/reject`, {
           method: 'POST',
-          body: JSON.stringify({ reason }),
+          body: JSON.stringify({ reason, expectedVersion: state.annotation.version }),
         });
       }
       const payload = {
@@ -95,7 +95,7 @@ export function AnnotationEditor({
       }
       return commercialRequest(`/annotations/${state.annotation.id}`, {
         method: 'PATCH',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, expectedVersion: state.annotation.version }),
       });
     },
     onSuccess: async () => {

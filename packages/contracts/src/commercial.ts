@@ -12,10 +12,19 @@ export const commercialAnnotationInputSchema = z.object({
 
 export const commercialAnnotationUpdateSchema = commercialAnnotationInputSchema
   .partial()
-  .extend({ status: z.enum(['OPEN', 'READY_FOR_VERIFY', 'RESOLVED', 'FIX_FAILED']).optional() })
-  .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
+  .extend({
+    status: z.enum(['OPEN', 'READY_FOR_VERIFY', 'RESOLVED', 'FIX_FAILED']).optional(),
+    expectedVersion: z.number().int().positive(),
+  })
+  .refine(
+    (value) => Object.keys(value).some((key) => key !== 'expectedVersion'),
+    'At least one field is required',
+  );
 
-export const commercialRejectionSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
+export const commercialRejectionSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+  expectedVersion: z.number().int().positive(),
+});
 export const commercialCategorySchema = z.object({ category: z.string().trim().min(1).max(40) });
 export const commercialAnnotationListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -30,6 +39,7 @@ export type AnnotationKind = z.infer<typeof commercialAnnotationInputSchema>['ki
 
 export type CommercialAnnotation = {
   id: string;
+  version: number;
   referenceCode: string;
   projectId: string;
   authorId: string | null;

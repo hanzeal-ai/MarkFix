@@ -28,6 +28,7 @@ describe('commercial annotation diagnostic details', () => {
       title: 'No permission',
       description: 'Request fails',
       status: 'OPEN',
+      version: 1,
       rejectionReason: null,
       captureBundle: {
         schemaVersion: 2,

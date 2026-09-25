@@ -28,6 +28,7 @@ const report = (overrides: Record<string, unknown> = {}) => ({
   title: 'Annotation',
   description: 'Description',
   status: 'OPEN' as const,
+  version: 1,
   rejectionReason: null,
   captureBundle: currentBundle,
   screenshotPath: null,

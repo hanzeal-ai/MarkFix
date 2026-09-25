@@ -108,6 +108,7 @@ const reportWithScreenshotUrl = (baseUrl: string, report: Record<string, unknown
   });
 
 export class MarkFixApi {
+  private sessionGeneration = 0;
   private accessToken: string | undefined;
   private refreshToken: string | undefined;
   private refreshInFlight: Promise<AuthTokens | { expiresIn: number }> | undefined;
@@ -115,15 +116,27 @@ export class MarkFixApi {
   constructor(private readonly baseUrl: string) {}
 
   setTokens(tokens?: { accessToken: string; refreshToken?: string }): void {
+    this.sessionGeneration++;
+    this.refreshInFlight = undefined;
     this.accessToken = tokens?.accessToken;
     this.refreshToken = tokens?.refreshToken;
+  }
+
+  get sessionRevision(): number {
+    return this.sessionGeneration;
   }
 
   currentRefreshToken(): string | undefined {
     return this.refreshToken;
   }
 
-  private async request<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
+  private async request<T>(
+    path: string,
+    init?: RequestInit,
+    retry = true,
+    generation = this.sessionGeneration,
+  ): Promise<T> {
+    this.assertSession(generation);
     const requestAccessToken = this.accessToken;
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
@@ -134,12 +147,13 @@ export class MarkFixApi {
         ...init?.headers,
       },
     });
+    this.assertSession(generation);
     if (response.status === 401 && retry && !path.startsWith('/v1/auth/')) {
       if (this.accessToken && this.accessToken !== requestAccessToken) {
-        return this.request(path, init, false);
+        return this.request(path, init, false, generation);
       }
       await this.refreshSession();
-      return this.request(path, init, false);
+      return this.request(path, init, false, generation);
     }
     if (!response.ok) {
       const body = (await response.json().catch(() => undefined)) as
@@ -149,7 +163,13 @@ export class MarkFixApi {
         response.status,
       );
     }
-    return (await response.json()) as T;
+    const result = (await response.json()) as T;
+    this.assertSession(generation);
+    return result;
+  }
+
+  private assertSession(generation: number): void {
+    if (generation !== this.sessionGeneration) throw new Error('Session changed during request');
   }
 
   requestJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -212,6 +232,7 @@ export class MarkFixApi {
 
   private async refreshSession(): Promise<AuthTokens | { expiresIn: number }> {
     if (this.refreshInFlight) return this.refreshInFlight;
+    const generation = this.sessionGeneration;
     const refresh = this.request<AuthTokens | { expiresIn: number }>(
       '/v1/auth/refresh',
       {
@@ -220,8 +241,11 @@ export class MarkFixApi {
       },
       false,
     ).then((tokens) => {
-      if ('accessToken' in tokens && tokens.accessToken && tokens.refreshToken)
-        this.setTokens(tokens);
+      this.assertSession(generation);
+      if ('accessToken' in tokens && tokens.accessToken && tokens.refreshToken) {
+        this.accessToken = tokens.accessToken;
+        this.refreshToken = tokens.refreshToken;
+      }
       return tokens;
     });
     this.refreshInFlight = refresh;
@@ -436,9 +460,12 @@ export class MarkFixApi {
     input: CreateReport,
     idempotencyKey: string = crypto.randomUUID(),
   ): Promise<Report> {
+    const generation = this.sessionGeneration;
+    const request = <T>(path: string, init?: RequestInit) =>
+      this.request<T>(path, init, true, generation);
     const parsed = createReportSchema.parse(input);
     const { screenshotDataUrl, ...payload } = parsed;
-    const submission = await this.request<{
+    const submission = await request<{
       id: string;
       artifact?: { id: string; uploadStatus: string } | null;
       report?: Record<string, unknown> | null;
@@ -452,7 +479,7 @@ export class MarkFixApi {
     }
     if (screenshotDataUrl) {
       const bytes = dataUrlBytes(screenshotDataUrl);
-      const presigned = await this.request<{ artifactId: string; uploadUrl: string }>(
+      const presigned = await request<{ artifactId: string; uploadUrl: string }>(
         `/v1/report-submissions/${submission.id}/artifacts/presign`,
         {
           method: 'POST',
@@ -463,13 +490,13 @@ export class MarkFixApi {
           }),
         },
       );
-      await this.request(presigned.uploadUrl, {
+      await request(presigned.uploadUrl, {
         method: 'PUT',
         headers: { 'content-type': 'image/png' },
         body: bytes,
       });
     }
-    const report = await this.request<Record<string, unknown>>(
+    const report = await request<Record<string, unknown>>(
       `/v1/report-submissions/${submission.id}/finalize`,
       {
         method: 'POST',

@@ -2,7 +2,8 @@ export const draftStoreSchema = `
   CREATE TABLE IF NOT EXISTS local_agent_state (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS outbox (
     id TEXT PRIMARY KEY,
-    idempotency_key TEXT NOT NULL UNIQUE,
+    owner_id TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
     request_hash TEXT NOT NULL,
     payload TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'PENDING',
@@ -11,9 +12,10 @@ export const draftStoreSchema = `
     last_error TEXT,
     report_id TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    UNIQUE(owner_id, idempotency_key)
   );
-  CREATE INDEX IF NOT EXISTS outbox_due_idx ON outbox(status, next_attempt_at);
+  CREATE INDEX IF NOT EXISTS outbox_due_idx ON outbox(owner_id, status, next_attempt_at);
   CREATE TABLE IF NOT EXISTS capture_annotations (
     id TEXT PRIMARY KEY,
     page_url TEXT NOT NULL,
