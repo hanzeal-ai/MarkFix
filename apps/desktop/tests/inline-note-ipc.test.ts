@@ -3,27 +3,32 @@ import type { BrowserWindow, WebContentsView } from 'electron';
 const handlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => void>());
 vi.mock('electron', () => ({
   ipcMain: {
-    handle: vi.fn(),
+    handle: (name: string, handler: (...args: unknown[]) => void) => handlers.set(name, handler),
     on: (name: string, handler: (...args: unknown[]) => void) => handlers.set(name, handler),
   },
   clipboard: {},
   ClipboardItem: vi.fn(),
-  dialog: {},
+  app: { getPath: () => '/tmp/markfix-test-logs' },
+  dialog: { showMessageBox: vi.fn().mockResolvedValue({ response: 0 }) },
 }));
-import { registerCaptureIpc } from '../src/main/ipc/register-capture-ipc';
+vi.mock('../src/main/annotation-save-log', () => ({ logAnnotationSave: vi.fn() }));
+import { dialog } from 'electron';
+import { annotationSaveFeedbackChannel } from '../src/annotation-save-feedback';
+import { logAnnotationSave } from '../src/main/annotation-save-log';
+import { registerAnnotationEditorIpc } from '../src/main/ipc/register-annotation-editor-ipc';
 
 describe('inline note action boundary', () => {
   const frame = {};
   const sendShell = vi.fn();
   const reselectElement = vi.fn();
   beforeEach(() => {
+    vi.mocked(dialog.showMessageBox).mockClear();
     sendShell.mockClear();
     reselectElement.mockClear();
-    registerCaptureIpc({
+    registerAnnotationEditorIpc({
       reselectElement,
       assertSender: vi.fn(),
-      captureService: () => undefined,
-      mainWindow: () => undefined as BrowserWindow | undefined,
+      mainWindow: () => ({ isDestroyed: () => false }) as BrowserWindow,
       websiteView: () =>
         ({
           webContents: { id: 5, mainFrame: frame, getURL: () => 'https://example.com/page' },
@@ -58,6 +63,34 @@ describe('inline note action boundary', () => {
       { ...point, documentUrl: 'https://example.com/old' },
     );
     expect(reselectElement).not.toHaveBeenCalled();
+  });
+  it('shows a visible failure for a stale submit without forwarding it', async () => {
+    handlers.get('markfix:inline-note-action')?.(
+      { sender: { id: 5 }, senderFrame: frame },
+      { ...payload, documentUrl: 'https://example.com/old' },
+    );
+    expect(sendShell).not.toHaveBeenCalled();
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        message: expect.stringContaining('页面或标注模式已变化'),
+      }),
+    );
+  });
+  it('validates feedback codes and keeps successful tracing quiet', async () => {
+    const handler = handlers.get(annotationSaveFeedbackChannel);
+    if (!handler) throw new Error('Feedback handler was not registered');
+    await handler({}, 'preview-opened');
+    expect(logAnnotationSave).toHaveBeenCalledWith('preview-opened');
+    expect(dialog.showMessageBox).not.toHaveBeenCalled();
+    await expect(handler({}, 'untrusted free text')).rejects.toThrow();
+    await handler({}, 'missing-context');
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        message: expect.stringContaining('项目或页面尚未准备好'),
+      }),
+    );
   });
   it('rejects other senders, subframes, stale pages and invalid notes', () => {
     const handler = handlers.get('markfix:inline-note-action');

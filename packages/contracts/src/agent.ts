@@ -51,7 +51,9 @@ export const fixFailureSchema = z.object({
 });
 export const agentIssueQuerySchema = z.object({
   projectId: z.uuid(),
-  status: z.enum(['OPEN', 'FIX_FAILED', 'IN_PROGRESS', 'RESOLVED']).default('OPEN'),
+  status: z
+    .enum(['OPEN', 'FIX_FAILED', 'IN_PROGRESS', 'READY_FOR_VERIFY', 'RESOLVED'])
+    .default('OPEN'),
   cursor: z.uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
 });

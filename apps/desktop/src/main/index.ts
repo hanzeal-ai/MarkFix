@@ -1,3 +1,7 @@
+import { registerAnnotationEditorIpc } from './ipc/register-annotation-editor-ipc';
+import electronUpdater from 'electron-updater';
+import { WindowsDesktopUpdater } from './windows-desktop-updater';
+import { registerDesktopUpdateIpc } from './ipc/register-desktop-update-ipc';
 import { ManualDesktopUpdater } from './manual-desktop-updater.js';
 import type { CapturePin, ElementCommentPin } from '../capture-pin';
 import { serviceUrls } from '@markfix/contracts';
@@ -20,6 +24,7 @@ import {
   type MenuItemConstructorOptions,
 } from 'electron';
 import {
+  repairReviewSchema,
   anchorSchema,
   browserModeSchema,
   historyAnnotationReferenceSchema,
@@ -47,6 +52,7 @@ import { accountPageChannel, accountPageUrl } from '../account-pages.js';
 import {
   desktopUpdateChannels,
   desktopUpdateFeedUrl,
+  windowsDesktopUpdateFeedUrl,
   desktopUpdateActive,
   type DesktopUpdateStatus,
 } from '../desktop-update.js';
@@ -219,7 +225,7 @@ const refreshCurrentProject = (ignoreCache = false): void => {
 
 const registerMainShortcuts = (browserWindow: BrowserWindow, webContents: WebContents): void => {
   webContents.on('before-input-event', (event, input) => {
-    if (desktopUpdateActive(desktopUpdater.getStatus())) {
+    if (updatePreparing || desktopUpdateActive(desktopUpdater.getStatus())) {
       event.preventDefault();
       return;
     }
@@ -314,25 +320,35 @@ const notifyDesktopUpdate = (status: DesktopUpdateStatus): void => {
   mainWindow?.webContents.send(desktopUpdateChannels.changed, status);
   layoutWebsite();
 };
+let updatePreparing = false;
 const desktopUpdater =
-  process.platform === 'win32' || import.meta.env.MAIN_VITE_MANUAL_UPDATES
-    ? new ManualDesktopUpdater(
-        () => desktopSession.loadPolicy(true),
-        () =>
-          shell.openExternal(
-            new URL(`/download?platform=${process.platform}`, services.origin).href,
-          ),
-        notifyDesktopUpdate,
-      )
-    : new DesktopUpdater(
-        autoUpdater,
-        () => {
-          if (!app.isPackaged || process.platform !== 'darwin')
-            throw new Error('自动更新仅适用于已安装的 macOS 正式版本。');
-          return desktopUpdateFeedUrl(services.apiOrigin, app.getVersion(), process.arch);
-        },
-        notifyDesktopUpdate,
-      );
+  process.platform === 'win32'
+    ? new WindowsDesktopUpdater(() => {
+        if (!app.isPackaged || process.arch !== 'x64')
+          throw new Error('Windows 自动更新仅支持已安装的 x64 版本。');
+        return new electronUpdater.NsisUpdater({
+          provider: 'generic',
+          url: windowsDesktopUpdateFeedUrl(services.apiOrigin),
+        });
+      }, notifyDesktopUpdate)
+    : import.meta.env.MAIN_VITE_MANUAL_UPDATES
+      ? new ManualDesktopUpdater(
+          () => desktopSession.loadPolicy(true),
+          () =>
+            shell.openExternal(
+              new URL(`/download?platform=${process.platform}`, services.origin).href,
+            ),
+          notifyDesktopUpdate,
+        )
+      : new DesktopUpdater(
+          autoUpdater,
+          () => {
+            if (!app.isPackaged || process.platform !== 'darwin')
+              throw new Error('自动更新仅适用于已安装的 macOS 正式版本。');
+            return desktopUpdateFeedUrl(services.apiOrigin, app.getVersion(), process.arch);
+          },
+          notifyDesktopUpdate,
+        );
 
 const layoutWebsite = (): void => {
   if (
@@ -360,6 +376,7 @@ const layoutWebsite = (): void => {
       workspaceViewVisible &&
       websiteContentReady &&
       !sidebarPreviewReady &&
+      !updatePreparing &&
       !desktopUpdateActive(desktopUpdater.getStatus()),
   );
 };
@@ -860,10 +877,16 @@ const registerIpc = (): void => {
     },
     sendShell,
   });
-  registerCaptureIpc({
+  registerAnnotationEditorIpc({
     reselectElement: (x, y) => {
       if (currentBrowserMode === 'comment') void inspector?.selectAt(x, y);
     },
+    assertSender: assertShellSender,
+    mainWindow: () => mainWindow,
+    sendShell,
+    websiteView: () => websiteView,
+  });
+  registerCaptureIpc({
     assertSender: assertShellSender,
     captureService: () => captureService,
     mainWindow: () => mainWindow,
@@ -881,13 +904,25 @@ const registerIpc = (): void => {
     },
   });
   reportOutbox.registerIpc(assertShellSender);
-  ipcMain.handle(desktopUpdateChannels.start, (event) => {
-    if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted update sender');
-    return desktopUpdater.start();
-  });
-  ipcMain.handle(desktopUpdateChannels.status, (event) => {
-    if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted update sender');
-    return desktopUpdater.getStatus();
+  registerDesktopUpdateIpc({
+    assertSender: (event) => {
+      if (event.sender.id !== shellWebContentsId) throw new Error('Untrusted update sender');
+    },
+    assertCanPrepare: () => {
+      if (BrowserWindow.getAllWindows().some((window) => window !== mainWindow))
+        throw new Error('请先关闭预览、设置等子窗口，再更新软件。');
+    },
+    preparationChanged: (preparing) => {
+      updatePreparing = preparing;
+      layoutWebsite();
+      if (preparing) mainWindow?.webContents.focus();
+      notifyDesktopUpdate(
+        preparing
+          ? { phase: 'preparing', message: '正在保存当前批注…' }
+          : desktopUpdater.getStatus(),
+      );
+    },
+    updater: desktopUpdater,
   });
   ipcMain.handle('website:open-official', async (event) => {
     assertShellSender(event);
@@ -1151,6 +1186,22 @@ const registerIpc = (): void => {
     websiteContentReady = true;
     layoutWebsite();
     return { project: current, created: true };
+  });
+  ipcMain.handle(ipcChannels.reviewAnnotationRepair, async (event, input: unknown) => {
+    assertShellSender(event);
+    if (!authenticatedUser && !localMode) throw new Error('请选择本机模式或登录');
+    const review = repairReviewSchema.parse(input);
+    const project = websiteProjectsById.get(review.projectId);
+    if (!project) throw new Error('项目不存在或已被移除');
+    if (project.storageMode === 'LOCAL') return requireLocalAgent().review(review);
+    const report = await api.getReport(review.reportId);
+    if (report.projectId !== project.id) throw new Error('标注不属于当前项目');
+    return api.transition(
+      review.reportId,
+      review.action,
+      review.expectedVersion,
+      review.reason ? { reason: review.reason } : undefined,
+    );
   });
   ipcMain.handle(ipcChannels.listProjectAnnotationReports, async (event, input: unknown) => {
     assertShellSender(event);

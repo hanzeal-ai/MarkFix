@@ -25,6 +25,7 @@ class DeploymentTest(unittest.TestCase):
         self.command('docker', '''import json,os,sys
 from pathlib import Path
 a=sys.argv[1:]
+if a[:2]==['image','inspect']: sys.exit(1 if os.environ.get('FAIL_PHASE')=='inspect' else 0)
 config=a[a.index('-f')+1]
 with open(os.environ['TEST_LOG'],'a') as f:
  f.write(json.dumps({'args':a,'images':Path(config).with_name('images.env').read_text()})+'\\n')
@@ -32,6 +33,8 @@ failure=os.environ.get('FAIL_PHASE')
 if 'pull' in a and failure=='pull': sys.exit(1)
 if 'pg_dump' in a: print('-- database backup')
 if 'psql' in a and failure=='unresolved': print('_prisma_migrations' if 'to_regclass' in a[-1] else 'historical_failed_migration')
+if 'run' in a and '--pull' in a: sys.exit(2) # Target Compose 2.27 run has no --pull flag.
+if 'run' in a and os.environ.get('MARKFIX_LOADED_IMAGES')=='1' and os.environ.get('MARKFIX_MIGRATE_PULL_POLICY')!='never': sys.exit(3)
 if 'run' in a and 'migrate' in a and failure=='migrate': sys.exit(1)
 if 'up' in a and 'api' in a and failure=='deploy' and '/current/' not in config: sys.exit(1)
 ''')
@@ -73,6 +76,24 @@ except BlockingIOError: sys.exit(1)
         self.assertEqual(len(list((self.deploy_root / 'backups').glob('*.sql'))), 1)
         self.assertEqual(self.run_deploy().returncode, 0)
         self.assertEqual(secret.read_text(), original)
+
+    def test_preloaded_images_use_no_registry_and_preserve_migration_checks(self):
+        result = self.run_deploy(MARKFIX_LOADED_IMAGES='1', API_IMAGE='sha256:' + 'a' * 64,
+                                 DASHBOARD_IMAGE='sha256:' + 'b' * 64)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [x['args'] for x in self.calls()]
+        self.assertFalse(any('pull' in x for x in calls))
+        for args in calls:
+            if 'up' in args:
+                self.assertEqual(args[args.index('--pull') + 1], 'never')
+        self.assertTrue(any('pg_dump' in x for x in calls))
+        self.assertTrue(any('migrate' in x and 'run' in x for x in calls))
+
+    def test_missing_loaded_image_does_not_stop_services(self):
+        result = self.run_deploy(MARKFIX_LOADED_IMAGES='1', API_IMAGE='sha256:' + 'a' * 64,
+                                 DASHBOARD_IMAGE='sha256:' + 'b' * 64, FAIL_PHASE='inspect')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.calls(), [])
 
     def test_reject_mutable_or_shell_input(self):
         for variable in ['API_IMAGE', 'DASHBOARD_IMAGE']:

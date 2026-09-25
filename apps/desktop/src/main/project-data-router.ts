@@ -1,3 +1,4 @@
+import { logAnnotationSave } from './annotation-save-log';
 import type {
   AnnotationHistorySummary,
   AnnotationSubmission,
@@ -23,7 +24,9 @@ export class ProjectDataRouter {
   }
 
   async saveCapture(capture: SavedCapture): Promise<void> {
-    if (this.cloud(capture.projectId)) await this.api.saveCloudCapture(capture);
+    const cloud = this.cloud(capture.projectId);
+    logAnnotationSave(cloud ? 'capture:cloud-start' : 'capture:local-start');
+    if (cloud) await this.api.saveCloudCapture(capture);
     else this.localStore().saveCapture(capture);
   }
 
@@ -39,7 +42,9 @@ export class ProjectDataRouter {
   }
 
   async saveElementComment(comment: SavedElementComment): Promise<void> {
-    if (this.cloud(comment.projectId)) await this.api.saveCloudElementComment(comment);
+    const cloud = this.cloud(comment.projectId);
+    logAnnotationSave(cloud ? 'element:cloud-start' : 'element:local-start');
+    if (cloud) await this.api.saveCloudElementComment(comment);
     else this.localStore().saveElementComment(comment);
   }
 

@@ -242,11 +242,70 @@ describe('desktop LOCAL agent boundary', () => {
       summary: '已修正',
       checks: [{ command: 'pnpm test', outcome: 'passed', details: '通过' }],
     };
-    expect((await request(`/fixes/${retry}/complete`, result)).body.report.status).toBe('RESOLVED');
+    expect((await request(`/fixes/${retry}/complete`, result)).body.report.status).toBe(
+      'READY_FOR_VERIFY',
+    );
     expect((await request(`/fixes/${retry}/complete`, result)).body.confirmed).toBe(true);
     expect((await request(`/fixes/${retry}/complete`, { ...result, summary: '替换' })).status).toBe(
       409,
     );
+    expect(new LocalAgentService(f.store).reports(f.projectId)[0]?.status).toBe('READY_FOR_VERIFY');
+    const pending = f.service.reports(f.projectId)[0];
+    if (!pending) throw new Error('Missing pending report');
+    expect(() =>
+      f.service.review({
+        projectId: f.otherId,
+        reportId: pending.id,
+        expectedVersion: pending.version,
+        action: 'verify',
+      }),
+    ).toThrow('当前项目');
+    expect(() =>
+      f.service.review({
+        projectId: f.projectId,
+        reportId: pending.id,
+        expectedVersion: pending.version - 1,
+        action: 'verify',
+      }),
+    ).toThrow('已变化');
+    expect(
+      (
+        await request(`/issues/${pending.id}/claim`, {
+          runId: randomUUID(),
+          expectedVersion: pending.version,
+          retry: true,
+        })
+      ).status,
+    ).toBe(409);
+    const rejected = f.service.review({
+      projectId: f.projectId,
+      reportId: pending.id,
+      expectedVersion: pending.version,
+      action: 'reject',
+      reason: '页面仍有偏移',
+    });
+    expect(rejected.status).toBe('OPEN');
+    expect(rejected.reviewFeedback?.[0]?.reason).toBe('页面仍有偏移');
+    expect(rejected.description).toBe(f.record.note);
+    const finalRun = randomUUID();
+    expect(
+      (
+        await request(`/issues/${pending.id}/claim`, {
+          runId: finalRun,
+          expectedVersion: rejected.version,
+        })
+      ).status,
+    ).toBe(200);
+    await request(`/fixes/${finalRun}/complete`, result);
+    const finalPending = f.service.reports(f.projectId)[0];
+    if (!finalPending) throw new Error('Missing final pending report');
+    const verified = f.service.review({
+      projectId: f.projectId,
+      reportId: finalPending.id,
+      expectedVersion: finalPending.version,
+      action: 'verify',
+    });
+    expect(verified.status).toBe('RESOLVED');
     expect(new LocalAgentService(f.store).reports(f.projectId)[0]?.status).toBe('RESOLVED');
     expect(f.store.listElementComments(f.projectId)[0]?.note).toBe(f.record.note);
     expect(f.store.listWebsiteProjects('CLOUD')).toHaveLength(1);
@@ -345,7 +404,7 @@ describe('desktop LOCAL agent boundary', () => {
     await writeFile(queuedPath, JSON.stringify(queued));
     const synchronized = JSON.parse((await run('sync')).stdout);
     expect(synchronized.results[0].confirmed).toBe(true);
-    expect(synchronized.results[0].report.status).toBe('RESOLVED');
+    expect(synchronized.results[0].report.status).toBe('READY_FOR_VERIFY');
 
     await promisify(execFile)(
       process.execPath,

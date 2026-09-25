@@ -26,7 +26,10 @@ Any surface found there but missing below must be added before concluding the re
 
 - Public pages: home, docs, pricing, download, privacy, and terms.
 - Account flows: login, registration, email verification, forgotten/reset password, invitation acceptance, and account settings.
-- Application: overview, projects, users, project drawer, annotation detail/editor, loading, empty, failure, read-only, and administrator states.
+- Application: overview, projects, users, project details and settings, annotation detail/editor, loading, empty, failure, read-only, and administrator states.
+
+- Agent authorization: device approval/denial, expired requests, and empty project access.
+- Public interactive annotation demo: element comments and screenshot markup.
 
 ## Cross-flow checks
 

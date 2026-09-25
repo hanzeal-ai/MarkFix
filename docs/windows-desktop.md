@@ -7,7 +7,7 @@
 1. 从下载页选择 Windows，取得 `MarkFix-<版本>-windows-x64-setup.exe`。下载地址尚未配置时，页面显示“Windows 安装包待发布”，不会返回 Mac 安装包。
 2. 运行安装器，选择当前用户的安装目录。无需安装 Node、pnpm、Docker 或另建数据库。
 3. 启动后选择“仅在本机使用”，项目与标注保存在 Electron 用户数据目录中的 SQLite。云端协作需要可访问的正式 API 和账号。
-4. Windows 更新采用手动安装：点击应用中的更新按钮打开下载页，下载完成后退出 MarkFix，再运行新版安装器覆盖原目录。保持同一 Windows 账号、应用标识和安装方式；不要先删除用户数据目录。卸载器默认保留用户数据。
+4. 安装含 Windows 自动更新器的基础版后，点击“更新”会先保存有效草稿，然后下载安装包、校验并覆盖安装，自动重启。旧版手动更新客户端仍需先从官网下载并覆盖安装一次基础版。保持同一 Windows 账号、应用标识和安装方式；不要删除用户数据目录。卸载器默认保留用户数据。
 
 试用工作流产物未配置 Windows 代码签名，不能视为已经签名或可无提示安装的正式发行版。官网明确标注未签名试用包；Windows 可能显示发布者或 SmartScreen 提示。正式签名发行仍需证书与实机验收。
 
@@ -39,17 +39,17 @@ API 继续使用同一个 `ClientPolicyService` 和既有 `clientPolicySchema`�
 - `MARKFIX_WINDOWS_MINIMUM_DESKTOP_VERSION`：默认 `0.1.0`。
 - `MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION`：默认等于 Windows 最低版本。
 
-Mac 保留既有版本配置和 Apple Silicon 下载变量 `MARKFIX_DESKTOP_DOWNLOAD_URL`；不把该地址分配给 Windows、Intel Mac 或其他平台。Windows 推荐版本不跟随 Mac 发布自动提升。`/v1/desktop-updates` 仍仅服务 Mac 原生更新器，Windows 不调用它。
+Mac 保留既有版本配置和 Apple Silicon 下载变量 `MARKFIX_DESKTOP_DOWNLOAD_URL`；不把该地址分配给 Windows、Intel Mac 或其他平台。Windows 推荐版本不跟随 Mac 发布自动提升。`/v1/desktop-updates` 仍仅服务 Mac 原生更新器，Windows 使用独立的 `/v1/desktop-updates/windows/x64/latest.yml` generic feed。
 
-Windows 应用中的更新按钮沿主窗口受信 IPC 入口读取新策略，仅打开固定服务源的 `/download?platform=win32`，不接受 renderer 传入地址，不自动下载执行代码、不退出应用。有效编辑仍先沿既有路径保存；保存失败不会启动更新。
+Windows 更新入口仅接受主窗口调用，不接受 renderer 传入下载地址。准备阶段先隐藏原生网页并阻止输入；已有标注提交或子窗口未结束时停止更新。有效编辑沿既有路径保存；保存失败恢复界面，不下载安装。`electron-updater` 6.8.9 使用 NSIS、HTTPS feed 和 SHA-512 校验，禁用差分下载、降级及普通退出时安装；下载完成后执行静默安装并强制重启。未签名试用包只具备传输与文件完整性校验，不等同于发布者签名验证。
 
 发布顺序：先在 Windows 验收安装包，再经授权上传不可变的 HTTPS 版本文件，确认匿名下载及 SHA-256，最后配置下载地址和推荐版本。只在必要时提高最低版本。API 容器必须实际收到这些变量；生产 Compose 使用 `MARKFIX_ENV_FILE`，本地 Compose 则需要显式传入。配置本身不代表已经发布。
 
 ## 验证、影响与恢复
 
-风险 R2：涉及客户端版本公共接口、平台适配与安装交付。变更不修改数据库 Schema、远程页面隔离或权限契约，不新增依赖。Mac 试用包与 Windows 均手动更新；Windows 使用独立平台参数，但版本决策仍由同一服务负责。
+风险 R2：涉及客户端版本公共接口、平台适配与安装交付。变更不修改数据库 Schema、远程页面隔离或权限契约，新增依赖 `electron-updater` 已获任务发起者授权。Mac 试用包保留手动更新；Windows 使用独立平台参数，但版本决策仍由同一服务负责。
 
-自动化覆盖：平台版本与下载地址分流、无包及不安全地址拒绝、Windows Ctrl/Alt 快捷键、手动更新的重复点击/离线/无新版/打开浏览器失败，以及真实渲染页面的下载状态。Windows 工作流中的已安装程序检查覆盖启动、预加载、原生 SQLite 和重启持久化；这些检查只有实际在 Windows 上执行成功后才算目标平台证据。
+自动化覆盖：平台版本与下载地址分流、无包及不安全地址拒绝、Windows Ctrl/Alt 快捷键、自动更新的重复点击/离线/校验失败/无新版/晚到回调，以及 macOS 手动下载失败，以及真实渲染页面的下载状态。Windows 工作流中的已安装程序检查覆盖启动、预加载、原生 SQLite 和重启持久化；这些检查只有实际在 Windows 上执行成功后才算目标平台证据。
 
 发布前仍须在干净 Windows 机器验收：
 
@@ -60,10 +60,28 @@ Windows 应用中的更新按钮沿主窗口受信 IPC 入口读取新策略，�
 
 若新包异常，停止分发并恢复 Windows 推荐版本或移除下载地址；不影响 Mac 版本策略。已安装用户保留数据并使用更高版本的修复包，不以删除用户数据作为恢复方法。代码回退可撤回本次变更，无数据库迁移需要回滚。
 
-自动发布由 `.github/workflows/desktop-release.yml` 控制；服务器发布器 `infra/aliyun/publish_desktop.py` 验证提交、文件名、大小、SHA-256 和匿名 HTTPS 下载，最后切换 API 策略。仅当前部署提交可发布；已存在的版本/提交目录不能覆盖不同字节。修改策略前备份 app.env；API 验证失败时恢复备份并重启 API。部署和发布共用文件锁。
+自动发布由 `.github/workflows/desktop-release.yml` 控制；服务器发布器 `infra/aliyun/publish_desktop.py` 验证提交、文件名、大小、SHA-256、Windows SHA-512 和匿名 HTTPS 下载，最后原子切换 API 策略（含 Windows 更新包 SHA-512 和大小），并验证公开 feed 与安装包一致。仅当前部署提交可发布；已存在的版本/提交目录不能覆盖不同字节。修改策略前备份 app.env；API 验证失败时恢复备份并重启 API。部署和发布共用文件锁。
 
 macOS Apple Silicon 采用同样流程，下载地址为 `/downloads/macos/<版本>/<提交号>/MarkFix-<版本>-arm64.dmg`。默认 trial 构建只做 ad-hoc 完整性签名，无 Apple 身份签名或公证，明确标注未签名试用版；构建时启用手动更新，服务端也禁用试用版原生更新 feed。Intel Mac 暂无安装包。
 
 取得证书并完成正式更新验收后，才将仓库变量 `MARKFIX_MACOS_RELEASE_MODE` 改为 `signed`，并配置 `CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。signed 构建缺少任一凭据会失败，不会降级为试用包。
 
-验证范围：自动检查覆盖下载安装、启动、SQLite 持久化与下载页分流；不同显示缩放、真实旧版覆盖升级、Windows 批注全流程仍需干净实机验收。正式签名、公证和自动升级不属于试用包的完成状态。
+验证范围：自动检查覆盖下载安装、启动、SQLite 持久化与下载页分流；不同显示缩放、真实旧版覆盖升级、Windows 批注全流程仍需干净实机验收。当前开发环境未执行 Windows 两版本真实自动升级；自动安装、重启、保留自定义目录和数据须取得目标环境证据后才能报告验收完成。正式签名与公证另需凭据。
+
+## 标注保存诊断
+
+保存期间，页内提交按钮显示“保存中…”，并阻止重复点击。缺少页面上下文、选区失效、保存异常和预览打开失败会显示系统对话框；失败提示中包含日志的完整路径。
+
+`annotation-save.log` 写入 Electron 的应用日志目录，单文件达到 1 MiB 后轮转，保留当前文件和上一份 `.1` 文件。日志记录时间、应用版本、平台、提交/保存/预览阶段及可获得的 HTTP 状态码，不记录备注、网址、截图、令牌或原始错误文本。
+
+排查时对照最后一条阶段：`inline-submit` 表示主进程收到页内提交；`submit-received` 表示工作区收到提交；`*:received` 表示进入保存处理；`*:cloud-start` 或 `*:local-start` 表示开始对应存储操作；`*:saved` 表示保存完成；`preview-opened` 表示已请求打开预览。`missing-context`、`stale-page` 等代码对应可见的失败提示。日志文件中没有提交记录时，还需要检查页内按钮和输入法状态，不能据此认定服务器故障。
+
+## Windows 更新发布与恢复
+
+Desktop downloads 在两平台构建前，将 `apps/desktop/package.json` 的基础版本投影为 `major.minor.(basePatch + github.run_number)`，包和下载清单共同读取这个实际版本；例如基础 `0.1.0`、运行编号 23 得到 `0.1.23`。同次运行重试保持版本不变；后续运行递增。发布器拒绝降级及同版本不同安装包切换策略，重跑产生不同字节时应启动新运行，不覆盖旧包。
+
+Windows feed 使用既有 `MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION` 和 `MARKFIX_DESKTOP_WINDOWS_X64_DOWNLOAD_URL`，新增 `MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SHA512`（Base64）与 `MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SIZE`（字节），由发布器从已验证清单写入，不能手动编造校验值。元数据缺失时返回 503，避免误报当前已是最新版。
+
+发布前在 Windows x64 普通用户环境安装较旧基础版，使用包含中文/空格的自定义目录，建立本机标注并登录云端；发布较高版本后点击更新，核对旧进程退出、新进程启动、版本提升、原安装目录和 SQLite/登录状态保留。还需覆盖断网、错误校验值、保存失败、无新版及退出时不自行安装。当前仓库 CI 已安装 smoke 仅覆盖启动和 SQLite，不替代这个升级验收。
+
+R2 发布门禁：独立审查、目标环境升级证据与发布负责人批准缺一不可。回退分发策略只影响未升级用户；已升级用户使用更高版本修复包。不得自动降级或删除用户数据。

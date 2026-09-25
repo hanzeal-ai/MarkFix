@@ -13,24 +13,25 @@
     "test": "vitest run",
     "package:mac": "sh scripts/generate-mac-icon.sh && electron-vite build && electron-builder --mac",
     "package:mac:release": "node scripts/check-update-release.mjs && sh scripts/generate-mac-icon.sh && electron-vite build && electron-builder --mac --config.forceCodeSigning=true --config.mac.hardenedRuntime=true --config.mac.notarize=true --publish never",
-    "package:win": "node scripts/check-update-release.mjs && electron-vite build && electron-builder --win nsis --x64 --publish never",
+    "package:win": "node scripts/check-update-release.mjs && electron-vite build && node scripts/package-windows.mjs",
     "package:mac:trial": "node scripts/check-update-release.mjs && sh scripts/generate-mac-icon.sh && MARKFIX_DESKTOP_UPDATE_MODE=manual electron-vite build && electron-builder --mac dmg --arm64 --config.mac.identity=- --config.mac.notarize=false --publish never"
   },
   "dependencies": {
-    "@markfix/annotation-model": "workspace:*",
     "@markfix/anchor-core": "workspace:*",
+    "@markfix/annotation-model": "workspace:*",
     "@markfix/api-client": "workspace:*",
     "@markfix/contracts": "workspace:*",
     "@markfix/ui": "workspace:*",
     "better-sqlite3": "13.0.3",
+    "electron-updater": "6.8.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "zustand": "5.0.15",
-    "zod": "4.5.4"
+    "zod": "4.5.4",
+    "zustand": "5.0.15"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.18",
     "@electron/rebuild": "4.2.0",
+    "@tailwindcss/vite": "^4.1.18",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "24.10.7",
     "@types/react": "19.2.14",

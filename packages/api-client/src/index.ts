@@ -22,6 +22,7 @@ import {
   type Membership,
   type Project,
   type Report,
+  type ReportTransition,
   type SavedCapture,
   type SavedDiagnosticAnnotation,
   type SavedElementComment,
@@ -576,7 +577,7 @@ export class MarkFixApi {
 
   transition(
     reportId: string,
-    action: string,
+    action: ReportTransition['action'],
     expectedVersion: number,
     detail?: { reason?: string; resolutionSummary?: string },
   ): Promise<Report> {

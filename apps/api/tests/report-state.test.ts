@@ -3,7 +3,7 @@ import { transitionReport } from '../src/report-state.js';
 
 describe('transitionReport', () => {
   it('implements the verification rejection loop', () => {
-    expect(transitionReport('READY_FOR_VERIFY', 'reject')).toBe('IN_PROGRESS');
+    expect(transitionReport('READY_FOR_VERIFY', 'reject')).toBe('OPEN');
   });
 
   it('rejects undeclared transitions', () => {

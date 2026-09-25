@@ -522,7 +522,7 @@ async function main() {
       console.log('Screenshots: ' + output);
       return;
     }
-    if (process.env.MARKFIX_AUDIT_SURFACES) {
+    if (process.env.MARKFIX_AUDIT_SURFACES && !process.env.MARKFIX_AUDIT_APP_ONLY) {
       for (const route of [
         '/',
         '/docs',
@@ -580,8 +580,7 @@ async function main() {
     await setTimeout(300);
     writeFileSync(join(output, 'projects.png'), (await win.webContents.capturePage()).toPNG());
     if (process.env.MARKFIX_AUDIT_SURFACES) {
-      await run(`document.querySelector('.project-card-open').click()`);
-      await waitFor(`!!document.querySelector('.annotation-row')`);
+      await run(`document.querySelector('button[title="项目设置"]').click()`);
       await waitFor(`!!document.querySelector('.repository-binding [role="combobox"]')`);
       assert.equal(
         await run(
@@ -604,9 +603,18 @@ async function main() {
         `document.querySelector('.repository-binding [role="status"]')?.textContent === '绑定已保存'`,
       );
 
+      writeFileSync(
+        join(output, 'project-settings.png'),
+        (await win.webContents.capturePage()).toPNG(),
+      );
+      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+      win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+      await waitFor(`!document.querySelector('.project-settings-dialog')`);
+      await run(`document.querySelector('.project-card-open').click()`);
+      await waitFor(`!!document.querySelector('.annotation-row')`);
       await setTimeout(300);
       writeFileSync(
-        join(output, 'project-drawer.png'),
+        join(output, 'project-details.png'),
         (await win.webContents.capturePage()).toPNG(),
       );
       await run(`document.querySelector('.annotation-summary-copy').click()`);
@@ -620,7 +628,13 @@ async function main() {
         `[...document.querySelectorAll('.annotation-dialog button')].find(button => button.textContent.trim() === '关闭').click()`,
       );
       await waitFor(`!document.querySelector('.annotation-dialog')`);
-      await run(`document.querySelector('.annotation-actions button[title="编辑"]').click()`);
+      await run(
+        `document.querySelector('.annotation-actions button[title="更多操作"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }))`,
+      );
+      await waitFor(`!!document.querySelector('[role="menuitem"]')`);
+      await run(
+        `[...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.trim() === '编辑').click()`,
+      );
       await waitFor(`!!document.querySelector('.annotation-dialog input')`);
       await setTimeout(300);
       writeFileSync(
@@ -668,9 +682,9 @@ async function main() {
       await win.loadURL(origin + '/app/projects');
       await waitFor(`!!document.querySelector('.project-card-open')`);
       await run(`document.querySelector('.project-card-open').click()`);
-      await waitFor(`!!document.querySelector('.project-sheet [role="alert"]')`);
+      await waitFor(`!!document.querySelector('.project-details-page [role="alert"]')`);
       assert.equal(
-        await run(`document.querySelectorAll('.project-sheet [data-slot="empty"]').length`),
+        await run(`document.querySelectorAll('.project-details-page [data-slot="empty"]').length`),
         0,
       );
       await setTimeout(300);

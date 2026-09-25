@@ -140,7 +140,7 @@ async function start() {
   );
   assert.equal(await evaluate('window.markfix.platform'), process.platform);
   if (windows || process.env.RELEASE_MODE === 'trial')
-    assert.equal(await evaluate('window.markfix.manualUpdates'), true);
+    assert.equal(await evaluate('window.markfix.manualUpdates'), !windows);
   await evaluate(
     "[...document.querySelectorAll('button')].find(b=>b.textContent.includes('仅在本机使用')).click()",
   );

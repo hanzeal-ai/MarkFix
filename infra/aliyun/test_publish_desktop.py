@@ -1,4 +1,5 @@
 """Installer integrity, immutable storage, policy isolation and failure recovery."""
+import base64
 import hashlib
 import io
 import json
@@ -22,8 +23,8 @@ class PublishTest(unittest.TestCase):
         (self.source / name).write_bytes(data)
         self.manifest = dict(schemaVersion=1, platform='windows', arch='x64',
                              distribution='trial', version='0.1.0', commit=self.commit,
-                             origin='https://markfix.example.test',
-                             files=[dict(name=name, size=len(data), sha256=hashlib.sha256(data).hexdigest())])
+                             origin='https://markfix.hanzeal.com',
+                             files=[dict(name=name, size=len(data), sha256=hashlib.sha256(data).hexdigest(), sha512=base64.b64encode(hashlib.sha512(data).digest()).decode('ascii'))])
         self.save()
 
     def save(self):
@@ -38,6 +39,29 @@ class PublishTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             release.stage_artifact(self.source, self.root / 'downloads', manifest)
 
+    def test_windows_updater_metadata_is_verified_and_atomic(self):
+        manifest = release.validate_artifact(self.source, self.commit)
+        changes = release.policy_changes(manifest, Path('windows/0.1.0') / self.commit)
+        self.assertEqual(changes['MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SHA512'], manifest['files'][0]['sha512'])
+        self.assertEqual(changes['MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SIZE'], str(manifest['files'][0]['size']))
+        self.manifest['files'][0]['sha512'] = 'invalid'
+        self.save()
+        with self.assertRaises(ValueError):
+            release.validate_artifact(self.source, self.commit)
+
+    def test_windows_policy_never_downgrades_or_replaces_same_version(self):
+        changes = release.policy_changes(self.manifest, Path('windows/0.1.0') / self.commit)
+        original = release.replace_env('', changes)
+        release.validate_windows_policy_transition(original, changes)
+        changed = dict(changes, MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION='0.0.9')
+        with self.assertRaises(ValueError):
+            release.validate_windows_policy_transition(original, changed)
+        changed = dict(changes, MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SHA512='different')
+        with self.assertRaises(ValueError):
+            release.validate_windows_policy_transition(original, changed)
+        changed = dict(changes, MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION='0.1.1')
+        release.validate_windows_policy_transition(original, changed)
+
     def test_reject_tampered_artifact(self):
         (self.source / self.manifest['files'][0]['name']).write_bytes(b'tampered')
         with self.assertRaises(ValueError):
@@ -46,7 +70,7 @@ class PublishTest(unittest.TestCase):
     def test_reject_paths_origins_and_wrong_commit(self):
         for key, value in [('version', '../1'), ('commit', 'b' * 40),
                            ('origin', 'http://example.test'), ('origin', 'https://u:p@example.test'),
-                           ('origin', 'https://example.test/other'), ('arch', 'arm64')]:
+                           ('origin', 'https://example.test/other'), ('origin', 'https://127.0.0.1'), ('origin', 'https://other.example.com'), ('arch', 'arm64')]:
             original = self.manifest[key]
             self.manifest[key] = value
             self.save()
@@ -68,15 +92,17 @@ class PublishTest(unittest.TestCase):
     def prepare_deployment(self):
         root = self.root / 'deployment'
         root.mkdir()
-        current = root / 'current'
-        current.mkdir()
+        current = root / 'releases/release-test'
+        current.mkdir(parents=True)
+        (root / 'current').symlink_to(current)
+        (current / 'images.env').write_text('API_IMAGE=sha256:' + 'a' * 64 + '\nDASHBOARD_IMAGE=sha256:' + 'b' * 64 + '\n')
         (current / 'source.sha').write_text(self.commit)
         (root / 'app.env').write_text('SECRET=preserved\n')
         return root
 
     def test_failed_public_download_never_changes_policy(self):
         root = self.prepare_deployment()
-        with patch.object(release, 'verify_public', side_effect=ValueError('bad checksum')), patch.object(release.subprocess, 'run') as run:
+        with patch.object(release, 'verify_public', side_effect=ValueError('bad checksum')), patch.object(release, 'run_compose') as run:
             with self.assertRaises(ValueError):
                 release.publish(self.source, root, self.commit)
         self.assertEqual((root / 'app.env').read_text(), 'SECRET=preserved\n')
@@ -84,12 +110,50 @@ class PublishTest(unittest.TestCase):
 
     def test_failed_api_verification_restores_policy_and_restarts(self):
         root = self.prepare_deployment()
-        with patch.object(release, 'verify_public'), patch.object(release.subprocess, 'run') as run, patch.object(release, 'urlopen', return_value=io.BytesIO(b'{}')):
+        with patch.object(release, 'verify_public'), patch.object(release, 'run_compose') as run, patch.object(release, 'urlopen', return_value=io.BytesIO(b'{}')):
             with self.assertRaises(ValueError):
                 release.publish(self.source, root, self.commit)
         self.assertEqual((root / 'app.env').read_text(), 'SECRET=preserved\n')
         self.assertEqual(run.call_count, 2)
         self.assertEqual((root / 'app.env').stat().st_mode & 0o777, 0o600)
+
+    def test_compose_timeout_terminates_group_before_raising(self):
+        with patch.object(release.subprocess, 'Popen') as popen, patch.object(release.os, 'killpg') as killpg:
+            process = popen.return_value
+            process.pid = 12345
+            process.wait.side_effect = [release.subprocess.TimeoutExpired(['docker'], 240), 0, 0]
+            with self.assertRaises(release.subprocess.TimeoutExpired):
+                release.run_compose(['docker', 'compose', 'up'], {})
+            self.assertEqual(killpg.call_args_list[0].args, (12345, release.signal.SIGTERM))
+            self.assertEqual(killpg.call_args_list[1].args, (12345, release.signal.SIGKILL))
+
+    def test_compose_timeout_restores_previous_policy(self):
+        root = self.prepare_deployment()
+        with patch.object(release, 'verify_public'), patch.object(release, 'run_compose',
+                side_effect=[release.subprocess.TimeoutExpired(['docker'], 240), None]) as run:
+            with self.assertRaises(release.subprocess.TimeoutExpired):
+                release.publish(self.source, root, self.commit)
+        self.assertEqual((root / 'app.env').read_text(), 'SECRET=preserved\n')
+        self.assertEqual(run.call_count, 2)
+
+    def test_unsafe_deployment_paths_or_image_configuration_are_rejected(self):
+        root = self.prepare_deployment()
+        env = root / 'app.env'
+        original = root / 'original.env'
+        env.rename(original)
+        env.symlink_to(original)
+        with self.assertRaises(ValueError):
+            release.publish(self.source, root, self.commit)
+        env.unlink()
+        original.rename(env)
+        images = root / 'current/images.env'
+        images.write_text('API_IMAGE=evil:latest\nDASHBOARD_IMAGE=evil:latest\n')
+        with self.assertRaises(ValueError):
+            release.publish(self.source, root, self.commit)
+        (root / 'current').unlink()
+        (root / 'current').symlink_to(self.source)
+        with self.assertRaises(ValueError):
+            release.publish(self.source, root, self.commit)
 
     def test_wrong_deployed_commit_does_not_stage_files(self):
         root = self.prepare_deployment()

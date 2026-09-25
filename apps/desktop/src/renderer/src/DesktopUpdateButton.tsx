@@ -50,12 +50,16 @@ export function DesktopUpdateButton({
     if (pending.current || busy) return;
     pending.current = true;
     setPreparing(true);
+    let prepared = false;
     try {
+      await window.markfix.prepareUpdate(true);
+      prepared = true;
       await beforeStart?.();
       setStatus(await window.markfix.startUpdate());
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '无法启动更新，请稍后重试。');
     } finally {
+      if (prepared) await window.markfix.prepareUpdate(false).catch(() => undefined);
       pending.current = false;
       setPreparing(false);
     }

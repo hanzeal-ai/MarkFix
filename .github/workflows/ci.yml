@@ -22,6 +22,7 @@ jobs:
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markfix/database db:generate
+      - run: python3 infra/aliyun/test_receiver.py
       - run: python3 infra/aliyun/test_deploy.py
       - run: python3 infra/aliyun/test_publish_desktop.py
       - run: python3 infra/aliyun/test_publish_images.py
@@ -49,10 +50,10 @@ jobs:
           file: infra/Dockerfile.api
           platforms: linux/amd64
           push: false
-          # Export Docker archives; the target runner pushes to ACR locally.
+          # Transfer images directly to the restricted SSH receiver.
           provenance: false
           outputs: type=docker,dest=${{ runner.temp }}/markfix-api.tar
-          tags: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-api:${{ github.sha }}
+          tags: markfix-api:${{ github.sha }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
       - name: Build dashboard image archive
@@ -63,85 +64,40 @@ jobs:
           file: infra/Dockerfile.dashboard
           platforms: linux/amd64
           push: false
-          # Export Docker archives; the target runner pushes to ACR locally.
+          # Transfer images directly to the restricted SSH receiver.
           provenance: false
           outputs: type=docker,dest=${{ runner.temp }}/markfix-dashboard.tar
-          tags: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com/markfix/markfix-dashboard:${{ github.sha }}
+          tags: markfix-dashboard:${{ github.sha }}
           cache-from: type=gha,scope=dashboard
           cache-to: type=gha,mode=max,scope=dashboard
+      - name: Package verified images
+        run: python3 infra/aliyun/package.py "$GITHUB_SHA" "$RUNNER_TEMP/markfix-release.zip" "api=$RUNNER_TEMP/markfix-api.tar" "dashboard=$RUNNER_TEMP/markfix-dashboard.tar"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: markfix-images-${{ github.sha }}
-          path: |
-            ${{ runner.temp }}/markfix-api.tar
-            ${{ runner.temp }}/markfix-dashboard.tar
-          compression-level: 1
+          name: markfix-release-${{ github.sha }}
+          path: ${{ runner.temp }}/markfix-release.zip
+          compression-level: 0
           if-no-files-found: error
           retention-days: 2
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: markfix-deployment-${{ github.sha }}
-          path: infra/aliyun/
-          if-no-files-found: error
-          retention-days: 7
 
-  registry:
+  deploy:
     needs: publish
-    runs-on: [self-hosted, Linux, X64, markfix-preview]
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
     environment: aliyun-preview
     timeout-minutes: 30
     permissions:
-      actions: read
-    outputs:
-      api_image: ${{ steps.images.outputs.api_image }}
-      dashboard_image: ${{ steps.images.outputs.dashboard_image }}
-    steps:
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
-        with:
-          name: markfix-images-${{ github.sha }}
-          path: ${{ runner.temp }}/markfix-images-${{ github.run_id }}-${{ github.run_attempt }}
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
-        with:
-          name: markfix-deployment-${{ github.sha }}
-          path: ${{ runner.temp }}/markfix-registry-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: Isolate registry credentials
-        run: echo "DOCKER_CONFIG=$RUNNER_TEMP/markfix-registry-docker-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
-      - name: Load images and publish immutable ACR digests
-        id: images
-        env:
-          IMAGE_ARCHIVE_DIR: ${{ runner.temp }}/markfix-images-${{ github.run_id }}-${{ github.run_attempt }}
-        run: bash "$RUNNER_TEMP/markfix-registry-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/publish_images.sh"
-      - name: Remove transferred archives
-        if: always()
-        run: rm -f "$RUNNER_TEMP/markfix-images-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/markfix-api.tar" "$RUNNER_TEMP/markfix-images-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/markfix-dashboard.tar"
-
-  deploy:
-    needs: registry
-    runs-on: [self-hosted, Linux, X64, markfix-preview]
-    environment: aliyun-preview
-    # Allow slow first-time image pulls on the preview server.
-    timeout-minutes: 120
-    permissions:
+      contents: read
       actions: read
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
-          name: markfix-deployment-${{ github.sha }}
-          path: ${{ runner.temp }}/markfix-deployment-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: Isolate registry credentials from other applications
-        run: echo "DOCKER_CONFIG=$RUNNER_TEMP/markfix-docker-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: crpi-c94ukgtq3wrezdx5.cn-hangzhou.personal.cr.aliyuncs.com
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
-      - name: Deploy and check HTTP preview
+          name: markfix-release-${{ github.sha }}
+          path: ${{ runner.temp }}/markfix-release
+      - name: Deploy through restricted SSH receiver
         env:
-          API_IMAGE: ${{ needs.registry.outputs.api_image }}
-          DASHBOARD_IMAGE: ${{ needs.registry.outputs.dashboard_image }}
-        run: bash "$RUNNER_TEMP/markfix-deployment-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/deploy.sh"
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: bash infra/aliyun/send.sh site "$GITHUB_SHA" "$RUNNER_TEMP/markfix-release/markfix-release.zip"

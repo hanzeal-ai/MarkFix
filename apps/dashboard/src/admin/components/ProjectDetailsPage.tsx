@@ -1,3 +1,4 @@
+import { ReadAuthorization } from './ReadAuthorization';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -84,7 +85,7 @@ export function ProjectDetailsPage({
     },
   });
   const [editor, setEditor] = useState<EditorState | null>(null);
-  const [filter, setFilter] = useState<'ALL' | AnnotationStatus>('FIX_FAILED');
+  const [filter, setFilter] = useState<'ALL' | AnnotationStatus>('ALL');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -101,9 +102,11 @@ export function ProjectDetailsPage({
 
   useEffect(() => {
     setEditor(null);
-    setFilter('FIX_FAILED');
-    setQuery('');
-    setDebouncedQuery('');
+    const linkedQuery =
+      new URLSearchParams(window.location.search).get('query')?.slice(0, 200) ?? '';
+    setFilter('ALL');
+    setQuery(linkedQuery);
+    setDebouncedQuery(linkedQuery);
     setPage(1);
     setPreviewScreenshot(null);
   }, [project?.id]);
@@ -160,6 +163,7 @@ export function ProjectDetailsPage({
             )}
           </div>
         </header>
+        <ReadAuthorization key={project.id} projectId={project.id} />
         <div className="project-details-toolbar">
           <Label className="project-details-search">
             <Search />

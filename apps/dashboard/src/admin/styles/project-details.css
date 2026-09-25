@@ -257,10 +257,10 @@
 }
 
 .annotation-actions {
-  width: 220px;
-  flex: 0 0 220px;
+  width: auto;
+  flex: 0 0 auto;
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   gap: 7px;
@@ -587,4 +587,31 @@
 .project-settings-dialog h3 {
   margin: 8px 0 12px;
   font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .project-details-page .annotation-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .project-details-page .annotation-actions {
+    justify-content: flex-end;
+    border-left: 0;
+    border-top: 1px solid var(--admin-border);
+  }
+}
+
+.annotation-read-authorization {
+  margin: 0 18px 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  font-size: 13px;
+}
+.annotation-read-authorization summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.annotation-read-authorization p {
+  margin: 10px 0;
+  line-height: 1.6;
 }

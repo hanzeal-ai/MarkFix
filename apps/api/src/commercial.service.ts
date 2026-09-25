@@ -93,7 +93,7 @@ export class CommercialService implements OnApplicationBootstrap {
     for (const group of groups) {
       const count = group.count;
       metrics.annotations += count;
-      if (group.status === 'OPEN') metrics.pending += count;
+      if (group.status === 'OPEN' || group.status === 'READY_FOR_VERIFY') metrics.pending += count;
       if (group.status === 'REJECTED') metrics.rejected += count;
 
       const projectCount = projectCounts.get(group.projectId) ?? {
@@ -104,7 +104,8 @@ export class CommercialService implements OnApplicationBootstrap {
         failed: 0,
       };
       projectCount.annotations += count;
-      if (group.status === 'OPEN') projectCount.pending += count;
+      if (group.status === 'OPEN' || group.status === 'READY_FOR_VERIFY')
+        projectCount.pending += count;
       if (group.status === 'REJECTED') projectCount.rejected += count;
       if (group.status === 'RESOLVED') projectCount.resolved += count;
       if (group.status === 'FIX_FAILED') projectCount.failed += count;

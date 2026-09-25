@@ -1,3 +1,7 @@
+import {
+  annotationSaveFeedbackChannel,
+  type AnnotationSaveFeedback,
+} from '../annotation-save-feedback';
 import type { CapturePin, ElementCommentPin } from '../capture-pin';
 import type { InlineNote, InlineNoteAction } from '../inline-note';
 import { contextBridge, ipcRenderer } from 'electron';
@@ -11,6 +15,7 @@ import {
   type DiagnosticEvidence,
   type HistoryAnnotationReference,
   type RegionAnchor,
+  type RepairReview,
   type ScreenshotMark,
   type ScreenshotStyle,
   type ScreenshotTool,
@@ -73,8 +78,13 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 contextBridge.exposeInMainWorld('markfix', {
+  annotationSaveFeedback: (code: AnnotationSaveFeedback) =>
+    ipcRenderer.invoke(annotationSaveFeedbackChannel, code),
   platform: process.platform,
-  manualUpdates: process.platform === 'win32' || import.meta.env.PRELOAD_VITE_MANUAL_UPDATES,
+  manualUpdates:
+    process.platform !== 'win32' && Boolean(import.meta.env.PRELOAD_VITE_MANUAL_UPDATES),
+  prepareUpdate: (preparing: boolean) =>
+    ipcRenderer.invoke(desktopUpdateChannels.prepare, preparing),
   openOfficialWebsite: () => ipcRenderer.invoke('website:open-official'),
   startUpdate: () => ipcRenderer.invoke(desktopUpdateChannels.start),
   updateStatus: () => ipcRenderer.invoke(desktopUpdateChannels.status),
@@ -102,6 +112,8 @@ contextBridge.exposeInMainWorld('markfix', {
     binding: { repositoryId: string | null; repositoryName: string | null },
   ) => ipcRenderer.invoke(ipcChannels.setProjectRepository, { projectId, binding }),
   listWebsiteProjects: () => ipcRenderer.invoke(ipcChannels.listWebsiteProjects),
+  reviewAnnotationRepair: (input: RepairReview) =>
+    ipcRenderer.invoke(ipcChannels.reviewAnnotationRepair, input),
   listProjectAnnotationReports: (projectId: string, pageUrl: string) =>
     ipcRenderer.invoke(ipcChannels.listProjectAnnotationReports, { projectId, pageUrl }),
   createWebsiteProject: (storageMode: 'LOCAL' | 'CLOUD', url: string) =>

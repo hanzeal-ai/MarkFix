@@ -1,0 +1,9 @@
+# Apply after the Resend-capable image is released and the sending domain verified.
+# Remove MARKFIX_DEMO_EMAIL/PASSWORD from app.env; existing demo accounts require review.
+services:
+  api:
+    env_file:
+      - ${MARKFIX_RESEND_ENV_FILE:-/home/admin/markfix/resend.env}
+    environment:
+      NODE_ENV: production
+      MARKFIX_EMAIL_PROVIDER: resend

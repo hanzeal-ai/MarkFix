@@ -21,7 +21,8 @@ export type EditorState =
 
 export const statusText: Record<AnnotationStatus, string> = {
   OPEN: '未处理',
-  RESOLVED: '已完成',
+  READY_FOR_VERIFY: '待复验',
+  RESOLVED: '已验证',
   FIX_FAILED: '失败',
   REJECTED: '已驳回',
 };

@@ -1,3 +1,4 @@
+import type { AnnotationSaveFeedback } from '../../annotation-save-feedback';
 import type { CapturePin, ElementCommentPin } from '../../capture-pin';
 import type { InlineNote, InlineNoteAction } from '../../inline-note';
 import type { AgentRepository } from '@markfix/contracts';
@@ -17,6 +18,7 @@ import type {
   HistoryAnnotationReference,
   RegionAnchor,
   Report,
+  RepairReview,
   ScreenshotMark,
   ScreenshotStyle,
   ScreenshotTool,
@@ -29,8 +31,10 @@ import type {
 declare global {
   interface Window {
     markfix: {
+      annotationSaveFeedback(code: AnnotationSaveFeedback): Promise<void>;
       platform: string;
       manualUpdates: boolean;
+      prepareUpdate(preparing: boolean): Promise<void>;
       startUpdate(): Promise<DesktopUpdateStatus>;
       updateStatus(): Promise<DesktopUpdateStatus>;
       onUpdateStatus(listener: (status: DesktopUpdateStatus) => void): () => void;
@@ -69,6 +73,7 @@ declare global {
         binding: { repositoryId: string | null; repositoryName: string | null },
       ): Promise<unknown>;
       listWebsiteProjects(): Promise<WebsiteProject[]>;
+      reviewAnnotationRepair(input: RepairReview): Promise<Report>;
       listProjectAnnotationReports(projectId: string, pageUrl: string): Promise<Report[]>;
       createWebsiteProject(
         storageMode: 'LOCAL' | 'CLOUD',

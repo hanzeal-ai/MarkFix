@@ -1,3 +1,4 @@
+import { saveFeedback } from './save-feedback';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   anchorSchema,
@@ -135,47 +136,58 @@ export function useElementCommentEditor({
   }, []);
 
   const completeElementComment = async (note = elementCommentNote): Promise<boolean> => {
-    if (anchor?.kind !== 'element' || !note.trim() || !projectId || !pageSessionId) return false;
-    await elementCapturePromiseRef.current;
-    const elementCapture = elementCaptureRef.current;
-    const now = new Date().toISOString();
-    const existing = elementComments.find(
-      (comment) =>
-        comment.projectId === projectId &&
-        (comment.id === editingElementCommentId || elementAnchorsEqual(comment.anchor, anchor)),
-    );
-    const comment: SavedElementComment = {
-      id: existing?.id ?? crypto.randomUUID(),
-      projectId,
-      pageSessionId,
-      pageUrl: anchor.documentUrl,
-      pageTitle: pageTitle || anchor.documentUrl,
-      anchor,
-      note: note.trim(),
-      status: 'draft',
-      ...(elementEvidence.length > 0 ? { evidence: elementEvidence } : {}),
-      ...(elementCapture
-        ? {
-            screenshotDataUrl: elementCapture.screenshotDataUrl,
-            capture: elementCapture.capture,
-          }
-        : {}),
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    };
-    try {
-      await window.markfix.saveElementComment(comment);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '无法保存元素批注。');
+    if (!projectId || !pageSessionId) {
+      saveFeedback('missing-context');
       return false;
     }
-    setElementComments((comments) =>
-      comments.some(({ id }) => id === comment.id)
-        ? comments.map((item) => (item.id === comment.id ? comment : item))
-        : [...comments, comment],
-    );
-    clearElementSelection();
-    return true;
+    if (anchor?.kind !== 'element') {
+      saveFeedback('missing-selection');
+      return false;
+    }
+    if (!note.trim()) {
+      saveFeedback('empty-note');
+      return false;
+    }
+    try {
+      await elementCapturePromiseRef.current;
+      const elementCapture = elementCaptureRef.current;
+      const now = new Date().toISOString();
+      const existing = elementComments.find(
+        (comment) =>
+          comment.projectId === projectId &&
+          (comment.id === editingElementCommentId || elementAnchorsEqual(comment.anchor, anchor)),
+      );
+      const comment: SavedElementComment = {
+        id: existing?.id ?? crypto.randomUUID(),
+        projectId,
+        pageSessionId,
+        pageUrl: anchor.documentUrl,
+        pageTitle: pageTitle || anchor.documentUrl,
+        anchor,
+        note: note.trim(),
+        status: 'draft',
+        ...(elementEvidence.length > 0 ? { evidence: elementEvidence } : {}),
+        ...(elementCapture
+          ? {
+              screenshotDataUrl: elementCapture.screenshotDataUrl,
+              capture: elementCapture.capture,
+            }
+          : {}),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+      await window.markfix.saveElementComment(comment);
+      setElementComments((comments) =>
+        comments.some(({ id }) => id === comment.id)
+          ? comments.map((item) => (item.id === comment.id ? comment : item))
+          : [...comments, comment],
+      );
+      clearElementSelection();
+      return true;
+    } catch {
+      saveFeedback('save-failed');
+      return false;
+    }
   };
 
   const selectElementComment = (comment: SavedElementComment): void => {

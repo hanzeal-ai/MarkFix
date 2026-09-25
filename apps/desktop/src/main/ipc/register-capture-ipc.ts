@@ -1,8 +1,3 @@
-import {
-  inlineNoteSchema,
-  inlineNoteActionSchema,
-  elementReselectSchema,
-} from '../../inline-note.js';
 import { writeFile } from 'node:fs/promises';
 import {
   clipboard,
@@ -32,46 +27,13 @@ export const registerCaptureIpc = ({
   mainWindow,
   sendShell,
   websiteView,
-  reselectElement,
 }: {
-  reselectElement: (x: number, y: number) => void;
   assertSender: (event: IpcMainInvokeEvent) => void;
   captureService: () => CaptureService | undefined;
   mainWindow: () => BrowserWindow | undefined;
   sendShell: (channel: string, payload: unknown) => void;
   websiteView: () => WebContentsView | undefined;
 }): void => {
-  ipcMain.on('markfix:reselect-element', (event, input: unknown) => {
-    const view = websiteView();
-    if (
-      !view ||
-      event.sender.id !== view.webContents.id ||
-      event.senderFrame !== view.webContents.mainFrame
-    )
-      return;
-    const parsed = elementReselectSchema.safeParse(input);
-    if (!parsed.success || parsed.data.documentUrl !== view.webContents.getURL()) return;
-    reselectElement(parsed.data.x, parsed.data.y);
-  });
-  ipcMain.handle('annotation:sync-inline-note', (event, input: unknown) => {
-    assertSender(event);
-    websiteView()?.webContents.send(
-      'markfix:inline-note',
-      input === null ? null : inlineNoteSchema.parse(input),
-    );
-  });
-  ipcMain.on('markfix:inline-note-action', (event, input: unknown) => {
-    const view = websiteView();
-    if (
-      !view ||
-      event.sender.id !== view.webContents.id ||
-      event.senderFrame !== view.webContents.mainFrame
-    )
-      return;
-    const parsed = inlineNoteActionSchema.safeParse(input);
-    if (!parsed.success || parsed.data.documentUrl !== view.webContents.getURL()) return;
-    sendShell('annotation:inline-note-action', parsed.data);
-  });
   ipcMain.handle(ipcChannels.setCaptureTool, (event, input: unknown) => {
     assertSender(event);
     websiteView()?.webContents.send('markfix:set-capture-tool', screenshotToolSchema.parse(input));

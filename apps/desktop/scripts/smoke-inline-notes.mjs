@@ -181,7 +181,7 @@ app.on('browser-window-created', (_event, win) => {
         await click(await field('BUTTON'));
         const records = () =>
           run(
-            `window.markfix.listElementComments((await window.markfix.listWebsiteProjects())[0].id)`,
+            `(async () => window.markfix.listElementComments((await window.markfix.listWebsiteProjects())[0].id))()`,
           );
         await wait(async () => (await records()).length === 1);
         const [saved] = await records();
@@ -224,6 +224,34 @@ app.on('browser-window-created', (_event, win) => {
         await run(`document.querySelectorAll('.annotation-mode-control button').length`),
         3,
       );
+      if (!marketing) {
+        const view = win.contentView.children.find((item) => item.webContents === target);
+        assert.ok(view?.getVisible(), 'Website is visible before update preparation');
+        await run('window.markfix.prepareUpdate(true)');
+        assert.equal(view.getVisible(), false, 'Preparation blocks website input before saving');
+        await wait(() => run(`!!document.querySelector('[data-desktop-update-active]')`));
+        await run(
+          `Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => undefined)))`,
+        );
+        await delay(100);
+        writeFileSync(
+          join(output, 'update-preparation.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+        await run('window.markfix.prepareUpdate(false)');
+        await wait(() => view.getVisible());
+        await wait(() => run(`!document.querySelector('[data-desktop-update-active]')`));
+        if (process.env.MARKFIX_SMOKE_UPDATE_PREPARATION === '1') {
+          console.log(
+            'PASS update preparation hides the native website, shows progress, and restores input; evidence: ' +
+              output,
+          );
+          clearTimeout(timeout);
+          server.close();
+          app.quit();
+          return;
+        }
+      }
       if (marketing) await delay(4500);
       await mode('capture');
       const frozen = await run(`window.markfix.capture({mode:'visible'})`);
@@ -369,7 +397,7 @@ app.on('browser-window-created', (_event, win) => {
         ['1', '2'],
       );
       const savedElementComments = await run(
-        `window.markfix.listElementComments((await window.markfix.listWebsiteProjects())[0].id)`,
+        `(async () => window.markfix.listElementComments((await window.markfix.listWebsiteProjects())[0].id))()`,
       );
       assert.equal(savedElementComments.length, 1);
       assert.equal(Boolean(savedElementComments[0].screenshotDataUrl), saveElementScreenshot);
@@ -403,6 +431,10 @@ app.on('browser-window-created', (_event, win) => {
         await wait(() => !websiteView.getVisible());
       };
       const clickModeDialogButton = async (label) => {
+        // Wait for the dialog entry animation before measuring click coordinates.
+        await run(
+          `Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => undefined)))`,
+        );
         const point = await run(
           `(()=>{const button=[...document.querySelectorAll('[role="alertdialog"] button')].find(el=>el.textContent===${JSON.stringify(label)});const r=button.getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`,
         );
@@ -550,15 +582,21 @@ app.on('browser-window-created', (_event, win) => {
         await delay(500);
       }
       if (!marketing) {
-        await run(`(async () => {
-          const [project] = await window.markfix.listWebsiteProjects();
-          const elementComments = await window.markfix.listElementComments(project.id);
-          const captures = await window.markfix.listCaptureRecords(project.id);
-          await window.markfix.saveAnnotationSubmission({
-            id: crypto.randomUUID(), projectId: project.id, elementComments, captures,
-            diagnostics: [], submittedAt: new Date().toISOString(),
-          });
-        })()`);
+        await run(`document.querySelector('.save-annotations-button').click()`);
+        let review;
+        await wait(async () => {
+          review = BrowserWindow.getAllWindows().find((candidate) => candidate !== win);
+          return (
+            review &&
+            review.webContents.executeJavaScript(
+              `!!document.querySelector('.annotation-save-item')`,
+            )
+          );
+        });
+        await review.webContents.executeJavaScript(
+          `document.querySelector('.annotation-save-dialog footer button').click()`,
+        );
+        await wait(() => review.isDestroyed());
         await wait(() =>
           run(`document.querySelector('aside.comment-panel')?.textContent.includes('暂无批注')`),
         );

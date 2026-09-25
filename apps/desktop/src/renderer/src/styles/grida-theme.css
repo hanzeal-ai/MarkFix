@@ -70,7 +70,6 @@
 
 .shell .new-project-shortcut-card,
 .shell .new-project-shortcut,
-.shell .capture-selection-card,
 .shell .capture-note-card,
 .shell .diagnostic-entry {
   border-radius: var(--radius-surface);
@@ -128,8 +127,6 @@
 .annotation-save-preview-button,
 .annotation-save-item-icon,
 .capture-thumbnail,
-.capture-text-list input,
-.capture-note-input,
 .evidence-references > span,
 .evidence-references button,
 .capture-draft-actions button,

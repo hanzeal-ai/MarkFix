@@ -3,6 +3,7 @@ import {
   createProjectSchema,
   createReportSchema,
   reportStatuses,
+  transitionSchema,
   updateEnvironmentSchema,
   updateProjectSchema,
   type CreateReport,
@@ -26,7 +27,7 @@ import { hashPassword } from './auth-crypto.js';
 import { canTransitionReport } from './authorization.js';
 import { DatabaseService } from './database.service.js';
 import { cleanupExpiredSubmissions } from './expired-submission-cleanup.js';
-import { transitionReport, type TransitionAction } from './report-state.js';
+import { transitionReport } from './report-state.js';
 
 type SubmissionPayload = Omit<CreateReport, 'screenshotDataUrl'>;
 
@@ -672,15 +673,9 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
   }
 
   async transition(userId: string, id: string, input: unknown) {
-    const payload = input as {
-      action?: TransitionAction;
-      expectedVersion?: number;
-      reason?: string;
-      resolutionSummary?: string;
-    };
-    if (!payload.action || typeof payload.expectedVersion !== 'number') {
-      throw new ConflictException('Invalid transition');
-    }
+    const parsed = transitionSchema.safeParse(input);
+    if (!parsed.success) throw new ConflictException('Invalid transition');
+    const payload = parsed.data;
     const current = await this.getReportRecord(id);
     const project = await this.database.project.findUnique({ where: { id: current.projectId } });
     if (!project) throw new NotFoundException('Project not found');
@@ -705,7 +700,11 @@ export class AppService implements OnModuleInit, OnModuleDestroy {
         activities: {
           create: {
             type: `REPORT_${payload.action.toLocaleUpperCase()}`,
-            payload: { reason: payload.reason, resolutionSummary: payload.resolutionSummary },
+            payload: {
+              status: nextStatus,
+              reason: payload.reason,
+              resolutionSummary: payload.resolutionSummary,
+            },
             actorId: userId,
           },
         },

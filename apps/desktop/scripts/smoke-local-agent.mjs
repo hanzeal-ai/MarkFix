@@ -239,7 +239,16 @@ async function main() {
     const completedReports = await window.webContents.executeJavaScript(
       `window.markfix.listProjectAnnotationReports(${JSON.stringify(projectId)},${JSON.stringify(siteUrl + '/')})`,
     );
-    assert.equal(completedReports[0].status, 'RESOLVED');
+    assert.equal(completedReports[0].status, 'READY_FOR_VERIFY');
+    await window.webContents.executeJavaScript("window.dispatchEvent(new Event('focus'))");
+    await waitFor(async () =>
+      window.webContents.executeJavaScript("document.body.innerText.includes('待复验')"),
+    );
+    await window.webContents.executeJavaScript(
+      "[...document.querySelectorAll('button')].find(b=>b.textContent==='验证通过').click()",
+    );
+    await waitFor(async () => (await request('/issues/' + record.id)).status === 'RESOLVED');
+    assert.equal((await request('/issues/' + record.id)).status, 'RESOLVED');
     assert.ok(
       completedReports[0].fixAttempts.some(
         (attempt) => attempt.summary === '隔离烟测修复完成' && attempt.status === 'SUCCEEDED',

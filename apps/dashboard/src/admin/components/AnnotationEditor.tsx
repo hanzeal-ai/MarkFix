@@ -365,7 +365,8 @@ export function AnnotationEditor({
                       <SelectContent>
                         <SelectItem value="OPEN">未处理</SelectItem>
                         <SelectItem value="FIX_FAILED">失败</SelectItem>
-                        <SelectItem value="RESOLVED">已完成</SelectItem>
+                        <SelectItem value="READY_FOR_VERIFY">待复验</SelectItem>
+                        <SelectItem value="RESOLVED">已验证</SelectItem>
                       </SelectContent>
                     </Select>
                   </Label>

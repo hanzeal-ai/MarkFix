@@ -33,6 +33,8 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: pnpm }
+      - name: Assign a monotonic desktop release version
+        run: node apps/desktop/scripts/prepare-release-version.mjs ${{ github.run_number }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markfix/database db:generate
       - run: pnpm --filter @markfix/desktop test
@@ -51,6 +53,10 @@ jobs:
         run: |
           $installer = Get-ChildItem apps/desktop/release/*-windows-x64-setup.exe
           if ($installer.Count -ne 1) { throw 'Expected exactly one Windows x64 installer' }
+          $updaterConfig = Get-Content apps/desktop/release/win-unpacked/resources/app-update.yml -Raw
+          if ($updaterConfig -notmatch 'provider: generic' -or $updaterConfig -notmatch '/v1/desktop-updates/windows/x64/' -or $updaterConfig -notmatch 'updaterCacheDirName:') {
+            throw 'Windows package is missing its updater configuration'
+          }
           $installDir = Join-Path $env:RUNNER_TEMP 'MarkFix Installed'
           $install = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$installDir") -Wait -PassThru
           if ($install.ExitCode -ne 0) { throw "Installer failed: $($install.ExitCode)" }
@@ -58,13 +64,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Installed app smoke failed' }
           node apps/desktop/scripts/create-download-manifest.mjs apps/desktop/release windows trial "$env:SOURCE_SHA"
           if ($LASTEXITCODE -ne 0) { throw 'Manifest generation failed' }
-          Copy-Item infra/aliyun/publish_desktop.py apps/desktop/release/publish_desktop.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: desktop-windows
           path: |
             apps/desktop/release/*-setup.exe
-            apps/desktop/release/publish_desktop.py
             apps/desktop/release/download-manifest.json
             apps/desktop/release/SHA256SUMS.txt
           if-no-files-found: error
@@ -93,6 +97,8 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: pnpm }
+      - name: Assign a monotonic desktop release version
+        run: node apps/desktop/scripts/prepare-release-version.mjs ${{ github.run_number }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markfix/database db:generate
       - name: Build selected macOS distribution
@@ -126,14 +132,12 @@ jobs:
           hdiutil verify apps/desktop/release/*.dmg
           node apps/desktop/scripts/smoke-installed-desktop.mjs "$packaged_app/Contents/MacOS/MarkFix"
           node apps/desktop/scripts/create-download-manifest.mjs apps/desktop/release macos "$RELEASE_MODE" "$SOURCE_SHA"
-          cp infra/aliyun/publish_desktop.py apps/desktop/release/publish_desktop.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: desktop-macos
           path: |
             apps/desktop/release/*.dmg
             apps/desktop/release/*.zip
-            apps/desktop/release/publish_desktop.py
             apps/desktop/release/download-manifest.json
             apps/desktop/release/SHA256SUMS.txt
           if-no-files-found: error
@@ -141,14 +145,15 @@ jobs:
 
   publish-downloads:
     needs: [windows, macos]
-    if: always() && (needs.windows.result == 'success' || needs.macos.result == 'success')
-    runs-on: [self-hosted, Linux, X64, markfix-preview]
+    if: always() && vars.DEPLOY_ENABLED == 'true' && (needs.windows.result == 'success' || needs.macos.result == 'success')
+    runs-on: ubuntu-latest
     environment: aliyun-preview
     timeout-minutes: 30
     permissions:
       actions: read
       contents: read
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         if: needs.windows.result == 'success'
         with:
@@ -159,9 +164,19 @@ jobs:
         with:
           name: desktop-macos
           path: ${{ runner.temp }}/desktop-${{ github.run_id }}-${{ github.run_attempt }}/macos
-      - name: Publish verified Windows download
-        if: needs.windows.result == 'success'
-        run: python3 "$RUNNER_TEMP/desktop-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/windows/publish_desktop.py" "$RUNNER_TEMP/desktop-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/windows" "$HOME/markfix" "$SOURCE_SHA"
-      - name: Publish verified macOS download
-        if: needs.macos.result == 'success'
-        run: python3 "$RUNNER_TEMP/desktop-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/macos/publish_desktop.py" "$RUNNER_TEMP/desktop-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/macos" "$HOME/markfix" "$SOURCE_SHA"
+      - name: Publish verified desktop downloads through restricted SSH
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          WINDOWS_RESULT: ${{ needs.windows.result }}
+          MACOS_RESULT: ${{ needs.macos.result }}
+        run: |
+          for platform in windows macos; do
+            if [[ "$platform" == windows ]]; then result="$WINDOWS_RESULT"; else result="$MACOS_RESULT"; fi
+            if [[ "$result" == success ]]; then
+              source_dir="$RUNNER_TEMP/desktop-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/$platform"
+              python3 -m zipfile -c "$RUNNER_TEMP/$platform.zip" "$source_dir/"*
+              bash infra/aliyun/send.sh "$platform" "$SOURCE_SHA" "$RUNNER_TEMP/$platform.zip"
+            fi
+          done

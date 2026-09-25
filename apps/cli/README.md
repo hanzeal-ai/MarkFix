@@ -115,7 +115,7 @@ markfix issues list --project PROJECT_ID
 
 Skill 默认安装在 `~/.codex/skills/markfix/SKILL.md`；设置 `CODEX_HOME` 时位于该目录下的 `skills/markfix/SKILL.md`。已有同名文件不会自动覆盖；需要升级时运行 `markfix skill install --force`，旧文件会先备份。
 
-管理后台显示“已完成”代表服务端已经确认修复结果，不表示代码已经提交或部署。失败记录包含具体原因与阶段。
+AI 成功回写后进入“待复验”。在桌面批注预览中核对页面后选择“验证通过”或填写原因“退回修复”；云端也可由有权限的成员在管理后台确认。已验证不表示代码已经提交或部署。失败记录包含具体原因与阶段。
 
 ## 命令参考
 
@@ -140,7 +140,7 @@ Skill 默认安装在 `~/.codex/skills/markfix/SKILL.md`；设置 `CODEX_HOME` �
 | `markfix logout`                                             | 撤销当前授权并删除本机凭据           |
 | `markfix --help`                                             | 查看全部参数                         |
 
-`issues list --status` 支持 `OPEN`、`FIX_FAILED`、`IN_PROGRESS`、`RESOLVED`。重试失败记录时先读取最新内容，再执行 `issues claim ISSUE_ID --retry`。同一领取请求需要安全重试时，可预先指定 `--run-id UUID` 并重复使用该 ID。
+`issues list --status` 支持 `OPEN`、`FIX_FAILED`、`IN_PROGRESS`、`READY_FOR_VERIFY`、`RESOLVED`。重试失败记录时先读取最新内容，再执行 `issues claim ISSUE_ID --retry`。同一领取请求需要安全重试时，可预先指定 `--run-id UUID` 并重复使用该 ID。
 
 ### 修复结果格式
 
