@@ -1,8 +1,8 @@
 /* Grida-inspired desktop treatment: neutral canvas chrome, not a marketing-page theme. */
 .shell {
-  --accent: var(--brand-purple);
-  --accent-soft: var(--brand-purple-soft);
-  --accent-strong: var(--brand-purple-strong);
+  --accent: var(--primary);
+  --accent-soft: var(--secondary);
+  --accent-strong: var(--foreground);
   font-family: var(--font-sans);
 }
 
@@ -31,25 +31,26 @@
 
 .shell .annotation-mode-control [data-state='on'] {
   border-radius: var(--radius-control);
-  background: var(--brand-purple-soft);
-  color: var(--brand-purple-strong);
+  background: var(--secondary);
+  color: var(--foreground);
   box-shadow: 0 1px 4px rgba(24, 24, 27, 0.12);
 }
 
 .shell .tools button.save-annotations-button {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border-color: var(--brand-purple);
-  border-radius: 999px;
-  background: var(--brand-purple);
+  width: auto;
+  min-width: 112px;
+  height: 36px;
+  padding: 0 12px;
+  border-color: var(--primary);
+  border-radius: var(--radius-control);
+  background: var(--primary);
   color: #fff;
   box-shadow: none;
 }
 
 .shell .save-annotations-button:hover:not(:disabled) {
-  border-color: var(--brand-purple-strong);
-  background: var(--brand-purple-strong);
+  border-color: var(--foreground);
+  background: var(--foreground);
 }
 
 .shell .comment-panel,
@@ -60,8 +61,8 @@
 .shell .project-sidebar-action.active,
 .shell .project-sidebar-item.active {
   border-color: #d6d9df;
-  background: var(--brand-purple-soft);
-  color: var(--brand-purple-strong);
+  background: var(--secondary);
+  color: var(--foreground);
 }
 
 .shell .new-project-page {
@@ -80,8 +81,8 @@
 }
 
 .shell .new-project-submit {
-  border-color: var(--brand-purple);
-  background: var(--brand-purple);
+  border-color: var(--primary);
+  background: var(--primary);
 }
 
 .shell .panel-heading h1 {
@@ -158,20 +159,52 @@ p.annotation-rejection,
 .settings-sidebar button.active,
 .navigation-page-icon,
 .history-record-icon {
-  background: var(--brand-purple-soft);
-  color: var(--brand-purple);
+  background: var(--secondary);
+  color: var(--primary);
 }
 .shell .prototype-browser-bar:focus-within {
-  border-color: var(--brand-purple);
-  box-shadow: 0 0 0 3px var(--brand-purple-soft);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--secondary);
 }
 
 .desktop-auth-stage {
   background:
-    radial-gradient(ellipse at 30% 20%, var(--brand-purple-soft), transparent 55%),
+    radial-gradient(ellipse at 30% 20%, var(--secondary), transparent 55%),
     radial-gradient(ellipse at 90% 85%, var(--brand-orange-soft), transparent 45%);
 }
 .desktop-auth-switch button,
 .desktop-auth-legal button {
-  color: var(--brand-purple);
+  color: var(--primary);
+}
+
+:root {
+  --primary: #1c1c1e;
+  --primary-foreground: #fff;
+  --accent-color: #f2f2f2;
+  --accent-foreground: #1c1c1e;
+  --ring: #707070;
+  --radius-control: 12px;
+  --text-3: #707070;
+}
+.annotation-save-dialog {
+  border-radius: 24px;
+}
+.annotation-review-heading {
+  display: grid;
+  gap: 8px;
+  padding: 20px 24px 0;
+}
+.annotation-review-heading h1 {
+  font-size: 20px;
+  margin: 0;
+}
+.annotation-review-heading p {
+  color: var(--text-2);
+  font-size: 14px;
+  margin: 0;
+}
+.annotation-saved-state {
+  color: var(--text-2);
+  font-size: 12px;
+  margin: 8px 0;
 }

@@ -29,7 +29,9 @@ export function AnnotationPreview({
 
   return (
     <section className="capture-notes-list" aria-label="全部批注">
-      {annotations.length === 0 && <p className="capture-empty">暂无批注</p>}
+      {annotations.length === 0 && (
+        <p className="capture-empty">还没有标注。选择“批注”点选网页元素，或选择“截图”框选区域。</p>
+      )}
       {annotations.map((annotation, index) => {
         const { record } = annotation;
         return (
@@ -61,6 +63,15 @@ export function AnnotationPreview({
             <small className="capture-note-page" title={record.pageUrl}>
               {record.pageUrl}
             </small>
+            <p className="annotation-saved-state">
+              {record.status === 'draft'
+                ? '已保存，待提交'
+                : record.status === 'submitted'
+                  ? '已提交'
+                  : record.status === 'rejected'
+                    ? '已驳回'
+                    : '已保存'}
+            </p>
             {record.status === 'rejected' && (
               <p className="annotation-rejection">驳回原因：{record.rejectionReason ?? '未提供'}</p>
             )}
@@ -122,7 +133,7 @@ export function AnnotationPreview({
                     void saveCapture(annotation.record.dataUrl, annotation.record.note)
                   }
                 >
-                  <Download /> 保存
+                  <Download /> 下载图片
                 </Button>
               </div>
             )}

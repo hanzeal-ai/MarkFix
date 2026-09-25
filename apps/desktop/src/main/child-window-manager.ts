@@ -125,7 +125,7 @@ export class ChildWindowManager {
       height: Math.max(620, Math.min(780, bounds.height - 80)),
       minWidth: 760,
       minHeight: 620,
-      title: '保存标注 - MarkFix',
+      title: '提交标注 - MarkFix',
       backgroundColor: process.platform === 'darwin' ? '#00000000' : '#f4f5f7',
     });
     this.annotationReviewWindow = reviewWindow;

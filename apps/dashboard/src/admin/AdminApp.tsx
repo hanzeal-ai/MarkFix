@@ -25,7 +25,7 @@ import {
 import './admin.css';
 
 const viewPresentation: Record<AdminView, { title: string; description: string }> = {
-  overview: { title: '项目概览', description: '查看项目、标注与团队的最新状态。' },
+  overview: { title: '工作概览', description: '查看项目、标注与团队的最新状态。' },
   projects: { title: '标注项目', description: '集中查看每个网站的反馈与处理进度。' },
   users: { title: '团队成员', description: '管理成员与他们参与的项目。' },
 };
@@ -92,7 +92,7 @@ export function AdminApp() {
             onClick={() => navigate('overview')}
           >
             <LayoutDashboard />
-            统计总览
+            工作概览
           </Button>
           <Button
             variant="ghost"

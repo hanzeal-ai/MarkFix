@@ -12,7 +12,7 @@ import {
   RotateCw,
   Send,
 } from '@markfix/ui/icons';
-import { Button, Input, Kbd, ToggleGroup, ToggleGroupItem } from '@markfix/ui';
+import { Button, Input, ToggleGroup, ToggleGroupItem } from '@markfix/ui';
 import type { BrowserState } from './model';
 
 type BrowserToolbarProps = {
@@ -48,7 +48,7 @@ export function BrowserToolbar({
     ? 'preview'
     : mode === 'comment' || mode === 'capture'
       ? mode
-      : '';
+      : 'browse';
   return (
     <>
       <div className="nav-buttons">
@@ -111,11 +111,6 @@ export function BrowserToolbar({
           tabIndex={0}
           aria-label="切换浏览、批注、截图或预览模式"
         >
-          {!selectedMode && (
-            <span className="annotation-browse-label">
-              <MousePointer2 /> 浏览
-            </span>
-          )}
           <ToggleGroup
             className="annotation-mode-control"
             type="single"
@@ -124,14 +119,18 @@ export function BrowserToolbar({
             onValueChange={(value) => {
               if (value === 'preview' || (!value && previewOpen)) onTogglePreview();
               else if (value === 'comment' || value === 'capture') onToggleMode(value);
+              else if (value === 'browse' && previewOpen) onTogglePreview();
               else if (mode === 'comment' || mode === 'capture') onToggleMode(mode);
             }}
           >
+            <ToggleGroupItem value="browse" aria-label="浏览网页">
+              <MousePointer2 /> 浏览
+            </ToggleGroupItem>
             <ToggleGroupItem value="comment" aria-keyshortcuts="Alt+W" title={`批注（${altKey}W）`}>
-              <MessageSquareText /> 批注 <Kbd>{altKey}W</Kbd>
+              <MessageSquareText /> 批注
             </ToggleGroupItem>
             <ToggleGroupItem value="capture" aria-keyshortcuts="Alt+A" title={`截图（${altKey}A）`}>
-              <Camera /> 截图 <Kbd>{altKey}A</Kbd>
+              <Camera /> 截图
             </ToggleGroupItem>
             <ToggleGroupItem
               value="preview"
@@ -141,24 +140,19 @@ export function BrowserToolbar({
               aria-keyshortcuts="Alt+B"
               title={`预览（${altKey}B）`}
             >
-              <Eye /> 预览 <Kbd>{altKey}B</Kbd>
+              <Eye /> 预览
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
         <Button
           className="save-annotations-button"
-          size="icon"
-          aria-label={isSubmitting ? '正在提交标注' : '提交标注'}
+          aria-label={isSubmitting ? '正在提交标注' : `提交标注 · ${unsubmittedCount} 条待提交`}
           title={isSubmitting ? '正在提交标注…' : `提交标注（${unsubmittedCount} 条待提交）`}
           disabled={unsubmittedCount === 0 || isSubmitting}
           onClick={onOpenReview}
         >
           {isSubmitting ? <LoaderCircle className="spin" /> : <Send />}
-          {unsubmittedCount > 0 && (
-            <span className="submission-count-badge">
-              {unsubmittedCount > 99 ? '99+' : unsubmittedCount}
-            </span>
-          )}
+          <span>{isSubmitting ? '提交中…' : `提交标注 · ${unsubmittedCount}`}</span>
         </Button>
       </div>
     </>

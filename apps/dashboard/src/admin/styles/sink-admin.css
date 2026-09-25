@@ -553,3 +553,62 @@ body:has(#root .admin-shell) [data-slot='sheet-overlay'] {
     display: none;
   }
 }
+
+body:has(.admin-shell) {
+  --primary: #1c1c1e;
+  --primary-foreground: #fff;
+  --accent-color: #f2f2f2;
+  --accent-foreground: #1c1c1e;
+  --ring: #707070;
+  --radius-control: 12px;
+}
+.admin-shell {
+  --admin-muted: #707070;
+  font-size: 14px;
+}
+.overview-work {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.overview-work h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.overview-work > p {
+  color: var(--muted-foreground);
+  margin: 0 0 4px;
+}
+.overview-work-item {
+  display: flex;
+  width: 100%;
+  height: auto;
+  min-height: 64px;
+  padding: 16px;
+  gap: 12px;
+  justify-content: flex-start;
+  white-space: normal;
+  text-align: left;
+}
+.overview-work-item strong {
+  flex: 1;
+}
+.overview-work-item span {
+  font-size: 13px;
+}
+.overview-statistics > summary {
+  cursor: pointer;
+  padding: 16px 0;
+  font-weight: 600;
+}
+.overview-statistics[open] > section {
+  margin-bottom: 24px;
+}
+@media (max-width: 640px) {
+  .overview-work-item {
+    flex-wrap: wrap;
+  }
+  .overview-work-item span {
+    width: 100%;
+  }
+}

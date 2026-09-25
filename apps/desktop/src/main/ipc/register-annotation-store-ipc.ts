@@ -152,6 +152,7 @@ export const registerAnnotationStoreIpc = (dependencies: Dependencies): void => 
     dependencies.setElementComments(comments);
     dependencies.websiteView()?.webContents.send('markfix:render-element-comments', comments);
     dependencies.sendShell(ipcChannels.annotationSubmissionSaved, {
+      projectId: submission.projectId,
       elementCommentCount: submission.elementComments.length,
       captureCount: submission.captures.length,
       diagnosticAnnotationCount: submission.diagnostics.length,

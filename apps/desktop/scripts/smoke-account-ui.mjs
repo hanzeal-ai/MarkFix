@@ -888,7 +888,7 @@ app.on('browser-window-created', (_event, win) => {
 
       assert.equal(
         await run(`document.querySelector('.save-annotations-button').textContent.trim()`),
-        '',
+        '提交标注 · 0',
       );
       assert.equal(
         await run(
@@ -898,7 +898,7 @@ app.on('browser-window-created', (_event, win) => {
       );
       assert.equal(
         await run(`document.querySelector('.save-annotations-button').getAttribute('aria-label')`),
-        '提交标注',
+        '提交标注 · 0 条待提交',
       );
       assert.equal(await run(`document.querySelector('.save-annotations-button').disabled`), true);
       assert.equal(await run(`document.querySelectorAll('.project-sidebar-item > i').length`), 0);
@@ -908,7 +908,7 @@ app.on('browser-window-created', (_event, win) => {
         await new Promise((resolve) => setTimeout(resolve, 200));
         assert.equal(
           await run(
-            `(()=>{const bar=document.querySelector('.browser-bar').getBoundingClientRect(), address=document.querySelector('.prototype-browser-bar').getBoundingClientRect(), controls=document.querySelector('.window-controls').getBoundingClientRect(), tools=document.querySelector('.tools').getBoundingClientRect();return (${expanded} ? bar.left>=controls.right : bar.left===0 && bar.right===innerWidth) && document.querySelector('.nav-buttons').getBoundingClientRect().left>=controls.right && getComputedStyle(document.querySelector('.window-controls')).webkitAppRegion==='no-drag' && bar.height===56 && address.height===document.querySelector('.annotation-mode-control').getBoundingClientRect().height && address.top>=0 && address.bottom<=56 && address.left>=controls.right && address.right<=tools.left})()`,
+            `(()=>{const bar=document.querySelector('.browser-bar').getBoundingClientRect(), address=document.querySelector('.prototype-browser-bar').getBoundingClientRect(), controls=document.querySelector('.window-controls').getBoundingClientRect(), tools=document.querySelector('.tools').getBoundingClientRect();return (${expanded} ? bar.left>=controls.right : bar.left===0 && bar.right===innerWidth) && document.querySelector('.nav-buttons').getBoundingClientRect().left>=controls.right && getComputedStyle(document.querySelector('.window-controls')).webkitAppRegion==='no-drag' && bar.height===56 && address.height===document.querySelector('.annotation-mode-control').getBoundingClientRect().height && address.top>=0 && address.bottom<=56 && address.left>=controls.right && address.right<=tools.left && tools.right<=innerWidth && [...document.querySelectorAll('.annotation-mode-control button')].every(button=>button.getBoundingClientRect().width>=40 && getComputedStyle(button).opacity==='1')})()`,
           ),
           true,
         );
@@ -926,6 +926,8 @@ app.on('browser-window-created', (_event, win) => {
       await run(
         `document.querySelector('[aria-label="收起项目侧边栏"]').click();qa.wait(()=>document.querySelector('.header-navigation-controls [aria-label="新标注"]'))`,
       );
+      await run(`qa.wait(()=>document.querySelector('.shell').classList.contains('sidebar-collapsed'))`);
+      await new Promise((resolve) => setTimeout(resolve, 400));
       const viewportWidthBefore = await webContents
         .getAllWebContents()
         .find((c) => c.getURL().includes('/site'))

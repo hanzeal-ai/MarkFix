@@ -15,6 +15,7 @@ import {
 export function AnnotationSaveWindow(): React.JSX.Element {
   const projectId = new URLSearchParams(window.location.search).get('projectId');
   const storageMode = new URLSearchParams(window.location.search).get('storageMode');
+  const [projectName, setProjectName] = useState<string>();
   const [captures, setCaptures] = useState<SavedCapture[]>([]);
   const [diagnostics, setDiagnostics] = useState<SavedDiagnosticAnnotation[]>([]);
   const [elementComments, setElementComments] = useState<SavedElementComment[]>([]);
@@ -33,11 +34,13 @@ export function AnnotationSaveWindow(): React.JSX.Element {
     }
     void Promise.all([
       window.markfix.listCaptureRecords(projectId),
+      window.markfix.listWebsiteProjects(),
       window.markfix.listElementComments(projectId),
       window.markfix.listDiagnosticAnnotations(projectId),
     ])
-      .then(([savedCaptures, savedComments, savedDiagnostics]) => {
+      .then(([savedCaptures, projects, savedComments, savedDiagnostics]) => {
         if (!active) return;
+        setProjectName(projects.find((project) => project.id === projectId)?.title);
         setCaptures(savedCaptures.filter((capture) => capture.status === 'draft'));
         setElementComments(savedComments.filter((comment) => comment.status === 'draft'));
         setDiagnostics(savedDiagnostics.filter((diagnostic) => diagnostic.status === 'draft'));
@@ -103,13 +106,31 @@ export function AnnotationSaveWindow(): React.JSX.Element {
       await window.markfix.saveAnnotationSubmission(submission);
       await window.markfix.closeAnnotationReview();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '保存标注失败。');
+      setError(cause instanceof Error ? cause.message : '提交标注失败，已保存的标注仍保留。');
       setBusy(false);
     }
   };
 
   return (
     <main className="annotation-review-window">
+      <header className="annotation-review-heading">
+        <h1>提交标注</h1>
+        <p>
+          {projectName ?? '当前项目'} ·{' '}
+          {storageMode === 'LOCAL'
+            ? '仅本机'
+            : storageMode === 'CLOUD'
+              ? '云端协作'
+              : '存储范围待确认'}
+        </p>
+        <p>
+          {storageMode === 'LOCAL'
+            ? '提交后可供本机处理，标注不会上传到云端。'
+            : storageMode === 'CLOUD'
+              ? '仅提交勾选的标注，项目内有权限的成员可以查看。'
+              : '请关闭窗口并重新选择项目。'}
+        </p>
+      </header>
       {error && (
         <Alert className="annotation-review-error" variant="destructive">
           <AlertDescription>{error}</AlertDescription>

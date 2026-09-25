@@ -105,7 +105,7 @@ export function AnnotationSaveDialog({
   };
 
   return (
-    <Card className="annotation-save-dialog" aria-label="保存标注">
+    <Card className="annotation-save-dialog" aria-label="提交标注">
       <div className="annotation-save-summary">
         <Label>
           <Checkbox
@@ -126,7 +126,7 @@ export function AnnotationSaveDialog({
         {items.length === 0 ? (
           <div className="annotation-save-empty">
             <MessageSquareText />
-            <strong>暂无可保存的标注</strong>
+            <strong>暂无待提交的标注</strong>
             <span>完成批注或截图后再提交。</span>
           </div>
         ) : (
@@ -219,7 +219,7 @@ export function AnnotationSaveDialog({
           disabled={busy || selectedKeys.size === 0}
           onClick={submit}
         >
-          <Check /> {busy ? '提交中…' : '提交'}
+          <Check /> {busy ? '提交中…' : `提交 ${selectedKeys.size} 条标注`}
         </Button>
       </footer>
     </Card>

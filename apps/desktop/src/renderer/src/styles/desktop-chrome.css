@@ -554,64 +554,11 @@ button {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
-.annotation-browse-label {
-  height: 34px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--secondary);
-  color: var(--text-2);
-  font-size: 12px;
-}
-.annotation-browse-label svg {
-  width: 16px;
-  height: 16px;
-}
-.annotation-mode-switcher .annotation-mode-control,
-.annotation-mode-switcher .annotation-browse-label,
-.annotation-mode-switcher .annotation-mode-control button {
-  overflow: hidden;
-  white-space: nowrap;
-  transition:
-    max-width 200ms ease,
-    padding 200ms ease,
-    border-width 200ms ease,
-    opacity 150ms ease;
-}
 .annotation-mode-switcher .annotation-mode-control {
-  max-width: 420px;
   gap: 0;
 }
-.annotation-mode-switcher .annotation-browse-label,
 .annotation-mode-switcher .annotation-mode-control button {
-  max-width: 140px;
+  white-space: nowrap;
   flex-shrink: 0;
-  opacity: 1;
-}
-.annotation-mode-switcher:not(:hover):not(:focus-visible):not(:has(:focus-visible))
-  .annotation-mode-control
-  [data-state='off'],
-.annotation-mode-switcher[data-mode='browse']:not(:hover):not(:focus-visible):not(
-    :has(:focus-visible)
-  )
-  .annotation-mode-control,
-.annotation-mode-switcher:hover .annotation-browse-label,
-.annotation-mode-switcher:focus-visible .annotation-browse-label,
-.annotation-mode-switcher:has(:focus-visible) .annotation-browse-label {
-  max-width: 0;
-  min-width: 0;
-  padding-inline: 0;
-  border-width: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .annotation-mode-switcher .annotation-mode-control,
-  .annotation-mode-switcher .annotation-browse-label,
-  .annotation-mode-switcher .annotation-mode-control button {
-    transition: none;
-  }
+  min-height: 36px;
 }

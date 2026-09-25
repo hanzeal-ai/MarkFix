@@ -386,6 +386,7 @@ export function AnnotationWorkspace({
       }),
       window.markfix.onAnnotationSubmissionSaved((payload) => {
         const counts = payload as {
+          projectId?: unknown;
           elementCommentCount?: unknown;
           captureCount?: unknown;
           diagnosticAnnotationCount?: unknown;
@@ -414,11 +415,26 @@ export function AnnotationWorkspace({
               : annotation,
           ),
         );
-        clearElementSelection();
-        resetCaptureAfterSubmission();
-        setNotice(
-          `已提交 ${Number(counts.elementCommentCount ?? 0)} 条元素批注、${Number(counts.captureCount ?? 0)} 张截图和 ${Number(counts.diagnosticAnnotationCount ?? 0)} 条调试标注。`,
-        );
+        if (counts.projectId === selectedProjectIdRef.current) {
+          clearElementSelection();
+          resetCaptureAfterSubmission();
+        }
+        const submittedProjectId =
+          typeof counts.projectId === 'string' ? counts.projectId : undefined;
+        toast.success('标注已提交', {
+          action: submittedProjectId
+            ? {
+                label: '查看已提交记录',
+                onClick: () => {
+                  void window.markfix
+                    .openProjectAnnotationHistory(submittedProjectId)
+                    .catch((error: unknown) =>
+                      toast.error(error instanceof Error ? error.message : '无法打开记录'),
+                    );
+                },
+              }
+            : undefined,
+        });
       }),
       window.markfix.onHistoricalAnnotationSelected((payload: HistoryAnnotationReference) => {
         const parsed = historyAnnotationReferenceSchema.safeParse(payload);
