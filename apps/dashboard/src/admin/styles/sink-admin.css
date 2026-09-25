@@ -556,14 +556,14 @@ body:has(#root .admin-shell) [data-slot='sheet-overlay'] {
 
 body:has(.admin-shell) {
   --destructive: #b42318;
-  --brand-purple: #525252;
-  --brand-purple-strong: #1c1c1e;
-  --brand-purple-soft: #eeeeee;
-  --primary: #1c1c1e;
+  --brand-purple: #7357d9;
+  --brand-purple-strong: #5c40bb;
+  --brand-purple-soft: #f2edff;
+  --primary: var(--brand-purple);
   --primary-foreground: #fff;
-  --accent-color: #f2f2f2;
-  --accent-foreground: #1c1c1e;
-  --ring: #707070;
+  --accent-color: var(--brand-purple-soft);
+  --accent-foreground: var(--brand-purple-strong);
+  --ring: var(--brand-purple);
   --radius-control: 12px;
 }
 .admin-shell {
@@ -615,8 +615,4 @@ body:has(.admin-shell) {
   .overview-work-item span {
     width: 100%;
   }
-}
-
-body:has(.admin-shell) :is(.markfix-logo-mark, .markfix-logo-horizontal, .markfix-logo-stacked) {
-  --brand-purple: #7357d9;
 }

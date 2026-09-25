@@ -1,8 +1,8 @@
 /* Grida-inspired desktop treatment: neutral canvas chrome, not a marketing-page theme. */
 .shell {
   --accent: var(--primary);
-  --accent-soft: var(--secondary);
-  --accent-strong: var(--foreground);
+  --accent-soft: var(--brand-purple-soft);
+  --accent-strong: var(--brand-purple-strong);
   font-family: var(--font-sans);
 }
 
@@ -19,8 +19,8 @@
 }
 
 .shell .prototype-browser-bar:focus-within {
-  border-color: #aeb2ba;
-  box-shadow: 0 0 0 3px rgba(17, 18, 20, 0.08);
+  border-color: var(--brand-purple);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-purple) 12%, transparent);
 }
 
 .shell .annotation-mode-control {
@@ -31,8 +31,8 @@
 
 .shell .annotation-mode-control [data-state='on'] {
   border-radius: var(--radius-control);
-  background: var(--secondary);
-  color: var(--foreground);
+  background: var(--brand-purple-soft);
+  color: var(--brand-purple-strong);
   box-shadow: 0 1px 4px rgba(24, 24, 27, 0.12);
 }
 
@@ -49,8 +49,8 @@
 }
 
 .shell .save-annotations-button:hover:not(:disabled) {
-  border-color: var(--foreground);
-  background: var(--foreground);
+  border-color: var(--brand-purple-strong);
+  background: var(--brand-purple-strong);
 }
 
 .shell .comment-panel,
@@ -61,8 +61,8 @@
 .shell .project-sidebar-action.active,
 .shell .project-sidebar-item.active {
   border-color: #d6d9df;
-  background: var(--secondary);
-  color: var(--foreground);
+  background: var(--brand-purple-soft);
+  color: var(--brand-purple-strong);
 }
 
 .shell .new-project-page {
@@ -178,18 +178,18 @@ p.annotation-rejection,
 }
 
 :root {
-  --brand-purple: #525252;
-  --brand-purple-strong: #1c1c1e;
-  --brand-purple-soft: #eeeeee;
+  --brand-purple: #7357d9;
+  --brand-purple-strong: #5c40bb;
+  --brand-purple-soft: #f2edff;
   --accent: var(--primary);
-  --accent-soft: #eeeeee;
-  --accent-strong: #1c1c1e;
+  --accent-soft: var(--brand-purple-soft);
+  --accent-strong: var(--brand-purple-strong);
   --destructive: #b42318;
-  --primary: #1c1c1e;
+  --primary: var(--brand-purple);
   --primary-foreground: #fff;
-  --accent-color: #f2f2f2;
-  --accent-foreground: #1c1c1e;
-  --ring: #707070;
+  --accent-color: var(--brand-purple-soft);
+  --accent-foreground: var(--brand-purple-strong);
+  --ring: var(--brand-purple);
   --radius-control: 12px;
   --text-3: #707070;
 }
@@ -214,8 +214,4 @@ p.annotation-rejection,
   color: var(--text-2);
   font-size: 12px;
   margin: 8px 0;
-}
-
-:is(.markfix-logo-mark, .markfix-logo-horizontal, .markfix-logo-stacked) {
-  --brand-purple: #7357d9;
 }
