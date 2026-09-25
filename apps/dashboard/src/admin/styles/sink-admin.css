@@ -4,7 +4,7 @@
   --admin-accent: var(--brand-purple);
   --admin-accent-soft: var(--brand-purple-soft);
   --admin-border: oklch(92% 0.004 286.32);
-  --admin-muted: oklch(55.2% 0.016 285.938);
+  --admin-muted: #707070;
   min-height: 100vh;
   grid-template-columns: 208px minmax(0, 1fr);
   gap: 0;
@@ -46,7 +46,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  border-radius: 999px;
+  border-radius: 12px;
   padding: 0 12px;
   color: oklch(32% 0.01 286);
   font-size: 13px;
@@ -172,7 +172,7 @@
     .annotation-history-thumbnail,
     .project-card-open
   ) {
-  border-radius: 999px;
+  border-radius: 12px;
 }
 
 #root .admin-main [data-slot='input'],
@@ -182,18 +182,18 @@
 .project-details-page [data-slot='select-trigger'],
 .annotation-dialog [data-slot='input'] {
   border-color: var(--admin-border);
-  border-radius: 999px;
+  border-radius: 12px;
   background: oklch(96.7% 0.001 286.375);
   box-shadow: none;
 }
 
 #root .admin-main [data-slot='tabs-list'] {
-  border-radius: 999px;
+  border-radius: 12px;
   background: oklch(96.7% 0.001 286.375);
 }
 
 #root .admin-main [data-slot='tabs-trigger'] {
-  border-radius: 999px;
+  border-radius: 12px;
 }
 
 #root .metrics-grid {
@@ -555,6 +555,10 @@ body:has(#root .admin-shell) [data-slot='sheet-overlay'] {
 }
 
 body:has(.admin-shell) {
+  --destructive: #b42318;
+  --brand-purple: #525252;
+  --brand-purple-strong: #1c1c1e;
+  --brand-purple-soft: #eeeeee;
   --primary: #1c1c1e;
   --primary-foreground: #fff;
   --accent-color: #f2f2f2;
@@ -611,4 +615,8 @@ body:has(.admin-shell) {
   .overview-work-item span {
     width: 100%;
   }
+}
+
+body:has(.admin-shell) :is(.markfix-logo-mark, .markfix-logo-horizontal, .markfix-logo-stacked) {
+  --brand-purple: #7357d9;
 }

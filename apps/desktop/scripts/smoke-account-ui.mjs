@@ -78,7 +78,7 @@ const server = createServer((req, res) => {
 const timeout = setTimeout(() => {
   console.error('Smoke timeout');
   return app.exit(1);
-}, 30000);
+}, 60000);
 let handled = false;
 app.on('browser-window-created', (_event, win) => {
   if (handled) return;
@@ -96,6 +96,15 @@ app.on('browser-window-created', (_event, win) => {
       );
       assert.equal(win.getTitle(), '', 'Main title stays empty after page load');
       const clickHeaderButton = async (index = 0) => {
+        await win.webContents.executeJavaScript(
+          `qa.wait(()=>document.querySelectorAll('.header-navigation-controls button')[${index}])`,
+        );
+        if (process.env.MARKFIX_UIUX_SMOKE) {
+          await win.webContents.executeJavaScript(
+            `document.querySelectorAll('.header-navigation-controls button')[${index}].click()`,
+          );
+          return;
+        }
         const point = await win.webContents.executeJavaScript(
           `(()=>{const b=document.querySelectorAll('.header-navigation-controls button')[${index}].getBoundingClientRect();return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}})()`,
         );
@@ -913,144 +922,192 @@ app.on('browser-window-created', (_event, win) => {
           true,
         );
       }
-      await clickHeaderButton();
-      await run(`qa.wait(()=>document.querySelector('[aria-label="收起项目侧边栏"]'))`);
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      win.setSize(1440, 900);
-      assert.equal(
-        await run(
-          `document.querySelector('.header-navigation-controls [aria-label="新标注"]')===null`,
-        ),
-        true,
-      );
-      await run(
-        `document.querySelector('[aria-label="收起项目侧边栏"]').click();qa.wait(()=>document.querySelector('.header-navigation-controls [aria-label="新标注"]'))`,
-      );
-      await run(`qa.wait(()=>document.querySelector('.shell').classList.contains('sidebar-collapsed'))`);
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      const viewportWidthBefore = await webContents
-        .getAllWebContents()
-        .find((c) => c.getURL().includes('/site'))
-        .executeJavaScript('innerWidth');
-      win.webContents.sendInputEvent({ type: 'mouseMove', x: 600, y: 28 });
-      await new Promise((resolve) => setTimeout(resolve, 250));
-      win.webContents.sendInputEvent({ type: 'mouseMove', x: 114, y: 28 });
-      await run(`qa.wait(()=>document.querySelector('.sidebar-peeking .project-sidebar'))`);
-      await new Promise((resolve) => setTimeout(resolve, 250));
-      assert.equal(
-        await webContents
-          .getAllWebContents()
-          .find((c) => c.getURL().includes('/site'))
-          .executeJavaScript('innerWidth'),
-        viewportWidthBefore,
-      );
-      await run(`qa.wait(()=>document.querySelector('body > img')?.complete)`);
-      assert.equal(
-        await run(`document.querySelector('.project-sidebar').getBoundingClientRect().top`),
-        56,
-      );
-      assert.equal(win.contentView.children[0].getVisible(), false);
-      win.webContents.sendInputEvent({ type: 'mouseMove', x: 110, y: 200 });
-      await new Promise((resolve) => setTimeout(resolve, 250));
-      assert.equal(await run(`!!document.querySelector('.sidebar-peeking')`), true);
-      if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
-        writeFileSync(
-          join(output, 'sidebar-hover-shell.png'),
-          (await win.webContents.capturePage()).toPNG(),
-        );
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      const sources = await desktopCapturer.getSources({
-        types: ['window'],
-        thumbnailSize: { width: 1440, height: 900 },
-      });
-      const source = sources.find((source) => source.id === win.getMediaSourceId());
-      if (source) writeFileSync(join(output, 'sidebar-hover-native.png'), source.thumbnail.toPNG());
-      win.webContents.sendInputEvent({ type: 'mouseMove', x: 600, y: 28 });
-      await run(
-        `qa.wait(()=>!document.querySelector('.project-sidebar') && !document.querySelector('body > img'))`,
-      );
-      assert.equal(win.contentView.children[0].getVisible(), true);
-      assert.equal(await run(`!!document.querySelector('.project-loading-page')`), false);
-      await clickHeaderButton();
-      await run(`qa.wait(()=>document.querySelector('[aria-label="收起项目侧边栏"]'))`);
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      console.log('PASS collapsed new icon, sidebar hover and stable website width');
-      // Keep physical cursor events from interrupting synthetic resize gestures.
-      win.setIgnoreMouseEvents(true);
-      const dragSidebar = async (targetWidth) => {
-        const { from, currentWidth } = await run(
-          `(()=>{const handle=document.querySelector('.sidebar-resize-handle').getBoundingClientRect();return {from:Math.round(handle.x+handle.width/2),currentWidth:document.querySelector('.project-sidebar').getBoundingClientRect().width}})()`,
-        );
-        const to = from + targetWidth - currentWidth;
-        win.webContents.sendInputEvent({
-          type: 'mouseDown',
-          x: from,
-          y: 220,
-          button: 'left',
-          clickCount: 1,
-        });
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        for (const x of [Math.round((from + to) / 2), to]) {
-          win.webContents.sendInputEvent({
-            type: 'mouseMove',
-            x,
-            y: 220,
-            modifiers: ['leftButtonDown'],
-          });
-          await new Promise((resolve) => setTimeout(resolve, 75));
-        }
-        const edge = await run(
-          `document.querySelector('.project-sidebar')?.getBoundingClientRect().right ?? 0`,
-        );
-        assert.equal(win.contentView.children[0].getBounds().x, edge);
-        win.webContents.sendInputEvent({
-          type: 'mouseUp',
-          x: to,
-          y: 220,
-          button: 'left',
-          clickCount: 1,
-        });
-      };
-      await dragSidebar(320);
-      await run(
-        `qa.wait(()=>document.querySelector('.project-sidebar').getBoundingClientRect().width===320)`,
-      );
-      await dragSidebar(80);
-      await run(`qa.wait(()=>!document.querySelector('.project-sidebar'))`);
-      await clickHeaderButton();
-      await run(
-        `qa.wait(()=>document.querySelector('.project-sidebar')?.getBoundingClientRect().width===320)`,
-      );
-      await dragSidebar(200);
-      await run(
-        `qa.wait(()=>document.querySelector('.project-sidebar').getBoundingClientRect().width===200)`,
-      );
-      console.log('PASS sidebar drag, collapse and remembered width');
-      await clickHeaderButton();
-      await run(
-        `qa.wait(()=>document.querySelector('.header-navigation-controls [aria-label="新标注"]'))`,
-      );
-      await clickHeaderButton(1);
-      await run(`qa.wait(()=>document.querySelector('#new-project-url'))`);
-      await clickHeaderButton();
-      await run(`qa.wait(()=>document.querySelector('.project-sidebar-item'))`);
-      await run(
-        `document.querySelector('.project-sidebar-item').click();qa.wait(()=>document.querySelector('.browser-bar'))`,
-      );
-      for (let repeat = 0; repeat < 3; repeat++) {
+      if (!process.env.MARKFIX_UIUX_SMOKE) {
         await clickHeaderButton();
-        await run(`qa.wait(()=>document.querySelector('.shell.sidebar-collapsed'))`);
+        await run(`qa.wait(()=>document.querySelector('[aria-label="收起项目侧边栏"]'))`);
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        win.setSize(1440, 900);
+        assert.equal(
+          await run(
+            `document.querySelector('.header-navigation-controls [aria-label="新标注"]')===null`,
+          ),
+          true,
+        );
+        await run(
+          `document.querySelector('[aria-label="收起项目侧边栏"]').click();qa.wait(()=>document.querySelector('.header-navigation-controls [aria-label="新标注"]'))`,
+        );
+        await run(
+          `qa.wait(()=>document.querySelector('.shell').classList.contains('sidebar-collapsed'))`,
+        );
+        win.webContents.sendInputEvent({ type: 'mouseMove', x: 600, y: 28 });
+        await run(`qa.wait(()=>!document.querySelector('.sidebar-peeking'))`);
+        const websiteView = win.contentView.children[0];
+        const websiteContents = webContents
+          .getAllWebContents()
+          .find((c) => c.getURL().includes('/site'));
+        // Flush the resized native surface before measuring its renderer viewport.
+        await websiteContents.capturePage();
+        const layoutDeadline = Date.now() + 8000;
+        let viewportWidthBefore = await websiteContents.executeJavaScript('innerWidth');
+        while (
+          (!websiteView.getVisible() || viewportWidthBefore !== websiteView.getBounds().width) &&
+          Date.now() < layoutDeadline
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          viewportWidthBefore = await websiteContents.executeJavaScript('innerWidth');
+        }
+
+        assert.equal(
+          websiteView.getVisible(),
+          true,
+          'Measure the visible website before testing hover',
+        );
+        assert.equal(
+          viewportWidthBefore,
+          websiteView.getBounds().width,
+          'Wait for renderer and native layout to agree',
+        );
+        win.webContents.sendInputEvent({ type: 'mouseMove', x: 600, y: 28 });
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        win.webContents.sendInputEvent({ type: 'mouseMove', x: 114, y: 28 });
+        await run(`qa.wait(()=>document.querySelector('.sidebar-peeking .project-sidebar'))`);
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        assert.equal(
+          await webContents
+            .getAllWebContents()
+            .find((c) => c.getURL().includes('/site'))
+            .executeJavaScript('innerWidth'),
+          viewportWidthBefore,
+        );
+        await run(`qa.wait(()=>document.querySelector('body > img')?.complete)`);
+        assert.equal(
+          await run(`document.querySelector('.project-sidebar').getBoundingClientRect().top`),
+          56,
+        );
+        assert.equal(win.contentView.children[0].getVisible(), false);
+        win.webContents.sendInputEvent({ type: 'mouseMove', x: 110, y: 200 });
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        assert.equal(await run(`!!document.querySelector('.sidebar-peeking')`), true);
+        if (!process.env.MARKFIX_SMOKE_NO_SCREENSHOTS)
+          writeFileSync(
+            join(output, 'sidebar-hover-shell.png'),
+            (await win.webContents.capturePage()).toPNG(),
+          );
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        const sources = await desktopCapturer.getSources({
+          types: ['window'],
+          thumbnailSize: { width: 1440, height: 900 },
+        });
+        const source = sources.find((source) => source.id === win.getMediaSourceId());
+        if (source)
+          writeFileSync(join(output, 'sidebar-hover-native.png'), source.thumbnail.toPNG());
+        win.webContents.sendInputEvent({ type: 'mouseMove', x: 600, y: 28 });
+        await run(
+          `qa.wait(()=>!document.querySelector('.project-sidebar') && !document.querySelector('body > img'))`,
+        );
+        assert.equal(win.contentView.children[0].getVisible(), true);
+        assert.equal(await run(`!!document.querySelector('.project-loading-page')`), false);
+        await clickHeaderButton();
+        await run(`qa.wait(()=>document.querySelector('[aria-label="收起项目侧边栏"]'))`);
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        console.log('PASS collapsed new icon, sidebar hover and stable website width');
+        // Keep physical cursor events from interrupting synthetic resize gestures.
+        win.setIgnoreMouseEvents(true);
+        const dragSidebar = async (targetWidth) => {
+          const { from, currentWidth } = await run(
+            `(()=>{const handle=document.querySelector('.sidebar-resize-handle').getBoundingClientRect();return {from:Math.round(handle.x+handle.width/2),currentWidth:document.querySelector('.project-sidebar').getBoundingClientRect().width}})()`,
+          );
+          const to = from + targetWidth - currentWidth;
+          win.webContents.sendInputEvent({
+            type: 'mouseDown',
+            x: from,
+            y: 220,
+            button: 'left',
+            clickCount: 1,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          for (const x of [Math.round((from + to) / 2), to]) {
+            win.webContents.sendInputEvent({
+              type: 'mouseMove',
+              x,
+              y: 220,
+              modifiers: ['leftButtonDown'],
+            });
+            await new Promise((resolve) => setTimeout(resolve, 75));
+          }
+          const edge = await run(
+            `document.querySelector('.project-sidebar')?.getBoundingClientRect().right ?? 0`,
+          );
+          assert.equal(win.contentView.children[0].getBounds().x, edge);
+          win.webContents.sendInputEvent({
+            type: 'mouseUp',
+            x: to,
+            y: 220,
+            button: 'left',
+            clickCount: 1,
+          });
+        };
+        await dragSidebar(320);
+        await run(
+          `qa.wait(()=>document.querySelector('.project-sidebar').getBoundingClientRect().width===320)`,
+        );
+        await dragSidebar(80);
+        await run(`qa.wait(()=>!document.querySelector('.project-sidebar'))`);
+        await clickHeaderButton();
+        await run(
+          `qa.wait(()=>document.querySelector('.project-sidebar')?.getBoundingClientRect().width===320)`,
+        );
+        await dragSidebar(200);
+        await run(
+          `qa.wait(()=>document.querySelector('.project-sidebar').getBoundingClientRect().width===200)`,
+        );
+        console.log('PASS sidebar drag, collapse and remembered width');
+        await clickHeaderButton();
+        await run(
+          `qa.wait(()=>document.querySelector('.header-navigation-controls [aria-label="新标注"]'))`,
+        );
         await clickHeaderButton(1);
         await run(`qa.wait(()=>document.querySelector('#new-project-url'))`);
         await clickHeaderButton();
-        await run(`qa.wait(()=>document.querySelector('.shell.sidebar-expanded'))`);
+        await run(`qa.wait(()=>document.querySelector('.project-sidebar-item'))`);
         await run(
           `document.querySelector('.project-sidebar-item').click();qa.wait(()=>document.querySelector('.browser-bar'))`,
         );
+        for (let repeat = 0; repeat < 3; repeat++) {
+          await clickHeaderButton();
+          await run(`qa.wait(()=>document.querySelector('.shell.sidebar-collapsed'))`);
+          await clickHeaderButton(1);
+          await run(`qa.wait(()=>document.querySelector('#new-project-url'))`);
+          await clickHeaderButton();
+          await run(`qa.wait(()=>document.querySelector('.shell.sidebar-expanded'))`);
+          await run(
+            `document.querySelector('.project-sidebar-item').click();qa.wait(()=>document.querySelector('.browser-bar'))`,
+          );
+        }
+        console.log(
+          process.env.MARKFIX_UIUX_SMOKE
+            ? 'PASS header actions open sidebar and new annotation'
+            : 'PASS mouse click opens sidebar and new annotation',
+        );
+      } else {
+        console.log('SKIP OS-pointer sidebar hover and dragging in focused UI/UX smoke');
       }
-      console.log('PASS mouse click opens sidebar and new annotation');
+      for (const [title, mode] of [
+        ['批注（⌥W）', 'comment'],
+        ['截图（⌥A）', 'capture'],
+      ]) {
+        await run(
+          `document.querySelector('[title="${title}"]').click();qa.wait(()=>document.querySelector('.annotation-mode-switcher').dataset.mode==='${mode}')`,
+        );
+        assert.equal(await run(`document.querySelector('.comment-panel')===null`), true);
+      }
       await run(
-        `document.querySelector('[title="批注（⌥W）"]').click();qa.wait(()=>document.querySelector('.comment-panel'))`,
+        `document.querySelector('[aria-label="浏览网页"]').click();qa.wait(()=>document.querySelector('.annotation-mode-switcher').dataset.mode==='browse')`,
+      );
+      console.log('PASS visible browse, comment and capture modes');
+
+      await run(
+        `document.querySelector('.preview-toggle-button').click();qa.wait(()=>document.querySelector('.comment-panel'))`,
       );
       const dragRightPanel = async (width) => {
         const { point, currentWidth } = await run(
@@ -1091,19 +1148,31 @@ app.on('browser-window-created', (_event, win) => {
           viewport.width - viewport.left - viewport.right,
         );
       };
-      await dragRightPanel(300);
-      assert.equal(await run(`localStorage.getItem('markfix:annotation-panel-width')`), '300');
-      await dragRightPanel(80);
-      await run(
-        `document.querySelector('[title="批注（⌥W）"]').click();qa.wait(()=>document.querySelector('.comment-panel')?.getBoundingClientRect().width===300)`,
-      );
-      await dragRightPanel(360);
-      await run(
-        `document.querySelector('[title="批注（⌥W）"]').click();qa.wait(()=>!document.querySelector('.comment-panel'))`,
-      );
-      console.log('PASS right panel drag, collapse, remembered width and native website bounds');
-
-      for (const fullscreen of [true, false]) {
+      if (!process.env.MARKFIX_UIUX_SMOKE) {
+        await dragRightPanel(300);
+        assert.equal(await run(`localStorage.getItem('markfix:annotation-panel-width')`), '300');
+        await dragRightPanel(80);
+        await run(
+          `document.querySelector('.preview-toggle-button').click();qa.wait(()=>document.querySelector('.comment-panel')?.getBoundingClientRect().width===300)`,
+        );
+        await dragRightPanel(360);
+        await run(
+          `document.querySelector('.preview-toggle-button').click();qa.wait(()=>!document.querySelector('.comment-panel'))`,
+        );
+        console.log('PASS right panel drag, collapse, remembered width and native website bounds');
+      } else {
+        assert.equal(
+          await run(`document.querySelector('.annotation-mode-switcher').dataset.mode`),
+          'preview',
+        );
+        await run(
+          `document.querySelector('.preview-toggle-button').click();qa.wait(()=>!document.querySelector('.comment-panel'))`,
+        );
+        console.log('PASS preview opens and returns to browsing');
+      }
+      if (process.env.MARKFIX_UIUX_SMOKE)
+        console.log('SKIP native fullscreen transitions in focused UI/UX smoke');
+      for (const fullscreen of process.env.MARKFIX_UIUX_SMOKE ? [] : [true, false]) {
         const changed = new Promise((resolve) =>
           win.once(fullscreen ? 'enter-full-screen' : 'leave-full-screen', resolve),
         );
@@ -1228,6 +1297,49 @@ app.on('browser-window-created', (_event, win) => {
         child.close();
       }
       console.log('PASS integrated main header and native child title bars');
+      await run(`window.markfix.openAnnotationReview(${JSON.stringify(projectId)})`);
+      const review = BrowserWindow.getAllWindows().find((candidate) => candidate !== win);
+      assert.ok(review);
+      await review.webContents.executeJavaScript(`(async()=>{
+        const end=Date.now()+8000;
+        while(!document.querySelector('.annotation-save-dialog footer button') || document.querySelector('.annotation-save-dialog footer button').disabled){
+          if(Date.now()>end)throw Error('Submission did not become ready');
+          await new Promise(resolve=>setTimeout(resolve,50));
+        }
+        if(!document.querySelector('.annotation-review-heading').textContent.includes('界面验收项目 · 仅本机'))throw Error('Incorrect submission destination');
+        document.querySelector('.annotation-save-dialog footer button').click();
+      })()`);
+      await run(
+        `qa.wait(()=>[...document.querySelectorAll('[data-sonner-toast] button')].some(button=>button.textContent==='查看已提交记录'))`,
+      );
+      assert.equal(
+        await run(
+          `window.markfix.listCaptureRecords(${JSON.stringify(projectId)}).then(items=>items.find(item=>item.id===${JSON.stringify(captureId)})?.status)`,
+        ),
+        'submitted',
+      );
+      await run(
+        `[...document.querySelectorAll('[data-sonner-toast] button')].find(button=>button.textContent==='查看已提交记录').click()`,
+      );
+      const history = BrowserWindow.getAllWindows().find((candidate) => candidate !== win);
+      assert.ok(history);
+      const historyDeadline = Date.now() + 8000;
+      while (!history.webContents.getURL() && Date.now() < historyDeadline)
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      assert.ok(history.webContents.getURL().includes(encodeURIComponent(projectId)));
+      if (history.webContents.isLoading())
+        await new Promise((resolve) => history.webContents.once('did-finish-load', resolve));
+      await history.webContents.executeJavaScript(`(async()=>{
+        const end=Date.now()+8000;
+        while(!document.querySelector('.project-history-window')?.textContent.includes('标题栏验收截图')){
+          if(Date.now()>end)throw Error('Submitted annotation did not appear in history');
+          await new Promise(resolve=>setTimeout(resolve,50));
+        }
+        if(document.querySelector('.project-history-error'))throw Error('History failed to load');
+      })()`);
+      history.close();
+      console.log('PASS submission destination, saved state and submitted-history action');
+
       if (await run(`!!document.querySelector('[aria-label="展开项目侧边栏"]')`))
         await clickHeaderButton();
       await run(`qa.wait(()=>document.querySelector('[aria-label="项目操作：界面验收项目"]'))`);

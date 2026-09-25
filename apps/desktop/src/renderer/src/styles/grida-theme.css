@@ -178,6 +178,13 @@ p.annotation-rejection,
 }
 
 :root {
+  --brand-purple: #525252;
+  --brand-purple-strong: #1c1c1e;
+  --brand-purple-soft: #eeeeee;
+  --accent: var(--primary);
+  --accent-soft: #eeeeee;
+  --accent-strong: #1c1c1e;
+  --destructive: #b42318;
   --primary: #1c1c1e;
   --primary-foreground: #fff;
   --accent-color: #f2f2f2;
@@ -207,4 +214,8 @@ p.annotation-rejection,
   color: var(--text-2);
   font-size: 12px;
   margin: 8px 0;
+}
+
+:is(.markfix-logo-mark, .markfix-logo-horizontal, .markfix-logo-stacked) {
+  --brand-purple: #7357d9;
 }
