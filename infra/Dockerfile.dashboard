@@ -19,8 +19,9 @@ COPY packages/ui packages/ui
 
 
 FROM workspace AS development
+WORKDIR /app/apps/dashboard
 EXPOSE 4311
-CMD ["pnpm", "--filter", "@markfix/dashboard", "dev"]
+CMD ["./node_modules/.bin/vite", "--host", "0.0.0.0", "--port", "4311"]
 
 FROM workspace AS build
 # The desktop manifest is copied only for its version; do not materialize the desktop workspace.
