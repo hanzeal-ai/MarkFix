@@ -1,10 +1,5 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { requireProjectAccess } from './authorization.js';
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@markfix/database';
 import {
   annotationSubmissionSchema,
@@ -75,7 +70,7 @@ export class ProjectDataService {
   constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   async getState(userId: string, projectId: string): Promise<CloudProjectState | null> {
-    const project = await this.requireProjectAccess(userId, projectId);
+    const project = await requireProjectAccess(this.database, userId, projectId);
     const state = await this.database.projectDesktopState.findUnique({ where: { projectId } });
     if (!state) return null;
     const parsed = cloudProjectStateSchema.parse({
@@ -86,7 +81,7 @@ export class ProjectDataService {
   }
 
   async saveState(userId: string, projectId: string, input: unknown): Promise<CloudProjectState> {
-    const project = await this.requireProjectAccess(userId, projectId);
+    const project = await requireProjectAccess(this.database, userId, projectId);
     const state = cloudProjectStateSchema.parse(input);
     if (state.project.id !== projectId) throw new ConflictException('Project ID mismatch');
     const canonical = { ...state, project: this.canonicalProject(project, state.project) };
@@ -120,7 +115,7 @@ export class ProjectDataService {
     projectId: string,
     kind: RecordKind,
   ): Promise<AnnotationRecord[]> {
-    await this.requireProjectAccess(userId, projectId);
+    await requireProjectAccess(this.database, userId, projectId);
     const rows = await this.database.projectAnnotationRecord.findMany({
       where: { projectId, kind, ready: true },
       orderBy: { createdAt: 'asc' },
@@ -134,7 +129,7 @@ export class ProjectDataService {
     kind: RecordKind,
     input: unknown,
   ): Promise<{ saved: true }> {
-    await this.requireProjectAccess(userId, projectId);
+    await requireProjectAccess(this.database, userId, projectId);
     const parsed = recordMetadata(kind, input);
     if (parsed.projectId !== projectId) throw new ConflictException('Project ID mismatch');
     const stored = recordPayload(kind, parsed);
@@ -192,7 +187,7 @@ export class ProjectDataService {
     expectedUpdatedAt: string,
     bytes: Uint8Array<ArrayBuffer>,
   ): Promise<{ saved: true }> {
-    await this.requireProjectAccess(userId, projectId);
+    await requireProjectAccess(this.database, userId, projectId);
     if (kind !== 'CAPTURE' && slot === 'source')
       throw new ConflictException('Only capture records have source images');
     if (bytes.byteLength === 0 || bytes.byteLength > 20 * 1024 * 1024)
@@ -234,7 +229,7 @@ export class ProjectDataService {
     kind: RecordKind,
     id: string,
   ): Promise<{ deleted: true }> {
-    await this.requireProjectAccess(userId, projectId);
+    await requireProjectAccess(this.database, userId, projectId);
     const result = await this.database.projectAnnotationRecord.deleteMany({
       where: { id, projectId, kind },
     });
@@ -247,7 +242,7 @@ export class ProjectDataService {
     projectId: string,
     input: unknown,
   ): Promise<{ saved: true }> {
-    await this.requireProjectAccess(userId, projectId);
+    await requireProjectAccess(this.database, userId, projectId);
     const submission = annotationSubmissionSchema.parse(input);
     if (submission.projectId !== projectId) throw new ConflictException('Project ID mismatch');
     const records = [
@@ -321,17 +316,6 @@ export class ProjectDataService {
       }
     });
     return { saved: true };
-  }
-
-  private async requireProjectAccess(userId: string, projectId: string) {
-    const project = await this.database.project.findUnique({ where: { id: projectId } });
-    if (!project) throw new NotFoundException('Project not found');
-    const membership = await this.database.membership.findUnique({
-      where: { projectId_userId: { projectId: project.id, userId } },
-    });
-    if (!membership || membership.status !== 'ACTIVE')
-      throw new ForbiddenException('You do not have access to this project');
-    return project;
   }
 
   private canonicalProject(

@@ -1,3 +1,5 @@
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@markfix/database';
 import type { TransitionAction } from './report-state.js';
 import type { ProjectRole } from '@markfix/contracts';
 export type { ProjectRole } from '@markfix/contracts';
@@ -26,3 +28,28 @@ export const canRepairReport = (
   role === 'OWNER' ||
   role === 'ADMIN' ||
   (role === 'MEMBER' && (!report.assigneeId || report.assigneeId === userId));
+
+export const requireMembership = async (
+  database: Pick<Prisma.TransactionClient, 'membership'>,
+  userId: string,
+  projectId: string,
+  roles?: ProjectRole[],
+) => {
+  const membership = await database.membership.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+  });
+  if (!membership || membership.status !== 'ACTIVE' || (roles && !roles.includes(membership.role)))
+    throw new ForbiddenException('You do not have access to this project action');
+  return membership;
+};
+
+export const requireProjectAccess = async (
+  database: Pick<Prisma.TransactionClient, 'project' | 'membership'>,
+  userId: string,
+  projectId: string,
+) => {
+  const project = await database.project.findUnique({ where: { id: projectId } });
+  if (!project) throw new NotFoundException('Project not found');
+  await requireMembership(database, userId, project.id);
+  return project;
+};

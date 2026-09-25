@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AppService } from '../src/app.service.js';
+import { ReportService } from '../src/report.service.js';
 
 function setup(role = 'ADMIN') {
   const update = vi.fn().mockResolvedValue({ status: 'IN_PROGRESS', version: 2 });
@@ -11,7 +11,7 @@ function setup(role = 'ADMIN') {
     assigneeId: null,
     reporterId: null,
   });
-  const service = new AppService({
+  const service = new ReportService({
     report: { findUnique, update },
     project: { findUnique: vi.fn().mockResolvedValue({ id: 'project' }) },
     membership: { findUnique: vi.fn().mockResolvedValue({ role, status: 'ACTIVE' }) },

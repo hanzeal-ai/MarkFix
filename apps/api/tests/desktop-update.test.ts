@@ -3,7 +3,9 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD, NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppController } from '../src/app.controller.js';
-import { AppService } from '../src/app.service.js';
+import { ReportService } from '../src/report.service.js';
+import { ProjectService } from '../src/project.service.js';
+import { SubmissionService } from '../src/submission.service.js';
 import { AuthService } from '../src/auth.service.js';
 import { AuthRateLimitService } from '../src/auth-rate-limit.service.js';
 import { AuthGuard } from '../src/auth.guard.js';
@@ -65,7 +67,14 @@ it('serves the public native protocol with JSON, no-cache, and an empty 204', as
     controllers: [AppController],
     providers: [
       ClientPolicyService,
-      ...[AppService, AuthService, AuthRateLimitService, SubscriptionService].map((provide) => ({
+      ...[
+        ReportService,
+        ProjectService,
+        SubmissionService,
+        AuthService,
+        AuthRateLimitService,
+        SubscriptionService,
+      ].map((provide) => ({
         provide,
         useValue: {},
       })),

@@ -8,7 +8,9 @@ import { AgentFixService } from './agent/agent-fix.service.js';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
+import { ReportService } from './report.service.js';
+import { ProjectService } from './project.service.js';
+import { SubmissionService } from './submission.service.js';
 import { AuthGuard } from './auth.guard.js';
 import { AuthRateLimitService } from './auth-rate-limit.service.js';
 import { AuthService } from './auth.service.js';
@@ -41,7 +43,9 @@ const emailProvider = {
     AgentAuthService,
     AgentProjectService,
     AgentFixService,
-    AppService,
+    ReportService,
+    ProjectService,
+    SubmissionService,
     AuthService,
     AuthRateLimitService,
     ClientPolicyService,

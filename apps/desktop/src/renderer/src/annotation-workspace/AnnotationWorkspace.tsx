@@ -2,21 +2,8 @@ import { RepairReviewPanel } from './RepairReviewPanel';
 import { saveFeedback } from './save-feedback';
 import { flushSync } from 'react-dom';
 import { ProjectAgentDialog } from '../ProjectAgentDialog';
-import {
-  sidebarMinWidth,
-  isSidebarWidth,
-  annotationPanelDefaultWidth,
-  annotationPanelWidth,
-} from '../../../sidebar-layout';
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from 'react';
+import { useWorkspaceLayout } from './useWorkspaceLayout';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '@markfix/ui';
 import { WorkspaceResizeLayout } from './WorkspaceResizeLayout';
 import {
@@ -84,42 +71,7 @@ export function AnnotationWorkspace({
   const [websiteProjects, setWebsiteProjects] = useState<WebsiteProject[]>([]);
   const [projectReports, setProjectReports] = useState<Report[]>([]);
   const [activeView, setActiveView] = useState<'workspace' | 'new'>('new');
-  const [sidebarExpanded, setSidebarExpanded] = useState(
-    () =>
-      !shouldCollapseSidebarForMode(
-        browserModeFromSession(window.sessionStorage.getItem(browserModeSessionKey)),
-      ) && window.localStorage.getItem('markfix:sidebar-expanded') !== 'false',
-  );
-  const [sidebarPeek, setSidebarPeek] = useState(false);
-  const [sidebarMenuOpen, setSidebarMenuOpen] = useState(false);
-  const peekTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const showSidebarPeek = () => {
-    clearTimeout(peekTimer.current);
-    if (!sidebarExpanded) setSidebarPeek(true);
-  };
-  const endSidebarPeek = () => {
-    clearTimeout(peekTimer.current);
-    peekTimer.current = setTimeout(() => setSidebarPeek(false), 180);
-  };
-  useEffect(() => () => clearTimeout(peekTimer.current), []);
-  useEffect(() => {
-    if (sidebarExpanded) setSidebarPeek(false);
-  }, [sidebarExpanded]);
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = Number(window.localStorage.getItem('markfix:sidebar-width'));
-    return isSidebarWidth(saved) && saved > 0 && saved !== 228 ? saved : sidebarMinWidth;
-  });
   const [newProjectInput, setNewProjectInput] = useState('');
-  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
-    const saved = Number(window.localStorage.getItem('markfix:annotation-panel-width'));
-    return isSidebarWidth(saved) && saved > 0 ? saved : annotationPanelDefaultWidth;
-  });
-  const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
-  useEffect(() => {
-    const onResize = () => setViewportWidth(window.innerWidth);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [pendingDeleteProject, setPendingDeleteProject] = useState<WebsiteProject>();
   const [deletingProject, setDeletingProject] = useState(false);
@@ -277,6 +229,26 @@ export function AnnotationWorkspace({
   );
   const currentPageUrl = browserState.url ?? url;
   const previewVisible = previewOpen && activeView === 'workspace';
+  const {
+    sidebarExpanded,
+    setSidebarExpanded,
+    sidebarPeek,
+    setSidebarMenuOpen,
+    showSidebarPeek,
+    endSidebarPeek,
+    closeSidebarPeek,
+    sidebarWidth,
+    setSidebarWidth,
+    rightPanelWidth,
+    setRightPanelWidth,
+    shellStyle,
+  } = useWorkspaceLayout(
+    activeView === 'workspace' &&
+      !pendingDeleteProject &&
+      !agentProject &&
+      pendingMode === undefined,
+    previewVisible,
+  );
   const currentProjectAnnotations = useMemo(
     () =>
       selectedProjectId
@@ -581,32 +553,6 @@ export function AnnotationWorkspace({
       window.clearInterval(refreshTimer);
     };
   }, [currentPageUrl, selectedProjectId]);
-
-  useLayoutEffect(() => {
-    window.localStorage.setItem('markfix:sidebar-expanded', String(sidebarExpanded));
-    window.localStorage.setItem('markfix:sidebar-width', String(sidebarWidth));
-    window.localStorage.setItem('markfix:annotation-panel-width', String(rightPanelWidth));
-    void window.markfix.setWorkspaceLayout(
-      sidebarExpanded ? sidebarWidth : 0,
-      activeView === 'workspace' &&
-        !pendingDeleteProject &&
-        !agentProject &&
-        pendingMode === undefined,
-      sidebarMenuOpen || (!sidebarExpanded && sidebarPeek) ? sidebarWidth : 0,
-      previewVisible ? rightPanelWidth : 0,
-    );
-  }, [
-    activeView,
-    sidebarExpanded,
-    sidebarWidth,
-    sidebarPeek,
-    sidebarMenuOpen,
-    pendingDeleteProject,
-    agentProject,
-    pendingMode,
-    rightPanelWidth,
-    previewVisible,
-  ]);
 
   useEffect(() => {
     window.sessionStorage.setItem(browserModeSessionKey, mode);
@@ -1197,11 +1143,6 @@ export function AnnotationWorkspace({
       }}
     />
   );
-  const shellStyle = {
-    '--annotation-panel-width': `${previewVisible ? annotationPanelWidth(rightPanelWidth, sidebarExpanded ? sidebarWidth : 0, viewportWidth) : 0}px`,
-    '--sidebar-peek-width': `${sidebarWidth}px`,
-    '--sidebar-width': `${sidebarExpanded ? sidebarWidth : 0}px`,
-  } as CSSProperties;
 
   if (activeView === 'new') {
     return (
@@ -1210,8 +1151,7 @@ export function AnnotationWorkspace({
         className={`shell ${sidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'} ${sidebarPeek && !sidebarExpanded ? 'sidebar-peeking' : ''}`}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
-            clearTimeout(peekTimer.current);
-            setSidebarPeek(false);
+            closeSidebarPeek();
           }
         }}
       >
@@ -1249,8 +1189,7 @@ export function AnnotationWorkspace({
       className={`shell ${sidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'} ${sidebarPeek && !sidebarExpanded ? 'sidebar-peeking' : ''}`}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
-          clearTimeout(peekTimer.current);
-          setSidebarPeek(false);
+          closeSidebarPeek();
         }
       }}
     >

@@ -1,3 +1,4 @@
+import { requireMembership, requireProjectAccess } from './authorization.js';
 import {
   commercialAnnotationInputSchema as annotationInputSchema,
   commercialAnnotationListQuerySchema as annotationListQuerySchema,
@@ -165,7 +166,7 @@ export class CommercialService implements OnApplicationBootstrap {
   }
 
   async annotations(userId: string, projectId: string, query: unknown = {}) {
-    await this.requireProject(userId, projectId);
+    await requireProjectAccess(this.database, userId, projectId);
     const parsedResult = annotationListQuerySchema.safeParse(query);
     if (!parsedResult.success)
       throw new BadRequestException(parsedResult.error.issues[0]?.message ?? 'Invalid query');
@@ -319,25 +320,9 @@ export class CommercialService implements OnApplicationBootstrap {
     });
   }
 
-  private async requireMembership(userId: string, projectId: string) {
-    const membership = await this.database.membership.findUnique({
-      where: { projectId_userId: { projectId, userId } },
-    });
-    if (!membership || membership.status !== 'ACTIVE')
-      throw new ForbiddenException('You do not have access to this project');
-    return membership;
-  }
-
-  private async requireProject(userId: string, projectId: string) {
-    const project = await this.database.project.findUnique({ where: { id: projectId } });
-    if (!project) throw new NotFoundException('Project not found');
-    await this.requireMembership(userId, project.id);
-    return project;
-  }
-
   private async requireProjectManager(userId: string, projectId: string) {
-    const project = await this.requireProject(userId, projectId);
-    const membership = await this.requireMembership(userId, project.id);
+    const project = await requireProjectAccess(this.database, userId, projectId);
+    const membership = await requireMembership(this.database, userId, project.id);
     if (!['OWNER', 'ADMIN'].includes(membership.role))
       throw new ForbiddenException('Only project managers can change annotations');
     return project;

@@ -16,7 +16,9 @@ import {
 } from '@nestjs/common';
 import { createReadStream } from 'node:fs';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { AppService } from './app.service.js';
+import { ReportService } from './report.service.js';
+import { ProjectService } from './project.service.js';
+import { SubmissionService } from './submission.service.js';
 import { AuthService } from './auth.service.js';
 import { AuthRateLimitService } from './auth-rate-limit.service.js';
 import { ClientPolicyService } from './client-policy.service.js';
@@ -54,7 +56,9 @@ const cookies = (header: string | undefined): Record<string, string> =>
 @Controller('v1')
 export class AppController {
   constructor(
-    @Inject(AppService) private readonly app: AppService,
+    @Inject(ReportService) private readonly reports: ReportService,
+    @Inject(ProjectService) private readonly projectService: ProjectService,
+    @Inject(SubmissionService) private readonly submissions: SubmissionService,
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(AuthRateLimitService) private readonly authRateLimit: AuthRateLimitService,
     @Inject(ClientPolicyService) private readonly clientPolicy: ClientPolicyService,
@@ -102,7 +106,7 @@ export class AppController {
 
   @Get('bootstrap')
   bootstrap(@CurrentUser() user: AuthenticatedUser) {
-    return this.app.bootstrap(user.id);
+    return this.projectService.bootstrap(user.id);
   }
 
   @Post('auth/register')
@@ -221,18 +225,18 @@ export class AppController {
 
   @Get('projects')
   projects(@CurrentUser() user: AuthenticatedUser) {
-    return this.app.listProjects(user.id);
+    return this.projectService.listProjects(user.id);
   }
 
   @Post('projects')
   async createProject(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
     await this.subscriptions.assertCanCreateProject(user.id);
-    return this.app.createProject(user.id, body);
+    return this.projectService.createProject(user.id, body);
   }
 
   @Get('projects/:projectId')
   project(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
-    return this.app.getProject(user.id, projectId);
+    return this.projectService.getProject(user.id, projectId);
   }
 
   @Patch('projects/:projectId')
@@ -241,17 +245,17 @@ export class AppController {
     @Param('projectId') projectId: string,
     @Body() body: unknown,
   ) {
-    return this.app.updateProject(user.id, projectId, body);
+    return this.projectService.updateProject(user.id, projectId, body);
   }
 
   @Delete('projects/:projectId')
   deleteProject(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
-    return this.app.deleteProject(user.id, projectId);
+    return this.projectService.deleteProject(user.id, projectId);
   }
 
   @Get('projects/:projectId/environments')
   environments(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
-    return this.app.listEnvironments(user.id, projectId);
+    return this.projectService.listEnvironments(user.id, projectId);
   }
 
   @Post('projects/:projectId/environments')
@@ -260,7 +264,7 @@ export class AppController {
     @Param('projectId') projectId: string,
     @Body() body: unknown,
   ) {
-    return this.app.createEnvironment(user.id, projectId, body);
+    return this.projectService.createEnvironment(user.id, projectId, body);
   }
 
   @Patch('environments/:environmentId')
@@ -269,17 +273,17 @@ export class AppController {
     @Param('environmentId') environmentId: string,
     @Body() body: unknown,
   ) {
-    return this.app.updateEnvironment(user.id, environmentId, body);
+    return this.projectService.updateEnvironment(user.id, environmentId, body);
   }
 
   @Get('projects/:projectId/members')
   members(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
-    return this.app.listMembers(user.id, projectId);
+    return this.projectService.listMembers(user.id, projectId);
   }
 
   @Get('projects/:projectId/invitations')
   invitations(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
-    return this.app.listInvitations(user.id, projectId);
+    return this.projectService.listInvitations(user.id, projectId);
   }
 
   @Post('projects/:projectId/invitations')
@@ -289,12 +293,12 @@ export class AppController {
     @Body() body: unknown,
   ) {
     await this.subscriptions.assertCanInviteMember(user.id, projectId);
-    return this.app.createInvitation(user.id, projectId, body);
+    return this.projectService.createInvitation(user.id, projectId, body);
   }
 
   @Post('invitations/:token/accept')
   acceptInvitation(@CurrentUser() user: AuthenticatedUser, @Param('token') token: string) {
-    return this.app.acceptInvitation(user.id, token);
+    return this.projectService.acceptInvitation(user.id, token);
   }
 
   @Post('projects/:projectId/report-submissions')
@@ -304,7 +308,7 @@ export class AppController {
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() body: unknown,
   ) {
-    return this.app.createSubmission(
+    return this.submissions.createSubmission(
       user.id,
       projectId,
       idempotencyKey ?? crypto.randomUUID(),
@@ -318,7 +322,7 @@ export class AppController {
     @Param('submissionId') submissionId: string,
     @Body() body: unknown,
   ) {
-    return this.app.presignArtifact(user.id, submissionId, body);
+    return this.submissions.presignArtifact(user.id, submissionId, body);
   }
 
   @Put('uploads/:artifactId')
@@ -327,12 +331,12 @@ export class AppController {
     @Param('artifactId') artifactId: string,
     @Body() body: unknown,
   ) {
-    return this.app.uploadArtifact(user.id, artifactId, body);
+    return this.submissions.uploadArtifact(user.id, artifactId, body);
   }
 
   @Post('report-submissions/:submissionId/finalize')
   finalize(@CurrentUser() user: AuthenticatedUser, @Param('submissionId') submissionId: string) {
-    return this.app.finalizeSubmission(user.id, submissionId);
+    return this.submissions.finalizeSubmission(user.id, submissionId);
   }
 
   @Get('projects/:projectId/reports')
@@ -349,12 +353,12 @@ export class AppController {
       limit?: string;
     },
   ) {
-    return this.app.listReports(user.id, projectId, query);
+    return this.reports.listReports(user.id, projectId, query);
   }
 
   @Get('reports/:reportId')
   getReport(@CurrentUser() user: AuthenticatedUser, @Param('reportId') reportId: string) {
-    return this.app.getReport(user.id, reportId);
+    return this.reports.getReport(user.id, reportId);
   }
 
   @Post('reports/:reportId/comments')
@@ -363,7 +367,7 @@ export class AppController {
     @Param('reportId') reportId: string,
     @Body() body: unknown,
   ) {
-    return this.app.addComment(user.id, reportId, body);
+    return this.reports.addComment(user.id, reportId, body);
   }
 
   @Post('reports/:reportId/transitions')
@@ -372,7 +376,7 @@ export class AppController {
     @Param('reportId') reportId: string,
     @Body() body: unknown,
   ) {
-    return this.app.transition(user.id, reportId, body);
+    return this.reports.transition(user.id, reportId, body);
   }
 
   @Patch('reports/:reportId')
@@ -381,7 +385,7 @@ export class AppController {
     @Param('reportId') reportId: string,
     @Body() body: unknown,
   ) {
-    return this.app.updateReport(user.id, reportId, body);
+    return this.reports.updateReport(user.id, reportId, body);
   }
 
   @Get('artifacts/:artifactId')
@@ -392,7 +396,7 @@ export class AppController {
     @Headers('if-none-match') ifNoneMatch: string | undefined,
     @Res() reply: FastifyReply,
   ) {
-    const artifact = await this.app.getArtifact(user.id, artifactId);
+    const artifact = await this.reports.getArtifact(user.id, artifactId);
     reply.header('Cache-Control', 'private, max-age=86400');
     reply.header('ETag', artifact.etag);
     if (ifNoneMatch === artifact.etag) return reply.status(304).send();

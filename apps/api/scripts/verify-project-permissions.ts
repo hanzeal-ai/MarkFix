@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { PrismaClient } from '@markfix/database';
 import type { DatabaseService } from '../src/database.service.js';
-import { AppService } from '../src/app.service.js';
+import { ProjectService } from '../src/project.service.js';
 import { CommercialService } from '../src/commercial.service.js';
 import { ProjectDataService } from '../src/project-data.service.js';
 const url = process.env.TEST_DATABASE_URL;
@@ -19,7 +19,7 @@ try {
   const member = await db.user.create({
     data: { email: `${crypto.randomUUID()}@test.local`, displayName: 'Member' },
   });
-  const app = new AppService(database);
+  const app = new ProjectService(database);
   const commercial = new CommercialService(database);
   const data = new ProjectDataService(database);
   const projectA = await app.createProject(owner.id, { name: 'Allowed' });

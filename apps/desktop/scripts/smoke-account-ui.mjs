@@ -227,6 +227,7 @@ app.on('browser-window-created', (_event, win) => {
       await run(
         `qa.fill(document.querySelector('input[type="email"]'),'fixture@example.test');qa.fill(document.querySelector('[data-slot="password-field"] input'),'fixture-password');`,
       );
+      await run(`localStorage.setItem('markfix:sidebar-width', '228')`);
       await run(`document.querySelector('form button[type="submit"]').click()`);
       await run(
         `qa.wait(()=>qa.button('点击创建').disabled && document.querySelector('.desktop-auth-local').disabled)`,
@@ -239,6 +240,14 @@ app.on('browser-window-created', (_event, win) => {
         'slow authentication disables mode and local-mode switches',
       );
       await run(`qa.wait(()=>document.querySelector('[aria-label="新标注"]'))`);
+      assert.equal(await run(`localStorage.getItem('markfix:sidebar-width')`), '228');
+      assert.equal(
+        await run(
+          `document.querySelector('.shell').style.getPropertyValue('--sidebar-peek-width')`,
+        ),
+        '228px',
+      );
+      console.log('PASS workspace restores the saved 228px sidebar width');
       console.log('PASS desktop login and account page links');
       if (process.env.MARKFIX_MENU_SMOKE) {
         await run(

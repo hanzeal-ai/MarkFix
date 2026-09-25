@@ -130,6 +130,24 @@ const server = createServer(async (req, res) => {
     );
     return;
   }
+  if (path === '/v1/projects') {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(
+      JSON.stringify([
+        {
+          ...project,
+          id: '11111111-1111-4111-8111-111111111111',
+          ownerId: '22222222-2222-4222-8222-222222222222',
+        },
+      ]),
+    );
+    return;
+  }
+  if (path === '/v1/agent/grants') {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify([]));
+    return;
+  }
   if (path === '/v1/me') {
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(user));
@@ -560,8 +578,19 @@ async function main() {
         await win.loadURL(origin + route);
         await waitFor(`!!document.querySelector('h1')`);
         await setTimeout(400);
-        if (route === '/account')
+        if (route === '/account') {
           await waitFor(`document.querySelector('h1')?.textContent === '测试成员'`);
+          await waitFor(
+            `document.body.textContent.includes('暂无设备授权。') && !document.body.textContent.includes('正在读取授权信息')`,
+          );
+          assert.equal(
+            await run(`document.querySelectorAll('[role="alert"]').length`),
+            0,
+            await run(
+              `Array.from(document.querySelectorAll('[role="alert"]')).map(node => node.textContent).join('\\n')`,
+            ),
+          );
+        }
         const name = route === '/' ? 'home' : route.slice(1);
         writeFileSync(join(output, name + '.png'), (await win.webContents.capturePage()).toPNG());
         if (route === '/') {

@@ -1,3 +1,4 @@
+import { CloudProjectSession } from './cloud-project-session.js';
 import { registerAnnotationEditorIpc } from './ipc/register-annotation-editor-ipc';
 import electronUpdater from 'electron-updater';
 import { WindowsDesktopUpdater } from './windows-desktop-updater';
@@ -33,11 +34,10 @@ import {
   websiteProjectSchema,
   type Anchor,
   type BrowserMode,
-  type CloudProjectState,
   type ProjectStorageMode,
   type WebsiteProject,
 } from '@markfix/contracts';
-import { MarkFixApi, MarkFixApiError } from '@markfix/api-client';
+import { MarkFixApi } from '@markfix/api-client';
 import { anchorsEqual } from './anchor-state.js';
 import { CdpInspector } from './cdp-inspector.js';
 import { CaptureService } from './capture-service.js';
@@ -123,9 +123,12 @@ let currentPageTitle = '';
 let currentPageFaviconUrl: string | null = null;
 const overlayVisibilityWaiters = new Map<string, () => void>();
 const websiteProjectsById = new Map<string, WebsiteProject>();
-const cloudProjectStates = new Map<string, CloudProjectState>();
-const cloudStateSaveQueues = new Map<string, Promise<void>>();
-let cloudSessionGeneration = 0;
+const cloudProjectStates = new CloudProjectSession(
+  api,
+  (project) => websiteProjectsById.set(project.id, project),
+  (projectId, message) =>
+    sendShell(ipcChannels.syncStatus, { status: 'pending', projectId, message }),
+);
 
 const enforceWebsiteNavigationPolicy = (
   event: { preventDefault(): void },
@@ -406,50 +409,6 @@ const resolveWebsiteMetadata = async (
   };
 };
 
-const queueCloudStateSave = (projectId: string): void => {
-  const generation = cloudSessionGeneration;
-  const previous = cloudStateSaveQueues.get(projectId) ?? Promise.resolve();
-  const next = previous
-    .catch(() => undefined)
-    .then(async () => {
-      if (generation !== cloudSessionGeneration) return;
-      const snapshot = cloudProjectStates.get(projectId);
-      if (!snapshot) return;
-      let saved: CloudProjectState;
-      try {
-        saved = await api.saveCloudProjectState(snapshot);
-      } catch (error) {
-        if (!(error instanceof MarkFixApiError) || error.status !== 409) throw error;
-        const remote = await api.getCloudProjectState(projectId);
-        if (!remote) throw error;
-        if (generation !== cloudSessionGeneration) return;
-        const desired = cloudProjectStates.get(projectId) ?? snapshot;
-        if (remote.project.updatedAt > desired.project.updatedAt) {
-          cloudProjectStates.set(projectId, remote);
-          websiteProjectsById.set(projectId, remote.project);
-          return;
-        }
-        saved = await api.saveCloudProjectState({ ...desired, revision: remote.revision });
-      }
-      if (generation !== cloudSessionGeneration) return;
-      const desired = cloudProjectStates.get(projectId);
-      if (!desired || desired === snapshot) {
-        cloudProjectStates.set(projectId, saved);
-        websiteProjectsById.set(projectId, saved.project);
-      } else {
-        cloudProjectStates.set(projectId, { ...desired, revision: saved.revision });
-      }
-    })
-    .catch((error: unknown) => {
-      sendShell(ipcChannels.syncStatus, {
-        status: 'pending',
-        projectId,
-        message: error instanceof Error ? error.message : '云端项目状态保存失败',
-      });
-    });
-  cloudStateSaveQueues.set(projectId, next);
-};
-
 const recordProjectPage = (
   projectId: string,
   pageUrl: string,
@@ -490,7 +449,7 @@ const recordProjectPage = (
     navigation: { entries, currentIndex },
   });
   websiteProjectsById.set(projectId, updatedProject);
-  queueCloudStateSave(projectId);
+  void cloudProjectStates.save(projectId);
   return updatedProject;
 };
 
@@ -518,7 +477,7 @@ const stepProjectHistory = (
     navigation: { ...state.navigation, currentIndex },
   });
   websiteProjectsById.set(projectId, updatedProject);
-  queueCloudStateSave(projectId);
+  void cloudProjectStates.save(projectId);
   return entry;
 };
 
@@ -533,9 +492,11 @@ const ensureWebsiteProjects = async (
     if (project.storageMode === 'CLOUD') websiteProjectsById.delete(id);
   }
   cloudProjectStates.clear();
+  const generation = cloudProjectStates.revision;
   const projects = availableProjects ?? (await api.listProjects());
   const cloudProjects: WebsiteProject[] = [];
   for (const project of projects) {
+    if (generation !== cloudProjectStates.revision) return [];
     if (!project.baseUrl) continue;
     let entryUrl: string;
     try {
@@ -547,6 +508,7 @@ const ensureWebsiteProjects = async (
     const origin = new URL(entryUrl).origin;
     const now = new Date().toISOString();
     const remoteState = await api.getCloudProjectState(project.id);
+    if (generation !== cloudProjectStates.revision) return [];
     const initialProject = websiteProjectSchema.parse({
       id: project.id,
       storageMode: 'CLOUD',
@@ -577,6 +539,7 @@ const ensureWebsiteProjects = async (
         },
         revision: 0,
       }));
+    if (generation !== cloudProjectStates.revision) return [];
     cloudProjectStates.set(project.id, state);
     websiteProjectsById.set(project.id, state.project);
     cloudProjects.push(state.project);
@@ -779,7 +742,7 @@ const createWindow = async (): Promise<void> => {
           const state = cloudProjectStates.get(navigationProjectId);
           if (state) {
             cloudProjectStates.set(navigationProjectId, { ...state, project: updated });
-            queueCloudStateSave(navigationProjectId);
+            void cloudProjectStates.save(navigationProjectId);
           }
         }
       }
@@ -937,11 +900,9 @@ const registerIpc = (): void => {
     localMode = true;
     authenticatedUser = undefined;
     api.setTokens();
-    cloudSessionGeneration++;
     for (const [id, project] of websiteProjectsById)
       if (project.storageMode === 'CLOUD') websiteProjectsById.delete(id);
     cloudProjectStates.clear();
-    cloudStateSaveQueues.clear();
     layoutWebsite();
   });
   ipcMain.handle(ipcChannels.authStatus, async (event) => {
@@ -1027,12 +988,10 @@ const registerIpc = (): void => {
       // A remote logout failure must not retain local credentials.
     } finally {
       authenticatedUser = undefined;
-      cloudSessionGeneration += 1;
       for (const [id, project] of websiteProjectsById) {
         if (project.storageMode === 'CLOUD') websiteProjectsById.delete(id);
       }
       cloudProjectStates.clear();
-      cloudStateSaveQueues.clear();
       api.setTokens();
       websiteView?.setVisible(false);
       childWindows.closeSettings();
@@ -1134,7 +1093,12 @@ const registerIpc = (): void => {
     }
 
     activeWebsiteProjectId = undefined;
+    const generation = cloudProjectStates.revision;
+    const assertCurrentSession = () => {
+      if (generation !== cloudProjectStates.revision) throw new Error('会话已改变，请重新创建项目');
+    };
     const metadata = await resolveWebsiteMetadata(normalized);
+    assertCurrentSession();
     const now = new Date().toISOString();
     const remoteProject =
       storageMode === 'CLOUD'
@@ -1143,6 +1107,7 @@ const registerIpc = (): void => {
             baseUrl: origin,
           })
         : undefined;
+    assertCurrentSession();
     const websiteProject = websiteProjectSchema.parse({
       id: remoteProject?.id ?? randomUUID(),
       storageMode,
@@ -1177,6 +1142,7 @@ const registerIpc = (): void => {
         },
         revision: 0,
       });
+      assertCurrentSession();
       cloudProjectStates.set(websiteProject.id, state);
       current = state.project;
     }

@@ -58,7 +58,6 @@ export {
 } from './components/markfix-logo.js';
 export { NativeSelect } from './components/native-select.js';
 export { PasswordInput } from './components/password-input.js';
-export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from './components/popover.js';
 export {
   Select,
   SelectContent,

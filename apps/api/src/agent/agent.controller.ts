@@ -17,7 +17,7 @@ import {
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createReadStream } from 'node:fs';
-import { AppService } from '../app.service.js';
+import { ReportService } from '../report.service.js';
 import { AuthRateLimitService } from '../auth-rate-limit.service.js';
 import { CurrentUser, type AuthenticatedUser } from '../current-user.decorator.js';
 import { Public } from '../public.decorator.js';
@@ -31,7 +31,7 @@ export class AgentController {
     @Inject(AgentProjectService) private readonly projects: AgentProjectService,
     @Inject(AgentFixService) private readonly fixes: AgentFixService,
     @Inject(AuthRateLimitService) private readonly limits: AuthRateLimitService,
-    @Inject(AppService) private readonly app: AppService,
+    @Inject(ReportService) private readonly app: ReportService,
   ) {}
   @Public()
   @Post('device')

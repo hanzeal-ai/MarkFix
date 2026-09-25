@@ -7,7 +7,7 @@ import type { DatabaseService } from '../src/database.service.js';
 import type { AgentProjectService } from '../src/agent/agent-project.service.js';
 import type { AgentFixService } from '../src/agent/agent-fix.service.js';
 import type { AuthRateLimitService } from '../src/auth-rate-limit.service.js';
-import type { AppService } from '../src/app.service.js';
+import type { ReportService } from '../src/report.service.js';
 import type { AuthenticatedUser } from '../src/current-user.decorator.js';
 
 afterEach(() => vi.unstubAllEnvs());
@@ -33,7 +33,7 @@ it('uses one configured origin for authorization links and rejects decisions fro
     {} as AgentProjectService,
     {} as AgentFixService,
     { consume: vi.fn() } as unknown as AuthRateLimitService,
-    {} as AppService,
+    {} as ReportService,
   );
   const user = { id: 'user' } as AuthenticatedUser;
   for (const invalid of [

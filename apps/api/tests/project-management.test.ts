@@ -1,5 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AppService } from '../src/app.service.js';
+import { ReportService } from '../src/report.service.js';
+import { ProjectService } from '../src/project.service.js';
+import { SubmissionService } from '../src/submission.service.js';
+
+it.each([null, { role: 'REPORTER', status: 'SUSPENDED' }])(
+  'rejects finalization after membership revocation, including completed submissions',
+  async (membership) => {
+    const report = { id: 'completed-report' };
+    const transaction = {
+      membership: { findUnique: vi.fn().mockResolvedValue(membership) },
+      reportSubmission: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValue({ createdById: 'user-1', projectId: 'project-1', report }),
+      },
+    };
+    const service = new SubmissionService({
+      $transaction: vi.fn((callback) => callback(transaction)),
+    } as never);
+    await expect(service.finalizeSubmission('user-1', 'submission-1')).rejects.toThrow('access');
+  },
+);
 
 describe('project membership and management', () => {
   it('lists only active memberships and exposes the current user role', async () => {
@@ -11,7 +32,7 @@ describe('project membership and management', () => {
       updatedAt: new Date(),
     };
     const findMany = vi.fn().mockResolvedValue([project]);
-    const service = new AppService({ project: { findMany } } as never);
+    const service = new ProjectService({ project: { findMany } } as never);
 
     const result = await service.listProjects('user-1');
 
@@ -33,7 +54,7 @@ describe('project membership and management', () => {
 
   it('allows owners to create normalized projects', async () => {
     const create = vi.fn().mockResolvedValue({ id: 'project-1' });
-    const service = new AppService({
+    const service = new ProjectService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
       },
@@ -57,7 +78,7 @@ describe('project membership and management', () => {
 
   it('allows owners to permanently delete a project', async () => {
     const remove = vi.fn().mockResolvedValue({ id: 'project-1' });
-    const service = new AppService({
+    const service = new ProjectService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
       },
@@ -76,7 +97,7 @@ describe('project membership and management', () => {
 
   it('rejects project updates by regular members', async () => {
     const update = vi.fn();
-    const service = new AppService({
+    const service = new ProjectService({
       membership: { findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }) },
       project: { findUnique: vi.fn().mockResolvedValue({ id: 'project-1' }), update },
     } as never);
@@ -88,7 +109,7 @@ describe('project membership and management', () => {
 
   it('allows members to list project environments', async () => {
     const findMany = vi.fn().mockResolvedValue([{ id: 'environment-1' }]);
-    const service = new AppService({
+    const service = new ProjectService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
       },
@@ -109,7 +130,7 @@ describe('project membership and management', () => {
 
   it('allows owners to create normalized web environments', async () => {
     const create = vi.fn().mockResolvedValue({ id: 'environment-1' });
-    const service = new AppService({
+    const service = new ProjectService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'OWNER', status: 'ACTIVE' }),
       },
@@ -135,7 +156,7 @@ describe('project membership and management', () => {
 
   it('rejects environment updates by regular members', async () => {
     const update = vi.fn();
-    const service = new AppService({
+    const service = new ProjectService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'MEMBER', status: 'ACTIVE' }),
       },
@@ -158,7 +179,7 @@ describe('project membership and management', () => {
     const projectId = crypto.randomUUID();
     const environmentId = crypto.randomUUID();
     const create = vi.fn().mockResolvedValue({ id: 'submission-1' });
-    const service = new AppService({
+    const service = new SubmissionService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
       },
@@ -212,7 +233,7 @@ describe('project membership and management', () => {
     const routeProjectId = crypto.randomUUID();
     const payloadProjectId = crypto.randomUUID();
     const create = vi.fn();
-    const service = new AppService({
+    const service = new SubmissionService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
       },
@@ -261,7 +282,7 @@ describe('project membership and management', () => {
     const projectId = crypto.randomUUID();
     const environmentId = crypto.randomUUID();
     const create = vi.fn();
-    const service = new AppService({
+    const service = new SubmissionService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
       },
@@ -346,6 +367,7 @@ describe('project membership and management', () => {
     const reportCreate = vi.fn().mockResolvedValue({ id: 'report-1' });
     const submissionUpdate = vi.fn().mockResolvedValue({ id: submissionId });
     const transaction = {
+      membership: { findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }) },
       reportSubmission: {
         findUnique: vi.fn().mockResolvedValue({
           ...accessSubmission,
@@ -357,7 +379,7 @@ describe('project membership and management', () => {
       },
       report: { create: reportCreate },
     };
-    const service = new AppService({
+    const service = new SubmissionService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
       },
@@ -393,6 +415,7 @@ describe('project membership and management', () => {
     const reportUpdate = vi.fn().mockResolvedValue(updatedReport);
     const reportCreate = vi.fn();
     const transaction = {
+      membership: { findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }) },
       reportSubmission: {
         findUnique: vi.fn().mockResolvedValue({
           id: submissionId,
@@ -431,7 +454,7 @@ describe('project membership and management', () => {
         update: reportUpdate,
       },
     };
-    const service = new AppService({
+    const service = new SubmissionService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
       },
@@ -482,6 +505,7 @@ describe('project membership and management', () => {
     const reportUpdate = vi.fn();
     const submissionUpdate = vi.fn();
     const transaction = {
+      membership: { findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }) },
       reportSubmission: {
         findUnique: vi.fn().mockResolvedValue({
           id: submissionId,
@@ -520,7 +544,7 @@ describe('project membership and management', () => {
         update: reportUpdate,
       },
     };
-    const service = new AppService({
+    const service = new SubmissionService({
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),
       },
@@ -544,7 +568,7 @@ describe('project membership and management', () => {
 
   it('rejects the removed JSON image envelope instead of keeping a second upload protocol', async () => {
     const findUnique = vi.fn();
-    const service = new AppService({ artifact: { findUnique } } as never);
+    const service = new SubmissionService({ artifact: { findUnique } } as never);
 
     await expect(
       service.uploadArtifact('user-1', 'artifact-1', {
@@ -556,7 +580,7 @@ describe('project membership and management', () => {
 
   it('filters report overlays by the active page at the database boundary', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    const service = new AppService({
+    const service = new ReportService({
       project: { findUnique: vi.fn().mockResolvedValue({ id: 'project-1' }) },
       membership: {
         findUnique: vi.fn().mockResolvedValue({ role: 'REPORTER', status: 'ACTIVE' }),

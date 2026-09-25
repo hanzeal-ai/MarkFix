@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { PrismaClient } from '@markfix/database';
+import { PrismaClient, type Prisma } from '@markfix/database';
 
 @Injectable()
 export class DatabaseService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
@@ -11,3 +11,11 @@ export class DatabaseService extends PrismaClient implements OnModuleInit, OnMod
     await this.$disconnect();
   }
 }
+
+export const publicUserSelect = {
+  id: true,
+  email: true,
+  displayName: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.UserSelect;
