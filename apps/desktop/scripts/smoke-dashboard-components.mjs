@@ -56,6 +56,8 @@ let downloadState = 'ready';
 let repositoryBinding = { repositoryId: null, repositoryName: null };
 let annotationFailure = false;
 let bootstrapDelay = 0;
+let readGrantActive = false;
+let readGrantVersion = 0;
 const server = createServer(async (req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin ?? '*');
@@ -64,6 +66,23 @@ const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
     res.end();
+    return;
+  }
+  if (path === '/v1/projects/project/read-authorization') {
+    res.setHeader('Content-Type', 'application/json');
+    if (req.method === 'POST') {
+      readGrantActive = true;
+      readGrantVersion++;
+    } else if (req.method === 'DELETE') readGrantActive = false;
+    res.end(
+      JSON.stringify({
+        active: readGrantActive,
+        expiresAt: readGrantActive ? '2099-01-01T00:00:00.000Z' : null,
+        ...(req.method === 'POST'
+          ? { authorizationUrl: `https://example.test/feed#token=fixture-${readGrantVersion}` }
+          : {}),
+      }),
+    );
     return;
   }
   if (path.endsWith('/binding')) {
@@ -612,6 +631,29 @@ async function main() {
       await waitFor(`!document.querySelector('.project-settings-dialog')`);
       await run(`document.querySelector('.project-card-open').click()`);
       await waitFor(`!!document.querySelector('.annotation-row')`);
+      await run(`document.querySelector('.annotation-read-authorization summary').click()`);
+      const grantButton = (label) =>
+        `[...document.querySelectorAll('.annotation-read-authorization button')].find(button=>button.textContent===${JSON.stringify(label)})`;
+      await waitFor(`Boolean(${grantButton('生成授权地址')})`);
+      await run(`${grantButton('生成授权地址')}.click()`);
+      await waitFor(
+        `document.querySelector('[aria-label="授权地址"]')?.value.endsWith('fixture-1')`,
+      );
+      await run(`${grantButton('重新生成授权地址')}.click()`);
+      await waitFor(
+        `document.querySelector('[aria-label="授权地址"]')?.value.endsWith('fixture-2')`,
+      );
+      writeFileSync(
+        join(output, 'read-authorization.png'),
+        (await win.webContents.capturePage()).toPNG(),
+      );
+      await run(`${grantButton('撤销授权')}.click()`);
+      await waitFor(
+        `!document.querySelector('[aria-label="授权地址"]') && Boolean(${grantButton('生成授权地址')})`,
+      );
+      assert.equal(readGrantActive, false);
+      assert.equal(readGrantVersion, 2);
+      await run(`document.querySelector('.annotation-read-authorization summary').click()`);
       await setTimeout(300);
       writeFileSync(
         join(output, 'project-details.png'),

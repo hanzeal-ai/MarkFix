@@ -222,7 +222,7 @@ app.on('browser-window-created', (_event, win) => {
       };
       assert.equal(
         await run(`document.querySelectorAll('.annotation-mode-control button').length`),
-        3,
+        4,
       );
       if (!marketing) {
         const view = win.contentView.children.find((item) => item.webContents === target);

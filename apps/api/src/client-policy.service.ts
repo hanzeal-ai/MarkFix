@@ -70,8 +70,6 @@ export class ClientPolicyService {
     return {
       version: policy.recommendedVersion,
       files: [{ url: url.href, sha512, size }],
-      path: url.href,
-      sha512,
     };
   }
 
