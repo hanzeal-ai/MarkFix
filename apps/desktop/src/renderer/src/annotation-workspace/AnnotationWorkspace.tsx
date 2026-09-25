@@ -1073,6 +1073,7 @@ export function AnnotationWorkspace({
       beforeUpdate={async () => {
         if (
           isSubmitting ||
+          inlineSubmitting.current ||
           creatingProject ||
           deletingProject ||
           captureLoading ||

@@ -80,7 +80,10 @@ contextBridge.exposeInMainWorld('markfix', {
   annotationSaveFeedback: (code: AnnotationSaveFeedback) =>
     ipcRenderer.invoke(annotationSaveFeedbackChannel, code),
   platform: process.platform,
-  manualUpdates: process.platform === 'win32' || import.meta.env.PRELOAD_VITE_MANUAL_UPDATES,
+  manualUpdates:
+    process.platform !== 'win32' && Boolean(import.meta.env.PRELOAD_VITE_MANUAL_UPDATES),
+  prepareUpdate: (preparing: boolean) =>
+    ipcRenderer.invoke(desktopUpdateChannels.prepare, preparing),
   openOfficialWebsite: () => ipcRenderer.invoke('website:open-official'),
   startUpdate: () => ipcRenderer.invoke(desktopUpdateChannels.start),
   updateStatus: () => ipcRenderer.invoke(desktopUpdateChannels.status),

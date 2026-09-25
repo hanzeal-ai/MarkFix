@@ -95,6 +95,14 @@ it('serves the public native protocol with JSON, no-cache, and an empty 204', as
       downloadUrl: 'https://example.com/windows.exe',
       recommendedVersion: '0.3.0',
     });
+    windowsSetup();
+    const windowsFeed = await app.inject({
+      method: 'GET',
+      url: '/v1/desktop-updates/windows/x64/latest.yml',
+    });
+    expect(windowsFeed.statusCode).toBe(200);
+    expect(windowsFeed.headers['cache-control']).toBe('no-store');
+    expect(JSON.parse(windowsFeed.body)).toMatchObject({ version: '0.3.0' });
     const update = await inject('0.1.0');
     expect(update.statusCode).toBe(200);
     expect(update.json()).toEqual({ url: 'https://example.com/0.2.0-arm64.zip', name: '0.2.0' });
@@ -108,4 +116,48 @@ it('serves the public native protocol with JSON, no-cache, and an empty 204', as
   } finally {
     await app.close();
   }
+});
+
+function windowsSetup() {
+  vi.stubEnv('MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION', '0.3.0');
+  vi.stubEnv(
+    'MARKFIX_DESKTOP_WINDOWS_X64_DOWNLOAD_URL',
+    'https://example.com/MarkFix-0.3.0-windows-x64-setup.exe',
+  );
+  vi.stubEnv('MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SHA512', Buffer.alloc(64, 1).toString('base64'));
+  vi.stubEnv('MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SIZE', '1234');
+  return new ClientPolicyService();
+}
+it('uses the Windows policy and verified package metadata for the NSIS feed', () => {
+  const service = windowsSetup();
+  expect(service.getWindowsUpdate()).toMatchObject({
+    version: '0.3.0',
+    files: [
+      {
+        url: 'https://example.com/MarkFix-0.3.0-windows-x64-setup.exe',
+        size: 1234,
+        sha512: Buffer.alloc(64, 1).toString('base64'),
+      },
+    ],
+  });
+  vi.stubEnv('MARKFIX_WINDOWS_RECOMMENDED_DESKTOP_VERSION', '0.4.0');
+  expect(() => service.getWindowsUpdate()).toThrow('does not match');
+});
+it.each([
+  ['MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SHA512', ''],
+  ['MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SHA512', 'invalid'],
+  ['MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SIZE', '0'],
+  ['MARKFIX_DESKTOP_WINDOWS_X64_UPDATE_SIZE', 'NaN'],
+  [
+    'MARKFIX_DESKTOP_WINDOWS_X64_DOWNLOAD_URL',
+    'http://example.com/MarkFix-0.3.0-windows-x64-setup.exe',
+  ],
+  [
+    'MARKFIX_DESKTOP_WINDOWS_X64_DOWNLOAD_URL',
+    'https://user:password@example.com/MarkFix-0.3.0-windows-x64-setup.exe',
+  ],
+])('rejects unsafe or incomplete update metadata %s', (name, value) => {
+  const service = windowsSetup();
+  vi.stubEnv(name, value);
+  expect(() => service.getWindowsUpdate()).toThrow();
 });

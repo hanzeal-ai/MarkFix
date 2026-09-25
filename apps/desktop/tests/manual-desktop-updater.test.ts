@@ -11,7 +11,7 @@ const policy: ClientPolicy = {
   downloadUrl: 'https://example.test/setup.exe',
 };
 
-describe('Windows manual update', () => {
+describe('macOS trial manual update', () => {
   it('opens the download page once and reports manual installation without restarting', async () => {
     const open = vi.fn(async () => {});
     const updater = new ManualDesktopUpdater(async () => policy, open, vi.fn());
