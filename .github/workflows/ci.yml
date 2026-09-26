@@ -81,6 +81,9 @@ jobs:
           retention-days: 2
 
   deploy:
+    concurrency:
+      group: markfix-production-deploy
+      cancel-in-progress: false
     needs: publish
     if: vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
