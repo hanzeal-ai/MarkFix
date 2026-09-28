@@ -22,6 +22,7 @@ jobs:
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markfix/database db:generate
+      - run: python3 infra/aliyun/test_artifact_cleanup.py
       - run: python3 infra/aliyun/test_receiver.py
       - run: python3 infra/aliyun/test_deploy.py
       - run: python3 infra/aliyun/test_publish_desktop.py
@@ -34,6 +35,8 @@ jobs:
 
   publish:
     needs: verify
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: 'false'
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -104,3 +107,24 @@ jobs:
           DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: bash infra/aliyun/send.sh site "$GITHUB_SHA" "$RUNNER_TEMP/markfix-release/markfix-release.zip"
+
+  cleanup-artifacts:
+    needs: deploy
+    if: needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      actions: write
+    steps:
+      - name: Delete consumed transfer artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.name == ("markfix-release-" + env.GITHUB_SHA)) | .id')
+          while IFS= read -r artifact_id; do
+            [[ -n "$artifact_id" ]] || continue
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id"
+          done <<< "$artifact_ids"

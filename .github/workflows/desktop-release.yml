@@ -72,7 +72,7 @@ jobs:
             apps/desktop/release/download-manifest.json
             apps/desktop/release/SHA256SUMS.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 2
 
   macos:
     if: >-
@@ -141,7 +141,7 @@ jobs:
             apps/desktop/release/download-manifest.json
             apps/desktop/release/SHA256SUMS.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 2
 
   publish-downloads:
     concurrency:
@@ -183,3 +183,26 @@ jobs:
               bash infra/aliyun/send.sh "$platform" "$SOURCE_SHA" "$RUNNER_TEMP/$platform.zip"
             fi
           done
+
+  cleanup-artifacts:
+    needs: [windows, macos, publish-downloads]
+    if: needs.windows.result == 'success' && needs.macos.result == 'success' && needs.publish-downloads.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      actions: write
+    steps:
+      - name: Delete consumed transfer artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WINDOWS_RESULT: ${{ needs.windows.result }}
+          MACOS_RESULT: ${{ needs.macos.result }}
+        run: |
+          set -euo pipefail
+          artifact_ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+            --jq '.artifacts[] | select((.name == "desktop-windows" and env.WINDOWS_RESULT == "success") or (.name == "desktop-macos" and env.MACOS_RESULT == "success")) | .id')
+          while IFS= read -r artifact_id; do
+            [[ -n "$artifact_id" ]] || continue
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id"
+          done <<< "$artifact_ids"
