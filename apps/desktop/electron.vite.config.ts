@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
   main: {
     define: {
       'import.meta.env.MAIN_VITE_MANUAL_UPDATES': JSON.stringify(
-        process.env.MARKFIX_DESKTOP_UPDATE_MODE === 'manual',
+        process.env.MARKFIX_DESKTOP_UPDATE_MODE !== 'automatic',
       ),
       'import.meta.env.MAIN_VITE_SERVICE_URLS': JSON.stringify(
         serviceUrls(mode, loadEnv(mode, process.cwd(), 'MARKFIX_').MARKFIX_SERVICE_ORIGIN),
@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => ({
   preload: {
     define: {
       'import.meta.env.PRELOAD_VITE_MANUAL_UPDATES': JSON.stringify(
-        process.env.MARKFIX_DESKTOP_UPDATE_MODE === 'manual',
+        process.env.MARKFIX_DESKTOP_UPDATE_MODE !== 'automatic',
       ),
     },
     plugins: [

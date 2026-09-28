@@ -1,10 +1,11 @@
 import { primaryAriaKey, altKey } from '../platform';
-import type { RefObject } from 'react';
+import { useState, useEffect, useRef, type RefObject } from 'react';
 import type { BrowserMode } from '@markfix/contracts';
 import {
   ArrowLeft,
   ArrowRight,
   Camera,
+  ChevronDown,
   LoaderCircle,
   MessageSquareText,
   Eye,
@@ -12,7 +13,7 @@ import {
   RotateCw,
   Send,
 } from '@markfix/ui/icons';
-import { Button, Input, ToggleGroup, ToggleGroupItem } from '@markfix/ui';
+import { Button, Input } from '@markfix/ui';
 import type { BrowserState } from './model';
 
 type BrowserToolbarProps = {
@@ -20,6 +21,7 @@ type BrowserToolbarProps = {
   browserState: BrowserState;
   previewOpen: boolean;
   onTogglePreview: () => void;
+  onMenuOpenChange: (open: boolean) => void;
   isSubmitting: boolean;
   mode: BrowserMode;
   unsubmittedCount: number;
@@ -35,6 +37,7 @@ export function BrowserToolbar({
   browserState,
   previewOpen,
   onTogglePreview,
+  onMenuOpenChange,
   isSubmitting,
   mode,
   unsubmittedCount,
@@ -49,6 +52,46 @@ export function BrowserToolbar({
     : mode === 'comment' || mode === 'capture'
       ? mode
       : 'browse';
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    onMenuOpenChange(menuOpen);
+    return () => onMenuOpenChange(false);
+  }, [menuOpen, onMenuOpenChange]);
+  const modes = [
+    {
+      value: 'browse',
+      label: '浏览',
+      Icon: MousePointer2,
+      shortcut: `${altKey}V`,
+      ariaShortcut: 'Alt+V',
+    },
+    {
+      value: 'comment',
+      label: '批注',
+      Icon: MessageSquareText,
+      shortcut: `${altKey}W`,
+      ariaShortcut: 'Alt+W',
+    },
+    {
+      value: 'capture',
+      label: '截图',
+      Icon: Camera,
+      shortcut: `${altKey}A`,
+      ariaShortcut: 'Alt+A',
+    },
+    { value: 'preview', label: '预览', Icon: Eye, shortcut: `${altKey}B`, ariaShortcut: 'Alt+B' },
+  ] as const;
+  const current = modes.find(({ value }) => value === selectedMode) ?? modes[0];
+  const selectMode = (value: typeof selectedMode) => {
+    setMenuOpen(false);
+    triggerRef.current?.focus();
+    if (value === selectedMode) return;
+    if (value === 'preview') onTogglePreview();
+    else if (value === 'comment' || value === 'capture') onToggleMode(value);
+    else if (previewOpen) onTogglePreview();
+    else if (mode === 'comment' || mode === 'capture') onToggleMode(mode);
+  };
   return (
     <>
       <div className="nav-buttons">
@@ -107,42 +150,68 @@ export function BrowserToolbar({
       <div className="tools">
         <div
           className="annotation-mode-switcher"
-          data-mode={selectedMode || 'browse'}
-          tabIndex={0}
-          aria-label="切换浏览、批注、截图或预览模式"
+          data-mode={selectedMode}
+          onMouseEnter={() => setMenuOpen(true)}
+          onMouseLeave={() => setMenuOpen(false)}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              setMenuOpen(false);
+              triggerRef.current?.focus();
+            }
+          }}
         >
-          <ToggleGroup
-            className="annotation-mode-control"
-            type="single"
-            value={selectedMode}
-            aria-label="标注工具"
-            onValueChange={(value) => {
-              if (value === 'preview' || (!value && previewOpen)) onTogglePreview();
-              else if (value === 'comment' || value === 'capture') onToggleMode(value);
-              else if (value === 'browse' && previewOpen) onTogglePreview();
-              else if (mode === 'comment' || mode === 'capture') onToggleMode(mode);
+          <Button
+            ref={triggerRef}
+            className="annotation-mode-trigger"
+            aria-keyshortcuts={current.ariaShortcut}
+            aria-label={`切换模式：${current.label}`}
+            aria-expanded={menuOpen}
+            aria-controls="annotation-mode-options"
+            onClick={() => setMenuOpen(!menuOpen)}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                setMenuOpen(true);
+                requestAnimationFrame(() =>
+                  document
+                    .querySelector<HTMLButtonElement>('#annotation-mode-options button')
+                    ?.focus(),
+                );
+              }
             }}
           >
-            <ToggleGroupItem value="browse" aria-label="浏览网页">
-              <MousePointer2 /> 浏览
-            </ToggleGroupItem>
-            <ToggleGroupItem value="comment" aria-keyshortcuts="Alt+W" title={`批注（${altKey}W）`}>
-              <MessageSquareText /> 批注
-            </ToggleGroupItem>
-            <ToggleGroupItem value="capture" aria-keyshortcuts="Alt+A" title={`截图（${altKey}A）`}>
-              <Camera /> 截图
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="preview"
-              className="preview-toggle-button"
-              aria-label="预览"
-              aria-pressed={previewOpen}
-              aria-keyshortcuts="Alt+B"
-              title={`预览（${altKey}B）`}
+            <current.Icon /> <span>{current.label}</span>
+            <kbd>{current.shortcut}</kbd>
+            <ChevronDown />
+          </Button>
+          {menuOpen && (
+            <div
+              id="annotation-mode-options"
+              className="annotation-mode-control"
+              role="group"
+              aria-label="标注工具"
             >
-              <Eye /> 预览
-            </ToggleGroupItem>
-          </ToggleGroup>
+              {modes.map(({ value, label, Icon, shortcut, ariaShortcut }) => (
+                <Button
+                  key={value}
+                  className={value === 'preview' ? 'preview-toggle-button' : undefined}
+                  aria-label={label}
+                  aria-keyshortcuts={ariaShortcut}
+                  aria-pressed={selectedMode === value}
+                  data-state={selectedMode === value ? 'on' : 'off'}
+                  onClick={() => selectMode(value)}
+                >
+                  <Icon />
+                  <span>{label}</span>
+                  <kbd>{shortcut}</kbd>
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
         <Button
           className="save-annotations-button"
@@ -152,7 +221,11 @@ export function BrowserToolbar({
           onClick={onOpenReview}
         >
           {isSubmitting ? <LoaderCircle className="spin" /> : <Send />}
-          <span>{isSubmitting ? '提交中…' : `提交标注 · ${unsubmittedCount}`}</span>
+          {unsubmittedCount > 0 && (
+            <span className="submission-count-badge" aria-hidden="true">
+              {unsubmittedCount}
+            </span>
+          )}
         </Button>
       </div>
     </>

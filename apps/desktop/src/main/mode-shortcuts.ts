@@ -1,7 +1,13 @@
 import { hasPrimaryModifier, type ShortcutInput } from './shortcut-input.js';
 
 export type DesktopShortcut =
-  'capture' | 'comment' | 'preview' | 'diagnostics' | 'toggle-sidebar' | 'new-annotation';
+  | 'browse'
+  | 'capture'
+  | 'comment'
+  | 'preview'
+  | 'diagnostics'
+  | 'toggle-sidebar'
+  | 'new-annotation';
 
 export const modeForShortcut = (
   input: ShortcutInput,
@@ -35,6 +41,7 @@ export const modeForShortcut = (
     input.shift
   )
     return undefined;
+  if (input.code === 'KeyV') return 'browse';
   if (input.code === 'KeyA') return 'capture';
   if (input.code === 'KeyW') return 'comment';
   if (input.code === 'KeyB') return 'preview';

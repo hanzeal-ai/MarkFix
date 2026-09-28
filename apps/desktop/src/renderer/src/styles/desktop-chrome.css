@@ -545,20 +545,41 @@ button {
 }
 
 .annotation-mode-switcher {
-  display: flex;
-  align-items: center;
-  border-radius: 14px;
-  outline: none;
+  position: relative;
+  z-index: 20;
+  padding-bottom: 8px;
+  margin-bottom: -8px;
 }
-.annotation-mode-switcher:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+.tools .annotation-mode-trigger {
+  width: auto;
+  min-width: 120px;
+  height: 36px;
+  gap: 5px;
+  padding: 0 9px;
+}
+.tools .annotation-mode-switcher kbd {
+  display: inline;
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font: 11px system-ui;
 }
 .annotation-mode-switcher .annotation-mode-control {
-  gap: 0;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  height: auto;
+  width: 156px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px;
+  background: var(--card);
+  box-shadow: 0 8px 24px #0002;
 }
-.annotation-mode-switcher .annotation-mode-control button {
-  white-space: nowrap;
-  flex-shrink: 0;
-  min-height: 36px;
+.tools .annotation-mode-control button {
+  width: 100%;
+  min-height: 30px;
+  justify-content: flex-start;
+  gap: 8px;
 }

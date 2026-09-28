@@ -1,5 +1,5 @@
 import { URL } from 'node:url';
-import { app, webContents, BrowserWindow } from 'electron';
+import { app, webContents, BrowserWindow, ipcMain, shell } from 'electron';
 import { createServer } from 'node:http';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,7 +16,19 @@ const output = process.env.MARKFIX_SMOKE_OUTPUT_DIR || join(profile, 'evidence')
 mkdirSync(output, { recursive: true });
 app.setPath('userData', profile);
 const server = createServer((req, res) => {
-  if (req.url.startsWith('/site')) {
+  if (req.url.startsWith('/v1/client-policy') && process.env.MARKFIX_SMOKE_TOOLBAR_UPDATE === '1') {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(
+      JSON.stringify({
+        currentVersion: '0.1.0',
+        recommendedVersion: '0.2.0',
+        minimumVersion: '0.1.0',
+        status: 'upgrade-recommended',
+        features: {},
+        downloadUrl: 'https://example.test/download',
+      }),
+    );
+  } else if (req.url.startsWith('/site')) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(
       marketing
@@ -96,7 +108,7 @@ app.on('browser-window-created', (_event, win) => {
       );
       await delay(100);
       await run(`document.querySelector('#new-project-url').form.requestSubmit()`);
-      await wait(() => run(`!!document.querySelector('.annotation-mode-control')`));
+      await wait(() => run(`!!document.querySelector('.annotation-mode-trigger')`));
       await wait(() => webContents.getAllWebContents().some((c) => c.getURL() === url));
       const target = webContents.getAllWebContents().find((c) => c.getURL() === url);
       await delay(350);
@@ -164,13 +176,122 @@ app.on('browser-window-created', (_event, win) => {
         target.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...point });
         await delay(100);
       };
-      const mode = async (value) => {
+      const openModeMenu = async () => {
+        if (!(await run(`!!document.querySelector('.annotation-mode-control')`)))
+          await run(`document.querySelector('.annotation-mode-trigger').click()`);
+        await wait(() => run(`!!document.querySelector('.annotation-mode-control')`));
+      };
+      const togglePreview = async () => {
+        const preview = await run(
+          `document.querySelector('.annotation-mode-switcher').dataset.mode === 'preview'`,
+        );
+        await openModeMenu();
         await run(
-          `document.querySelector('.annotation-mode-control button[data-state][title^="${value === 'capture' ? '截图' : '批注'}"]').click()`,
+          `document.querySelector('.annotation-mode-control button[aria-label="${preview ? '浏览' : '预览'}"]').click()`,
+        );
+      };
+      const mode = async (value) => {
+        await openModeMenu();
+        await run(
+          `document.querySelector('.annotation-mode-control button[data-state][aria-label^="${value === 'capture' ? '截图' : '批注'}"]').click()`,
         );
         await delay(200);
         assert.equal(await run(`!!document.querySelector('aside.comment-panel')`), false);
       };
+      if (process.env.MARKFIX_SMOKE_TOOLBAR_UPDATE === '1') {
+        const view = win.contentView.children.find((item) => item.webContents === target);
+        const point = await run(
+          `(()=>{ const r=document.querySelector('.annotation-mode-trigger').getBoundingClientRect(); return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}; })()`,
+        );
+        win.webContents.sendInputEvent({ type: 'mouseMove', ...point });
+        await wait(() => run(`!!document.querySelector('.annotation-mode-control')`));
+        await wait(() => !view.getVisible());
+        assert.equal(
+          await run(`document.querySelectorAll('.annotation-mode-control button').length`),
+          4,
+        );
+        assert.equal(
+          await run(
+            `document.querySelector('.annotation-mode-trigger kbd').getBoundingClientRect().width > 0`,
+          ),
+          true,
+        );
+        await delay(1000);
+        assert.equal(view.getVisible(), false, 'Native page stays hidden while hovering the menu');
+        writeFileSync(join(output, 'mode-menu.png'), (await win.webContents.capturePage()).toPNG());
+        await run(
+          `document.querySelector('.annotation-mode-control button[aria-label="批注"]').click()`,
+        );
+        await wait(() =>
+          run(`document.querySelector('.annotation-mode-switcher').dataset.mode === 'comment'`),
+        );
+        await wait(() => view.getVisible());
+        assert.equal(
+          await run(`document.querySelector('.annotation-mode-trigger').textContent.includes('W')`),
+          true,
+        );
+        await openModeMenu();
+        await run(
+          `document.querySelector('.annotation-mode-control button[aria-label="浏览"]').click()`,
+        );
+        await wait(() => view.getVisible());
+        win.webContents.send('annotation:mode-shortcut', 'toggle-sidebar');
+        await wait(() => run(`!!document.querySelector('.desktop-update-button')`));
+        win.webContents.sendInputEvent({ type: 'mouseMove', x: 30, y: 110 });
+        const originalOpen = shell.openExternal;
+        const downloads = [];
+        shell.openExternal = async (url) => {
+          downloads.push(url);
+        };
+        await run(`document.querySelector('.desktop-update-button').click()`);
+        await wait(() => downloads.length === 1);
+        await wait(() => run(`!document.querySelector('[data-desktop-update-active]')`));
+        await wait(() => view.getVisible());
+        assert.ok(downloads[0].endsWith('/download?platform=darwin'));
+        shell.openExternal = originalOpen;
+        ipcMain.removeHandler('desktop:update-start');
+        ipcMain.handle('desktop:update-start', async () => {
+          win.webContents.send('desktop:update-changed', {
+            phase: 'checking',
+            message: '正在检查更新…',
+          });
+          win.webContents.send('desktop:update-changed', {
+            phase: 'error',
+            message: '测试更新失败',
+          });
+          await delay(100);
+          return { phase: 'checking', message: '正在检查更新…' };
+        });
+        await run(`document.querySelector('.desktop-update-button').click()`);
+        await delay(350);
+        await wait(() => run(`!document.querySelector('[data-desktop-update-active]')`));
+        await wait(() => view.getVisible());
+        assert.equal(await run(`document.querySelector('.desktop-update-button').disabled`), false);
+        ipcMain.removeHandler('desktop:update-start');
+        ipcMain.handle('desktop:update-start', () => {
+          win.webContents.send('desktop:update-changed', {
+            phase: 'checking',
+            message: '正在检查更新…',
+          });
+          throw new Error('Test update IPC failure');
+        });
+        await run(`document.querySelector('.desktop-update-button').click()`);
+        await delay(350);
+        await wait(() => run(`!document.querySelector('[data-desktop-update-active]')`));
+        await wait(() => view.getVisible());
+        writeFileSync(
+          join(output, 'update-recovered.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+        console.log(
+          'PASS hover menu above native page, selected mode shortcut, manual download, stale update response and IPC failure recovery; evidence: ' +
+            output,
+        );
+        clearTimeout(timeout);
+        server.close();
+        app.quit();
+        return;
+      }
       if (process.env.MARKFIX_SMOKE_TEXT_PREFERENCE === '1') {
         await mode('comment');
         await click({ x: 120, y: 150 });
@@ -220,10 +341,12 @@ app.on('browser-window-created', (_event, win) => {
         writeFileSync(join(output, name), (await win.webContents.capturePage()).toPNG());
         writeFileSync(join(output, 'target-' + name), (await target.capturePage()).toPNG());
       };
+      await openModeMenu();
       assert.equal(
         await run(`document.querySelectorAll('.annotation-mode-control button').length`),
         4,
       );
+      await run(`document.querySelector('.annotation-mode-trigger').click()`);
       if (!marketing) {
         const view = win.contentView.children.find((item) => item.webContents === target);
         assert.ok(view?.getVisible(), 'Website is visible before update preparation');
@@ -403,9 +526,7 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(Boolean(savedElementComments[0].screenshotDataUrl), saveElementScreenshot);
       assert.equal(Boolean(savedElementComments[0].capture), saveElementScreenshot);
       await screenshot('element-preview.png');
-      await run(
-        `if (!document.querySelector('aside.comment-panel')) document.querySelector('.preview-toggle-button').click()`,
-      );
+      if (!(await run(`!!document.querySelector('aside.comment-panel')`))) await togglePreview();
       await wait(() => run(`!!document.querySelector('.element-note-select')`));
       await run(`document.querySelector('.element-note-select').click()`);
       await wait(() => run(`!document.querySelector('aside.comment-panel')`));
@@ -413,7 +534,7 @@ app.on('browser-window-created', (_event, win) => {
       const websiteView = win.contentView.children.find((view) => view.webContents === target);
       assert.ok(websiteView, 'Target website view is attached');
       // Opening the same record restores it directly, even while editing.
-      await run(`document.querySelector('.preview-toggle-button').click()`);
+      await togglePreview();
       await wait(() => run(`!!document.querySelector('.element-note-select')`));
       await run(`document.querySelector('.element-note-select').click()`);
       await wait(() => run(`!document.querySelector('aside.comment-panel')`));
@@ -424,8 +545,9 @@ app.on('browser-window-created', (_event, win) => {
       await target.insertText('编辑时点击输入框');
       await wait(async () => (await field('INPUT', 'value')) === '编辑时点击输入框');
       const openModeDialog = async () => {
+        await openModeMenu();
         await run(
-          `document.querySelector('.annotation-mode-control button[title^="截图"]').click()`,
+          `document.querySelector('.annotation-mode-control button[aria-label="截图"]').click()`,
         );
         await wait(() => run(`!!document.querySelector('[role="alertdialog"]')`));
         await wait(() => !websiteView.getVisible());
@@ -516,9 +638,7 @@ app.on('browser-window-created', (_event, win) => {
       target.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
       target.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
       await delay(100);
-      await run(
-        `if (!document.querySelector('aside.comment-panel')) document.querySelector('.preview-toggle-button').click()`,
-      );
+      if (!(await run(`!!document.querySelector('aside.comment-panel')`))) await togglePreview();
       await wait(() => run(`!!document.querySelector('.element-note-select')`));
       await run(`document.querySelector('.element-note-select').click()`);
       await wait(() => run(`!document.querySelector('aside.comment-panel')`));
@@ -526,9 +646,7 @@ app.on('browser-window-created', (_event, win) => {
       await wait(async () => (await pinCount()) === 1);
       await target.loadURL(url + '?other=1');
       await delay(250);
-      await run(
-        `if (!document.querySelector('aside.comment-panel')) document.querySelector('.preview-toggle-button').click()`,
-      );
+      if (!(await run(`!!document.querySelector('aside.comment-panel')`))) await togglePreview();
       await wait(() => run(`!!document.querySelector('aside.comment-panel')`));
       assert.equal(
         await run(`document.body.textContent.includes('请统一标题字号与设计规范')`),
@@ -546,14 +664,12 @@ app.on('browser-window-created', (_event, win) => {
         );
       await run(`window.markfix.setMode('comment')`);
       await delay(200);
-      await run(
-        `if (!document.querySelector('aside.comment-panel')) document.querySelector('.preview-toggle-button').click()`,
-      );
+      if (!(await run(`!!document.querySelector('aside.comment-panel')`))) await togglePreview();
       await wait(() => run(`!!document.querySelector('.element-note-select')`));
       await run(`document.querySelector('.element-note-select').click()`);
       await wait(async () => (await pinCount()) === 1);
       await delay(300);
-      await run(`document.querySelector('.preview-toggle-button').click()`);
+      await togglePreview();
       await wait(() =>
         run(
           `document.querySelector('aside.comment-panel')?.textContent.includes('请统一标题字号与设计规范')`,
@@ -582,6 +698,9 @@ app.on('browser-window-created', (_event, win) => {
         await delay(500);
       }
       if (!marketing) {
+        assert.ok(
+          Number(await run(`document.querySelector('.submission-count-badge').textContent`)) > 0,
+        );
         await run(`document.querySelector('.save-annotations-button').click()`);
         let review;
         await wait(async () => {
@@ -598,7 +717,7 @@ app.on('browser-window-created', (_event, win) => {
         );
         await wait(() => review.isDestroyed());
         await wait(() =>
-          run(`document.querySelector('aside.comment-panel')?.textContent.includes('暂无批注')`),
+          run(`document.querySelector('aside.comment-panel')?.textContent.includes('还没有标注')`),
         );
         const overlayEmpty = async () => {
           const { root } = await command('DOM.getDocument', { depth: -1, pierce: true });
@@ -612,6 +731,7 @@ app.on('browser-window-created', (_event, win) => {
           return count(root) === 0;
         };
         await wait(overlayEmpty);
+        assert.equal(await run(`document.querySelector('.submission-count-badge') === null`), true);
         await target.reload();
         await delay(700);
         await wait(overlayEmpty);

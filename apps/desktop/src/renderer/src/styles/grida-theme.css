@@ -25,24 +25,23 @@
 
 .shell .annotation-mode-control {
   border-color: #dfe1e5;
-  border-radius: 14px;
+  border-radius: 20px;
   background: #f3f4f6;
 }
 
 .shell .annotation-mode-control [data-state='on'] {
-  border-radius: var(--radius-control);
   background: var(--brand-purple-soft);
   color: var(--brand-purple-strong);
   box-shadow: 0 1px 4px rgba(24, 24, 27, 0.12);
 }
 
 .shell .tools button.save-annotations-button {
-  width: auto;
-  min-width: 112px;
+  width: 36px;
+  min-width: 36px;
   height: 36px;
-  padding: 0 12px;
+  padding: 0;
   border-color: var(--primary);
-  border-radius: var(--radius-control);
+  border-radius: 16px;
   background: var(--primary);
   color: #fff;
   box-shadow: none;
@@ -139,6 +138,11 @@ p.annotation-rejection,
 .settings-sidebar button,
 .account-menu [data-slot='dropdown-menu-item'] {
   border-radius: var(--radius-control);
+}
+
+.shell .tools button.annotation-mode-trigger,
+.shell .tools .annotation-mode-control button {
+  border-radius: 999px;
 }
 
 .annotation-save-item,

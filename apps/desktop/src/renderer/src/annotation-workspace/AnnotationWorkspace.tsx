@@ -338,6 +338,11 @@ export function AnnotationWorkspace({
           setActiveView('new');
           return;
         }
+        if (payload === 'browse') {
+          setPreviewOpen(false);
+          requestModeRef.current('browse');
+          return;
+        }
         if (payload === 'preview') {
           modeRef.current = 'browse';
           setModeState('browse');
@@ -1207,6 +1212,7 @@ export function AnnotationWorkspace({
       <ProjectAgentDialog project={agentProject} onClose={() => setAgentProject(undefined)} />
       <header className="browser-bar">
         <BrowserToolbar
+          onMenuOpenChange={setSidebarMenuOpen}
           addressInputRef={addressInputRef}
           browserState={browserState}
           previewOpen={previewVisible}

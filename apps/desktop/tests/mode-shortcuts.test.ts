@@ -16,6 +16,7 @@ const input = (overrides: Partial<ShortcutInput> = {}): ShortcutInput => ({
 describe('desktop mode shortcuts', () => {
   it('maps Option+A to capture and Option+W to comment', () => {
     expect(modeForShortcut(input())).toBe('capture');
+    expect(modeForShortcut(input({ code: 'KeyV' }))).toBe('browse');
     expect(modeForShortcut(input({ code: 'KeyW' }))).toBe('comment');
   });
 

@@ -22,6 +22,7 @@ export function DesktopUpdateButton({
   beforeStart?: () => Promise<void>;
 }) {
   const pending = useRef(false);
+  const statusRevision = useRef(0);
   const [preparing, setPreparing] = useState(false);
   const [status, setStatus] = useState<DesktopUpdateStatus>({ phase: 'idle', message: '' });
   const busy = preparing || desktopUpdateActive(status);
@@ -30,6 +31,7 @@ export function DesktopUpdateButton({
     let received = false;
     const unsubscribe = window.markfix.onUpdateStatus((next) => {
       received = true;
+      statusRevision.current += 1;
       setStatus(next);
       if (next.phase === 'error') toast.error(next.message);
       if (next.phase === 'current' || next.phase === 'manual') toast(next.message);
@@ -55,9 +57,14 @@ export function DesktopUpdateButton({
       await window.markfix.prepareUpdate(true);
       prepared = true;
       await beforeStart?.();
-      setStatus(await window.markfix.startUpdate());
+      setPreparing(false);
+      const revision = statusRevision.current;
+      const next = await window.markfix.startUpdate();
+      if (revision === statusRevision.current) setStatus(next);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : '无法启动更新，请稍后重试。');
+      const message = error instanceof Error ? error.message : '无法启动更新，请稍后重试。';
+      setStatus({ phase: 'error', message });
+      toast.error(message);
     } finally {
       if (prepared) await window.markfix.prepareUpdate(false).catch(() => undefined);
       pending.current = false;

@@ -192,16 +192,16 @@ async function main() {
     await window.webContents.executeJavaScript(
       "[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Local smoke')).click()",
     );
+    await window.webContents.executeJavaScript(
+      "document.querySelector('.annotation-mode-trigger').click()",
+    );
     await waitFor(async () =>
       window.webContents.executeJavaScript(
-        'Boolean(document.querySelector(\'[title="批注（⌥W）"]\'))',
+        "Boolean(document.querySelector('.annotation-mode-control'))",
       ),
     );
     await window.webContents.executeJavaScript(
-      'document.querySelector(\'[title="批注（⌥W）"]\').click()',
-    );
-    await window.webContents.executeJavaScript(
-      "if (!document.querySelector('aside.comment-panel')) document.querySelector('.preview-toggle-button').click()",
+      'document.querySelector(\'.annotation-mode-control button[aria-label="预览"]\').click()',
     );
     // The current preview contains only draft/rejected records, not submitted reports.
     await waitFor(async () =>
