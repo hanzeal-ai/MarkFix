@@ -510,6 +510,10 @@ export const clientPolicySchema = z.object({
 
 export const ipcChannels = {
   authStatus: 'auth:status',
+  agentRequests: 'agent:requests',
+  agentAccess: 'agent:access',
+  agentDecide: 'agent:decide',
+  agentRevoke: 'agent:revoke',
   enterLocalMode: 'auth:enter-local',
   authRegister: 'auth:register',
   authLogin: 'auth:login',

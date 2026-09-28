@@ -1,4 +1,7 @@
 import {
+  agentDeviceRequestSchema,
+  type AgentDeviceDecision,
+  type AgentGrantSummary,
   clientPolicySchema,
   cloudProjectStateSchema,
   createEnvironmentSchema,
@@ -174,6 +177,24 @@ export class MarkFixApi {
 
   requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     return this.request(path, init);
+  }
+
+  async agentRequests() {
+    return agentDeviceRequestSchema.array().parse(await this.request('/v1/agent/requests'));
+  }
+  agentGrants(): Promise<AgentGrantSummary[]> {
+    return this.request('/v1/agent/grants');
+  }
+  decideAgentRequest(input: AgentDeviceDecision) {
+    return this.request<{ approved: boolean }>('/v1/agent/device/decision', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+  revokeAgentGrant(id: string) {
+    return this.request<{ revoked: boolean }>(`/v1/agent/grants/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
   }
 
   async register(input: {

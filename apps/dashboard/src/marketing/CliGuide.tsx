@@ -10,7 +10,7 @@ function Command({ children }: { children: string }) {
 }
 
 export function CliGuide({
-  firstUseCommand = 'markfix projects list --server https://markfix.example.com',
+  firstUseCommand = 'markfix projects list --account owner@example.com',
   children,
 }: {
   firstUseCommand?: string;
@@ -38,12 +38,11 @@ export function CliGuide({
         <ul>
           <li>本机已安装 Node.js 24 或更高版本、npm、Git 和 Codex。</li>
           <li>
-            使用云端时需要 MarkFix
-            账号，并且是目标云端标注项目的成员。绑定操作需要项目所有者或管理员权限。
+            使用云端时需要 MarkFix 账号持有人批准，无需对方密码或登录对方账号。项目绑定是可选步骤。
           </li>
           <li>
-            已取得 MarkFix CLI 安装包；使用云端时还需服务的 HTTPS API 地址。API
-            地址可能与官网地址不同，请以服务管理员提供的信息为准。
+            已取得 MarkFix CLI 安装包和标注账号邮箱。默认连接官方服务；自托管时另提供 HTTPS API
+            地址。
           </li>
         </ul>
         <p>
@@ -54,14 +53,14 @@ export function CliGuide({
       <section id="cli-install">
         <h3>1. 安装 CLI</h3>
         <p>
-          当前通过安装包分发。向 MarkFix 服务管理员获取 <code>markfix-cli-0.1.1.tgz</code>
+          当前通过安装包分发。向 MarkFix 服务管理员获取 <code>markfix-cli-0.1.2.tgz</code>
           ，在安装包所在目录执行：
         </p>
         <Command>
-          {'node --version\nnpm install -g ./markfix-cli-0.1.1.tgz\nmarkfix --version'}
+          {'node --version\nnpm install -g ./markfix-cli-0.1.2.tgz\nmarkfix --version'}
         </Command>
         <p className="cli-guide-result">
-          预期结果：Node.js 主版本不低于 24，MarkFix CLI 输出 0.1.1。若找不到 markfix 命令，请检查
+          预期结果：Node.js 主版本不低于 24，MarkFix CLI 输出 0.1.2。若找不到 markfix 命令，请检查
           npm 全局可执行目录是否已加入 PATH。
         </p>
       </section>
@@ -87,7 +86,7 @@ export function CliGuide({
         <h3>更新 CLI 与 Skill</h3>
         <Command>
           {
-            'npm install -g ./markfix-cli-0.1.1.tgz\nmarkfix --version\nmarkfix skill install --force'
+            'npm install -g ./markfix-cli-0.1.2.tgz\nmarkfix --version\nmarkfix skill install --force'
           }
         </Command>
         <p>
@@ -98,29 +97,31 @@ export function CliGuide({
       <section id="cli-authorize">
         <h3>云端接入：授权访问 MarkFix</h3>
         <p>
-          安装不会要求授权。进入准备修复的 Git 仓库，首次执行服务命令时，CLI
-          会自动打开浏览器发起授权，完成后继续原命令。下方服务地址应与标注所在的 MarkFix
-          实例一致；示例域名需替换为实际 API 地址。
+          安装不会要求授权。进入准备修复的 Git 仓库，首次执行服务命令时，通过 --account
+          指定标注账号邮箱。CLI 会等待该账号持有人批准，完成后自动继续原命令。自托管时另加
+          --server，双方必须连接同一服务。
         </p>
         <Command>{`cd /path/to/your-repository\n${firstUseCommand}`}</Command>
         {children}
         <ol>
-          <li>在 CLI 打开的浏览器页面登录 MarkFix。</li>
-          <li>核对终端与网页显示的授权码，选择允许访问的标注项目。</li>
-          <li>点击“授权此设备”，返回终端等待命令完成。</li>
+          <li>将示例邮箱替换为标注账号，将 CLI 显示的申请码告知账号持有人。</li>
+          <li>账号持有人登录桌面，进入“设置 → 修复授权”，核对申请码并勾选项目。</li>
+          <li>
+            持有人点击“授权所选项目”。修复方保持命令运行，无需登录对方账号或回复“已授权”。申请 10
+            分钟内有效。
+          </li>
         </ol>
         <p className="cli-guide-result">
           预期结果：终端返回 projects 列表。授权过程中会安装 MarkFix Skill 并登记当前 Git
           仓库；如果终端提示登记失败，进入仓库后执行 repo register。后续命令复用授权。
         </p>
         <p>
-          macOS 默认使用系统钥匙串。Linux 或 Windows 请在首次命令后加{' '}
-          <code>--credential-store file</code>；无法自动打开浏览器时加 <code>--no-browser</code>
-          ，手动打开终端中的授权链接。
+          macOS 默认使用系统钥匙串，其他平台使用文件凭据。账号持有人也可登录 CLI
+          提供的网页地址审批。授权有效期最长 30 天，可在桌面“修复授权”中撤销。
         </p>
       </section>
       <section id="cli-bind">
-        <h3>3. 绑定标注项目</h3>
+        <h3>3. 可选：绑定标注项目</h3>
         <ol>
           <li>打开 MarkFix 桌面端，将鼠标移到目标云端项目行，点击名称右侧的三点菜单。</li>
           <li>选择“绑定项目”，保持默认的“从已有选择”。</li>
@@ -171,7 +172,7 @@ export function CliGuide({
             <tbody>
               <tr>
                 <td>修复完成</td>
-                <td>服务端确认后，管理后台显示“已完成”。</td>
+                <td>服务端确认后进入“待复验”，标注方在桌面验证通过后才算完成。</td>
               </tr>
               <tr>
                 <td>修复失败</td>
@@ -255,7 +256,7 @@ export function CliGuide({
           <p>
             执行 markfix projects
             list。列表同时受授权时选择的项目和当前成员权限限制。新增授权范围前，先同步未上传结果，再
-            logout 并再次执行 projects list，在浏览器中选择所需项目。
+            logout 并再次执行 projects list --account 标注邮箱，由账号持有人重新批准。
           </p>
         </details>
         <details>

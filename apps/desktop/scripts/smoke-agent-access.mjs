@@ -35,6 +35,7 @@ const server = createServer(async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   if (path === '/v1/me') return res.end(JSON.stringify({ id: 'user', email: 'test@example.test' }));
   if (path === '/v1/projects') return res.end(JSON.stringify(projects));
+  if (path === '/v1/agent/requests') return res.end('[]');
   if (path === '/v1/agent/grants') return res.end('[]');
   if (path === '/v1/agent/device/decision') {
     let body = '';

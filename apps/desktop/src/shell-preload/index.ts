@@ -7,6 +7,7 @@ import type { InlineNote, InlineNoteAction } from '../inline-note';
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   ipcChannels,
+  type AgentDeviceDecision,
   type AnnotationSubmission,
   type Anchor,
   type BrowserMode,
@@ -92,6 +93,11 @@ contextBridge.exposeInMainWorld('markfix', {
     subscribe(desktopUpdateChannels.changed, listener),
   openAccountPage: (page: AccountPage) => ipcRenderer.invoke(accountPageChannel, page),
   enterLocalMode: () => ipcRenderer.invoke(ipcChannels.enterLocalMode),
+  agentRequests: () => ipcRenderer.invoke(ipcChannels.agentRequests),
+  agentAccess: () => ipcRenderer.invoke(ipcChannels.agentAccess),
+  decideAgentRequest: (input: AgentDeviceDecision) =>
+    ipcRenderer.invoke(ipcChannels.agentDecide, input),
+  revokeAgentGrant: (id: string) => ipcRenderer.invoke(ipcChannels.agentRevoke, id),
   authStatus: () => ipcRenderer.invoke(ipcChannels.authStatus),
   register: (displayName: string, email: string, password: string) =>
     ipcRenderer.invoke(ipcChannels.authRegister, { displayName, email, password }),

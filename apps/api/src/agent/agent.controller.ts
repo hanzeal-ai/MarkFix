@@ -1,3 +1,5 @@
+import { deviceAuthorizationSchema } from '@markfix/contracts';
+import { hashOpaqueToken } from '../auth-crypto.js';
 import { apiServiceUrls } from '../service-config.js';
 import {
   Body,
@@ -21,7 +23,7 @@ import { ReportService } from '../report.service.js';
 import { AuthRateLimitService } from '../auth-rate-limit.service.js';
 import { CurrentUser, type AuthenticatedUser } from '../current-user.decorator.js';
 import { Public } from '../public.decorator.js';
-import { AgentAuthService } from './agent-auth.service.js';
+import { AgentAuthService, parseAgent } from './agent-auth.service.js';
 import { AgentProjectService } from './agent-project.service.js';
 import { AgentFixService } from './agent-fix.service.js';
 @Controller('v1/agent')
@@ -37,7 +39,9 @@ export class AgentController {
   @Post('device')
   begin(@Req() request: FastifyRequest, @Body() body: unknown) {
     this.limits.consume('agent-device', request.ip, 10, 600_000);
-    return this.auth.begin(body);
+    const data = parseAgent(deviceAuthorizationSchema, body);
+    this.limits.consume('agent-target', hashOpaqueToken(data.account), 5, 600_000);
+    return this.auth.begin(data);
   }
   @Public()
   @Post('token')
@@ -52,20 +56,28 @@ export class AgentController {
     return this.auth.refresh(body);
   }
   @Get('device/:code')
-  preview(@Req() request: FastifyRequest, @Param('code') code: string) {
+  preview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: FastifyRequest,
+    @Param('code') code: string,
+  ) {
     this.limits.consume('agent-preview', request.ip, 30, 600_000);
-    return this.auth.preview(code);
+    return this.auth.preview(user.id, code);
+  }
+  @Get('requests') pending(@CurrentUser() user: AuthenticatedUser) {
+    return this.auth.pending(user.id);
   }
   @Post('device/decision')
   decision(
     @CurrentUser() user: AuthenticatedUser,
     @Headers('origin') origin: string | undefined,
+    @Headers('authorization') authorization: string | undefined,
     @Body() body: unknown,
   ) {
     this.limits.consume('agent-decision', user.id, 30, 600_000);
     const allowed = [apiServiceUrls().origin];
-    if (!origin || !allowed.includes(origin))
-      throw new ForbiddenException('Authorize from the MarkFix website');
+    if (origin ? !allowed.includes(origin) : !authorization?.startsWith('Bearer '))
+      throw new ForbiddenException('Authorize from the MarkFix website or signed-in desktop');
     return this.auth.decide(user.id, body);
   }
   @Get('grants') list(@CurrentUser() user: AuthenticatedUser) {
@@ -100,6 +112,7 @@ export class AgentController {
     const grant = await this.auth.authenticate(header);
     return {
       authorized: true,
+      account: await this.auth.account(grant.userId),
       grantId: grant.id,
       deviceName: grant.deviceName,
       expiresAt: grant.expiresAt,

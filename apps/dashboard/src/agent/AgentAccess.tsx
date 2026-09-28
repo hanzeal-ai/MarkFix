@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, Button, Card, Checkbox, Label } from '@markfix/ui';
-import type { AgentGrantSummary, Project } from '@markfix/contracts';
+import type { AgentDeviceRequestSummary, AgentGrantSummary, Project } from '@markfix/contracts';
 import { adminApi } from '../admin/api.js';
 import '../account/account-settings.css';
 import './agent-access.css';
@@ -17,6 +17,8 @@ export function AgentAccess({ embedded = false }: { embedded?: boolean }) {
   }>();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [requests, setRequests] = useState<AgentDeviceRequestSummary[]>([]);
+  const [account, setAccount] = useState('');
   const [grants, setGrants] = useState<AgentGrantSummary[]>([]);
   const [error, setError] = useState('');
   const [decision, setDecision] = useState<'approved' | 'denied'>();
@@ -30,7 +32,10 @@ export function AgentAccess({ embedded = false }: { embedded?: boolean }) {
     let active = true;
     void adminApi
       .me()
-      .then(async () => {
+      .then(async (user) => {
+        if (active) setAccount(user.email);
+        const inbox = await adminApi.agentRequests();
+        if (active) setRequests(inbox);
         const [items, connections, pending] = await Promise.all([
           adminApi.listProjects(),
           code ? Promise.resolve([]) : request<AgentGrantSummary[]>('/grants'),
@@ -122,6 +127,7 @@ export function AgentAccess({ embedded = false }: { embedded?: boolean }) {
             </header>
           </>
         )}
+        {account && <p>当前账号：{account}</p>}
         {loading && <p>正在读取授权信息…</p>}
         {error && (
           <Alert variant="destructive">
@@ -149,7 +155,8 @@ export function AgentAccess({ embedded = false }: { embedded?: boolean }) {
               <strong className="agent-user-code">{code}</strong>
             </p>
             <p>
-              允许上报仓库名称，读取所选项目的标注与截图，领取问题并回写修复结果。访问仍受你的项目角色限制。
+              设备名称由申请方填写，请先与修复人员核对申请码。授权有效期最长 30
+              天，可随时撤销。允许上报仓库名称，读取所选项目的标注与截图，领取问题并回写修复结果。访问仍受你的项目角色限制。
             </p>
             {device.status === 'PENDING' ? (
               <>
@@ -195,8 +202,17 @@ export function AgentAccess({ embedded = false }: { embedded?: boolean }) {
         )}
         {!code && (
           <>
+            {requests.map((item) => (
+              <Card key={item.userCode} className="agent-access-card">
+                <strong>待处理：{item.deviceName}</strong>
+                <p>申请码：{item.userCode}</p>
+                <a href={`/agent/authorize?code=${item.userCode}`}>核对并处理申请</a>
+              </Card>
+            ))}
             {!loading && !grants.length && (
-              <p>暂无设备授权。首次使用 CLI 时会自动打开浏览器发起授权。</p>
+              <p>
+                暂无设备授权。修复人员输入你的账号邮箱后，申请会出现在这里及桌面设置的“修复授权”中。
+              </p>
             )}
             {grants.map((grant) => (
               <Card key={grant.id} className="agent-access-card">

@@ -7,7 +7,9 @@ export const agentPolicy = {
   grantMs: 30 * 86400_000,
 } as const;
 export const agentTypeSchema = z.literal('codex');
+export const agentAccountSchema = z.string().trim().toLowerCase().max(254).pipe(z.email());
 export const deviceAuthorizationSchema = z.object({
+  account: agentAccountSchema,
   deviceName: z.string().trim().min(1).max(120),
   agentType: agentTypeSchema,
 });
@@ -83,3 +85,14 @@ export type FixAttempt = {
   createdAt: string;
   finishedAt: string | null;
 };
+
+export const agentDeviceRequestSchema = z.object({
+  userCode: z.string().regex(/^[A-F0-9]{8}$/),
+  deviceName: z.string(),
+  agentType: agentTypeSchema,
+  status: z.enum(['PENDING', 'APPROVED', 'DENIED', 'CONSUMED']),
+  expiresAt: z.iso.datetime(),
+  createdAt: z.iso.datetime(),
+});
+export type AgentDeviceRequestSummary = z.infer<typeof agentDeviceRequestSchema>;
+export type AgentDeviceDecision = z.infer<typeof deviceDecisionSchema>;

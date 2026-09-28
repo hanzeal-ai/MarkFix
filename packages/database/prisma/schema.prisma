@@ -71,6 +71,7 @@ model User {
   reportSubmissions    ReportSubmission[]
   annotationReadGrants AnnotationReadGrant[]
   agentGrants          AgentGrant[]
+  agentRequests        AgentDeviceRequest[]
   agentRepositories    AgentRepository[]
   authSessions         AuthSession[]
   verificationTokens   EmailVerificationToken[]
@@ -310,6 +311,8 @@ model Activity {
 }
 
 model AgentDeviceRequest {
+  targetUserId   String?     @db.Uuid
+  targetUser     User?       @relation(fields: [targetUserId], references: [id], onDelete: Cascade)
   id             String      @id @default(uuid()) @db.Uuid
   deviceCodeHash String      @unique
   userCode       String      @unique
@@ -318,6 +321,8 @@ model AgentDeviceRequest {
   status         String      @default("PENDING")
   grantId        String?     @unique @db.Uuid
   grant          AgentGrant? @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@index([targetUserId, status, expiresAt])
   expiresAt      DateTime
   createdAt      DateTime    @default(now())
 }

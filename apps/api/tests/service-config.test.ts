@@ -24,8 +24,13 @@ it('uses one configured origin for authorization links and rejects decisions fro
   vi.stubEnv('MARKFIX_SERVICE_ORIGIN', origin);
   const auth = new AgentAuthService({
     agentDeviceRequest: { create: vi.fn() },
+    user: { findUnique: vi.fn().mockResolvedValue({ id: 'target' }) },
   } as unknown as DatabaseService);
-  const result = await auth.begin({ deviceName: 'Test CLI', agentType: 'codex' });
+  const result = await auth.begin({
+    account: 'target@example.com',
+    deviceName: 'Test CLI',
+    agentType: 'codex',
+  });
   expect(result.verificationUrl).toBe(`${origin}/agent/authorize?code=${result.userCode}`);
   const decide = vi.spyOn(auth, 'decide').mockResolvedValue({ approved: true });
   const controller = new AgentController(
@@ -42,11 +47,29 @@ it('uses one configured origin for authorization links and rejects decisions fro
     `${origin}.evil.example`,
     `${origin}/path`,
   ]) {
-    expect(() => controller.decision(user, invalid, {})).toThrow(
+    expect(() => controller.decision(user, invalid, undefined, {})).toThrow(
       'Authorize from the MarkFix website',
     );
   }
   expect(decide).not.toHaveBeenCalled();
-  await controller.decision(user, origin, {});
+  await controller.decision(user, origin, undefined, {});
   expect(decide).toHaveBeenCalledWith('user', {});
+});
+
+it('allows authenticated desktop bearer decisions without an Origin, but rejects untrusted Origins', async () => {
+  const decide = vi.fn().mockResolvedValue({ approved: true });
+  const controller = new AgentController(
+    { decide } as never,
+    {} as never,
+    {} as never,
+    { consume: vi.fn() } as never,
+    {} as never,
+  );
+  const user = { id: 'owner', sessionId: 'session' };
+  await controller.decision(user, undefined, 'Bearer session-token', {});
+  expect(decide).toHaveBeenCalledWith('owner', {});
+  expect(() =>
+    controller.decision(user, 'https://evil.test', 'Bearer session-token', {}),
+  ).toThrow();
+  expect(() => controller.decision(user, undefined, undefined, {})).toThrow();
 });

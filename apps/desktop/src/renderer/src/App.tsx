@@ -1,3 +1,4 @@
+import { AgentRequestNotification } from './AgentAuthorizations';
 import { manualUpdates } from './platform';
 import { useEffect, useRef, useState } from 'react';
 import { AuthLayout, Card } from '@markfix/ui';
@@ -73,20 +74,25 @@ export function App() {
     );
   }
   return (
-    <AnnotationWorkspace
-      policy={policy}
-      localMode={localMode}
-      user={
-        state.status === 'authenticated'
-          ? state.user
-          : { id: 'local', email: '', displayName: '仅本机' }
-      }
-      onLoggedOut={async () => {
-        if (await window.markfix.logout()) {
-          setLocalMode(false);
-          setState({ status: 'anonymous' });
+    <>
+      {!localMode && state.status === 'authenticated' && (
+        <AgentRequestNotification accountId={state.user.id} />
+      )}
+      <AnnotationWorkspace
+        policy={policy}
+        localMode={localMode}
+        user={
+          state.status === 'authenticated'
+            ? state.user
+            : { id: 'local', email: '', displayName: '仅本机' }
         }
-      }}
-    />
+        onLoggedOut={async () => {
+          if (await window.markfix.logout()) {
+            setLocalMode(false);
+            setState({ status: 'anonymous' });
+          }
+        }}
+      />
+    </>
   );
 }

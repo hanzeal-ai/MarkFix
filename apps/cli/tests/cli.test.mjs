@@ -25,15 +25,15 @@ test('requires HTTPS and forbids remote plaintext, credentials and redirecting p
   ])
     assert.throws(() => serverUrl(url, true));
 });
-test('help and version remain offline; first use requires a service address', async () => {
+test('help and version remain offline; first use requires an account', async () => {
   const home = await mkdtemp(join(tmpdir(), 'markfix-cli-test-'));
   const env = { ...process.env, MARKFIX_CLI_HOME: home };
   const cli = new URL('../src/cli.mjs', import.meta.url).pathname;
-  assert.match((await exec(process.execPath, [cli, '--help'], { env })).stdout, /setup --server/);
-  assert.equal((await exec(process.execPath, [cli, '--version'], { env })).stdout.trim(), '0.1.1');
+  assert.match((await exec(process.execPath, [cli, '--help'], { env })).stdout, /setup --account/);
+  assert.equal((await exec(process.execPath, [cli, '--version'], { env })).stdout.trim(), '0.1.2');
   await assert.rejects(
     exec(process.execPath, [cli, 'projects', 'list'], { env }),
-    (error) => error.code === 1 && /First use requires/.test(error.stderr),
+    (error) => error.code === 1 && /账号邮箱/.test(error.stderr),
   );
 });
 test('explicit file credentials use private permissions and can be removed', async () => {
@@ -70,9 +70,18 @@ async function firstUseFixture(t, { denied = false, unsafe = false } = {}) {
   );
   const calls = [];
   let origin;
-  const server = createServer((request, response) => {
+  const bodies = [];
+  let revoked = false;
+  const server = createServer(async (request, response) => {
+    let body = '';
+    for await (const chunk of request) body += chunk;
+    if (body) bodies.push({ path: request.url, body: JSON.parse(body) });
     calls.push(request.url);
     response.setHeader('Content-Type', 'application/json');
+    if (revoked && ['/v1/agent/logout', '/v1/agent/token/refresh'].includes(request.url)) {
+      response.statusCode = 401;
+      return response.end(JSON.stringify({ message: 'Authorization expired or revoked' }));
+    }
     if (request.url === '/v1/agent/device')
       return response.end(
         JSON.stringify({
@@ -98,6 +107,7 @@ async function firstUseFixture(t, { denied = false, unsafe = false } = {}) {
         }),
       );
     }
+    if (request.url === '/v1/agent/logout') return response.end(JSON.stringify({ revoked: true }));
     if (request.url === '/v1/agent/repositories')
       return response.end(JSON.stringify({ id: 'registered' }));
     if (request.url === '/v1/agent/projects') {
@@ -121,12 +131,24 @@ async function firstUseFixture(t, { denied = false, unsafe = false } = {}) {
     PATH: `${bin}:${process.env.PATH}`,
   };
   const cli = new URL('../src/cli.mjs', import.meta.url).pathname;
-  const run = (...args) => exec(process.execPath, [cli, ...args], { env });
-  return { home, env, calls, origin, browserLog, run };
+  const run = (...args) =>
+    exec(process.execPath, [cli, ...args, '--account', 'owner@example.test'], { env });
+  return {
+    home,
+    env,
+    calls,
+    bodies,
+    origin,
+    browserLog,
+    run,
+    setRevoked: (value) => {
+      revoked = value;
+    },
+  };
 }
 
 test(
-  'first service command opens authorization, registers repository and resumes with JSON; later calls reuse it',
+  'targeted account request waits without opening a browser, registers repository and resumes; later calls reuse it',
   { skip: process.platform === 'win32' },
   async (t) => {
     const f = await firstUseFixture(t);
@@ -138,12 +160,16 @@ test(
       'file',
     );
     assert.deepEqual(JSON.parse(result.stdout), { projects: [{ id: 'test-project' }] });
-    assert.deepEqual(JSON.parse(await readFile(f.browserLog, 'utf8')), [`${f.origin}/authorize`]);
-    assert.match(result.stderr, /Code: ABCD1234/);
-    assert.match(result.stderr, /Waiting for browser authorization/);
-    assert.match(result.stderr, /Authorization complete. Continuing/);
+    await assert.rejects(readFile(f.browserLog), { code: 'ENOENT' });
+    assert.match(result.stderr, /申请码：ABCD1234/);
+    assert.match(result.stderr, /等待账号持有人批准/);
+    assert.match(result.stderr, /已批准授权/);
     assert.equal(f.calls.filter((path) => path === '/v1/agent/device').length, 1);
     assert.ok(f.calls.includes('/v1/agent/repositories'));
+    assert.equal(
+      f.bodies.find((item) => item.path === '/v1/agent/device').body.account,
+      'owner@example.test',
+    );
     assert.ok(
       (await readFile(join(f.home, 'codex/skills/markfix/SKILL.md'), 'utf8')).includes('MarkFix'),
     );
@@ -162,7 +188,7 @@ test(
   async (t) => {
     const f = await firstUseFixture(t, { denied: true });
     await assert.rejects(
-      f.run('projects', 'list', '--allow-local-http', '--credential-store', 'file', '--no-browser'),
+      f.run('projects', 'list', '--allow-local-http', '--credential-store', 'file'),
       (error) => error.code === 2 && /Authorization denied/.test(error.stderr),
     );
     assert.ok(!f.calls.includes('/v1/agent/projects'));
@@ -237,3 +263,22 @@ test('offline skill installation preserves custom content and backs it up on exp
   );
   await assert.rejects(readFile(join(home, 'cli', 'config.json')), { code: 'ENOENT' });
 });
+
+for (const revoked of [false, true])
+  test(`pending results require explicit archival, including revoked=${revoked}`, async (t) => {
+    const f = await firstUseFixture(t);
+    await f.run('projects', 'list', '--allow-local-http', '--credential-store', 'file');
+    await mkdir(join(f.env.MARKFIX_CLI_HOME, 'outbox'));
+    await writeFile(join(f.env.MARKFIX_CLI_HOME, 'outbox', 'pending.json'), '{}');
+    await assert.rejects(f.run('logout'), /待同步修复结果/);
+    assert.ok(!f.calls.includes('/v1/agent/logout'));
+    await readFile(join(f.env.MARKFIX_CLI_HOME, 'credential.json'));
+    f.setRevoked(revoked);
+    const logout = JSON.parse((await f.run('logout', '--archive-pending')).stdout);
+    assert.equal(logout.serverRevocationConfirmed, !revoked);
+    assert.equal(await readFile(join(logout.archivedResults, 'pending.json'), 'utf8'), '{}');
+    await assert.rejects(readFile(join(f.env.MARKFIX_CLI_HOME, 'config.json')), { code: 'ENOENT' });
+    f.setRevoked(false);
+    await f.run('projects', 'list', '--allow-local-http', '--credential-store', 'file');
+    assert.equal(f.calls.filter((path) => path === '/v1/agent/device').length, 2);
+  });

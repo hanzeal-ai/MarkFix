@@ -40,11 +40,22 @@ export class AgentAuthService {
   constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
   async begin(input: unknown) {
     const data = parseAgent(deviceAuthorizationSchema, input);
+    const target = await this.db.user.findUnique({
+      where: { email: data.account },
+      select: { id: true },
+    });
     const deviceCode = createOpaqueToken();
     const userCode = randomBytes(4).toString('hex').toUpperCase();
     const expiresAt = new Date(Date.now() + 10 * 60_000);
     await this.db.agentDeviceRequest.create({
-      data: { ...data, deviceCodeHash: hashOpaqueToken(deviceCode), userCode, expiresAt },
+      data: {
+        deviceName: data.deviceName,
+        agentType: data.agentType,
+        targetUserId: target?.id ?? null,
+        deviceCodeHash: hashOpaqueToken(deviceCode),
+        userCode,
+        expiresAt,
+      },
     });
     const origin = apiServiceUrls().origin;
     return {
@@ -55,16 +66,44 @@ export class AgentAuthService {
       verificationUrl: `${origin}/agent/authorize?code=${userCode}`,
     };
   }
-  async preview(userCode: string) {
+  async preview(userId: string, userCode: string) {
     if (!/^[A-F0-9]{8}$/.test(userCode))
       throw new BadRequestException('Invalid authorization code');
     const request = await this.db.agentDeviceRequest.findUnique({
-      where: { userCode },
-      select: { deviceName: true, agentType: true, status: true, expiresAt: true },
+      where: { userCode, targetUserId: userId },
+      select: {
+        userCode: true,
+        deviceName: true,
+        agentType: true,
+        status: true,
+        expiresAt: true,
+        createdAt: true,
+      },
     });
     if (!request || request.expiresAt <= new Date())
       throw new NotFoundException('Authorization request expired or not found');
     return request;
+  }
+  pending(userId: string) {
+    return this.db.agentDeviceRequest.findMany({
+      where: { targetUserId: userId, status: 'PENDING', expiresAt: { gt: new Date() } },
+      select: {
+        userCode: true,
+        deviceName: true,
+        agentType: true,
+        status: true,
+        expiresAt: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
+  async account(userId: string) {
+    return this.db.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { email: true, displayName: true },
+    });
   }
   async decide(userId: string, input: unknown) {
     const data = parseAgent(deviceDecisionSchema, input);
@@ -78,12 +117,17 @@ export class AgentAuthService {
     }
     return this.db.$transaction(async (tx) => {
       const request = await tx.agentDeviceRequest.findUnique({
-        where: { userCode: data.userCode },
+        where: { userCode: data.userCode, targetUserId: userId },
       });
       if (!request || request.status !== 'PENDING' || request.expiresAt <= new Date())
         throw new ConflictException('Authorization request is no longer pending');
       const claimed = await tx.agentDeviceRequest.updateMany({
-        where: { id: request.id, status: 'PENDING', expiresAt: { gt: new Date() } },
+        where: {
+          id: request.id,
+          targetUserId: userId,
+          status: 'PENDING',
+          expiresAt: { gt: new Date() },
+        },
         data: { status: data.approve ? 'APPROVED' : 'DENIED' },
       });
       if (claimed.count !== 1) throw new ConflictException('Authorization was already decided');

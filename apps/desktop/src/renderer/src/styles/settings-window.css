@@ -187,3 +187,30 @@
   color: #fff;
   box-shadow: none;
 }
+
+.settings-agent {
+  display: grid;
+  gap: 16px;
+}
+.settings-agent-card {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+}
+.settings-agent-card p {
+  overflow-wrap: anywhere;
+}
+.settings-agent-card fieldset {
+  display: grid;
+  gap: 10px;
+}
+.settings-agent-card label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-agent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

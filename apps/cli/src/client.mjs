@@ -20,7 +20,18 @@ export function serverUrl(input, allowLocal = false) {
 }
 export class ApiError extends Error {
   constructor(status, body) {
-    super(body.message ?? `Request failed (${status})`);
+    const messages = {
+      'Authorization expired': '授权申请已过期，请重新执行原命令。',
+      'Authorization denied or already consumed':
+        '授权申请已被拒绝或已使用，请联系账号持有人确认；不要重复发起申请。',
+      'Authorization expired or revoked':
+        '授权已过期或被撤销。待同步结果仍保留，请先联系账号持有人处理，再重新申请。',
+      'Agent authorization expired or revoked': '授权已过期或被撤销，请联系账号持有人确认。',
+      'Too many requests; try again later': '申请或查询过于频繁，请稍后重试。',
+    };
+    super(
+      messages[body.message] ?? body.message ?? `请求失败（${status}），请检查连接和账号权限。`,
+    );
     this.status = status;
   }
 }

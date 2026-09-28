@@ -1,3 +1,9 @@
+import type {
+  AgentDeviceRequestSummary,
+  AgentGrantSummary,
+  AgentDeviceDecision,
+  Project,
+} from '@markfix/contracts';
 import type { AnnotationSaveFeedback } from '../../annotation-save-feedback';
 import type { CapturePin, ElementCommentPin } from '../../capture-pin';
 import type { InlineNote, InlineNoteAction } from '../../inline-note';
@@ -40,6 +46,15 @@ declare global {
       onUpdateStatus(listener: (status: DesktopUpdateStatus) => void): () => void;
       openAccountPage(page: AccountPage): Promise<void>;
       enterLocalMode(): Promise<void>;
+      agentRequests(): Promise<AgentDeviceRequestSummary[]>;
+      agentAccess(): Promise<{
+        account: { email: string; displayName: string };
+        requests: AgentDeviceRequestSummary[];
+        grants: AgentGrantSummary[];
+        projects: Project[];
+      }>;
+      decideAgentRequest(input: AgentDeviceDecision): Promise<{ approved: boolean }>;
+      revokeAgentGrant(id: string): Promise<{ revoked: boolean }>;
       authStatus(): Promise<{
         authenticated: boolean;
         user?: { id: string; email: string; displayName: string };

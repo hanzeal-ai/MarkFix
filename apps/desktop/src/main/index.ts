@@ -6,7 +6,11 @@ import { registerDesktopUpdateIpc } from './ipc/register-desktop-update-ipc';
 import { ManualDesktopUpdater } from './manual-desktop-updater.js';
 import type { CapturePin, ElementCommentPin } from '../capture-pin';
 import { serviceUrls } from '@markfix/contracts';
-import { repositoryBindingSchema, type AgentRepository } from '@markfix/contracts';
+import {
+  deviceDecisionSchema,
+  repositoryBindingSchema,
+  type AgentRepository,
+} from '@markfix/contracts';
 import { isSidebarWidth, annotationPanelWidth, websiteMinWidth } from '../sidebar-layout';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -1022,6 +1026,36 @@ const registerIpc = (): void => {
     if (!authenticatedUser) throw new Error('Sign in to load environments');
     if (typeof input !== 'string') throw new Error('Invalid project ID');
     return api.listEnvironments(input);
+  });
+  const requireAgentAccount = () => {
+    if (!authenticatedUser || localMode) throw new Error('请先登录云端账号以管理修复授权');
+  };
+  ipcMain.handle(ipcChannels.agentRequests, (event) => {
+    assertSubscriptionSender(event);
+    requireAgentAccount();
+    return api.agentRequests();
+  });
+  ipcMain.handle(ipcChannels.agentAccess, async (event) => {
+    assertSubscriptionSender(event);
+    requireAgentAccount();
+    const [account, requests, grants, projects] = await Promise.all([
+      api.me(),
+      api.agentRequests(),
+      api.agentGrants(),
+      api.listProjects(),
+    ]);
+    return { account, requests, grants, projects };
+  });
+  ipcMain.handle(ipcChannels.agentDecide, (event, input: unknown) => {
+    assertSubscriptionSender(event);
+    requireAgentAccount();
+    return api.decideAgentRequest(deviceDecisionSchema.parse(input));
+  });
+  ipcMain.handle(ipcChannels.agentRevoke, (event, id: unknown) => {
+    assertSubscriptionSender(event);
+    requireAgentAccount();
+    if (typeof id !== 'string' || !/^[a-f0-9-]{36}$/i.test(id)) throw new Error('无效授权 ID');
+    return api.revokeAgentGrant(id);
   });
   ipcMain.handle(ipcChannels.getProjectAgentData, async (event, projectId: unknown) => {
     assertShellSender(event);

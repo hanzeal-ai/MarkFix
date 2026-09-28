@@ -118,12 +118,12 @@ export function DeveloperGuide() {
         <pre>
           <code>
             {
-              'pnpm --filter @markfix/cli build\nmkdir -p artifacts\npnpm --filter @markfix/cli pack --pack-destination "$PWD/artifacts"\nnpm install -g ./artifacts/markfix-cli-0.1.1.tgz\ncd /path/to/your-repository\nmarkfix projects list --server http://localhost:4310 --allow-local-http'
+              'pnpm --filter @markfix/cli build\nmkdir -p artifacts\npnpm --filter @markfix/cli pack --pack-destination "$PWD/artifacts"\nnpm install -g ./artifacts/markfix-cli-0.1.2.tgz\ncd /path/to/your-repository\nmarkfix projects list --account owner@example.com --server http://localhost:4310 --allow-local-http'
             }
           </code>
         </pre>
         <p>
-          首次命令自动打开浏览器。登录开发账号、核对授权码、选择项目并批准后，命令继续返回项目列表。Linux
+          首次命令发送账号授权申请。账号持有人在桌面“修复授权”中核对申请码并选择项目批准后，命令自动返回项目列表。Linux
           / Windows 需另加 --credential-store file。远程服务必须使用 HTTPS。
         </p>
         <p>

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import process from 'node:process';
+import serviceConfig from '../dist/service-config.json' with { type: 'json' };
 import console from 'node:console';
 import { createInterface } from 'node:readline/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { hostname, homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import { mkdir, readFile, readdir, unlink, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, unlink, writeFile, copyFile, rename } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Client, ApiError, serverUrl } from './client.mjs';
@@ -22,11 +23,11 @@ import {
 } from './storage.mjs';
 import { localConnection } from './local.mjs';
 const exec = promisify(execFile);
-const help = `MarkFix CLI 0.1.1 — authorized project annotation repairs
-setup --server <https-origin> [--credential-store keychain|file] [--no-browser] [--allow-local-http]
+const help = `MarkFix CLI 0.1.2 — authorized project annotation repairs
+setup --account <email> [--server <https-origin>] [--credential-store keychain|file] [--allow-local-http]
 skill install [--force]
 auth status
-logout
+logout [--archive-pending]
 repo register [--name <repository-name>]
 projects list | projects resolve
 issues list --project <id> [--status OPEN|FIX_FAILED|IN_PROGRESS|READY_FOR_VERIFY|RESOLVED] [--cursor <id>]
@@ -38,8 +39,8 @@ fixes fail <run-id> --result-file <path>
 sync
 Use --local on every command to access desktop LOCAL projects (desktop must be running).
 Local commands connect automatically with full access to LOCAL projects.
-Cloud commands open browser authorization on first use, then continue.
-Pass --server <https-origin> or set MARKFIX_SERVER; an interactive terminal can prompt for it.
+Cloud commands request approval from --account <email>, wait, then continue automatically.
+The official service is used by default. Self-hosted: --server <https-origin> or MARKFIX_SERVER.
 --help and --version never authorize. Installation does not authorize.
 All successful responses are JSON; --json is accepted. Git commands run in the current directory.`;
 function parseArgs(argv) {
@@ -51,9 +52,9 @@ function parseArgs(argv) {
     else if (
       [
         '--force',
+        '--archive-pending',
         '--local',
         '--json',
-        '--no-browser',
         '--allow-local-http',
         '--retry',
         '--help',
@@ -100,19 +101,24 @@ async function localRepository() {
 async function setup(options) {
   const local = options.local ? await localConnection() : undefined;
   if (options.local && options.server) throw new Error('--local and --server cannot be combined');
-  options = { ...options, server: local?.server ?? options.server ?? process.env.MARKFIX_SERVER };
-  if (!options.server && process.stdin.isTTY && process.stderr.isTTY) {
+  options = {
+    ...options,
+    server:
+      local?.server ??
+      options.server ??
+      process.env.MARKFIX_SERVER ??
+      serviceConfig.productionOrigin,
+  };
+  if (!local && !options.account && process.stdin.isTTY && process.stderr.isTTY) {
     const prompt = createInterface({ input: process.stdin, output: process.stderr });
     try {
-      options.server = (await prompt.question('MarkFix API address: ')).trim();
+      options.account = (await prompt.question('请输入标注账号邮箱：')).trim();
     } finally {
       prompt.close();
     }
   }
-  if (!options.server)
-    throw new Error(
-      'First use requires the MarkFix API address: pass --server <https-origin> or set MARKFIX_SERVER',
-    );
+  if (!local && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(options.account ?? ''))
+    throw new Error('请提供标注账号邮箱：--account owner@example.com；无需该账号的密码。');
   const directory = await initializeStorage();
   if (local) {
     const config = { server: local.server, local: true };
@@ -120,7 +126,7 @@ async function setup(options) {
     return finishSetup(new Client(config));
   }
   const credentialStore =
-    options['credential-store'] ?? (process.platform === 'darwin' ? 'keychain' : undefined);
+    options['credential-store'] ?? (process.platform === 'darwin' ? 'keychain' : 'file');
   if (
     !['keychain', 'file'].includes(credentialStore) ||
     (credentialStore === 'keychain' && process.platform !== 'darwin')
@@ -129,12 +135,17 @@ async function setup(options) {
   const config = {
     server: serverUrl(required(options.server, '--server'), options['allow-local-http']),
     credentialStore,
+    account: options.account.trim().toLowerCase(),
   };
   const oldConfig = await readJson(join(directory, 'config.json'), null);
   if (oldConfig)
     throw new Error('An installation is already configured; use markfix logout before a new setup');
   const client = new Client(config);
-  const device = await client.send('/device', { deviceName: hostname(), agentType: 'codex' });
+  const device = await client.send('/device', {
+    account: config.account,
+    deviceName: hostname(),
+    agentType: 'codex',
+  });
   const verify = new URL(device.verificationUrl);
   if (
     verify.protocol !== 'https:' &&
@@ -145,19 +156,13 @@ async function setup(options) {
     )
   )
     throw new Error('Unsafe authorization address');
-  console.error(`Authorize this device in MarkFix: ${verify.href}\nCode: ${device.userCode}`);
-  if (!options['no-browser']) {
-    const command =
-      process.platform === 'darwin'
-        ? 'open'
-        : process.platform === 'win32'
-          ? 'explorer.exe'
-          : 'xdg-open';
-    await exec(command, [verify.href]).catch(() =>
-      console.error('Open the authorization address manually.'),
-    );
-  }
-  console.error('Waiting for browser authorization; this command will continue automatically.');
+  console.error(`已为 ${config.account} 发起授权申请。若账号存在，持有人可在桌面「设置 → 修复授权」中处理。
+申请码：${device.userCode}
+账号持有人也可登录网页处理：${verify.href}
+有效期至：${device.expiresAt}`);
+  console.error(
+    '等待账号持有人批准；请保持此命令运行，获批后会自动继续。无需登录对方账号或回复“已授权”。',
+  );
   let tokens;
   while (Date.now() < Date.parse(device.expiresAt)) {
     await delay(Math.max(5, Number(device.interval) || 5) * 1000);
@@ -168,10 +173,10 @@ async function setup(options) {
     }
     if (response.status !== 'PENDING') throw new Error('Unexpected authorization response');
   }
-  if (!tokens) throw new Error('Authorization expired; run the command again');
+  if (!tokens) throw new Error('授权申请已过期，请核对账号邮箱后重新执行原命令。');
   await saveCredential(config, tokens);
   await writeJson(join(directory, 'config.json'), config);
-  console.error('Authorization complete. Continuing the requested command.');
+  console.error(`账号 ${config.account} 已批准授权，正在继续原命令。`);
   return finishSetup(client);
 }
 async function installSkill(force = false) {
@@ -255,7 +260,7 @@ async function main() {
     options,
   } = parseArgs(process.argv.slice(2));
   if (options.version) {
-    console.log('0.1.1');
+    console.log('0.1.2');
     return;
   }
   if (options.help || !command) {
@@ -306,6 +311,10 @@ async function main() {
       'This installation is authorized for another server. Use a separate MARKFIX_CLI_HOME or logout first.',
     );
   }
+  if (options.account && options.account.trim().toLowerCase() !== config.account)
+    throw new Error(
+      '当前连接的账号不同。请先运行 markfix sync 同步结果，再 logout 后向目标账号重新申请。',
+    );
   const client = new Client(config);
   if (command === 'auth' && action === 'status') return client.request('/status');
   if (command === 'logout') {
@@ -315,6 +324,15 @@ async function main() {
         storageMode: 'LOCAL',
         message: 'Local CLI access is automatic; no logout is required.',
       };
+    const pending = await readdir(join(stateDirectory(), 'outbox')).catch((error) => {
+      if (error.code === 'ENOENT') return [];
+      throw error;
+    });
+    const hasPending = pending.some((name) => name.endsWith('.json'));
+    if (hasPending && !options['archive-pending'])
+      throw new Error(
+        '有待同步修复结果，暂不能退出授权。请先运行 markfix sync；授权已失效时可运行 markfix logout --archive-pending，将结果归档保留后重新申请。',
+      );
     let serverRevocationConfirmed = true;
     try {
       await client.request('/logout', {});
@@ -322,9 +340,21 @@ async function main() {
       if (!(error instanceof ApiError) || error.status !== 401) throw error;
       serverRevocationConfirmed = false;
     }
+    let archivedResults;
+    if (hasPending) {
+      archivedResults = join(stateDirectory(), `archived-results-${randomUUID()}`);
+      await rename(join(stateDirectory(), 'outbox'), archivedResults);
+      console.error(
+        `原授权的待同步结果已保留在 ${archivedResults}。重新授权后需读取最新任务并验证，不能将旧结果直接补传到新授权。`,
+      );
+    }
     await removeCredential(config);
     await unlink(join(stateDirectory(), 'config.json'));
-    return { loggedOut: true, serverRevocationConfirmed };
+    return {
+      loggedOut: true,
+      serverRevocationConfirmed,
+      ...(archivedResults ? { archivedResults } : {}),
+    };
   }
   if (command === 'repo' && action === 'register') {
     const repository = await localRepository();

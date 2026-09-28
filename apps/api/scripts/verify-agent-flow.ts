@@ -102,12 +102,13 @@ try {
     [
       cli,
       'setup',
+      '--account',
+      owner.email,
       '--server',
       origin,
       '--allow-local-http',
       '--credential-store',
       'file',
-      '--no-browser',
     ],
     { env, cwd: output },
   );
@@ -129,14 +130,72 @@ try {
       10_000,
     );
     setup.stderr.on('data', () => {
-      const value = /Code: ([A-F0-9]{8})/.exec(setupError)?.[1];
+      const value = /申请码：([A-F0-9]{8})/.exec(setupError)?.[1];
       if (value) {
         clearTimeout(timer);
         resolve(value);
       }
     });
   });
-  if (process.env.MARKFIX_BROWSER_SMOKE === 'true') {
+  const intruder = await db.user.create({
+    data: {
+      email: `${randomUUID()}@flow.test`,
+      displayName: 'Unrelated user',
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: new Date(),
+    },
+  });
+  const intruderToken = (
+    await request('/auth/login', { email: intruder.email, password, clientType: 'desktop' })
+  ).accessToken as string;
+  const pending = await request('/agent/requests');
+  assert(
+    (pending as unknown as Array<{ userCode: string }>).some((item) => item.userCode === code),
+  );
+  assert.deepEqual(await request('/agent/requests', undefined, { token: intruderToken }), []);
+  await request(`/agent/device/${code}`, undefined, { token: intruderToken, status: 404 });
+  await request(
+    '/agent/device/decision',
+    { userCode: code, approve: false },
+    { token: intruderToken, status: 409 },
+  );
+  await request(
+    '/agent/device/decision',
+    { userCode: code, approve: true, projectIds: [project.id] },
+    { token: intruderToken, status: 403 },
+  );
+  const missing = await request('/agent/device', {
+    account: `${randomUUID()}@missing.test`,
+    deviceName: 'Unknown target',
+    agentType: 'codex',
+  });
+  await request(`/agent/device/${missing.userCode}`, undefined, { status: 404 });
+  await request(
+    '/agent/device/decision',
+    { userCode: missing.userCode, approve: false },
+    { status: 409 },
+  );
+  assert.equal(
+    (await request('/agent/token', { deviceCode: missing.deviceCode })).status,
+    'PENDING',
+  );
+  if (process.env.MARKFIX_DESKTOP_AGENT_SMOKE === 'true') {
+    await execute(
+      resolve('../desktop/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'),
+      [resolve('../desktop/scripts/smoke-desktop-agent.mjs')],
+      {
+        env: {
+          ...process.env,
+          MARKFIX_TEST_OUTPUT: output,
+          MARKFIX_TEST_API: origin,
+          MARKFIX_TEST_EMAIL: owner.email,
+          MARKFIX_TEST_PASSWORD: password,
+          MARKFIX_TEST_CODE: code,
+        },
+        timeout: 60000,
+      },
+    );
+  } else if (process.env.MARKFIX_BROWSER_SMOKE === 'true') {
     await execute(
       resolve('../desktop/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'),
       [resolve('../desktop/scripts/smoke-agent-browser.mjs')],
@@ -325,13 +384,13 @@ try {
   await command('fixes', 'complete', retry.id as string, '--result-file', successPath);
   assert.equal(
     (await db.report.findUniqueOrThrow({ where: { id: issue.id as string } })).status,
-    'RESOLVED',
+    'READY_FOR_VERIFY',
   );
   const admin = await request(`/commercial/projects/${project.id}/annotations`);
   const projected = (
     admin.items as Array<{ status: string; fixAttempts: Array<{ reason: string }> }>
   )[0];
-  assert.equal(projected?.status, 'RESOLVED');
+  assert.equal(projected?.status, 'READY_FOR_VERIFY');
   assert(projected?.fixAttempts.some((attempt) => attempt.reason === 'Missing fixture'));
   if (process.env.MARKFIX_BROWSER_SMOKE === 'true')
     await execute(
@@ -379,7 +438,43 @@ try {
     (await db.agentFixAttempt.findUniqueOrThrow({ where: { id: abandoned.id as string } })).status,
     'INTERRUPTED',
   );
+  const concurrent = await request('/agent/device', {
+    account: owner.email,
+    deviceName: 'Concurrent request',
+    agentType: 'codex',
+  });
+  const post = (path: string, body: unknown) =>
+    fetch(`${origin}/v1/agent${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'http://127.0.0.1:14311',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+  const decisions = await Promise.all(
+    [1, 2].map(() =>
+      post('/device/decision', {
+        userCode: concurrent.userCode,
+        approve: true,
+        projectIds: [project.id],
+      }),
+    ),
+  );
+  assert.deepEqual(decisions.map((item) => item.status).sort(), [201, 409]);
+  const exchanges = await Promise.all(
+    [1, 2].map(() => post('/token', { deviceCode: concurrent.deviceCode })),
+  );
+  assert.deepEqual(exchanges.map((item) => item.status).sort(), [201, 401]);
+  await request('/agent/requests', undefined, { token: credential.accessToken, status: 401 });
+  await request(
+    '/agent/device/decision',
+    { userCode: concurrent.userCode, approve: true, projectIds: [project.id] },
+    { token: credential.accessToken, status: 401 },
+  );
   const expiry = await request('/agent/device', {
+    account: owner.email,
     deviceName: 'Expired device',
     agentType: 'codex',
   });
@@ -400,7 +495,11 @@ try {
     where: { projectId_userId: { projectId: project.id as string, userId: owner.id } },
     data: { status: 'ACTIVE' },
   });
-  const deny = await request('/agent/device', { deviceName: 'Denied device', agentType: 'codex' });
+  const deny = await request('/agent/device', {
+    account: owner.email,
+    deviceName: 'Denied device',
+    agentType: 'codex',
+  });
   await request('/agent/device/decision', {
     userCode: deny.userCode,
     approve: false,

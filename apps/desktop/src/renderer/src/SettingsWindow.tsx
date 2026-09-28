@@ -1,3 +1,4 @@
+import { AgentAuthorizations } from './AgentAuthorizations';
 import { primaryKey, altKey } from './platform';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
@@ -176,6 +177,10 @@ export function SettingsWindow(): React.JSX.Element {
             <Sparkles />
             <span>订阅</span>
           </TabsTrigger>
+          <TabsTrigger value="agent">
+            <UserRound />
+            <span>修复授权</span>
+          </TabsTrigger>
           <TabsTrigger value="account">
             <UserRound />
             <span>账户</span>
@@ -277,6 +282,9 @@ export function SettingsWindow(): React.JSX.Element {
           </TabsContent>
           <TabsContent value="subscription">
             <SubscriptionSettings />
+          </TabsContent>
+          <TabsContent value="agent">
+            <AgentAuthorizations />
           </TabsContent>
           <TabsContent value="account" aria-label="账户设置">
             <AccountSettings />
